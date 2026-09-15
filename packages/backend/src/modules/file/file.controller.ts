@@ -1,4 +1,3 @@
-import { MultipartRequestHandlerFactory } from './internal/multipart-request-handler.js';
 import {
     PresignUploadDto,
     ConfirmUploadDto,
@@ -22,6 +21,7 @@ import {
     // Head,
     HttpCode,
     HttpStatus,
+    NotImplementedException,
     // NotFoundException,
     Param,
     Post,
@@ -36,10 +36,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 @Controller('files')
 @ApiTags('文件模块')
 export class FileController {
-    constructor(
-        private readonly fileKernel: FileKernel,
-        private readonly multipartRequestHandlerFactory: MultipartRequestHandlerFactory
-    ) {}
+    constructor(private readonly fileKernel: FileKernel) {}
 
     // ─── 预签名 URL ────────────────────────────────────────────────────────────
 
@@ -60,8 +57,8 @@ export class FileController {
         summary: '获取私有文件下载预签名 URL',
         description: '为私有存储桶中的文件生成限时预签名下载 URL。',
     })
-    presignDownload(@Body() dto: PresignDownloadDto) {
-        return this.fileKernel.createDownloadUrl(dto);
+    presignDownload(@Body() dto: PresignDownloadDto, @Req() req: FastifyRequest) {
+        return this.fileKernel.createDownloadUrl(req.jwtClaim!.sub, dto);
     }
 
     @Get(':fileId/public-url')
@@ -82,9 +79,9 @@ export class FileController {
         summary: '确认客户端直传完成',
         description: '客户端完成 S3 直传后调用此接口，将文件记录从 PENDING 激活为 ACTIVE。',
     })
-    confirmUpload(@Param('fileId') fileId: string) {
+    confirmUpload(@Param('fileId') fileId: string, @Req() req: FastifyRequest) {
         const dto: ConfirmUploadDto = { fileId };
-        return this.fileKernel.confirmUpload(dto);
+        return this.fileKernel.confirmUpload(req.jwtClaim!.sub, dto);
     }
 
     // ─── 服务端直接操作 ────────────────────────────────────────────────────────
@@ -131,17 +128,7 @@ export class FileController {
         //     fileMimetype
         // );
 
-        const handler = await this.multipartRequestHandlerFactory.getHandler(req, {
-            resolveType: 'stream',
-        });
-        const data = handler.getData();
-        const factory = handler.getFactory();
-        const files = handler.getFiles();
-
-        console.log('Received data:', data);
-        console.log('Received files:', files);
-        console.log('Multipart handler factory:', factory);
-        return { message: '666' };
+        throw new NotImplementedException('服务端文件上传尚未实现');
     }
 
     @Get(':fileId/proxy')
@@ -153,9 +140,10 @@ export class FileController {
     })
     async proxyDownload(
         @Param('fileId') fileId: string,
+        @Req() req: FastifyRequest,
         @Res({ passthrough: true }) res: FastifyReply
     ): Promise<StreamableFile> {
-        const { data, filename } = await this.fileKernel.proxyDownload(fileId);
+        const { data, filename } = await this.fileKernel.proxyDownload(req.jwtClaim!.sub, fileId);
         res.header('Content-Type', 'application/octet-stream');
         res.header('Content-Disposition', `attachment; filename="${filename}"`);
         return new StreamableFile(data as any);
@@ -182,8 +170,8 @@ export class FileController {
         description:
             '从对象存储删除文件并软删除数据库记录。fileIds 传入一个时删除单个文件，传入多个时批量删除（最多 1000 个）。',
     })
-    deleteFiles(@Body() dto: DeleteFilesDto): Promise<void> {
-        return this.fileKernel.deleteFiles(dto);
+    deleteFiles(@Body() dto: DeleteFilesDto, @Req() req: FastifyRequest): Promise<void> {
+        return this.fileKernel.deleteFiles(req.jwtClaim!.sub, dto);
     }
 
     // @Post('copy')

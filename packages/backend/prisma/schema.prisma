@@ -12,7 +12,7 @@ model User {
   id           String   @id @default(ulid())
   username     String   @unique
   email        String   @unique
-  passwordHash String
+  passwordHash String?
   nickname     String?
   realname     String?
   createdAt    DateTime @default(now())
@@ -26,8 +26,55 @@ model User {
   reagentLogs    ReagentLog[]
   feedbacks      Feedback[]
   files          File[]
+  externalIdentities ExternalIdentity[]
+  sessions           Session[]
 
   @@index(createdAt)
+}
+
+/// 一次 OIDC 授权流程的短期服务端状态。
+/// state 仅以哈希形式持久化；verifier 在完成回调后立即标记为已消费。
+model LoginTransaction {
+  id           String   @id @default(ulid())
+  stateHash    String   @unique
+  nonce        String
+  pkceVerifier String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+/// 外部 OIDC 主体与 TalosArk 本地用户之间的稳定绑定。
+model ExternalIdentity {
+  id        String   @id @default(ulid())
+  issuer    String
+  subject   String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject])
+  @@index([userId])
+}
+
+/// TalosArk 自有的可撤销刷新会话；Access Token 仍保持短生命周期无状态 JWT。
+model Session {
+  id              String   @id @default(ulid())
+  userId          String
+  refreshTokenJti String   @unique
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model UserProfile {

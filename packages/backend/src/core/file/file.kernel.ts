@@ -3,9 +3,10 @@ import { DocumentStrategy } from './internal/strategies/document.strategy.js';
 import { ImageStrategy } from './internal/strategies/image.strategy.js';
 import { VideoStrategy } from './internal/strategies/video.strategy.js';
 import {
+    FileAccessDeniedException,
     FileInvalidDomainException,
     FileRecordNotFoundException,
-    // FileStagingNotFoundException,
+    FileStagingNotFoundException,
 } from './file.exception.js';
 import { PROXY_SIZE_THRESHOLD } from './file.constant.js';
 import type { UploadStrategy } from './internal/upload-strategy.js';
@@ -26,7 +27,7 @@ import type {
 } from '@/infra/storage/storage.service.js';
 
 import type { FileModel } from '@root/prisma/generated/models/File.js';
-import { FileDomain, FileVisibility } from '@root/prisma/generated/enums.js';
+import { FileDomain, FileStatus, FileVisibility } from '@root/prisma/generated/enums.js';
 
 import { Injectable } from '@nestjs/common';
 import type { Readable } from 'stream';
@@ -110,8 +111,26 @@ export class FileKernel {
      *   2. 将对象从 staging 搞运到最终目标桶
      *   3. 清理 KVS 中的临时字段
      */
-    async confirmUpload(dto: ConfirmUploadCommand): Promise<FileModel> {
-        const record = await this.requireFile(dto.fileId);
+    async confirmUpload(userId: string, dto: ConfirmUploadCommand): Promise<FileModel> {
+        const record = await this.requireOwnedFile(userId, dto.fileId);
+
+        if (record.status === FileStatus.ACTIVE) {
+            return record;
+        }
+
+        if (record.status !== FileStatus.PENDING) {
+            throw new FileRecordNotFoundException({ message: `文件 ${dto.fileId} 不存在` });
+        }
+
+        const objectExists = await this.storageService.objectExists(
+            record.bucket as BucketType,
+            record.key
+        );
+        if (!objectExists) {
+            throw new FileStagingNotFoundException({
+                message: `文件 ${dto.fileId} 的上传对象尚未就绪`,
+            });
+        }
 
         // if (record.sha256) {
         //     // 验证 staging 桶中对应对象是否存在
@@ -136,14 +155,14 @@ export class FileKernel {
         //     await this.cacheManager.del(`cas:pending:${record.id}`);
         // }
 
-        return this.fileRepo.updateStatus(record.id, 'ACTIVE');
+        return this.fileRepo.updateStatus(record.id, FileStatus.ACTIVE);
     }
 
     /**
      * 获取下载预签名 URL（私有文件访问）
      */
-    async createDownloadUrl(dto: CreateDownloadUrlCommand): Promise<string> {
-        const record = await this.requireFile(dto.fileId);
+    async createDownloadUrl(userId: string, dto: CreateDownloadUrlCommand): Promise<string> {
+        const record = await this.requireOwnedActiveFile(userId, dto.fileId);
         return this.storageService.getDownloadUrl(record.bucket, record.key, dto.expiresIn);
     }
 
@@ -151,7 +170,12 @@ export class FileKernel {
      * 获取公开文件的直接访问 URL（不带签名，依赖 CDN / publicBaseUrl）
      */
     async getPublicUrl(fileId: string): Promise<string> {
-        return this.requireFile(fileId).then((r) => this.storageService.getPublicUrl(r.key));
+        const record = await this.requireActiveFile(fileId);
+        if (record.visibility !== FileVisibility.PUBLIC) {
+            throw new FileRecordNotFoundException({ message: `文件 ${fileId} 不存在` });
+        }
+
+        return this.storageService.getPublicUrl(record.key);
     }
 
     // ─── 服务端直接操作 ────────────────────────────────────────────────────────
@@ -191,9 +215,10 @@ export class FileKernel {
      *   - > PROXY_SIZE_THRESHOLD → Stream（流式传输，适合大文件/视频）
      */
     async proxyDownload(
+        userId: string,
         fileId: string
     ): Promise<{ data: Buffer | Readable; filename: string; isStream: boolean }> {
-        const record = await this.requireFile(fileId);
+        const record = await this.requireOwnedActiveFile(userId, fileId);
         const size = await this.storageService.getObjectSize(record.bucket, record.key);
         if (size <= PROXY_SIZE_THRESHOLD) {
             const buffer = await this.storageService.getObject(record.bucket, record.key);
@@ -215,8 +240,10 @@ export class FileKernel {
      * 删除文件（单个或批量）
      * 从对象存储删除后，将数据库记录标记为 DELETED（软删除）。
      */
-    async deleteFiles(dto: DeleteFilesCommand): Promise<void> {
-        const records = await Promise.all(dto.fileIds.map((id) => this.requireFile(id)));
+    async deleteFiles(userId: string, dto: DeleteFilesCommand): Promise<void> {
+        const records = await Promise.all(
+            dto.fileIds.map((id) => this.requireOwnedFile(userId, id))
+        );
 
         if (records.length === 1) {
             await this.storageService.deleteObject(records[0].bucket, records[0].key);
@@ -243,7 +270,7 @@ export class FileKernel {
      * 在数据库中创建新的文件记录（ACTIVE），返回新 fileId。
      */
     async copyFile(userId: string, dto: CopyFileCommand): Promise<{ fileId: string }> {
-        const src = await this.requireFile(dto.fileId);
+        const src = await this.requireOwnedActiveFile(userId, dto.fileId);
         const destStrategy = this.resolveStrategy(dto.destDomain);
         const destFilename = dto.destFilename ?? src.filename;
         const destKey = destStrategy.resolveKey(userId, destFilename);
@@ -370,7 +397,31 @@ export class FileKernel {
 
     private async requireFile(fileId: string): Promise<FileModel> {
         const record = await this.fileRepo.findById(fileId);
-        if (!record) {
+        if (!record || record.status === FileStatus.DELETED) {
+            throw new FileRecordNotFoundException({ message: `文件 ${fileId} 不存在` });
+        }
+        return record;
+    }
+
+    private async requireActiveFile(fileId: string): Promise<FileModel> {
+        const record = await this.requireFile(fileId);
+        if (record.status !== FileStatus.ACTIVE) {
+            throw new FileRecordNotFoundException({ message: `文件 ${fileId} 不存在` });
+        }
+        return record;
+    }
+
+    private async requireOwnedFile(userId: string, fileId: string): Promise<FileModel> {
+        const record = await this.requireFile(fileId);
+        if (record.userId !== userId) {
+            throw new FileAccessDeniedException();
+        }
+        return record;
+    }
+
+    private async requireOwnedActiveFile(userId: string, fileId: string): Promise<FileModel> {
+        const record = await this.requireOwnedFile(userId, fileId);
+        if (record.status !== FileStatus.ACTIVE) {
             throw new FileRecordNotFoundException({ message: `文件 ${fileId} 不存在` });
         }
         return record;

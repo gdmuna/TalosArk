@@ -31,7 +31,12 @@
             <FieldSeparator class="my-6">或使用第三方登录</FieldSeparator>
 
             <div class="grid grid-cols-3 gap-2">
-                <Button type="button" variant="outline" class="h-10 min-w-0 px-2 font-normal">
+                <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 min-w-0 px-2 font-normal"
+                    @click="handleCasdoorLogin"
+                >
                     <Building2 class="size-4" stroke-width="1.75" aria-hidden="true" />
                     <span>企业 SSO</span>
                 </Button>
@@ -70,4 +75,8 @@ const loginMethods = [
     { value: 'email', label: '邮箱登录', icon: Mail },
     { value: 'phone', label: '手机登录', icon: Smartphone },
 ] as const;
+
+function handleCasdoorLogin() {
+    window.location.href = 'http://localhost:3000/api/v1/auth/oidc/login';
+}
 </script>

@@ -38,29 +38,29 @@ describe('UserService', () => {
         sendVerificationCode: vi.fn(),
     };
 
-    const mockConfigService: any = {
-        get: vi.fn().mockReturnValue(10),
-    };
-
-    const mockIdentityKernel: Mocked<Pick<IdentityKernel, 'issueSession'>> = {
-        issueSession: vi
-            .fn()
-            .mockReturnValue({ accessToken: 'access_tok', refreshToken: 'refresh_tok' }),
+    const mockIdentityKernel: Mocked<
+        Pick<IdentityKernel, 'changePassword' | 'createSessionForVerifiedUser' | 'resetPassword'>
+    > = {
+        changePassword: vi.fn(),
+        createSessionForVerifiedUser: vi.fn(),
+        resetPassword: vi.fn(),
     };
 
     let service: UserService;
 
     beforeEach(() => {
         vi.clearAllMocks();
-        mockIdentityKernel.issueSession.mockReturnValue({
+        mockIdentityKernel.changePassword.mockResolvedValue(true);
+        mockIdentityKernel.createSessionForVerifiedUser.mockResolvedValue({
             accessToken: 'access_tok',
             refreshToken: 'refresh_tok',
+            user: { id: 'u_01', username: 'test', email: 'test@example.com' },
         });
+        mockIdentityKernel.resetPassword.mockResolvedValue(true);
         service = new UserService(
             mockUserRepository as unknown as UserRepository,
             mockEvRepository as unknown as EmailVerificationRepository,
             mockMailService as unknown as MailService,
-            mockConfigService,
             mockIdentityKernel as unknown as IdentityKernel
         );
     });
@@ -134,15 +134,17 @@ describe('UserService', () => {
                 createdAt: new Date(),
                 updatedAt: new Date(),
             });
-            mockUserRepository.update.mockResolvedValue({} as any);
-
             await expect(
                 service.updatePassword('u_1', {
                     oldPassword: 'P@ssw0rd!',
                     newPassword: 'NewP@ssw0rd!',
                 })
             ).resolves.toBeUndefined();
-            expect(mockUserRepository.update).toHaveBeenCalledTimes(1);
+            expect(mockIdentityKernel.changePassword).toHaveBeenCalledWith({
+                userId: 'u_1',
+                currentPassword: 'P@ssw0rd!',
+                newPassword: 'NewP@ssw0rd!',
+            });
         });
 
         it('should throw OldPasswordWrongException when old password is wrong', async () => {
@@ -156,6 +158,8 @@ describe('UserService', () => {
                 createdAt: new Date(),
                 updatedAt: new Date(),
             });
+
+            mockIdentityKernel.changePassword.mockResolvedValue(false);
 
             await expect(
                 service.updatePassword('u_1', {
@@ -239,9 +243,8 @@ describe('UserService', () => {
             expect(result.accessToken).toBe('access_tok');
             expect(result.refreshToken).toBe('refresh_tok');
             expect(result.user.id).toBe('u_01');
-            expect(mockIdentityKernel.issueSession).toHaveBeenCalledWith({
+            expect(mockIdentityKernel.createSessionForVerifiedUser).toHaveBeenCalledWith({
                 userId: 'u_01',
-                username: 'test',
             });
         });
 

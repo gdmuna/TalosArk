@@ -1,4 +1,5 @@
 import { AuthException, ResourceException } from '@/platform/errors/client.exception.js';
+import { InfraException } from '@/platform/errors/app.exception.js';
 import { RegisterException } from '@/platform/errors/exception-registry.js';
 
 export const AuthExceptionCode = {
@@ -6,6 +7,8 @@ export const AuthExceptionCode = {
     CREDENTIALS_INVALID: 'AUTH_CREDENTIALS_INVALID',
     TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
     TOKEN_MISSING: 'AUTH_TOKEN_MISSING',
+    OIDC_LOGIN_FAILED: 'AUTH_OIDC_LOGIN_FAILED',
+    OIDC_UNAVAILABLE: 'AUTH_OIDC_UNAVAILABLE',
 } as const;
 
 @RegisterException({
@@ -54,9 +57,34 @@ export class InvalidTokenException extends AuthException {}
 })
 export class MissingTokenException extends AuthException {}
 
+@RegisterException({
+    code: AuthExceptionCode.OIDC_LOGIN_FAILED,
+    statusCode: 401,
+    message: '第三方登录校验失败',
+    description: 'OIDC 回调的 state、PKCE、nonce、签名身份声明或本地身份绑定未能通过 TalosArk 校验',
+    retryable: false,
+    logLevel: 'info',
+    causes: ['登录事务已过期或已使用', '回调参数不匹配', '外部身份令牌校验失败'],
+    hint: '从登录入口重新发起第三方登录，不要重复使用旧的回调链接',
+})
+export class OidcLoginFailedException extends AuthException {}
+
+@RegisterException({
+    code: AuthExceptionCode.OIDC_UNAVAILABLE,
+    statusCode: 503,
+    message: '第三方登录暂不可用',
+    description: '平台未完成 Casdoor OIDC 回调地址或证书配置，暂时无法发起外部身份登录',
+    retryable: false,
+    logLevel: 'error',
+    hint: '配置完整的 CASDOOR_* OIDC 环境变量，并在 Casdoor 应用中登记回调地址',
+})
+export class OidcUnavailableException extends InfraException {}
+
 export default {
     DuplicateUserException,
     InvalidCredentialsException,
     InvalidTokenException,
     MissingTokenException,
+    OidcLoginFailedException,
+    OidcUnavailableException,
 };

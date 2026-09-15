@@ -152,5 +152,6 @@ prisma/generated/
 
 **/openapi.json
 
-secrets/keys/**
-!secrets/keys/.gitkeep
+secrets/crypto/**/*
+!secrets/crypto/**/
+!secrets/crypto/**/.gitkeep

@@ -14,9 +14,6 @@ import { MailService } from '@/infra/mail/mail.service.js';
 import { IdentityKernel } from '@/core/identity/index.js';
 
 import { Injectable } from '@nestjs/common';
-import bcrypt from 'bcryptjs';
-import { ConfigService } from '@nestjs/config';
-import { AllConfig } from '@/config/index.js';
 
 @Injectable()
 export class UserService {
@@ -24,7 +21,6 @@ export class UserService {
         private readonly userRepository: UserRepository,
         private readonly emailVerificationRepository: EmailVerificationRepository,
         private readonly mailService: MailService,
-        private readonly configService: ConfigService<AllConfig, true>,
         private readonly identityKernel: IdentityKernel
     ) {}
 
@@ -49,11 +45,12 @@ export class UserService {
     async updatePassword(userId: string, dto: UpdatePasswordDto) {
         const user = await this.userRepository.findById(userId);
         if (!user) throw new UserNotFoundException();
-        const match = await bcrypt.compare(dto.oldPassword, user.passwordHash);
-        if (!match) throw new OldPasswordWrongException();
-        const saltRounds = this.configService.get('auth.bcryptSaltRound', { infer: true });
-        const newHash = await bcrypt.hash(dto.newPassword, saltRounds);
-        await this.userRepository.update(userId, { passwordHash: newHash });
+        const changed = await this.identityKernel.changePassword({
+            userId,
+            currentPassword: dto.oldPassword,
+            newPassword: dto.newPassword,
+        });
+        if (!changed) throw new OldPasswordWrongException();
     }
 
     async searchUsers(keyword: string, currentUserId: string, limit: number) {
@@ -87,12 +84,7 @@ export class UserService {
         // 验证通过后清除验证码
         await this.emailVerificationRepository.deleteByEmail(normalizedEmail);
 
-        const { passwordHash: _, ...safeUser } = user;
-        const tokenPair = this.identityKernel.issueSession({
-            userId: user.id,
-            username: user.username,
-        });
-        return { ...tokenPair, user: safeUser };
+        return this.identityKernel.createSessionForVerifiedUser({ userId: user.id });
     }
 
     /** 验证邮箱验证码，通过返回 void，失败抛出异常。 */
@@ -131,9 +123,7 @@ export class UserService {
         const user = await this.userRepository.findByEmail(normalizedEmail);
         if (!user) throw new UserNotFoundException();
 
-        const saltRounds = this.configService.get('auth.bcryptSaltRound', { infer: true });
-        const newHash = await bcrypt.hash(newPassword, saltRounds);
-        await this.userRepository.update(user.id, { passwordHash: newHash });
+        await this.identityKernel.resetPassword({ userId: user.id, newPassword });
         await this.emailVerificationRepository.deleteByEmail(normalizedEmail);
     }
 }

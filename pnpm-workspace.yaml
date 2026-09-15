@@ -10,13 +10,3 @@ allowBuilds:
   esbuild: true
   prisma: true
   vue-demi: true
-
-# pnpm 10
-# onlyBuiltDependencies:
-#   - '@nestjs/core'
-#   - '@prisma/engines'
-#   - '@scarf/scarf'
-#   - esbuild
-#   - prisma
-#   - unrs-resolver
-#   - vue-demi

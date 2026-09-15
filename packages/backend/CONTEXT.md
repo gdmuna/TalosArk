@@ -35,11 +35,11 @@ packages/backend/
 |   |-- config/                            # Typed environment/config definitions
 |   |-- core/
 |   |   |-- context/                       # RequestContext service/module
-|   |   |-- identity/                      # Password/JWT kernel; only IdentityKernel is public
+|   |   |-- identity/                      # Password/OIDC/session kernel; only IdentityKernel is public
 |   |   |   |-- identity.module.ts
 |   |   |   |-- identity.kernel.ts
 |   |   |   |-- identity.types.ts
-|   |   |   `-- internal/                  # local-account repo, token service, session TODO
+|   |   |   `-- internal/                  # local account, OIDC transaction, session and token persistence
 |   |   |-- file/                          # Object-storage kernel; only FileKernel is public
 |   |   |   |-- file.module.ts
 |   |   |   |-- file.kernel.ts
@@ -68,7 +68,7 @@ packages/backend/
 |   |   |-- kvs/                           # cache implementation
 |   |   |-- mail/                          # mail implementation
 |   |   |-- storage/                       # S3-compatible object storage implementation
-|   |   `-- iam/casdoor/                   # TODO: platform-level Casdoor OIDC adapter
+|   |   `-- iam/casdoor/                   # platform-level Casdoor OIDC adapter; policy admin stays private
 |   `-- shared/utils/                      # framework-independent helpers
 |-- prisma/                                # schema, migrations, seed
 |-- ops/
@@ -89,9 +89,15 @@ packages/backend/
 
 ## Current implementation notes
 
-- Identity currently supports local password accounts plus stateless JWT access
-  and refresh tokens. The Casdoor file is a TODO for a future platform-level
-  OIDC broker, not organization-specific IdP configuration.
+- Identity owns local password credentials, external OIDC identity bindings and
+  TalosArk-owned rotating refresh sessions. Access tokens remain short-lived
+  JWTs. Auth controllers only call `IdentityKernel`; Casdoor SDK types remain
+  inside the Casdoor Infra adapter. The current IdP model is platform-level,
+  not organization-specific.
+- `CasdoorAuthorizationClient` is a private Infra control-plane adapter. It is
+  intentionally not exported through `CasdoorModule` or the Infra barrel;
+  future policy management belongs to a platform-management use case, while
+  runtime business authorization will go through `AccessKernel`.
 - File relation definitions remain code-owned domain rules. The registry is a
   TODO placeholder rather than a database configuration table.
 - Controllers remain concentrated in `modules/`, including wrappers for core

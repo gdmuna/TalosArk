@@ -2,7 +2,7 @@ import { readFile } from '@/shared/utils/helpers/file.helper.js';
 
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod';
-import { Algorithm } from 'jsonwebtoken';
+import type { Algorithm } from 'jsonwebtoken';
 
 // auth
 
@@ -19,8 +19,9 @@ const _algorithm = [
     'PS256',
     'PS384',
     'PS512',
-    'none',
-] as const satisfies readonly Algorithm[];
+] as const satisfies readonly Exclude<Algorithm, 'none'>[];
+
+type JwtSigningAlgorithm = (typeof _algorithm)[number];
 
 const _JWT_ACCESS_TOKEN: Record<string, string> = {};
 export const JWT_ACCESS_TOKEN = {
@@ -37,8 +38,8 @@ export const JWT_ACCESS_TOKEN = {
     get ALGORITHM() {
         return (_JWT_ACCESS_TOKEN.ALGORITHM ??= (() => {
             const v = process.env.JWT_ACCESS_ALGORITHM || 'ES256';
-            return _algorithm.includes(v as Algorithm) ? v : 'ES256';
-        })()) as Algorithm;
+            return _algorithm.includes(v as JwtSigningAlgorithm) ? v : 'ES256';
+        })()) as JwtSigningAlgorithm;
     },
     get EXPIRES_IN() {
         return (_JWT_ACCESS_TOKEN.EXPIRES_IN ??= process.env.JWT_ACCESS_EXPIRES_IN || '15m');
@@ -60,8 +61,8 @@ export const JWT_REFRESH_TOKEN = {
     get ALGORITHM() {
         return (_JWT_REFRESH_TOKEN.ALGORITHM ??= (() => {
             const v = process.env.JWT_REFRESH_ALGORITHM || 'ES256';
-            return _algorithm.includes(v as Algorithm) ? v : 'ES256';
-        })()) as Algorithm;
+            return _algorithm.includes(v as JwtSigningAlgorithm) ? v : 'ES256';
+        })()) as JwtSigningAlgorithm;
     },
     get EXPIRES_IN() {
         return (_JWT_REFRESH_TOKEN.EXPIRES_IN ??= process.env.JWT_REFRESH_EXPIRES_IN || '15m');
@@ -140,7 +141,7 @@ const AuthConfigValidateSchema = z
             publicKey:
                 env.JWT_REFRESH_PUBLIC_KEY ||
                 readFile('config/keys/jwt-public.pem').replace(/\\n/g, '\n'),
-            algorithm: env.JWT_ACCESS_ALGORITHM,
+            algorithm: env.JWT_REFRESH_ALGORITHM,
             expiresIn: env.JWT_REFRESH_EXPIRES_IN,
         },
         refreshTokenCookie: {

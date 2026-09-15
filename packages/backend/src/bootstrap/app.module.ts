@@ -31,9 +31,8 @@ import {
 import allConfig, { AllConfig } from '@/config/index.js';
 
 import { ContextModule } from '@/core/context/context.module.js';
-import { DatabaseModule, MailModule, KvsModule, StorageModule } from '@/infra/index.js';
 
-import { Module, MiddlewareConsumer, NestModule, Global, RequestMethod } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_PIPE, APP_INTERCEPTOR, APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -41,7 +40,6 @@ import { ZodValidationPipe, ZodSerializerInterceptor } from 'nestjs-zod';
 import { LoggerModule } from 'nestjs-pino';
 import pino from 'pino';
 
-@Global()
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -100,8 +98,6 @@ import pino from 'pino';
             },
         }),
         ContextModule,
-        DatabaseModule,
-        MailModule,
         ExceptionCatalogModule,
         AuthModule,
         UserModule,
@@ -113,25 +109,6 @@ import pino from 'pino';
         ShareModule,
         FeedbackModule,
         OperationsModule,
-        KvsModule,
-        StorageModule.forRootAsync({
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService<AllConfig, true>) => {
-                const storageConfig = configService.get('storage', { infer: true });
-                return {
-                    options: {
-                        endpoint: storageConfig.endpoint,
-                        region: storageConfig.region,
-                        accessKeyId: storageConfig.accessKeyId,
-                        secretAccessKey: storageConfig.secretAccessKey,
-                        forcePathStyle: storageConfig.forcePathStyle,
-                        bucketPublic: storageConfig.bucketPublic,
-                        bucketPrivate: storageConfig.bucketPrivate,
-                        bucketStaging: storageConfig.bucketStaging,
-                    },
-                };
-            },
-        }),
     ],
     providers: [
         {
@@ -174,7 +151,6 @@ import pino from 'pino';
             useClass: ThrottlerExceptionFilter,
         },
     ],
-    exports: [ContextModule, DatabaseModule, KvsModule, StorageModule],
 })
 export class AppModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {

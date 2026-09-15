@@ -2,6 +2,7 @@ import { RegisterException } from '@/platform/errors/exception-registry.js';
 import { ClientException } from '@/platform/errors/app.exception.js';
 
 export const FileExceptionCode = {
+    ACCESS_DENIED: 'FILE_ACCESS_DENIED',
     INVALID_FILE_TYPE: 'FILE_INVALID_TYPE',
     INVALID_DOMAIN: 'FILE_INVALID_DOMAIN',
     RECORD_NOT_FOUND: 'FILE_RECORD_NOT_FOUND',
@@ -10,6 +11,18 @@ export const FileExceptionCode = {
 } as const;
 
 export abstract class FileException extends ClientException {}
+
+@RegisterException({
+    code: FileExceptionCode.ACCESS_DENIED,
+    statusCode: 403,
+    message: '无权访问该文件',
+    description: '当前用户不是文件所有者，或文件不满足公开访问条件。',
+    retryable: false,
+    logLevel: 'info',
+    causes: ['文件归属于其他用户', '文件不是可公开访问的活动文件'],
+    hint: '确认文件归属和访问权限后重试',
+})
+export class FileAccessDeniedException extends FileException {}
 
 @RegisterException({
     code: FileExceptionCode.INVALID_FILE_TYPE,

@@ -44,10 +44,9 @@ abstract class BaseExceptionFilter implements ExceptionFilter {
         const logContext = {
             requestId: request.id || 'unknown',
             version: request.raw.version || 'unknown',
-            ...(request.jwtClaim?.user && {
+            ...(request.jwtClaim && {
                 user: {
-                    id: request.jwtClaim.user.id,
-                    username: request.jwtClaim.user.username,
+                    id: request.jwtClaim.sub,
                 },
             }),
             metadata: requestContext?.metadata ?? null,

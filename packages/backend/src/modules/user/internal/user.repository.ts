@@ -14,10 +14,7 @@ export class UserRepository {
         return this.db.user.findUnique({ where: { email } });
     }
 
-    async update(
-        id: string,
-        data: Partial<{ nickname: string; realname: string; email: string; passwordHash: string }>
-    ) {
+    async update(id: string, data: Partial<{ nickname: string; realname: string; email: string }>) {
         return this.db.user.update({ where: { id }, data });
     }
 

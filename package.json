@@ -2,7 +2,7 @@
   "name": "talos-ark",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.25.0",
+  "packageManager": "pnpm@12.4.1",
   "type": "module",
   "license": "AGPL-3.0",
   "author": "Maiturin",

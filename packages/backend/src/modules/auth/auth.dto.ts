@@ -76,3 +76,24 @@ const AuthResponseDtoSchema = z
     .meta({ description: '登录/注册响应体' });
 
 export class AuthResponseDto extends createZodDto(AuthResponseDtoSchema) {}
+
+const OidcAuthorizationUrlDtoSchema = z
+    .object({
+        authorizationUrl: z.url().meta({
+            title: '第三方登录授权地址',
+            example:
+                'https://casdoor.example.com/login/oauth/authorize?response_type=code&client_id=talos-ark',
+        }),
+    })
+    .meta({ description: '第三方登录授权地址响应体' });
+
+export class OidcAuthorizationUrlDto extends createZodDto(OidcAuthorizationUrlDtoSchema) {}
+
+const OidcCallbackDtoSchema = z
+    .object({
+        code: z.string().min(1).max(4096).meta({ title: '授权码' }),
+        state: z.string().min(1).max(512).meta({ title: '登录事务状态' }),
+    })
+    .meta({ description: 'OIDC 回调查询参数' });
+
+export class OidcCallbackDto extends createZodDto(OidcCallbackDtoSchema) {}

@@ -72,7 +72,7 @@ describe('Auth (e2e)', () => {
         expect(refreshRes.body.data.accessToken).toBeTruthy();
     });
 
-    it('old refresh token replay should still succeed in stateless mode', async () => {
+    it('rejects an old refresh token replay after rotation', async () => {
         const suffix = Date.now().toString();
         const registerRes = await request(app.getHttpServer())
             .post('/auth/register')
@@ -96,13 +96,12 @@ describe('Auth (e2e)', () => {
         const replayRes = await request(app.getHttpServer())
             .post('/auth/refresh-token')
             .set('Cookie', oldRefreshCookie)
-            .expect(201);
+            .expect(401);
 
-        expect(replayRes.body.success).toBe(true);
-        expect(replayRes.body.data.accessToken).toBeTruthy();
+        expect(replayRes.body.success).toBe(false);
     });
 
-    it('concurrent refresh-token requests should be accepted in stateless mode', async () => {
+    it('allows exactly one of two concurrent refresh-token rotations', async () => {
         const suffix = Date.now().toString();
         const registerRes = await request(app.getHttpServer())
             .post('/auth/register')
@@ -123,7 +122,6 @@ describe('Auth (e2e)', () => {
             request(app.getHttpServer()).post('/auth/refresh-token').set('Cookie', refreshCookie),
         ]);
 
-        expect(firstRes.status).toBe(201);
-        expect(secondRes.status).toBe(201);
+        expect([firstRes.status, secondRes.status].sort()).toEqual([201, 401]);
     });
 });

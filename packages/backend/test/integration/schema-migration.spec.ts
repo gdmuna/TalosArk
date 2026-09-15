@@ -22,6 +22,9 @@ describe('P1 Schema Migration — New Models', () => {
     let testOrgId: string;
     let testUserId: string;
     let testNodeId: string;
+    let loginTransactionId = '';
+    let externalIdentityId = '';
+    let sessionId = '';
 
     beforeAll(async () => {
         // 获取或创建测试用户
@@ -138,8 +141,46 @@ describe('P1 Schema Migration — New Models', () => {
         expect(reagent).toHaveProperty('nodeId');
     });
 
+    it('should persist OIDC login transactions, external identities and sessions', async () => {
+        const suffix = Date.now().toString();
+        const transaction = await prisma.loginTransaction.create({
+            data: {
+                stateHash: `state-${suffix}`,
+                nonce: `nonce-${suffix}`,
+                pkceVerifier: `verifier-${suffix}`,
+                expiresAt: new Date(Date.now() + 60_000),
+            },
+        });
+        loginTransactionId = transaction.id;
+
+        const externalIdentity = await prisma.externalIdentity.create({
+            data: {
+                issuer: 'https://casdoor.example.test',
+                subject: `subject-${suffix}`,
+                userId: testUserId,
+            },
+        });
+        externalIdentityId = externalIdentity.id;
+
+        const session = await prisma.session.create({
+            data: {
+                userId: testUserId,
+                refreshTokenJti: `jti-${suffix}`,
+                expiresAt: new Date(Date.now() + 60_000),
+            },
+        });
+        sessionId = session.id;
+
+        expect(transaction.consumedAt).toBeNull();
+        expect(externalIdentity.userId).toBe(testUserId);
+        expect(session.revokedAt).toBeNull();
+    });
+
     afterAll(async () => {
         // 清理测试数据（逆序）
+        await prisma.session.deleteMany({ where: { id: sessionId } });
+        await prisma.externalIdentity.deleteMany({ where: { id: externalIdentityId } });
+        await prisma.loginTransaction.deleteMany({ where: { id: loginTransactionId } });
         await prisma.resourceShare.deleteMany({ where: { resourceId: testNodeId } });
         await prisma.reagentType.deleteMany({
             where: { orgId: testOrgId, name: 'Test Reagent Type' },
