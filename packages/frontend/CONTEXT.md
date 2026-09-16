@@ -14,6 +14,11 @@
 
 `App.vue` composes `layout`, `pages`, and `modules`. `pages`, `layout`, and `modules` may use `shared` and `ui`. `ui` may depend only on `shared`. `shared` must not depend on higher layers.
 
+## Current iteration policy
+
+The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
+test scripts unless the user explicitly requests them.
+
 ## Design SSOT
 
 - `docs/design/design-foundation.md`: token semantics, state language, typography, and visual constraints.
