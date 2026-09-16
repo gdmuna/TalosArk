@@ -1,4 +1,4 @@
-import { readFile } from '@/shared/utils/helpers/file.helper.js';
+import { readFile } from '@/common/utils/index.js';
 
 import { ConfigType, registerAs } from '@nestjs/config';
 import { z } from 'zod/v4';

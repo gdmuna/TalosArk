@@ -1,12 +1,14 @@
-import { IdentityKernel } from '@/core/identity/index.js';
-import {
-    InvalidTokenException,
-    MissingTokenException,
-} from '@/core/identity/identity.exception.js';
+import { IdentityKernel } from '@/core/identity/identity.kernel.js';
 import { AUTH_STRATEGY_KEY, AUTH_STRATEGY_TYPE } from '@/platform/http/decorators/index.js';
-import { extractAccessTokenFromRequest } from '@/shared/utils/index.js';
+import { extractAccessTokenFromRequest } from '@/common/utils/index.js';
 
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+    Injectable,
+    CanActivate,
+    ExecutionContext,
+    ServiceUnavailableException,
+    UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyRequest } from 'fastify';
 
@@ -32,23 +34,37 @@ export class AuthGuard implements CanActivate {
         if (authStrategy === 'optional') {
             if (!accessToken) return true;
 
-            const claim = this.identityKernel.verifyAccessToken(accessToken);
+            const claim = this.verifyAccessToken(accessToken);
             if (!claim) return true;
 
-            request.jwtClaim = claim;
+            request.jwtClaim = claim as never;
             return true;
         }
 
         if (!accessToken) {
-            throw new MissingTokenException();
+            throw new UnauthorizedException('Missing access token');
         }
 
-        const claim = this.identityKernel.verifyAccessToken(accessToken);
+        const claim = this.verifyAccessToken(accessToken);
         if (!claim) {
-            throw new InvalidTokenException();
+            throw new UnauthorizedException('Invalid access token');
         }
 
-        request.jwtClaim = claim;
+        request.jwtClaim = claim as never;
         return true;
+    }
+
+    private verifyAccessToken(accessToken: string): unknown | null {
+        const kernel = this.identityKernel as IdentityKernel & {
+            verifyAccessToken?: (token: string) => unknown | null;
+        };
+
+        if (!kernel.verifyAccessToken) {
+            // 当前 IdentityKernel 仍是结构性 TODO seam；若误将本 legacy guard 接入全局链路，
+            // 必须拒绝请求而非静默放行。
+            throw new ServiceUnavailableException('Identity verification is not available');
+        }
+
+        return kernel.verifyAccessToken(accessToken);
     }
 }

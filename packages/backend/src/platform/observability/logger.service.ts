@@ -1,4 +1,4 @@
-import { ConsoleFormatter } from '@/shared/utils/index.js';
+import { ConsoleFormatter } from './console.formatter.js';
 
 import { IS_DEV } from '@/config/index.js';
 
@@ -15,7 +15,7 @@ export type LOG_LEVEL_ENUM_TYPE = (typeof LOG_LEVEL_ENUM)[number];
  * - 在日志输出失败时，自动降级到 console 方法，确保日志不丢失
  * - 可以在日志中添加上下文信息，便于定位问题
  * @example
- * new Logger('UserService').info('User created successfully');
+ * new Logger('Example').info('Operation completed successfully');
  */
 @Injectable()
 export class Logger extends NestLogger {

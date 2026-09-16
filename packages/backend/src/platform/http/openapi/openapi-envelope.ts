@@ -87,7 +87,7 @@ const ERROR_RESPONSE_SCHEMA: Record<string, unknown> = {
             type: 'boolean',
             example: false,
             description: '操作结果，失败时始终为 false',
-            title: '操作结果标志666',
+            title: '操作结果标志',
         },
         code: {
             type: 'string',
@@ -199,44 +199,4 @@ function buildEnvelopeSchema(dataSchema: Record<string, unknown>): Record<string
             },
         },
     };
-}
-
-// ─── Tag 描述 ────────────────────────────────────────────────────────────────
-
-const TAG_DESCRIPTIONS: Record<string, string> = {
-    应用: '基础应用接口，包含健康检查（`GET /health`）和运行时日志级别动态调整。',
-    认证模块: [
-        '用户注册、登录、令牌刷新、Cookie 清除等认证相关接口。',
-        '',
-        '**认证方式**：需要鉴权的端点使用 Bearer Token（JWT，ES256 算法）。',
-        '通过 `POST /auth/login` 获取 `accessToken`，在请求头中携带 `Authorization: Bearer <token>`。',
-        '',
-        '**刷新令牌**：以 HttpOnly Cookie（`refresh_token`）形式存储，通过',
-        '`POST /auth/refresh-token` 静默轮转，无需手动传递刷新令牌值。',
-    ].join('\n'),
-    错误目录: [
-        '以 API 方式查询系统中所有通过 `@RegisterException` 注册的错误码及其元数据。',
-        '',
-        '完整的离线对照表见「**错误码参考**」标签页。',
-    ].join('\n'),
-    测试: '> ⚠️ 仅供开发 / 测试环境使用，生产环境请勿调用。\n\n测试基础路由、慢请求性能监控和全局异常捕获功能。',
-};
-
-/**
- * OpenAPI 文档后处理：为全局 `tags` 数组中的各 Tag 注入说明文字。
- *
- * `@ApiTags()` 装饰器仅在 Operation 上声明 tag name，不会填充文档顶层的 tags 描述数组。
- * 本函数在后处理阶段补全，同时支持新增不对应任何端点的纯文档 Tag（如错误码参考）。
- */
-export function enrichTagDescriptions(doc: OpenAPIObject): OpenAPIObject {
-    doc.tags = doc.tags ?? [];
-    for (const [name, description] of Object.entries(TAG_DESCRIPTIONS)) {
-        const existing = doc.tags.find((t) => t.name === name);
-        if (existing) {
-            existing.description ||= description;
-        } else {
-            doc.tags.push({ name, description });
-        }
-    }
-    return doc;
 }

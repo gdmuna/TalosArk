@@ -10,9 +10,9 @@ import {
 import { Logger } from '@/platform/observability/index.js';
 
 import { ERROR_REFERENCE_URL } from '@/config/index.js';
-import { toKebabCase } from '@/shared/utils/index.js';
+import { toKebabCase } from '@/common/utils/index.js';
 
-import { RequestContextService } from '@/core/context/request-context.service.js';
+import { AlsContextAdapter as RequestContextService } from '@/platform/context/als-context.adapter.js';
 
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';

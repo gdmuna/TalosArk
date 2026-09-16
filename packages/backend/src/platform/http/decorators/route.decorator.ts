@@ -1,11 +1,9 @@
-import { AuthExceptionCode } from '@/core/identity/identity.exception.js';
-
 import {
     ErrorRegistry,
     SystemExceptionCode,
     ClientExceptionCode,
 } from '@/platform/errors/index.js';
-import { toKebabCase } from '@/shared/utils/index.js';
+import { toKebabCase } from '@/common/utils/index.js';
 
 import { APP_VERSION, ERROR_REFERENCE_URL } from '@/config/index.js';
 
@@ -103,12 +101,9 @@ export interface ApiRouteOptions {
 export const ApiRoute = (options: ApiRouteOptions) => {
     const auth = options.auth ?? 'required';
     //prettier-ignore
-    const EXTERNAL_ERROR_CODES =
-        auth === 'required'
-            ? [
-                AuthExceptionCode.TOKEN_MISSING,
-                AuthExceptionCode.TOKEN_INVALID,
-            ] : [];
+    // TODO(identity): IdentityKernel 尚未重新暴露稳定的认证问题定义；恢复其公开契约后，
+    // 可在此显式追加 required 路由共有的认证错误码。
+    const EXTERNAL_ERROR_CODES: string[] = [];
 
     const allErrorCodes = [
         ...new Set([...(options.errors ?? []), ...BASE_ERROR_CODES, ...EXTERNAL_ERROR_CODES]),

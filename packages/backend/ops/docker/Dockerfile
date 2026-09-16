@@ -68,4 +68,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
     CMD curl --fail http://localhost:3000/api/v1/health
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sh", "-c", "exec dotenvx run -f secrets/env/.env.${NODE_ENV} -- node dist/src/bootstrap/main.js"]
+CMD ["sh", "-c", "exec dotenvx run -f secrets/env/.env.${NODE_ENV} -- node dist/src/main.js"]

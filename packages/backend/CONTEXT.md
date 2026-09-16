@@ -1,106 +1,172 @@
 # Backend context
 
-`packages/backend` is TalosArk's NestJS API package. This document is the
-local source of truth for its source layout; repository-wide routing lives in
-the root `CONTEXT-MAP.md`.
+packages/backend is TalosArk's NestJS backend package. This document is the
+local source of truth for its architectural boundaries and reset state;
+repository-wide routing lives in the root CONTEXT-MAP.md.
+
+## Current reset state
+
+The package is intentionally in a structure-first phase:
+
+- Deprecated business implementations, the former file system, their paired
+  tests, historical Prisma migrations, and the seed script have been removed.
+- prisma/schema.prisma remains the database definition. Development schema
+  synchronization uses pnpm db:push; do not recreate migrations or a seed
+  script during this phase.
+- Most files in the new core, modules, platform, and future Infra areas are
+  TODO-only seams. A directory or class is not evidence that its runtime
+  behavior exists. main.ts, app.module.ts, and bootstrap/bootstrap.ts are the
+  real process and Nest runtime baseline; they do not imply that a business
+  vertical slice is already available.
+- Generic technical adapters that map cleanly to the target architecture remain
+  real code: Prisma, Casdoor OIDC/Casdoor control-plane access, SMTP, ALS,
+  logging, and typed configuration.
+
+Do not turn TODO seams into implementations without an approved vertical slice.
+Do not restore a removed legacy module merely to make an old route work.
+
+## Current iteration policy
+
+The backend is in a rapid-iteration phase. Do not add, backfill, or maintain
+test scripts unless the user explicitly requests them.
+
+## Dependency direction
+
+    bootstrap / app.module.ts
+        |  explicit Nest composition
+        +--> Platform (HTTP / WS / worker runtime)
+        +--> Modules (business use cases and transport adapters)
+        +--> Core (capability interfaces)
+        `--> Infra (technology adapters)
+
+    Platform / Modules / Infra  --->  Core
+    Infra                         --->  Platform runtime helpers or other Infra
+    Core                          --->  Core, Infra, or non-transport Platform runtime support
+
+Direct imports are allowed when they express a real, explicit implementation
+dependency. A Kernel may directly use an Infra adapter when that technology is
+intrinsic to its current behavior: for example, PermissionKernel may use the
+Casdoor IAM adapter. An Infra adapter may use a Platform runtime helper such
+as ALS or logging, and an Infra module may compose another Infra module. None
+of these relationships requires a top-level barrel or a new public interface.
+
+Core must not depend on transport-specific entry details such as HTTP DTOs,
+controllers, Fastify request/reply objects, or route decorators. Its public
+interface must not expose raw technology-SDK types to business modules. A
+Kernel or Port becomes a stable cross-module interface only when callers need
+capability semantics rather than a particular implementation, or when a real
+variation needs to be hidden. Nest module exports only control DI-provider
+visibility; they are not an application-wide public surface.
 
 ## Boundary rules
 
-- `bootstrap/` is the composition root. It assembles modules, global Nest
-  infrastructure, and process startup; it contains no domain behaviour.
-- `modules/` owns external adapters. HTTP controllers and HTTP DTOs live here.
-  Ordinary business modules also own their use-case services and repositories
-  under `internal/`.
-- A module may consume another domain only through that domain's exported
-  `*Kernel`; repositories are private implementation details. For example,
-  Node and Share use `OrgKernel`, never `OrgRepository`.
-- `core/` contains reusable platform/domain kernels with a deliberately small
-  public interface. Its `internal/` directory is not an application-wide API.
-- `platform/` adapts transport concerns such as HTTP guards, request context,
-  exception mapping, and observability. Shared security/authorization logic
-  belongs in a kernel; an HTTP guard is only its HTTP wrapper.
-- `infra/` implements concrete technical integrations. Do not introduce a
-  port/adapter seam until there is a real second implementation to support.
-- `shared/` is for framework-independent utilities only. It must not import
-  Nest modules, HTTP objects, or domain modules.
+- main.ts calls bootstrap(). bootstrap/bootstrap.ts creates the HTTP runtime,
+  installs framework-level behavior, and owns process-startup side effects.
+  app.module.ts is the Nest composition root for active global capabilities.
+- bootstrap/composition may know the full graph and bind Core ports to Infra
+  adapters; it contains no business behavior. Do not use a root infra/index.ts
+  barrel as an alternative composition mechanism.
+- config owns typed runtime configuration. Code outside it should not read
+  process.env directly. config-file.reader.ts is configuration-local support,
+  not a general utility.
+- Do not add a global constants layer. A DI token lives beside the Port or
+  adapter it identifies; an HTTP header or decorator metadata key lives beside
+  its owning Platform transport code. The current constants directory is
+  transitional and should disappear as those owners are implemented.
+- Do not build a common taxonomy for errors, results, assertions, and types.
+  A pure helper begins beside its first owner and moves to common/utils only
+  after genuine cross-domain reuse. common must never become a shared catch-all.
+- platform may depend on NestJS and Fastify. It contains HTTP guards,
+  decorators, filters, interceptors, WebSocket/SSE/worker transport adapters,
+  ALS runtime context, extension discovery, and inbound telemetry.
+  Adapter-local resource lifecycle remains in that adapter's Nest lifecycle
+  hooks. platform/lifecycle exists only if a real bridge from Nest lifecycle to
+  a Core runtime lifecycle is introduced.
+- core consists of cross-domain application capabilities. Each Kernel is the
+  stable public entry point of one capability; its directory may also contain
+  contracts, policies, registries, ports, and direct implementation
+  dependencies that are intrinsic to that capability. A direct dependency does
+  not make a Kernel less valid; only its public interface must keep technical
+  details local.
+- infra implements external technology boundaries. It never decides a
+  business use case. It may explicitly depend on Core contracts, Platform
+  runtime helpers, or another Infra adapter when that relationship is real and
+  acyclic. In particular, infra/permission/casbin is a technical
+  Casbin/Casdoor adapter area; modules must depend on PermissionKernel, not
+  Casdoor SDK types.
+- modules contains actual TalosArk business domains. Controllers remain here.
+  Each module follows api, application, domain, extensions, cache,
+  infrastructure, and public; only public is a stable cross-module API.
+- system is for application-level health, version, and diagnostics, never a
+  business domain.
+- nestjs-pino is the configured process logger. The current
+  platform/observability/Logger wrapper is legacy code that must be retired
+  rather than evolved into a second logging pipeline. platform/observability
+  owns inbound request instrumentation; infra/observability is reserved for a
+  real external sink or exporter, not another logger wrapper.
 
 ## Layout
 
-```text
-packages/backend/
-|-- src/
-|   |-- bootstrap/                         # Nest composition root and process entry
-|   |   |-- app.module.ts
-|   |   `-- main.ts
-|   |-- config/                            # Typed environment/config definitions
-|   |-- core/
-|   |   |-- context/                       # RequestContext service/module
-|   |   |-- identity/                      # Password/OIDC/session kernel; only IdentityKernel is public
-|   |   |   |-- identity.module.ts
-|   |   |   |-- identity.kernel.ts
-|   |   |   |-- identity.types.ts
-|   |   |   `-- internal/                  # local account, OIDC transaction, session and token persistence
-|   |   |-- file/                          # Object-storage kernel; only FileKernel is public
-|   |   |   |-- file.module.ts
-|   |   |   |-- file.kernel.ts
-|   |   |   |-- file.types.ts
-|   |   |   `-- internal/                  # repo, upload strategies, relation-registry TODO
-|   |   |-- access/                        # TODO: future policy-evaluation kernel
-|   |   `-- resource/                      # TODO: future shared resource-identity kernel
-|   |-- modules/
-|   |   |-- auth/                          # HTTP /auth controller and DTOs -> IdentityKernel
-|   |   |-- file/                          # HTTP /files controller and DTOs -> FileKernel
-|   |   |-- operations/                    # health and diagnostics HTTP endpoints
-|   |   |-- org/                           # OrgKernel + controllers/DTOs + internal use cases/repos
-|   |   |-- node/                          # controllers/DTOs + internal use cases/repos
-|   |   |-- reagent/
-|   |   |-- reagent-type/
-|   |   |-- share/
-|   |   |-- user/
-|   |   |-- feedback/
-|   |   `-- exception-catalog/
-|   |-- platform/
-|   |   |-- errors/                        # error taxonomy and registration
-|   |   |-- http/                          # decorators, guards, filters, middleware, OpenAPI
-|   |   `-- observability/                 # application logger integration
-|   |-- infra/
-|   |   |-- database/                      # Prisma implementation
-|   |   |-- kvs/                           # cache implementation
-|   |   |-- mail/                          # mail implementation
-|   |   |-- storage/                       # S3-compatible object storage implementation
-|   |   `-- iam/casdoor/                   # platform-level Casdoor OIDC adapter; policy admin stays private
-|   `-- shared/utils/                      # framework-independent helpers
-|-- prisma/                                # schema, migrations, seed
-|-- ops/
-|   |-- prisma/                            # Prisma CLI-only DATABASE_URL profiles
-|   `-- docker/
-|       |-- Dockerfile                     # shared backend image build
-|       |-- apt/                           # Debian source definitions for the image build
-|       `-- compose/
-|           |-- full/                      # self-contained Compose: .env, Casdoor, PostgreSQL init, entrypoint
-|           `-- dev/                       # local dependency Compose: .env and Casdoor
-|-- secrets/                               # encrypted/non-committed runtime configuration
-|-- test/
-|   |-- unit/                              # isolated tests with mocked collaborators
-|   |-- integration/                       # database-backed integration tests
-|   `-- e2e/                               # HTTP-level tests against a running Nest app
-`-- docs/adr/                              # backend-local architecture decisions
-```
+    packages/backend/
+    +-- src/
+    |   +-- main.ts                            # process entry
+    |   +-- app.module.ts                      # Nest composition root
+    |   +-- bootstrap/
+    |   |   +-- bootstrap.ts                   # HTTP runtime creation
+    |   |   +-- composition/                   # explicit Port -> Adapter wiring
+    |   |   `-- lifecycle/                     # process-wide startup/shutdown only
+    |   +-- config/                            # typed runtime configuration
+    |   +-- common/utils/                      # only proven pure cross-domain helpers
+    |   +-- platform/
+    |   |   +-- http/                          # HTTP guards, filters, pipes, decorators
+    |   |   +-- realtime/                      # websocket and SSE adapters
+    |   |   +-- worker/
+    |   |   +-- context/                       # ALS runtime adapter
+    |   |   +-- extensions/                    # Nest Discovery bridge
+    |   |   +-- lifecycle/                     # only a real Nest -> Core bridge
+    |   |   `-- observability/                 # Pino integration and inbound telemetry
+    |   +-- core/
+    |   |   +-- context/ identity/ auth/ tenant/ workspace/
+    |   |   +-- resource/ permission/ transaction/ cache/ lock/ idempotency/
+    |   |   +-- event/ task/ file/ quota/ risk/ audit/ notification/
+    |   |   +-- realtime/ background/ clock/
+    |   +-- infra/
+    |   |   +-- database/prisma/               # retained Prisma adapter + future ports
+    |   |   +-- valkey/                        # TODO cache/lock/pubsub/idempotency adapters
+    |   |   +-- iam/casdoor/                   # retained platform-level OIDC adapter
+    |   |   +-- permission/casbin/             # retained control-plane client + TODO engine
+    |   |   +-- queue/bullmq/
+    |   |   +-- storage/s3 and storage/rustfs/
+    |   |   +-- mail/                          # retained generic SMTP adapter
+    |   |   `-- search/ realtime/ external/
+    |   +-- modules/
+    |   |   +-- auth/
+    |   |   +-- organization/ workspace/ material/ inventory/
+    |   |   +-- facility/ equipment/ approval/
+    |   +-- system/                            # health, version, diagnostics
+    +-- prisma/
+    |   +-- schema.prisma                      # retained; no migrations or seed
+    +-- ops/
+    |   +-- prisma/                            # Prisma CLI-only environment profiles
+    |   +-- docker/                            # Dockerfile and dev/full Compose
+    +-- secrets/                               # environment and key material
+    +-- test/
+        +-- unit/                              # retained technical-adapter tests only
 
-## Current implementation notes
+## File-system and authorization decisions
 
-- Identity owns local password credentials, external OIDC identity bindings and
-  TalosArk-owned rotating refresh sessions. Access tokens remain short-lived
-  JWTs. Auth controllers only call `IdentityKernel`; Casdoor SDK types remain
-  inside the Casdoor Infra adapter. The current IdP model is platform-level,
-  not organization-specific.
-- `CasdoorAuthorizationClient` is a private Infra control-plane adapter. It is
-  intentionally not exported through `CasdoorModule` or the Infra barrel;
-  future policy management belongs to a platform-management use case, while
-  runtime business authorization will go through `AccessKernel`.
-- File relation definitions remain code-owned domain rules. The registry is a
-  TODO placeholder rather than a database configuration table.
-- Controllers remain concentrated in `modules/`, including wrappers for core
-  capabilities (`auth`, `file`). Future WebSocket/SSE handlers belong
-  in their owning module as transport adapters, while shared behavior stays in
-  the corresponding kernel.
+- The file kernel has no IMAGE, DOCUMENT, or VIDEO upload-purpose enumeration.
+  Future modules contribute concrete file-purpose definitions through the
+  FileKernel extension boundary.
+- Platform-level Casdoor OIDC remains the current identity-provider model.
+  TalosArk-owned identity and session behavior belongs to core/identity and
+  core/auth, not Casdoor SDK code.
+- Casdoor/Casbin administration is an Infra control-plane concern. Runtime
+  authorization will enter through core/permission.
+
+## Verification expectation
+
+For a structure-only change, verify the source tree, stale imports, formatting,
+the backend build, and the retained technical-adapter tests. Do not run
+pnpm db:push, create migrations, or reintroduce old business behavior merely
+to obtain a running API.

@@ -3,7 +3,7 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "entryFile": "bootstrap/main",
+    "entryFile": "main",
     "deleteOutDir": true
   }
 }

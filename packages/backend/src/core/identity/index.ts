@@ -1,15 +1,5 @@
-export { IdentityKernel } from './identity.kernel.js';
-export type {
-    AccessTokenClaim,
-    AuthenticatedUser,
-    BeginOidcLoginResult,
-    ChangePasswordCommand,
-    CompleteOidcLoginCommand,
-    CreateSessionForVerifiedUserCommand,
-    IdentitySession,
-    PasswordLoginCommand,
-    PasswordRegistrationCommand,
-    RefreshTokenClaim,
-    ResetPasswordCommand,
-    TokenPair,
-} from './identity.types.js';
+/**
+ * TODO: 定义身份内核导出边界。
+ * 当前文件只声明新架构的 seam，不提供运行时行为。
+ */
+export {};

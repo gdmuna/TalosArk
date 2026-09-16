@@ -2,7 +2,7 @@ import { Logger } from '@/platform/observability/index.js';
 
 import { AllConfig } from '@/config/index.js';
 
-import { RequestContextService } from '@/core/context/request-context.service.js';
+import { AlsContextAdapter as RequestContextService } from '@/platform/context/als-context.adapter.js';
 
 import {
     Injectable,

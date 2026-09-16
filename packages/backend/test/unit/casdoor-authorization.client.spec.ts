@@ -11,7 +11,7 @@ import {
     type CasdoorPolicy,
     type CasdoorResource,
     type CasdoorRole,
-} from '@/infra/iam/casdoor/casdoor-authorization.client.js';
+} from '@/infra/permission/casbin/casdoor-authorization.client.js';
 
 /** 创建完整的 Casdoor 权限 SDK mock。 */
 function createSdk(): Mocked<CasdoorAuthorizationSdk> {

@@ -1,17 +1,17 @@
 import type { Mock, Mocked } from 'vitest';
 
 import {
-    CasdoorOidcClient,
+    CasdoorOidcAdapter,
     type CasdoorOidcSdk,
     type CasdoorOidcTokenIntrospection,
     type CasdoorOidcTokenSet,
     type CasdoorOidcUser,
-} from '@/infra/iam/casdoor/casdoor-oidc.client.js';
+} from '@/infra/iam/casdoor-oidc.adapter.js';
 
 import { generateKeyPairSync } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
-describe('CasdoorOidcClient', () => {
+describe('CasdoorOidcAdapter', () => {
     const oidcConfig = {
         endpoint: 'https://casdoor.example.test',
         issuer: 'https://casdoor.example.test',
@@ -23,7 +23,7 @@ describe('CasdoorOidcClient', () => {
 
     let sdk: Mocked<CasdoorOidcSdk>;
     let configService: { get: Mock };
-    let client: CasdoorOidcClient;
+    let client: CasdoorOidcAdapter;
 
     beforeEach(() => {
         sdk = {
@@ -39,7 +39,7 @@ describe('CasdoorOidcClient', () => {
         configService = {
             get: vi.fn().mockReturnValue(oidcConfig),
         };
-        client = new CasdoorOidcClient(configService as never, sdk);
+        client = new CasdoorOidcAdapter(configService as never, sdk);
     });
 
     afterEach(() => {

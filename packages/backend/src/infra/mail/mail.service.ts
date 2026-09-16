@@ -46,21 +46,4 @@ export class MailService implements OnModuleInit {
             html: params.html,
         });
     }
-
-    /**
-     * 发送 6 位验证码邮件（快捷方法）。
-     */
-    async sendVerificationCode(to: string, code: string): Promise<void> {
-        await this.sendMail({
-            to,
-            subject: '【BSB】邮箱验证码',
-            html: `
-                <p>您好，</p>
-                <p>您的验证码为：<strong style="font-size:24px;letter-spacing:4px">${code}</strong></p>
-                <p>验证码 10 分钟内有效，请勿泄露。</p>
-                <p>如非本人操作，请忽略此邮件。</p>
-            `,
-            text: `您的验证码为：${code}，10 分钟内有效。`,
-        });
-    }
 }

@@ -1,10 +1,5 @@
-export { FileKernel } from './file.kernel.js';
-export type {
-    ConfirmUploadCommand,
-    CopyFileCommand,
-    CreateDownloadUrlCommand,
-    CreateUploadSessionCommand,
-    CreateUploadSessionResult,
-    DeleteFilesCommand,
-    ServerUploadCommand,
-} from './file.types.js';
+/**
+ * TODO: 定义文件内核导出边界。
+ * 当前文件只声明新架构的 seam，不提供运行时行为。
+ */
+export {};
