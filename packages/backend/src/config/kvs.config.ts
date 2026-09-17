@@ -1,5 +1,15 @@
-/**
- * TODO: 定义 Valkey/Redis 的 typed runtime configuration。
- * 当前文件只声明配置边界，不读取环境变量。
- */
-export type KvsConfig = Record<string, never>;
+import { ConfigType, registerAs } from '@nestjs/config';
+
+import { z } from 'zod/v4';
+
+const KvsConfigValidateSchema = z
+    .object({
+        KVS_URL: z.url(),
+    })
+    .transform((env) => ({
+        kvsUrl: env.KVS_URL,
+    }));
+
+export const kvsConfig = registerAs('kvs', () => KvsConfigValidateSchema.parse(process.env));
+
+export type KvsConfig = ConfigType<typeof kvsConfig>;

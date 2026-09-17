@@ -2,6 +2,7 @@ import { appConfig, AppConfig } from './app.config.js';
 import { casdoorConfig, CasdoorConfig } from './casdoor.config.js';
 import { databaseConfig, DatabaseConfig } from './database.config.js';
 import { httpConfig, HttpConfig } from './http.config.js';
+import { kvsConfig, KvsConfig } from './kvs.config.js';
 import { mailConfig, MailConfig } from './mail.config.js';
 import { observabilityConfig, ObservabilityConfig } from './observability.config.js';
 import { storageConfig, StorageConfig } from './storage.config.js';
@@ -13,6 +14,7 @@ export type AllConfig = {
     casdoor: CasdoorConfig;
     database: DatabaseConfig;
     http: HttpConfig;
+    kvs: KvsConfig;
     mail: MailConfig;
     observability: ObservabilityConfig;
     storage: StorageConfig;
@@ -23,6 +25,7 @@ export const allConfig = {
     casdoorConfig,
     databaseConfig,
     httpConfig,
+    kvsConfig,
     mailConfig,
     observabilityConfig,
     storageConfig,

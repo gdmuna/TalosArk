@@ -1,4 +1,2 @@
-/**
- * TODO: 定义 Valkey infrastructure 的导出边界。
- */
-export {};
+export { KvsModule } from './kvs.module.js';
+export { KvsService, type KvsSetCondition, type KvsSetOptions } from './kvs.service.js';
