@@ -24,6 +24,13 @@ const routes: RouteRecordRaw[] = [
                     defaultTitle: 'login',
                 },
             },
+            {
+                path: 'callback',
+                component: () => import('@/pages/auth/Auth-Callback.vue'),
+                meta: {
+                    defaultTitle: 'callback',
+                },
+            },
         ],
     },
     {

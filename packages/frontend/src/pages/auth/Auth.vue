@@ -66,6 +66,8 @@ import AuthPhoneNumLogin from './Auth-PhoneNumLogin.vue';
 import { Button } from '@/ui/button';
 import { FieldSeparator } from '@/ui/field';
 
+import { axiosInstance } from '@/shared/api/client.js';
+
 type LoginMethod = 'account' | 'email' | 'phone';
 
 const activeMethod = ref<LoginMethod>('account');
@@ -76,7 +78,9 @@ const loginMethods = [
     { value: 'phone', label: '手机登录', icon: Smartphone },
 ] as const;
 
-function handleCasdoorLogin() {
-    window.location.href = 'http://localhost:3000/api/v1/auth/oidc/login';
+async function handleCasdoorLogin() {
+    const res = await axiosInstance.post<any, { url: string }>('http://localhost:3000/api/v1/auth/oidc/start');
+    console.log(res);
+    window.location.href = res.url;
 }
 </script>
