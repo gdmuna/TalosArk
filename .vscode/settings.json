@@ -2,14 +2,14 @@
   // ===== 代码格式化 =====
   // TypeScript 文件配置
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode", // 使用 Prettier 格式化
-    "editor.formatOnSave": true // 保存时自动格式化
+    "editor.defaultFormatter": "esbenp.prettier-vscode" // 使用 Prettier 格式化
+    // "editor.formatOnSave": true // 保存时自动格式化
   },
 
   // JavaScript 文件配置
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode", // 使用 Prettier 格式化
-    "editor.formatOnSave": true // 保存时自动格式化
+    "editor.defaultFormatter": "esbenp.prettier-vscode" // 使用 Prettier 格式化
+    // "editor.formatOnSave": true // 保存时自动格式化
   },
 
   // YAML 文件配置
