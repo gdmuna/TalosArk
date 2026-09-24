@@ -1,4 +1,9 @@
 import allConfig, { type AllConfig } from '@/config/index.js';
+
+import { KvsModule } from './infra/kvs/kvs.module.js';
+
+import { AuthModule } from '@/modules/auth/index.js';
+
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import {
     AllExceptionFilter,
@@ -88,7 +93,9 @@ import pino from 'pino';
                 };
             },
         }),
+        KvsModule,
         PlatformContextModule,
+        AuthModule,
     ],
     providers: [
         {

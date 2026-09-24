@@ -81,10 +81,12 @@ export function hashMD5(value: string): string {
  * generateRandomString(10, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')  // 'ABCDEFGHIJ'
  */
 export function generateRandomString(
-    length: number = 10,
+    length: number = 32,
     charset: string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 ): string {
-    if (length <= 0) return '';
+    if (!Number.isSafeInteger(length) || length <= 0) {
+        throw new RangeError('length must be a positive safe integer');
+    }
     if (charset.length === 0) throw new RangeError('charset must not be empty');
 
     const charsetLength = charset.length;
@@ -121,6 +123,14 @@ export function generateRandomString(
  */
 export function generateRandomDigits(length: number = 6): string {
     return generateRandomString(length, '0123456789');
+}
+
+export function createSecureRandomString(byteLength = 32): string {
+    if (!Number.isSafeInteger(byteLength) || byteLength <= 0) {
+        throw new RangeError('byteLength must be a positive safe integer');
+    }
+
+    return randomBytes(byteLength).toString('base64url');
 }
 
 /**

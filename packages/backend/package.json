@@ -63,6 +63,7 @@
     "figlet": "^1.11.4",
     "gradient-string": "^3.0.0",
     "helmet": "^8.3.0",
+    "jose": "^6.2.12",
     "jsonwebtoken": "^9.0.3",
     "lodash": "^4.18.1",
     "nestjs-pino": "^4.6.1",

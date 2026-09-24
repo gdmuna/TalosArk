@@ -6,7 +6,7 @@ import {
     type CasdoorOidcTokenIntrospection,
     type CasdoorOidcTokenSet,
     type CasdoorOidcUser,
-} from '@/infra/iam/casdoor-oidc.adapter.js';
+} from '@/infra/iam/iam-oidc.adapter.js';
 
 import { generateKeyPairSync } from 'node:crypto';
 import jwt from 'jsonwebtoken';

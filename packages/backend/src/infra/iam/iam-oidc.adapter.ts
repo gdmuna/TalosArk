@@ -1,11 +1,11 @@
 import { CASDOOR_SDK } from './iam.constants.js';
+import { IamTokenAdapter } from './iam-token.adapter.js';
 
 import { AllConfig } from '@/config/index.js';
 
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { SDK } from 'casdoor-nodejs-sdk';
-import jwt from 'jsonwebtoken';
 
 export type CasdoorOidcSdk = Pick<
     SDK,
@@ -59,10 +59,11 @@ export interface VerifiedOidcIdentity {
  * 透过 Kernel 看到 Casdoor 或 Casbin 类型。
  */
 @Injectable()
-export class CasdoorOidcAdapter {
+export class IamOidcAdapter {
     public constructor(
         private readonly configService: ConfigService<AllConfig, true>,
-        @Inject(CASDOOR_SDK) private readonly sdk: CasdoorOidcSdk
+        @Inject(CASDOOR_SDK) private readonly sdk: CasdoorOidcSdk,
+        private readonly tokenAdapter: IamTokenAdapter
     ) {}
 
     /** 判断当前环境是否完整配置了 TalosArk 的标准 OIDC 登录回调。 */
@@ -140,41 +141,21 @@ export class CasdoorOidcAdapter {
      * 验证 Casdoor 令牌的签名、标准时间声明、issuer、audience 与本次 OIDC nonce。
      * 失败返回 null；身份与本地用户的绑定由 IdentityKernel 决定。
      */
-    public verifyIdToken(idToken: string, expectedNonce: string): VerifiedOidcIdentity | null {
-        const config = this.getOidcConfig();
-        if (!config) return null;
+    // public verifyIdToken(idToken: string, expectedNonce: string): VerifiedOidcIdentity | null {
+    //     const token = this.tokenAdapter.verifyIdToken(idToken, expectedNonce);
+    //     if (!token) return null;
 
-        try {
-            const decoded = jwt.verify(idToken, config.certificate, {
-                algorithms: ['RS256'],
-                issuer: config.issuer,
-                audience: config.clientId,
-            });
-            if (typeof decoded === 'string' || !isRecord(decoded)) return null;
-
-            if (
-                typeof decoded.iss !== 'string' ||
-                typeof decoded.sub !== 'string' ||
-                decoded.nonce !== expectedNonce
-            ) {
-                return null;
-            }
-
-            return {
-                issuer: decoded.iss,
-                subject: decoded.sub,
-                email: asNonEmptyString(decoded.email),
-                emailVerified:
-                    typeof decoded.email_verified === 'boolean'
-                        ? decoded.email_verified
-                        : undefined,
-                preferredUsername:
-                    asNonEmptyString(decoded.preferred_username) ?? asNonEmptyString(decoded.name),
-            };
-        } catch {
-            return null;
-        }
-    }
+    //     const claims = token.claims;
+    //     return {
+    //         issuer: token.issuer,
+    //         subject: token.subject,
+    //         email: asNonEmptyString(claims.email),
+    //         emailVerified:
+    //             typeof claims.email_verified === 'boolean' ? claims.email_verified : undefined,
+    //         preferredUsername:
+    //             asNonEmptyString(claims.preferred_username) ?? asNonEmptyString(claims.name),
+    //     };
+    // }
 
     /** 使用 Casdoor SDK 的固定 appName state 生成登录 URL。 */
     public getSignInUrl(redirectUri: string): string {

@@ -28,7 +28,7 @@ const ConfiguredCasdoorEnvironmentSchema = z.object({
     CASDOOR_ORGANIZATION: z.string().min(1),
     CASDOOR_APPLICATION: z.string().min(1).optional(),
     CASDOOR_CERTIFICATE_PATH: z.string().min(1),
-    CASDOOR_OIDC_REDIRECT_URI: z.url().optional(),
+    CASDOOR_OIDC_REDIRECT_URI: z.url(),
     CASDOOR_OIDC_ISSUER: z.url().optional(),
 });
 
@@ -41,9 +41,9 @@ const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
  * Casdoor 的环境正常启动；一旦开始配置，所有字段和证书都必须完整有效。
  */
 const CasdoorConfigValidateSchema = CasdoorEnvironmentSchema.transform((environment) => {
-    if (Object.values(environment).every((value) => value === undefined)) {
-        return { sdkConfig: undefined };
-    }
+    // if (Object.values(environment).every((value) => value === undefined)) {
+    //     return { sdkConfig: undefined };
+    // }
 
     const configuredEnvironment = ConfiguredCasdoorEnvironmentSchema.parse(environment);
     const certificate = readFile(configuredEnvironment.CASDOOR_CERTIFICATE_PATH).replace(
@@ -69,17 +69,14 @@ const CasdoorConfigValidateSchema = CasdoorEnvironmentSchema.transform((environm
             orgName: configuredEnvironment.CASDOOR_ORGANIZATION,
             appName: configuredEnvironment.CASDOOR_APPLICATION,
         },
-        // 未提供回调地址时保留 SDK 管理能力，但明确禁用标准 OIDC 登录入口。
-        oidc: configuredEnvironment.CASDOOR_OIDC_REDIRECT_URI
-            ? {
-                  endpoint,
-                  issuer,
-                  clientId: configuredEnvironment.CASDOOR_CLIENT_ID,
-                  clientSecret: configuredEnvironment.CASDOOR_CLIENT_SECRET,
-                  certificate,
-                  redirectUri: configuredEnvironment.CASDOOR_OIDC_REDIRECT_URI,
-              }
-            : undefined,
+        oidc: {
+            endpoint,
+            issuer,
+            clientId: configuredEnvironment.CASDOOR_CLIENT_ID,
+            clientSecret: configuredEnvironment.CASDOOR_CLIENT_SECRET,
+            certificate,
+            redirectUri: configuredEnvironment.CASDOOR_OIDC_REDIRECT_URI,
+        },
     };
 });
 

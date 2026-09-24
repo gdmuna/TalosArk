@@ -1,4 +1,3 @@
-/**
- * TODO: 定义 IAM infrastructure 的导出边界。
- */
-export {};
+export * from './iam.client.js';
+export * from './iam.module.js';
+export type { VerifiedIamToken } from './iam-token.adapter.js';

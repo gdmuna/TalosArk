@@ -1,4 +1,3 @@
-import { IdentityKernel } from '@/core/identity/identity.kernel.js';
 import { AUTH_STRATEGY_KEY, AUTH_STRATEGY_TYPE } from '@/platform/http/decorators/index.js';
 import { extractAccessTokenFromRequest } from '@/common/utils/index.js';
 
@@ -14,10 +13,7 @@ import { FastifyRequest } from 'fastify';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-    constructor(
-        private readonly reflector: Reflector,
-        private readonly identityKernel: IdentityKernel
-    ) {}
+    constructor(private readonly reflector: Reflector) {}
 
     canActivate(context: ExecutionContext) {
         const request = context.switchToHttp().getRequest<FastifyRequest>();
@@ -54,17 +50,7 @@ export class AuthGuard implements CanActivate {
         return true;
     }
 
-    private verifyAccessToken(accessToken: string): unknown | null {
-        const kernel = this.identityKernel as IdentityKernel & {
-            verifyAccessToken?: (token: string) => unknown | null;
-        };
-
-        if (!kernel.verifyAccessToken) {
-            // 当前 IdentityKernel 仍是结构性 TODO seam；若误将本 legacy guard 接入全局链路，
-            // 必须拒绝请求而非静默放行。
-            throw new ServiceUnavailableException('Identity verification is not available');
-        }
-
-        return kernel.verifyAccessToken(accessToken);
+    private verifyAccessToken(_accessToken: string): never {
+        throw new ServiceUnavailableException('Identity verification is not available');
     }
 }
