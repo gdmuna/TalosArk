@@ -1,2 +1,3 @@
 export { KvsModule } from './kvs.module.js';
-export { KvsService, type KvsSetCondition, type KvsSetOptions } from './kvs.service.js';
+export { KvsClient } from './kvs.client.js';
+export * from './key/index.js';

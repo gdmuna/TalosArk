@@ -1,23 +1,51 @@
-import { createClient } from 'redis';
+import { REDIS_CLIENT } from './kvs.constants.js';
+import { type RedisClient } from './redis.client.js';
+import { KvsHashAtomic } from './lua/hash.atomic.js';
+import { KvsListAtomic } from './lua/list.atomic.js';
+import { KvsSetAtomic } from './lua/set.atomic.js';
+import { KvsStringAtomic } from './lua/string.atomic.js';
+
+import { timeout } from '@/common/utils/index.js';
+
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 /**
- * `redis` 客户端使用 Redis 协议名，但 Valkey 部署配置可自然地写成
- * `valkey://` / `valkeys://`。两者在线路协议上兼容，因此仅在适配层
- * 规范化 scheme，保留调用方原有的主机、认证和数据库配置。
+ * Valkey 的应用入口，负责客户端连接生命周期与按数据类型组织的原子 Lua 操作。
+ *
+ * 单命令操作直接通过 `redisClient` 调用；值的序列化由调用方决定。
  */
-function normalizeKvsUrl(url: string): string {
-    const parsedUrl = new URL(url);
+@Injectable()
+export class KvsClient implements OnModuleInit, OnModuleDestroy {
+    private readonly logger = new Logger(KvsClient.name);
 
-    if (parsedUrl.protocol === 'valkey:') {
-        parsedUrl.protocol = 'redis:';
-    } else if (parsedUrl.protocol === 'valkeys:') {
-        parsedUrl.protocol = 'rediss:';
+    public readonly atomic: KvsStringAtomic;
+    public readonly hAtomic: KvsHashAtomic;
+    public readonly lAtomic: KvsListAtomic;
+    public readonly sAtomic: KvsSetAtomic;
+
+    public constructor(@Inject(REDIS_CLIENT) public readonly redisClient: RedisClient) {
+        this.atomic = new KvsStringAtomic(redisClient);
+        this.hAtomic = new KvsHashAtomic(redisClient);
+        this.lAtomic = new KvsListAtomic(redisClient);
+        this.sAtomic = new KvsSetAtomic(redisClient);
+
+        this.redisClient.on('error', (error) => {
+            this.logger.error(error, 'Valkey client error');
+        });
     }
 
-    return parsedUrl.toString();
+    /** 在 Nest 模块初始化时建立连接，使基础设施故障能尽早暴露。 */
+    public async onModuleInit(): Promise<void> {
+        if (!this.redisClient.isOpen) {
+            await timeout(this.redisClient.connect(), 3000, 'KVS Connect Timeout');
+        }
+        this.logger.debug('KVS connected');
+    }
+
+    /** 进程正常关闭时关闭连接。 */
+    public async onModuleDestroy(): Promise<void> {
+        if (this.redisClient.isOpen) {
+            await this.redisClient.close();
+        }
+    }
 }
-
-/** 创建连接至 Valkey（Redis 协议）的客户端。 */
-export const createKvsClient = (url: string) => createClient({ url: normalizeKvsUrl(url) });
-
-export type KvsClient = ReturnType<typeof createKvsClient>;

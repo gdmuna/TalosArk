@@ -1,4 +1,3 @@
-/**
- * TODO: 放置极少量、领域无关且无运行时依赖的类型。
- */
-export {};
+export type Simplify<Type> = {
+    [Key in keyof Type]: Type[Key];
+} & {};
