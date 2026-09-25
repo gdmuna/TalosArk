@@ -1,17 +1,18 @@
 import type { Mock, Mocked } from 'vitest';
 
 import {
-    CasdoorOidcAdapter,
+    IamOidcAdapter,
     type CasdoorOidcSdk,
     type CasdoorOidcTokenIntrospection,
     type CasdoorOidcTokenSet,
     type CasdoorOidcUser,
 } from '@/infra/iam/iam-oidc.adapter.js';
+import { IamTokenAdapter } from '@/infra/iam/iam-token.adapter.js';
 
 import { generateKeyPairSync } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 
-describe('CasdoorOidcAdapter', () => {
+describe('IamOidcAdapter', () => {
     const oidcConfig = {
         endpoint: 'https://casdoor.example.test',
         issuer: 'https://casdoor.example.test',
@@ -23,7 +24,8 @@ describe('CasdoorOidcAdapter', () => {
 
     let sdk: Mocked<CasdoorOidcSdk>;
     let configService: { get: Mock };
-    let client: CasdoorOidcAdapter;
+    let client: IamOidcAdapter;
+    let tokenAdapter: IamTokenAdapter;
 
     beforeEach(() => {
         sdk = {
@@ -39,7 +41,8 @@ describe('CasdoorOidcAdapter', () => {
         configService = {
             get: vi.fn().mockReturnValue(oidcConfig),
         };
-        client = new CasdoorOidcAdapter(configService as never, sdk);
+        tokenAdapter = new IamTokenAdapter(configService as never);
+        client = new IamOidcAdapter(configService as never, sdk, tokenAdapter);
     });
 
     afterEach(() => {
@@ -127,14 +130,15 @@ describe('CasdoorOidcAdapter', () => {
             }
         );
 
-        expect(client.verifyIdToken(idToken, 'nonce_1')).toEqual({
-            issuer: oidcConfig.issuer,
-            subject: 'casdoor-user-1',
-            email: 'oidc@example.com',
-            emailVerified: undefined,
-            preferredUsername: 'oidc-user',
-        });
-        expect(client.verifyIdToken(idToken, 'wrong-nonce')).toBeNull();
+        expect(tokenAdapter.verifyIdToken(idToken, { expectedNonce: 'nonce_1' })).toEqual(
+            expect.objectContaining({
+                issuer: oidcConfig.issuer,
+                subject: 'casdoor-user-1',
+                audience: oidcConfig.clientId,
+                nonce: 'nonce_1',
+            })
+        );
+        expect(tokenAdapter.verifyIdToken(idToken, { expectedNonce: 'wrong-nonce' })).toBeNull();
     });
 
     it('delegates Casdoor SDK helper APIs only within Infra', async () => {
