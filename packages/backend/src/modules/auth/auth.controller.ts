@@ -29,7 +29,7 @@ export class AuthController {
         @Cookie('talosArk_oidc_transaction') id: string,
         @Res({ passthrough: true }) res: FastifyReply
     ) {
-        const data = await this.authService.resolveOidcLoginCallback({ ...dto, id });
+        const data = await this.authService.oidcLoginCallback({ ...dto, id });
         res.clearCookie('talosArk_oidc_transaction');
         return data;
     }

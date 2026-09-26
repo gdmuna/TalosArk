@@ -7,3 +7,5 @@ export function createCasdoorClient(config: CasdoorSdkConfig): SDK {
 }
 
 export type CasdoorClient = ReturnType<typeof createCasdoorClient>;
+
+export type CasdoorUser = ReturnType<CasdoorClient['parseJwtToken']>;

@@ -1,3 +1,5 @@
+import { CasdoorUser } from './casdoor.client.js';
+
 import { AllConfig } from '@/config/index.js';
 
 import { Injectable } from '@nestjs/common';
@@ -12,7 +14,7 @@ export interface VerifiedIamToken {
     issuedAt: number;
     expiresAt: number;
     nonce?: string;
-    claims: Readonly<Record<string, unknown>>;
+    claims: Readonly<CasdoorUser>;
 }
 
 /** Casdoor 令牌的本地校验与解码；不会查询 Casdoor 的令牌撤销状态。 */
@@ -58,7 +60,7 @@ export class IamTokenAdapter {
                 algorithms: ['RS256'],
                 issuer: config.issuer,
                 audience: config.clientId,
-            });
+            }) as CasdoorUser;
             if (!isRecord(claims)) return null;
             if (
                 typeof claims.iss !== 'string' ||

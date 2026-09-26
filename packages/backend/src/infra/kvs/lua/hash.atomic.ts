@@ -22,7 +22,7 @@ export class KvsHashAtomic {
     public constructor(private readonly client: RedisClient) {}
 
     /** 原子读取整个 Hash 后删除；key 不存在时返回空对象。 */
-    public async getAndDelete(key: string): Promise<Record<string, string>> {
+    public async getAllAndDelete(key: string): Promise<Record<string, string>> {
         const result = await this.client.eval(hashScripts.getAndDelete, {
             keys: [key],
             arguments: [],
