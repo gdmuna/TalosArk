@@ -37,6 +37,9 @@ export function extractAccessTokenFromRequest(request: FastifyRequest): string |
  * @example
  * const refreshToken = authService.extractRefreshTokenFromRequest(request);
  */
-export function extractRefreshTokenFromRequest(request: FastifyRequest): string | null {
-    return request.cookies?.[REFRESH_TOKEN_COOKIE_NAME] || null;
+export function extractRefreshTokenFromRequest(
+    request: FastifyRequest,
+    name?: string
+): string | null {
+    return request.cookies?.[name || REFRESH_TOKEN_COOKIE_NAME] || null;
 }

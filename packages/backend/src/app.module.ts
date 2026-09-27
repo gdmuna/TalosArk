@@ -1,6 +1,8 @@
 import allConfig, { type AllConfig } from '@/config/index.js';
 
-import { KvsModule } from './infra/kvs/kvs.module.js';
+import { AccessModule } from './core/access/index.js';
+
+import { KvsModule } from '@/infra/kvs/kvs.module.js';
 
 import { AuthModule } from '@/modules/auth/index.js';
 
@@ -9,6 +11,7 @@ import {
     AllExceptionFilter,
     ThrottlerExceptionFilter,
 } from '@/platform/http/filters/app.filter.js';
+import { AuthGuard } from './platform/http/guards/auth.guard.js';
 import {
     PerformanceInterceptor,
     ResponseFormatInterceptor,
@@ -93,14 +96,19 @@ import pino from 'pino';
                 };
             },
         }),
+        AccessModule,
         KvsModule,
-        PlatformContextModule,
         AuthModule,
+        PlatformContextModule,
     ],
     providers: [
         {
             provide: APP_GUARD,
             useClass: ThrottlerGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: AuthGuard,
         },
         // 入站按声明顺序执行；出站反向执行，使 Zod 先校验控制器结果再包装成功响应。
         {
