@@ -13,8 +13,6 @@ model User {
   username     String   @unique
   email        String   @unique
   passwordHash String?
-  // nickname     String?
-  // realname     String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -76,23 +74,24 @@ model ExternalIdentity {
 // }
 
 model Session {
-  id                String    @id @default(uuid(7)) @db.Uuid
-  userId            String    @db.Uuid
-  version           Int       @default(1)
-  idleExpiresAt     DateTime
-  absoluteExpiresAt DateTime?
-  revokedAt         DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id            String    @id @default(uuid(7)) @db.Uuid
+  userId        String    @db.Uuid
+  version       Int       @default(1)
+  idleExpiresAt DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenFamily TokenFamily[]
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenPairs TokenPair[]
 
   @@index([userId])
   @@index([idleExpiresAt])
+  @@index([createdAt])
+  @@index([updatedAt])
 }
 
-model TokenFamily {
+model TokenPair {
   id         String    @id @default(uuid(7)) @db.Uuid
   sessionId  String    @db.Uuid
   generation Int       @default(1)
@@ -102,28 +101,30 @@ model TokenFamily {
   session      Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   accessToken  AccessToken?
   refreshToken RefreshToken?
+
+  @@unique([sessionId, generation])
 }
 
 model AccessToken {
   id        String   @id @default(uuid(7)) @db.Uuid // JWT jti
-  familyId  String   @unique @db.Uuid
+  pairId    String   @unique @db.Uuid
   expiresAt DateTime
   createdAt DateTime
 
-  family TokenFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  tokenPair TokenPair @relation(fields: [pairId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
 }
 
 model RefreshToken {
   id         String    @id @default(uuid(7)) @db.Uuid
-  familyId   String    @unique @db.Uuid
+  pairId     String    @unique @db.Uuid
   tokenHash  String    @unique
   expiresAt  DateTime
   consumedAt DateTime?
   createdAt  DateTime
 
-  family TokenFamily @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  tokenPair TokenPair @relation(fields: [pairId], references: [id], onDelete: Cascade)
 
   @@index([expiresAt])
 }
