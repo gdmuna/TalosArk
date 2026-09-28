@@ -143,6 +143,9 @@ export class IdentityKernel {
                 include: {
                     profile: true,
                 },
+                omit: {
+                    passwordHash: true,
+                },
             });
         }
 
