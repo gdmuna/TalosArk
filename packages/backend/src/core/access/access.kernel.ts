@@ -150,7 +150,7 @@ export class AccessKernel {
             timeReference: nowDate,
         });
 
-        const updatedSession = await this.prismaService.session.update({
+        const updatedSessionClient = this.prismaService.session.update({
             where: {
                 id: session.id,
                 revokedAt: null,
@@ -182,6 +182,22 @@ export class AccessKernel {
                 },
             },
         });
+
+        const updateRefreshTokenClient = this.prismaService.refreshToken.update({
+            where: {
+                tokenHash: refreshTokenHash,
+                expiresAt: { gt: nowDate },
+                consumedAt: null,
+            },
+            data: {
+                consumedAt: now.startOf('second').toDate(),
+            },
+        });
+
+        const [updatedSession, _updateRefreshToken] = await this.prismaService.$transaction([
+            updatedSessionClient,
+            updateRefreshTokenClient,
+        ]);
 
         return {
             session: {
