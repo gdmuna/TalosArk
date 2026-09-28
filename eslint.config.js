@@ -63,6 +63,26 @@ export default [
         },
     },
 
+    // Shared contracts must not rely on Node.js or browser globals.
+    {
+        files: ['packages/contract/src/**/*.ts'],
+        languageOptions: {
+            parser: tsParser,
+            globals: globals.es2026,
+            parserOptions: {
+                sourceType: 'module',
+            },
+        },
+        plugins: {
+            '@typescript-eslint': tsPlugin,
+        },
+        rules: {
+            ...eslint.configs.recommended.rules,
+            ...tsPlugin.configs.recommended.rules,
+            ...commonRules,
+        },
+    },
+
     // ── packages/frontend: Vue 3 + TypeScript ───
     {
         files: ['packages/frontend/src/**/*.{js,ts,vue}'],

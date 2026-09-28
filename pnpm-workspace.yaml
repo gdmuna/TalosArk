@@ -1,5 +1,6 @@
 packages:
   - './packages/backend'
+  - './packages/contract'
   - './packages/docsite'
   - './packages/frontend'
 

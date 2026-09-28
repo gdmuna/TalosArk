@@ -16,11 +16,13 @@ RUN apt-get update \
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml .npmrc package.json ./
 COPY packages/backend/package.json ./packages/backend/
+COPY packages/contract/package.json ./packages/contract/
 
 # 2. 安装工作区依赖（lockfile 锁版本）
-RUN pnpm --filter @talos-ark/backend install --frozen-lockfile --ignore-scripts
+RUN pnpm --filter @talos-ark/backend... install --frozen-lockfile --ignore-scripts
 
 COPY packages/backend/ ./packages/backend/
+COPY packages/contract/ ./packages/contract/
 
 # 3. 生成 Prisma Client + 编译 TypeScript
 ARG DATABASE_URL="postgresql://username:password@host:5432/dbName?schema=public"

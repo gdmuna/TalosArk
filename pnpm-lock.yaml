@@ -259,6 +259,9 @@ importers:
       '@scalar/nestjs-api-reference':
         specifier: ^1.2.23
         version: 1.2.23
+      '@talos-ark/contracts':
+        specifier: workspace:*
+        version: link:../contract
       axios:
         specifier: ^1.20.0
         version: 1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
@@ -399,6 +402,16 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@26.6.3)(@vitest/coverage-v8@4.1.11)(jsdom@30.1.1(@noble/hashes@1.8.0))(vite@8.3.1(@types/node@26.6.3)(esbuild@0.28.2)(jiti@2.7.0)(stylus@0.57.0(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/contract:
+    dependencies:
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/docsite:
     dependencies:
       '@mdit/plugin-tasklist':
@@ -432,6 +445,9 @@ importers:
       '@lucide/vue':
         specifier: ^1.48.0
         version: 1.48.0(vue@3.5.43(typescript@6.0.3))
+      '@talos-ark/contracts':
+        specifier: workspace:*
+        version: link:../contract
       '@tanstack/vue-table':
         specifier: ^9.2.4
         version: 9.2.4(vue@3.5.43(typescript@6.0.3))
