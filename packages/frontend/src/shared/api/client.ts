@@ -1,11 +1,6 @@
 import axios from 'axios';
+import { ApiResponseSchema } from '@talos-ark/contracts/protocol';
 import { getAccessToken, setAccessToken, callRefreshToken } from './token';
-
-interface ApiResponse<T = unknown> {
-    success: boolean;
-    message?: string;
-    data: T;
-}
 
 export const axiosInstance = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
@@ -24,7 +19,7 @@ axiosInstance.interceptors.request.use((config) => {
 // Response interceptor: unwrap envelope + handle 401 refresh
 axiosInstance.interceptors.response.use(
     (response): any => {
-        const json: ApiResponse = response.data;
+        const json = ApiResponseSchema.parse(response.data);
         if (!json.success) {
             throw new Error(json.message || 'API Error');
         }

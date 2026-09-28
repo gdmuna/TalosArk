@@ -1,3 +1,5 @@
+import type { ApiResponse } from '@talos-ark/contracts/protocol';
+
 /**
  * In-memory access token store.
  *
@@ -14,12 +16,6 @@ export const getAccessToken = () => _accessToken;
 export const setAccessToken = (token: string | null) => {
     _accessToken = token;
 };
-
-interface ApiResponse<T = unknown> {
-    success: boolean;
-    message?: string;
-    data: T;
-}
 
 /**
  * Calls POST /auth/refresh-token using the HttpOnly refresh cookie.
