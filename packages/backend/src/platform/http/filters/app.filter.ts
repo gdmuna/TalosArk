@@ -13,6 +13,8 @@ import { ERROR_REFERENCE_URL } from '@/config/index.js';
 import { toKebabCase } from '@/common/utils/index.js';
 
 import { AlsContextAdapter as RequestContextService } from '@/platform/context/als-context.adapter.js';
+import { toApiResponseContext } from '../response-context.js';
+import type { ApiErrorResponse } from '@talos-ark/contracts/protocol';
 
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
@@ -39,7 +41,7 @@ abstract class BaseExceptionFilter implements ExceptionFilter {
         // 防止双重响应：headers 已发送时直接跳过（Filter 被重入时的安全阀）
         if (response.sent) return;
 
-        const requestContext = this.requestContextService.get() ?? null;
+        const requestContext = this.requestContextService.get();
 
         const logContext = {
             requestId: request.id || 'unknown',
@@ -83,9 +85,9 @@ abstract class BaseExceptionFilter implements ExceptionFilter {
             message,
             type: docsUrl,
             timestamp: new Date().toISOString(),
-            context: requestContext,
+            context: toApiResponseContext(requestContext),
             details: exception.details ?? null,
-        });
+        } satisfies ApiErrorResponse);
     }
 }
 

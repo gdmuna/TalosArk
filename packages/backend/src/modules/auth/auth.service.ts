@@ -16,7 +16,9 @@ export class AuthService {
         return this.identityKernel.createOidcTransaction();
     }
 
-    async oidcLoginCallback(input: Auth.OidcLoginCallbackInput) {
+    async oidcLoginCallback(
+        input: Auth.OidcLoginCallbackInput
+    ): Promise<Auth.OidcLoginCallbackOutput> {
         const oidcRes = await this.identityKernel.resolveOidcLoginCallback(input);
 
         let user = await this.identityKernel.getInternalUser({

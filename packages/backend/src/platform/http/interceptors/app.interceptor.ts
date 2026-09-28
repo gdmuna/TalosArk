@@ -3,6 +3,8 @@ import { Logger } from '@/platform/observability/index.js';
 import { AllConfig } from '@/config/index.js';
 
 import { AlsContextAdapter as RequestContextService } from '@/platform/context/als-context.adapter.js';
+import { toApiResponseContext } from '../response-context.js';
+import type { ApiSuccessResponse } from '@talos-ark/contracts/protocol';
 
 import {
     Injectable,
@@ -104,13 +106,13 @@ export class ResponseFormatInterceptor implements NestInterceptor {
     intercept(_: ExecutionContext, next: CallHandler) {
         return next.handle().pipe(
             map((data) => {
-                const requestContext = this.requestContextService.get() ?? null;
+                const requestContext = toApiResponseContext(this.requestContextService.get());
                 return {
                     success: true,
                     data: data ?? null,
                     timestamp: new Date().toISOString(),
                     context: requestContext,
-                };
+                } satisfies ApiSuccessResponse;
             })
         );
     }

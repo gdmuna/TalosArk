@@ -1,4 +1,5 @@
 import type * as Prisma from '@root/prisma/generated/models.js';
+import type { CreateUserSessionOutput } from '@/core/access/access.contract.js';
 
 import { Simplify } from '@/common/types/index.js';
 
@@ -16,8 +17,10 @@ export type OidcLoginCallbackOutput = Simplify<
 
 export interface OidcLoginCallbackSuccessOutput {
     type: 'success';
+    data: CreateUserSessionOutput;
 }
 
 export interface OidcLoginCallbackBlockOutput {
     type: 'block';
+    data: Record<string, never>;
 }

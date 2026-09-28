@@ -1,7 +1,7 @@
-import { APP_VERSION } from '@/config/app.config.js';
+import { ApiErrorResponseSchema, ApiSuccessResponseSchema } from '@talos-ark/contracts/protocol';
 
 import type { OpenAPIObject } from '@nestjs/swagger';
-import { ulid } from 'ulid';
+import { z } from 'zod';
 
 const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'] as const;
 
@@ -52,7 +52,7 @@ export function wrapSuccessResponses(doc: OpenAPIObject): OpenAPIObject {
  * 错误体结构与运行时 `AllExceptionFilter` 输出保持一致：
  * ```json
  * { "success": false, "code": "...", "message": "...", "type": "uri",
- *   "timestamp": "date-time", "context": { requestId, ... }, "details": null | FieldError[] }
+ *   "timestamp": "date-time", "context": { requestId, ... }, "details": null | ... }
  * ```
  *
  * 在 `wrapSuccessResponses` 之后、`SwaggerModule.setup` 之前调用。
@@ -79,124 +79,19 @@ export function enrichErrorResponses(doc: OpenAPIObject): OpenAPIObject {
     return doc;
 }
 
-const ERROR_RESPONSE_SCHEMA: Record<string, unknown> = {
-    type: 'object',
-    required: ['success', 'code', 'message', 'type', 'timestamp', 'context', 'details'],
-    properties: {
-        success: {
-            type: 'boolean',
-            example: false,
-            description: '操作结果，失败时始终为 false',
-            title: '操作结果标志',
-        },
-        code: {
-            type: 'string',
-            description: '错误码标识符',
-        },
-        message: {
-            type: 'string',
-            description: '错误的人类可读描述',
-        },
-        type: {
-            type: 'string',
-            format: 'uri',
-            description: '错误文档链接',
-        },
-        timestamp: {
-            type: 'string',
-            format: 'date-time',
-            example: new Date().toISOString(),
-            description: '响应生成时间（ISO 8601）',
-        },
-        context: {
-            nullable: true,
-            description: '请求上下文，未进入 ALS 链路时为 null',
-            type: 'object',
-            required: ['requestId', 'time', 'version'],
-            properties: {
-                requestId: {
-                    type: 'string',
-                    example: ulid(),
-                    description: '请求唯一 ID（ULID）',
-                },
-                time: {
-                    type: 'number',
-                    example: Date.now(),
-                    description: 'Unix 时间戳（ms）',
-                },
-                version: {
-                    type: 'string',
-                    example: APP_VERSION,
-                    description: '应用版本号',
-                },
-                metadata: {
-                    type: 'object',
-                    additionalProperties: true,
-                    description: '额外上下文数据',
-                },
-            },
-        },
-        details: {
-            nullable: true,
-            description: '字段级错误详情，仅校验失败时填充，否则为 null',
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['field', 'message', 'code'],
-                properties: {
-                    field: { type: 'string', description: '出错字段路径' },
-                    message: { type: 'string', description: '字段错误描述' },
-                    code: { type: 'string', description: 'Zod 错误码' },
-                },
-            },
-        },
-    },
-};
+const ERROR_RESPONSE_SCHEMA = z.toJSONSchema(ApiErrorResponseSchema, {
+    target: 'openapi-3.0',
+});
+const SUCCESS_RESPONSE_SCHEMA = z.toJSONSchema(ApiSuccessResponseSchema, {
+    target: 'openapi-3.0',
+});
 
 function buildEnvelopeSchema(dataSchema: Record<string, unknown>): Record<string, unknown> {
     return {
-        type: 'object',
-        required: ['success', 'data', 'timestamp', 'context'],
+        ...SUCCESS_RESPONSE_SCHEMA,
         properties: {
-            success: {
-                type: 'boolean',
-                example: true,
-                description: '操作结果标志',
-            },
+            ...SUCCESS_RESPONSE_SCHEMA.properties,
             data: dataSchema,
-            timestamp: {
-                type: 'string',
-                format: 'date-time',
-                example: new Date().toISOString(),
-                description: '响应时间戳（ISO 8601）',
-            },
-            context: {
-                type: 'object',
-                description: '请求上下文',
-                required: ['requestId', 'time', 'version'],
-                properties: {
-                    requestId: {
-                        type: 'string',
-                        example: ulid(),
-                        description: '请求唯一标识（ULID）',
-                    },
-                    time: {
-                        type: 'number',
-                        example: Date.now(),
-                        description: 'Unix 时间戳（ms）',
-                    },
-                    version: {
-                        type: 'string',
-                        example: APP_VERSION,
-                        description: '应用版本号',
-                    },
-                    metadata: {
-                        type: 'object',
-                        additionalProperties: true,
-                        description: '额外上下文数据',
-                    },
-                },
-            },
         },
     };
 }

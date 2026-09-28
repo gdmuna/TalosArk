@@ -24,10 +24,7 @@ type CookieSelector = { schema: z.ZodType } | z.ZodType | string | string[] | un
  * async handler(@Cookie() cookies: Record<string, string>) {}
  */
 export const Cookie = createParamDecorator((selector: CookieSelector, ctx: ExecutionContext) => {
-    const cookies = ctx.switchToHttp().getRequest<FastifyRequest>().cookies as Record<
-        string,
-        string
-    >;
+    const cookies = ctx.switchToHttp().getRequest<FastifyRequest>().cookies;
 
     if (!selector) return cookies;
 
