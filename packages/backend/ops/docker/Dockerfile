@@ -46,7 +46,7 @@ COPY --from=builder /talos-ark/packages/backend/dist ./dist
 # .env.* 文件在构建时从 service 目录复制（含加密的 dotenvx 文件）
 COPY packages/backend/secrets/env/* ./secrets/env/
 
-COPY packages/backend/secrets/keys/* ./secrets/keys/
+COPY packages/backend/secrets/crypto/* ./secrets/crypto/
 
 # 替换为中科大（USTC）镜像源，避免官方源在国内网络不稳定
 COPY packages/backend/ops/docker/apt/debian.${DEBIAN_SUITE}.sources /etc/apt/sources.list.d/debian.sources
