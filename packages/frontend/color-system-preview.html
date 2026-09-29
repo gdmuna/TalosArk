@@ -3,918 +3,1109 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>TalosArk · Color System Preview</title>
-        <style>
+        <title>TalosArk · Design Token Review</title>
+        <!-- Generated token snapshot: node scripts/sync-color-preview.mjs -->
+        <style id="design-tokens">
             :root {
-                --background: oklch(98.3% 0.00398 122.382);
-                --foreground: oklch(0.278 0.03 256.8);
-                --card: oklch(0.997 0.002 122.382);
-                --popover: oklch(0.997 0.002 122.382);
-                --primary: hsl(216 98% 52%);
-                --primary-soft: #e7eefe;
-                --primary-soft-foreground: var(--primary);
-                --primary-hover: #0a63e9;
+                --radius: 0.5rem;
+                --background: oklch(98.6% 0.00216 106.83);
+                --foreground: oklch(0 0 0);
+                --card: oklch(99.675% 0.00121 107.847);
+                --card-foreground: var(--foreground);
+                --popover: var(--card);
+                --popover-foreground: var(--foreground);
+                --primary: oklch(0.53732 0.25524 262.34);
+                --primary-soft: oklch(0.95 0.02 262.34);
+                --primary-soft-foreground: oklch(0.52 0.13 262.34);
+                --primary-hover: oklch(0.48732 0.22972 262.34);
                 --primary-hover-foreground: var(--primary-foreground);
-                --primary-active: #0959ce;
+                --primary-active: oklch(0.43732 0.22972 262.34);
                 --primary-active-foreground: var(--primary-foreground);
                 --primary-foreground: oklch(1 0 0);
-                --neutral-selected: oklch(0.89 0.01 122.382);
+                --neutral-selected: oklch(0.91 0.004 107);
                 --neutral-selected-foreground: var(--foreground);
-                --secondary: var(--neutral-selected);
+                --secondary: var(--muted);
                 --secondary-foreground: var(--foreground);
-                --muted: oklch(0.962 0.004 122.382);
-                --muted-foreground: oklch(0.551 0.023 264.4);
-                --accent: oklch(0.945 0.006 122.382);
+                --muted: oklch(96.959% 0.00154 107.11);
+                --muted-foreground: oklch(0.48 0.006 107);
+                --accent: oklch(0.94 0.003 107);
                 --accent-foreground: var(--foreground);
-                --destructive: hsl(3 95% 61%);
-                --destructive-soft: #fde8e7;
-                --destructive-soft-foreground: var(--destructive);
-                --destructive-hover: #e64339;
-                --destructive-active: #d9362c;
-                --success: hsl(157 83% 45%);
-                --success-soft: #e1f7ec;
-                --success-soft-foreground: var(--success);
-                --warning: hsl(37 98% 56%);
-                --warning-soft: #ffebd8;
-                --warning-soft-foreground: var(--warning);
-                --border: oklch(0.9 0.007 122.382);
-                --input: oklch(0.82 0.01 122.382);
-                --ring: oklch(0.64 0.11 255);
+                --destructive: oklch(0.61834 0.25143 29.08);
+                --destructive-soft: oklch(0.96 0.02 29.08);
+                --destructive-soft-foreground: oklch(0.5 0.13 29.08);
+                --destructive-hover: oklch(0.64334 0.22629 29.08);
+                --destructive-active: oklch(0.66834 0.22629 29.08);
+                --destructive-foreground: var(--foreground);
+                --success: oklch(0.63339 0.14652 158.65);
+                --success-soft: oklch(0.96 0.02 158.65);
+                --success-soft-foreground: oklch(0.5 0.1 158.65);
+                --success-foreground: var(--foreground);
+                --caution: oklch(0.70616 0.19411 46.68);
+                --caution-soft: oklch(0.96 0.025 46.68);
+                --caution-soft-foreground: oklch(0.52 0.11 46.68);
+                --caution-foreground: var(--foreground);
+                --warning: oklch(0.82 0.16 85);
+                --warning-soft: oklch(0.97 0.035 85);
+                --warning-soft-foreground: oklch(0.5 0.09 85);
+                --warning-foreground: var(--foreground);
+                --border: oklch(0.9 0.003 107);
+                --input: oklch(0.64 0.005 107);
+                --ring: var(--primary);
+                --chart-1: oklch(0.62 0.18 250);
+                --chart-2: oklch(0.65 0.14 155);
+                --chart-3: oklch(0.67 0.15 65);
+                --chart-4: oklch(0.61 0.17 310);
+                --chart-5: oklch(0.64 0.18 25);
+                --chart-6: oklch(0.63 0.105 205);
+                --chart-7: oklch(0.67 0.14 110);
+                --chart-8: oklch(0.63 0.17 285);
+                --chart-9: oklch(0.61 0.17 350);
+                --chart-10: oklch(0.66 0.12 230);
                 --sidebar: var(--muted);
-                --sidebar-accent: var(--neutral-selected);
-                --radius: 8px;
-                --shadow-xs: 0 1px 2px rgb(15 23 42 / 4%);
-                --shadow-md: 0 4px 10px rgb(15 23 42 / 8%), 0 2px 4px rgb(15 23 42 / 4%);
+                --sidebar-foreground: var(--foreground);
+                --sidebar-primary: var(--primary);
+                --sidebar-primary-foreground: var(--primary-foreground);
+                --sidebar-accent: var(--accent);
+                --sidebar-accent-foreground: var(--foreground);
+                --sidebar-border: var(--border);
+                --sidebar-ring: var(--ring);
+                --shadow-xs: 0 1px 2px oklch(0.21 0 0 / 4%);
+                --shadow-sm: 0 1px 3px oklch(0.21 0 0 / 6%), 0 1px 2px oklch(0.21 0 0 / 4%);
+                --shadow-md: 0 4px 10px oklch(0.21 0 0 / 8%), 0 2px 4px oklch(0.21 0 0 / 4%);
+                --shadow-lg: 0 12px 24px oklch(0.21 0 0 / 10%), 0 4px 8px oklch(0.21 0 0 / 4%);
+                --shadow-xl: 0 20px 40px oklch(0.21 0 0 / 12%), 0 8px 16px oklch(0.21 0 0 / 5%);
                 --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+                --radius-sm: calc(var(--radius) - 4px);
+                --radius-md: calc(var(--radius) - 2px);
+                --radius-lg: var(--radius);
+                --radius-xl: calc(var(--radius) + 4px);
+                --radius-2xl: calc(var(--radius) + 8px);
+                --radius-3xl: calc(var(--radius) + 12px);
+                --text-md: 1rem;
             }
-
+        </style>
+        <style>
             * {
                 box-sizing: border-box;
             }
-
             body {
                 margin: 0;
                 background: var(--background);
                 color: var(--foreground);
-                font-family:
-                    ui-sans-serif,
-                    system-ui,
-                    -apple-system,
-                    BlinkMacSystemFont,
+                font:
+                    14px/1.5 system-ui,
                     'Segoe UI',
-                    'PingFang SC',
                     'Microsoft YaHei',
                     sans-serif;
-                font-size: 14px;
-                line-height: 1.5;
+                letter-spacing: 0;
             }
-
-            button {
+            button,
+            input,
+            select {
                 font: inherit;
             }
-
-            .page {
-                width: min(1180px, calc(100% - 48px));
-                margin: 0 auto;
-                padding: 48px 0 72px;
-            }
-
-            .eyebrow {
-                margin: 0 0 8px;
-                color: var(--primary);
-                font-size: 12px;
-                font-weight: 650;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-            }
-
-            h1,
-            h2,
-            h3,
-            p {
-                margin-top: 0;
-            }
-
-            h1 {
-                margin-bottom: 8px;
-                font-size: 28px;
-                letter-spacing: -0.02em;
-            }
-
-            h2 {
-                margin-bottom: 4px;
-                font-size: 18px;
-            }
-
-            .lede,
-            .section-description {
-                color: var(--muted-foreground);
-            }
-
-            .lede {
-                max-width: 720px;
-                margin-bottom: 32px;
-                font-size: 15px;
-            }
-
-            .section {
-                margin-top: 36px;
-            }
-
-            .section-heading {
-                display: flex;
-                align-items: end;
-                justify-content: space-between;
-                gap: 16px;
-                margin-bottom: 16px;
-            }
-
-            .section-description {
-                margin: 0;
-                font-size: 13px;
-            }
-
-            .workbench {
-                display: grid;
-                min-height: 420px;
-                overflow: hidden;
-                border: 1px solid var(--border);
-                border-radius: 12px;
-                background: var(--background);
-                box-shadow: var(--shadow-md);
-                grid-template-columns: 224px minmax(0, 1fr);
-                grid-template-rows: 40px minmax(0, 1fr);
-            }
-
-            .titlebar {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                grid-column: 1 / -1;
-                border-bottom: 1px solid var(--border);
-                background: var(--muted);
-                padding: 0 14px;
-            }
-
-            .brand,
-            .window-controls,
-            .utility-actions,
-            .sidebar-item {
-                display: flex;
-                align-items: center;
-            }
-
-            .brand {
-                gap: 8px;
-                font-size: 13px;
-                font-weight: 600;
-            }
-
-            .brand-mark {
-                width: 16px;
-                height: 16px;
-                border: 1.5px solid currentcolor;
-                border-radius: 4px;
-                transform: rotate(30deg);
-            }
-
-            .window-controls {
-                gap: 4px;
-            }
-
-            .icon-button {
-                display: grid;
-                width: 28px;
-                height: 28px;
+            button,
+            select,
+            input[type='checkbox'] {
                 cursor: pointer;
-                place-items: center;
-                border: 0;
-                border-radius: 6px;
-                background: transparent;
-                color: var(--foreground);
+            }
+            :focus-visible {
+                outline: 2px solid var(--ring);
+                outline-offset: 3px;
+            }
+            button {
+                min-height: 36px;
+                padding: 6px 12px;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-md);
+                background: var(--card);
+                color: var(--card-foreground);
                 transition: background-color 150ms var(--ease-standard);
             }
-
-            .icon-button:hover,
-            .icon-button.is-hover {
+            button:hover,
+            .hover {
                 background: var(--accent);
             }
-
-            .sidebar {
-                display: flex;
-                flex-direction: column;
-                gap: 16px;
-                border-right: 1px solid var(--border);
-                background: var(--sidebar);
-                padding: 16px 12px;
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
             }
-
-            .workspace-switcher {
+            button[aria-pressed='true'] {
+                background: var(--neutral-selected);
+                font-weight: 600;
+            }
+            .primary {
+                background: var(--primary);
+                color: var(--primary-foreground);
+                border-color: transparent;
+            }
+            .primary:hover,
+            .primary.hover {
+                background: var(--primary-hover);
+                color: var(--primary-hover-foreground);
+            }
+            .primary.pressed {
+                background: var(--primary-active);
+                color: var(--primary-active-foreground);
+            }
+            .destructive {
+                background: var(--destructive);
+                color: var(--destructive-foreground);
+                border-color: transparent;
+            }
+            .destructive:hover {
+                background: var(--destructive-hover);
+            }
+            .secondary {
+                background: var(--secondary);
+                color: var(--secondary-foreground);
+                border-color: transparent;
+            }
+            .ghost {
+                background: transparent;
+                border-color: transparent;
+            }
+            .focus {
+                outline: 2px solid var(--ring);
+                outline-offset: 3px;
+            }
+            input:not([type='checkbox']),
+            select {
+                max-width: 100%;
+                min-height: 36px;
+                padding: 6px 10px;
+                border: 1px solid var(--input);
+                border-radius: var(--radius-md);
+                background: var(--card);
+                color: var(--foreground);
+            }
+            input::placeholder {
+                color: var(--muted-foreground);
+            }
+            input[aria-invalid='true'] {
+                border-color: var(--destructive);
+            }
+            input[type='checkbox'] {
+                accent-color: var(--primary);
+                width: 16px;
+                height: 16px;
+            }
+            header {
+                background: var(--muted);
+                border-bottom: 1px solid var(--border);
+            }
+            .container {
+                max-width: 1520px;
+                margin: auto;
+                padding: 24px 32px;
+            }
+            .top,
+            .row,
+            .section-head {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .top {
+                justify-content: space-between;
+            }
+            h1 {
+                font-size: 22px;
+                margin: 0;
+            }
+            h2 {
+                font-size: 18px;
+                margin: 0;
+            }
+            h3 {
+                font-size: 14px;
+                margin: 0 0 12px;
+            }
+            p {
+                margin: 6px 0 16px;
+            }
+            .muted,
+            small {
+                color: var(--muted-foreground);
+            }
+            small {
+                font-size: 12px;
+            }
+            section {
+                padding: 28px 0;
+                border-bottom: 1px solid var(--border);
+            }
+            .section-head {
+                justify-content: space-between;
+                margin-bottom: 16px;
+            }
+            .demos {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 24px;
+            }
+            .demo {
+                min-width: 0;
+                align-content: start;
+            }
+            .stack {
+                display: grid;
+                gap: 12px;
+            }
+            .badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 3px 8px;
+                border-radius: var(--radius-sm);
+                background: var(--tone-soft);
+                color: var(--tone-text);
+                font-weight: 500;
+                white-space: nowrap;
+            }
+            .dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                background: var(--tone);
+                display: inline-block;
+                flex-shrink: 0;
+            }
+            .alert {
+                padding: 12px;
+                background: var(--tone-soft);
+                color: var(--tone-text);
+                border-left: 3px solid var(--tone);
+            }
+            .token-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                gap: 12px;
+            }
+            .token-card {
+                overflow: hidden;
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                background: var(--card);
+                min-width: 0;
+            }
+            .chip {
+                height: 68px;
+                border-bottom: 1px solid var(--border);
+            }
+            .token-meta {
+                padding: 12px;
+            }
+            code {
+                font:
+                    12px/1.7 ui-monospace,
+                    Consolas,
+                    monospace;
+                overflow-wrap: anywhere;
+            }
+            .token-meta strong {
+                display: block;
+                font-size: 13px;
+                overflow-wrap: anywhere;
+            }
+            .token-meta code {
+                display: block;
+                color: var(--muted-foreground);
+            }
+            .token-meta small {
+                display: block;
+                margin-top: 5px;
+            }
+            .foreground-sample {
                 display: flex;
                 align-items: center;
                 gap: 10px;
-                border: 1px solid var(--border);
-                border-radius: var(--radius);
-                background: var(--card);
-                padding: 10px;
-                box-shadow: var(--shadow-xs);
+                min-height: 64px;
+                padding: 12px;
+                color: var(--sample-foreground);
             }
-
-            .workspace-avatar {
+            .foreground-sample svg {
+                width: 24px;
+                height: 24px;
+                flex-shrink: 0;
+            }
+            .foreground-sample b {
+                font-size: 16px;
+            }
+            .foreground-row {
                 display: grid;
-                width: 30px;
-                height: 30px;
-                flex: 0 0 auto;
-                place-items: center;
-                border-radius: 6px;
-                background: color-mix(in oklch, var(--primary) 12%, var(--card));
-                color: var(--primary);
-                font-weight: 700;
-            }
-
-            .workspace-copy {
-                min-width: 0;
-            }
-
-            .workspace-copy strong,
-            .workspace-copy span {
-                display: block;
-                overflow: hidden;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-            }
-
-            .workspace-copy strong {
-                color: var(--primary);
-                font-size: 12px;
-            }
-
-            .workspace-copy span {
-                color: var(--muted-foreground);
-                font-size: 11px;
-            }
-
-            .sidebar-nav {
-                display: grid;
-                gap: 3px;
-            }
-
-            .sidebar-item {
-                min-height: 32px;
-                gap: 9px;
-                border-radius: 6px;
-                padding: 0 10px;
-                color: var(--foreground);
-                font-size: 13px;
-                transition: background-color 150ms var(--ease-standard);
-            }
-
-            .sidebar-item:hover,
-            .sidebar-item.is-hover {
-                background: var(--accent);
-            }
-
-            .sidebar-item.is-selected {
-                background: var(--sidebar-accent);
-                font-weight: 600;
-            }
-
-            .dot {
-                width: 12px;
-                height: 12px;
-                flex: 0 0 auto;
-                border: 1.5px solid currentcolor;
-                border-radius: 3px;
-                opacity: 0.8;
-            }
-
-            .content {
-                min-width: 0;
-            }
-
-            .content-header {
-                display: flex;
+                grid-template-columns: 180px repeat(4, minmax(0, 1fr));
                 align-items: center;
-                justify-content: space-between;
-                gap: 20px;
                 border-bottom: 1px solid var(--border);
-                background: var(--card);
-                padding: 12px 16px;
             }
-
-            .crumb {
-                font-weight: 600;
+            .foreground-row > code {
+                padding: 12px;
             }
-
-            .search {
-                width: min(360px, 45%);
-                border: 1px solid var(--input);
-                border-radius: 6px;
-                background: var(--background);
-                color: var(--muted-foreground);
-                padding: 7px 10px;
+            .foreground-samples {
+                min-width: 880px;
+            }
+            .group {
+                padding-top: 24px;
+            }
+            .group h3 {
+                font-size: 15px;
+            }
+            .scroll {
+                overflow: auto;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                text-align: left;
+                white-space: nowrap;
+            }
+            th,
+            td {
+                border-bottom: 1px solid var(--border);
+                padding: 12px;
+            }
+            th {
                 font-size: 12px;
-            }
-
-            .content-body {
-                padding: 20px;
-            }
-
-            .tabs {
-                display: flex;
-                margin: -20px -20px 20px;
-                border-bottom: 1px solid var(--border);
-                background: var(--card);
-                padding: 0 16px;
-            }
-
-            .tab {
-                border: 0;
-                border-bottom: 2px solid transparent;
-                background: var(--card);
-                padding: 12px 14px 10px;
+                font-weight: 500;
                 color: var(--muted-foreground);
-                cursor: pointer;
             }
-
-            .tab:hover {
+            tbody tr:hover {
                 background: var(--accent);
-                color: var(--foreground);
             }
-
-            .tab.is-active {
-                border-bottom-color: var(--primary);
-                color: var(--primary);
-                font-weight: 650;
+            tbody tr.selected {
+                background: var(--neutral-selected);
             }
-
-            .mini-card {
+            .shell {
+                display: grid;
+                grid-template-columns: 220px minmax(0, 1fr);
+                background: var(--muted);
+                min-height: 350px;
                 border: 1px solid var(--border);
-                border-radius: var(--radius);
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .sidebar {
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .sidebar button {
+                text-align: left;
+            }
+            .sidebar .nav {
+                background: transparent;
+                border-color: transparent;
+            }
+            .sidebar .nav:hover {
+                background: var(--accent);
+            }
+            .sidebar .nav[aria-pressed='true'] {
+                background: var(--neutral-selected);
+            }
+            .search {
+                width: 100%;
+                border: 0;
+                background: var(--accent);
+                color: var(--muted-foreground);
+                box-shadow: none;
+            }
+            .workplane {
+                margin-top: 8px;
+                border-top-left-radius: 16px;
+                background: var(--background);
+                min-width: 0;
+                overflow: hidden;
+            }
+            .toolbar {
+                padding: 12px 16px;
                 background: var(--card);
+                border-bottom: 1px solid var(--border);
+            }
+            .tabs {
+                padding: 0 16px;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                gap: 16px;
+            }
+            .tabs button {
+                border: 0;
+                border-radius: 0;
+                background: transparent;
+                border-bottom: 2px solid transparent;
+            }
+            .tabs button[aria-selected='true'] {
+                color: var(--primary);
+                border-bottom-color: var(--primary);
+            }
+            .content {
                 padding: 16px;
             }
-
-            .mini-card h3 {
-                margin-bottom: 4px;
-                font-size: 14px;
-            }
-
-            .mini-card p {
-                margin: 0;
-                color: var(--muted-foreground);
-                font-size: 12px;
-            }
-
-            .swatch-grid {
+            .metrics {
                 display: grid;
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 12px;
             }
-
-            .swatch {
-                overflow: hidden;
+            .metric {
+                background: var(--card);
                 border: 1px solid var(--border);
-                border-radius: var(--radius);
-                background: var(--card);
+                border-radius: 8px;
+                padding: 12px;
             }
-
-            .swatch-color {
-                height: 72px;
-            }
-
-            .semantic-pair-color {
-                display: grid;
-                background: var(--pair-background);
-                place-items: center;
-            }
-
-            .semantic-pair-mark {
+            .metric b {
                 display: block;
-                width: 32px;
-                height: 32px;
-                border-radius: 9px;
-                background: var(--pair-foreground);
+                font-size: 24px;
+                font-variant-numeric: tabular-nums;
             }
-
-            .swatch-meta {
-                padding: 10px 12px 12px;
+            .segmented {
+                display: inline-flex;
+                gap: 4px;
             }
-
-            .swatch-name {
-                display: block;
-                margin-bottom: 2px;
-                font-weight: 650;
-            }
-
-            .swatch-token,
-            .swatch-hex {
-                color: var(--muted-foreground);
-                font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-                font-size: 11px;
-            }
-
-            .swatch-hex {
-                color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
-            }
-
-            .state-grid {
-                display: grid;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 12px;
-            }
-
-            .state-card {
+            .popover {
+                background: var(--popover);
+                color: var(--popover-foreground);
+                box-shadow: var(--shadow-md);
                 border: 1px solid var(--border);
-                border-radius: var(--radius);
-                background: var(--card);
-                padding: 16px;
+                border-radius: 8px;
+                padding: 12px;
             }
-
-            .state-card h3 {
-                margin-bottom: 12px;
-                font-size: 13px;
+            dialog {
+                width: min(420px, calc(100% - 32px));
+                padding: 24px;
+                color: var(--popover-foreground);
+                background: var(--popover);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                box-shadow: var(--shadow-lg);
             }
-
-            .button-stack {
-                display: grid;
-                gap: 8px;
+            dialog::backdrop {
+                background: oklch(0 0 0 / 35%);
             }
-
-            .button {
-                min-height: 36px;
-                border: 1px solid transparent;
-                border-radius: 6px;
-                padding: 0 12px;
-                cursor: pointer;
-                font-weight: 600;
-                transition:
-                    background-color 150ms var(--ease-standard),
-                    color 150ms var(--ease-standard);
-            }
-
-            .button.primary {
-                background: var(--primary);
-                color: var(--primary-foreground);
-            }
-
-            .button.primary:hover,
-            .button.primary.is-hover {
-                background: var(--primary-hover);
-                color: var(--primary-hover-foreground);
-            }
-
-            .button.outline {
-                border-color: var(--border);
-                background: var(--card);
-                color: var(--foreground);
-            }
-
-            .button.outline:hover,
-            .button.outline.is-hover,
-            .button.ghost:hover,
-            .button.ghost.is-hover {
-                background: var(--accent);
-            }
-
-            .button.secondary {
-                background: var(--secondary);
-                color: var(--secondary-foreground);
-            }
-
-            .button.secondary:hover,
-            .button.secondary.is-hover {
-                background: var(--accent);
-            }
-
-            .button.ghost {
-                background: transparent;
-                color: var(--foreground);
-            }
-
-            .button.destructive {
-                background: var(--destructive);
-                color: var(--primary-foreground);
-            }
-
-            .button.destructive:hover,
-            .button.destructive.is-hover {
-                background: var(--destructive-hover);
-            }
-
-            .overlay-grid {
+            .chart-list {
                 display: grid;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px 32px;
+            }
+            .bar-row {
+                display: grid;
+                grid-template-columns: 78px minmax(0, 1fr) 32px;
                 gap: 12px;
+                align-items: center;
+                font-variant-numeric: tabular-nums;
             }
-
-            .overlay-demo {
-                position: relative;
-                min-height: 148px;
+            .track {
+                background: var(--muted);
+                height: 20px;
+                border-radius: 3px;
                 overflow: hidden;
-                border: 1px solid var(--border);
-                border-radius: var(--radius);
-                background: var(--background);
             }
-
-            .overlay-demo::after {
-                position: absolute;
-                inset: 0;
-                content: '';
-                background: rgb(0 0 0 / var(--overlay-opacity));
+            .bar {
+                height: 100%;
             }
-
-            .overlay-card {
-                position: absolute;
-                z-index: 1;
-                top: 50%;
-                left: 50%;
-                width: 180px;
-                border-radius: 6px;
+            .geometry {
+                width: 64px;
+                height: 36px;
                 background: var(--card);
-                padding: 12px;
-                box-shadow: var(--shadow-md);
-                transform: translate(-50%, -50%);
+                border: 1px solid var(--border);
+                margin: 16px;
             }
-
-            .overlay-card strong,
-            .overlay-card span {
-                display: block;
+            .pass {
+                color: var(--success-soft-foreground);
             }
-
-            .overlay-card span {
-                margin-top: 3px;
-                color: var(--muted-foreground);
-                font-size: 11px;
+            .fail {
+                color: var(--destructive-soft-foreground);
             }
-
-            .overlay-label {
-                position: absolute;
-                z-index: 2;
-                bottom: 10px;
-                left: 12px;
-                color: white;
-                font-size: 12px;
-                font-weight: 650;
+            [hidden] {
+                display: none !important;
             }
-
-            .note {
-                margin-top: 20px;
-                border-left: 3px solid var(--primary);
-                border-radius: 0 6px 6px 0;
-                background: color-mix(in oklch, var(--primary) 6%, var(--card));
-                padding: 12px 14px;
-                color: var(--muted-foreground);
-                font-size: 13px;
-            }
-
-            .note strong {
-                color: var(--foreground);
-            }
-
-            @media (max-width: 760px) {
-                .page {
-                    width: min(100% - 32px, 1180px);
-                    padding-top: 32px;
-                }
-
-                .workbench {
-                    grid-template-columns: 164px minmax(0, 1fr);
-                }
-
-                .swatch-grid,
-                .state-grid {
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                }
-            }
-
-            @media (max-width: 520px) {
-                .workbench {
+            @media (max-width: 900px) {
+                .demos {
                     grid-template-columns: 1fr;
                 }
-
+                .shell {
+                    grid-template-columns: 170px minmax(0, 1fr);
+                }
+            }
+            @media (max-width: 600px) {
+                .container {
+                    padding: 20px 16px;
+                }
+                .shell {
+                    grid-template-columns: 1fr;
+                }
                 .sidebar {
-                    display: none;
+                    border-bottom: 1px solid var(--border);
                 }
-
-                .swatch-grid,
-                .state-grid,
-                .overlay-grid {
+                .metrics,
+                .chart-list {
                     grid-template-columns: 1fr;
                 }
-
-                .content-header {
-                    align-items: start;
-                    flex-direction: column;
-                }
-
-                .search {
-                    width: 100%;
-                }
             }
-
             @media (prefers-reduced-motion: reduce) {
                 * {
-                    transition-duration: 0.01ms !important;
+                    transition: none !important;
                 }
             }
         </style>
     </head>
     <body>
-        <main class="page">
-            <p class="eyebrow">TalosArk · Light Theme</p>
-            <h1>Color System Preview</h1>
-            <p class="lede">用于检查工作台表面层级，以及普通交互、选中状态与语义状态是否能被一眼区分。</p>
-
-            <section class="section" aria-labelledby="surface-heading">
-                <div class="section-heading">
-                    <div>
-                        <h2 id="surface-heading">App Shell Surface Hierarchy</h2>
-                        <p class="section-description">从暖灰系统标题栏、暖灰侧栏、主画布到暖白内容表面。</p>
-                    </div>
+        <header>
+            <div class="container top">
+                <div>
+                    <h1>TalosArk · Design Tokens</h1>
+                    <small id="coverage"></small>
                 </div>
-
-                <div class="workbench">
-                    <div class="titlebar">
-                        <div class="brand">
-                            <span class="brand-mark" aria-hidden="true"></span>
-                            Talos Ark 璇玑云库
-                        </div>
-                        <div class="window-controls" aria-label="窗口控制示例">
-                            <button class="icon-button" aria-label="最小化">−</button>
-                            <button class="icon-button" aria-label="还原">□</button>
-                            <button class="icon-button" aria-label="关闭">×</button>
-                        </div>
-                    </div>
-
-                    <aside class="sidebar" aria-label="侧边栏示例">
-                        <div class="workspace-switcher">
-                            <span class="workspace-avatar">W</span>
-                            <div class="workspace-copy">
-                                <strong>孙教授课题组</strong>
-                                <span>广东医科大学</span>
-                            </div>
-                        </div>
-                        <nav class="sidebar-nav">
-                            <div class="sidebar-item is-selected">
-                                <span class="dot"></span>
-                                工作台
-                            </div>
-                            <div class="sidebar-item">
-                                <span class="dot"></span>
-                                材料
-                            </div>
-                            <div class="sidebar-item is-hover">
-                                <span class="dot"></span>
-                                库存 · Hover
-                            </div>
-                            <div class="sidebar-item">
-                                <span class="dot"></span>
-                                设备
-                            </div>
-                        </nav>
+                <label>
+                    查找 Token
+                    <input type="search" id="token-search" placeholder="名称或 OKLCH 值" />
+                </label>
+            </div>
+        </header>
+        <main class="container">
+            <section>
+                <div class="section-head">
+                    <h2>工作台 · 表面与状态</h2>
+                    <span class="muted">暖中性表面 / 蓝色主操作</span>
+                </div>
+                <div class="shell">
+                    <aside class="sidebar">
+                        <strong>TalosArk 璇玑云库</strong>
+                        <button id="workspace-trigger">王教授课题组</button>
+                        <button class="search" id="search-command">搜索或执行命令</button>
+                        <button aria-pressed="true" class="nav">工作台</button>
+                        <button aria-pressed="false" class="nav">材料</button>
+                        <button aria-pressed="false" class="nav">库存</button>
+                        <button aria-pressed="false" class="nav">设备</button>
                     </aside>
-
-                    <div class="content">
-                        <header class="content-header">
-                            <span class="crumb">工作台 / 总览</span>
-                            <div class="search">
-                                ⌕　搜索工作区或执行命令　
-                                <kbd>Ctrl + K</kbd>
+                    <div class="workplane">
+                        <div class="toolbar row">
+                            <strong id="page-name">工作台</strong>
+                            <span class="muted">/ 总览</span>
+                        </div>
+                        <div class="tabs" role="tablist" aria-label="工作台视图">
+                            <button role="tab" aria-selected="true" aria-controls="dashboard" id="overview-tab">
+                                总览
+                            </button>
+                            <button role="tab" aria-selected="false" aria-controls="tasks" id="tasks-tab" tabindex="-1">
+                                我的待办
+                            </button>
+                        </div>
+                        <div class="content" id="dashboard" role="tabpanel" aria-labelledby="overview-tab">
+                            <div class="metrics">
+                                <article class="metric">
+                                    <span class="muted">严重短缺</span>
+                                    <b>2</b>
+                                    <span class="badge" data-tone="destructive">优先处理</span>
+                                </article>
+                                <article class="metric">
+                                    <span class="muted">库存不足</span>
+                                    <b>3</b>
+                                    <span class="badge" data-tone="caution">需要补充</span>
+                                </article>
+                                <article class="metric">
+                                    <span class="muted">即将到期</span>
+                                    <b>3</b>
+                                    <span class="badge" data-tone="warning">安排使用</span>
+                                </article>
                             </div>
-                            <div class="utility-actions">
-                                <button class="icon-button" aria-label="通知">◦</button>
-                                <button class="icon-button is-hover" aria-label="设置示例">···</button>
-                            </div>
-                        </header>
-                        <div class="content-body">
-                            <div class="tabs" aria-label="二级导航示例">
-                                <button class="tab is-active">总览</button>
-                                <button class="tab">我的待办</button>
-                                <button class="tab">待审批</button>
-                            </div>
-                            <article class="mini-card">
-                                <h3>暖白 Card 表面</h3>
-                                <p>
-                                    其下方为
-                                    <code>background</code>
-                                    画布；二者靠背景、边框和轻阴影区分。
-                                </p>
-                            </article>
+                        </div>
+                        <div class="content" id="tasks" role="tabpanel" aria-labelledby="tasks-tab" hidden>
+                            <label class="row">
+                                <input type="checkbox" />
+                                确认低库存补货申请
+                            </label>
+                            <label class="row">
+                                <input type="checkbox" />
+                                复核临期材料
+                            </label>
                         </div>
                     </div>
                 </div>
             </section>
-
-            <section class="section" aria-labelledby="palette-heading">
-                <div class="section-heading">
-                    <div>
-                        <h2 id="palette-heading">Base Surface & Semantic Tokens</h2>
-                        <p class="section-description">同一 token 在应用内只承担一个稳定角色。</p>
+            <section>
+                <div class="section-head">
+                    <h2>控件与交互</h2>
+                    <button id="open-dialog">新建材料</button>
+                </div>
+                <div class="demos">
+                    <div class="demo stack">
+                        <h3>按钮</h3>
+                        <div class="row">
+                            <button class="primary">保存</button>
+                            <button class="primary hover">悬停</button>
+                            <button class="primary pressed">专用按住态色</button>
+                        </div>
+                        <div class="row">
+                            <button class="secondary">次操作</button>
+                            <button>描边</button>
+                            <button class="ghost">取消</button>
+                            <button disabled>不可用</button>
+                        </div>
+                        <div class="row">
+                            <button class="focus">键盘焦点</button>
+                            <button class="destructive" id="remove-button">删除记录</button>
+                        </div>
                     </div>
-                </div>
-
-                <div class="swatch-grid">
-                    <article class="swatch">
-                        <div class="swatch-color" style="background: var(--background)"></div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Main canvas</span>
-                            <span class="swatch-token">--background</span>
-                            <br />
-                            <span class="swatch-hex">#FBFCF9</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div class="swatch-color" style="background: var(--card)"></div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Card & Popover</span>
-                            <span class="swatch-token">--card / --popover</span>
-                            <br />
-                            <span class="swatch-hex">#FEFEFD</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div class="swatch-color" style="background: var(--muted)"></div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">App chrome</span>
-                            <span class="swatch-token">--muted</span>
-                            <br />
-                            <span class="swatch-hex">#F2F3F0</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div class="swatch-color" style="background: var(--accent)"></div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Hover</span>
-                            <span class="swatch-token">--accent</span>
-                            <br />
-                            <span class="swatch-hex">#ECEDE9</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div class="swatch-color" style="background: var(--secondary)"></div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Neutral selected</span>
-                            <span class="swatch-token">--neutral-selected / --secondary</span>
-                            <br />
-                            <span class="swatch-hex">#D9DCD5</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div
-                            class="swatch-color semantic-pair-color"
-                            style="
-                                --pair-background: var(--primary-soft);
-                                --pair-foreground: var(--primary-soft-foreground);
-                            "
-                        >
-                            <span class="semantic-pair-mark"></span>
-                        </div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Primary pair</span>
-                            <span class="swatch-token">--primary-soft / --primary-soft-foreground</span>
-                            <br />
-                            <span class="swatch-hex">#E7EEFE / #0D6DFD</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div
-                            class="swatch-color semantic-pair-color"
-                            style="
-                                --pair-background: var(--success-soft);
-                                --pair-foreground: var(--success-soft-foreground);
-                            "
-                        >
-                            <span class="semantic-pair-mark"></span>
-                        </div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Success pair</span>
-                            <span class="swatch-token">--success-soft / --success-soft-foreground</span>
-                            <br />
-                            <span class="swatch-hex">#E1F7EC / #14D289</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div
-                            class="swatch-color semantic-pair-color"
-                            style="
-                                --pair-background: var(--warning-soft);
-                                --pair-foreground: var(--warning-soft-foreground);
-                            "
-                        >
-                            <span class="semantic-pair-mark"></span>
-                        </div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Warning pair</span>
-                            <span class="swatch-token">--warning-soft / --warning-soft-foreground</span>
-                            <br />
-                            <span class="swatch-hex">#FFEBD8 / #FDA821</span>
-                        </div>
-                    </article>
-                    <article class="swatch">
-                        <div
-                            class="swatch-color semantic-pair-color"
-                            style="
-                                --pair-background: var(--destructive-soft);
-                                --pair-foreground: var(--destructive-soft-foreground);
-                            "
-                        >
-                            <span class="semantic-pair-mark"></span>
-                        </div>
-                        <div class="swatch-meta">
-                            <span class="swatch-name">Destructive pair</span>
-                            <span class="swatch-token">--destructive-soft / --destructive-soft-foreground</span>
-                            <br />
-                            <span class="swatch-hex">#FDE8E7 / #FA473D</span>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section class="section" aria-labelledby="states-heading">
-                <div class="section-heading">
-                    <div>
-                        <h2 id="states-heading">Interactive States</h2>
-                        <p class="section-description">每列展示静止与 Hover 状态；按钮本身仍可实际 Hover。</p>
+                    <div class="demo stack">
+                        <h3>输入与选择</h3>
+                        <label class="stack">
+                            材料名称
+                            <input placeholder="例如 DMEM 培养基" />
+                        </label>
+                        <label class="stack">
+                            批号
+                            <input placeholder="批号不能为空" aria-invalid="true" aria-describedby="batch-error" />
+                        </label>
+                        <small id="batch-error" class="fail">请输入批号</small>
+                        <label class="row">
+                            <input type="checkbox" checked />
+                            显示临期材料
+                        </label>
+                        <label>
+                            存储位置
+                            <select>
+                                <option>全部位置</option>
+                                <option>一号冷库</option>
+                            </select>
+                        </label>
                     </div>
-                </div>
-
-                <div class="state-grid">
-                    <article class="state-card">
-                        <h3>Primary</h3>
-                        <div class="button-stack">
-                            <button class="button primary">Rest</button>
-                            <button class="button primary is-hover">Hover</button>
+                    <div class="demo stack">
+                        <h3>持久选择与浮层</h3>
+                        <div class="segmented" aria-label="数据显示方式">
+                            <button aria-pressed="true">列表</button>
+                            <button aria-pressed="false">网格</button>
                         </div>
-                    </article>
-                    <article class="state-card">
-                        <h3>Outline</h3>
-                        <div class="button-stack">
-                            <button class="button outline">Rest</button>
-                            <button class="button outline is-hover">Hover</button>
+                        <div class="popover">
+                            <strong>王教授课题组</strong>
+                            <p class="muted">上海交通大学</p>
+                            <button class="ghost" id="workspace-settings">工作区设置</button>
                         </div>
-                    </article>
-                    <article class="state-card">
-                        <h3>Secondary</h3>
-                        <div class="button-stack">
-                            <button class="button secondary">Rest</button>
-                            <button class="button secondary is-hover">Hover</button>
-                        </div>
-                    </article>
-                    <article class="state-card">
-                        <h3>Ghost</h3>
-                        <div class="button-stack">
-                            <button class="button ghost">Rest</button>
-                            <button class="button ghost is-hover">Hover</button>
-                        </div>
-                    </article>
-                    <article class="state-card">
-                        <h3>Destructive</h3>
-                        <div class="button-stack">
-                            <button class="button destructive">Rest</button>
-                            <button class="button destructive is-hover">Hover</button>
-                        </div>
-                    </article>
-                </div>
-            </section>
-
-            <section class="section" aria-labelledby="overlay-heading">
-                <div class="section-heading">
-                    <div>
-                        <h2 id="overlay-heading">Overlay Variants</h2>
-                        <p class="section-description">普通 Dialog 与阻断式 Drawer / Sheet 使用不同遮罩强度。</p>
-                    </div>
-                </div>
-
-                <div class="overlay-grid">
-                    <div class="overlay-demo" style="--overlay-opacity: 0.3">
-                        <div class="overlay-card">
-                            <strong>Dialog</strong>
-                            <span>black / 30</span>
-                        </div>
-                        <span class="overlay-label">Standard overlay</span>
-                    </div>
-                    <div class="overlay-demo" style="--overlay-opacity: 0.8">
-                        <div class="overlay-card">
-                            <strong>Drawer / Sheet</strong>
-                            <span>black / 80</span>
-                        </div>
-                        <span class="overlay-label">Blocking overlay</span>
+                        <div class="alert" data-tone="success">库存盘点已完成</div>
+                        <div class="alert" data-tone="primary">已有 3 条记录待审核</div>
                     </div>
                 </div>
             </section>
-
-            <aside class="note">
-                <strong>状态规则：</strong>
-                <code>accent</code>
-                是通用暖灰 Hover 表面；
-                <code>primary-hover</code>
-                则仅用于主按钮的蓝色 Hover；
-                <code>primary-active</code>
-                才使用蓝色，
-                <code>neutral-selected</code>
-                则用于非主强调的持久选中状态；默认控件不另设按住态。
-            </aside>
+            <section>
+                <div class="section-head">
+                    <h2>库存风险</h2>
+                    <div class="row" id="filters">
+                        <button data-filter="all" aria-pressed="true">全部</button>
+                        <button data-filter="destructive" aria-pressed="false">严重短缺</button>
+                        <button data-filter="caution" aria-pressed="false">库存不足</button>
+                        <button data-filter="warning" aria-pressed="false">即将到期</button>
+                    </div>
+                </div>
+                <div class="scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>选择</th>
+                                <th>材料</th>
+                                <th>当前数量</th>
+                                <th>负责人</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section>
+                <div class="section-head">
+                    <h2>语义前景 · 文本与 SVG</h2>
+                    <small>同一 Token：文本 / fill / stroke</small>
+                </div>
+                <p class="muted">
+                    分别在 Soft、Card、Background、Muted 上展示。实心圆是 SVG 填充样本，空心圆是描边样本；不将此 Token
+                    用作容器背景。
+                </p>
+                <div class="scroll"><div id="foreground-samples" class="foreground-samples"></div></div>
+            </section>
+            <section>
+                <div class="section-head">
+                    <h2>分类图表 · 10 色</h2>
+                    <small>批次数量</small>
+                </div>
+                <div class="chart-list" id="chart"></div>
+                <p class="muted">
+                    中等明度与清晰彩度，不再使用莫兰迪限制。系列颜色只标识类别，不表示风险等级。十色不保证在所有色觉条件下仅凭颜色即可区分，保留标签、数值和必要的纹理。
+                </p>
+            </section>
+            <section>
+                <div class="section-head">
+                    <h2>配对对比度</h2>
+                    <small>普通正文目标 ≥ 4.5:1</small>
+                </div>
+                <div class="scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>文字 Token</th>
+                                <th>背景 Token</th>
+                                <th>对比度</th>
+                                <th>结果</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contrast"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section>
+                <h2>完整 Token 目录</h2>
+                <p class="muted">
+                    由 style.css 单向生成。包含颜色、兼容别名、圆角、阴影与缓动；Tailwind 的 --color-* 映射不重复建卡。
+                </p>
+                <div id="tokens"></div>
+                <p id="no-results" hidden>没有匹配的 Token</p>
+            </section>
+            <section>
+                <h2>来源与语义</h2>
+                <p class="muted">
+                    A-01 / C-07
+                    用作视觉与业务语义参考。背景、卡片和壳层保留人工调整的黄相低彩度值；悬停、选择、辅助文字和边界沿用同一中性方向。语义前景与图表色是人工校准值，不冒称来自图片采样。前景以清晰和可读性为目标，图表以分类辨识为目标，不再强制莫兰迪观感。
+                </p>
+                <p class="muted">
+                    严重短缺 → destructive；库存不足 → caution；临期 →
+                    warning。类别不是自动推导的严重程度，例如已过期不应仍按普通临期显示。
+                </p>
+            </section>
         </main>
+        <dialog id="dialog" aria-labelledby="dialog-title">
+            <form method="dialog">
+                <h2 id="dialog-title">新建材料</h2>
+                <p class="muted" id="dialog-copy">当前工作区：王教授课题组</p>
+                <label class="stack">
+                    材料名称
+                    <input id="dialog-input" placeholder="材料名称" />
+                </label>
+                <div class="row" style="margin-top: 20px">
+                    <button value="cancel">取消</button>
+                    <button class="primary" value="save">确认</button>
+                </div>
+            </form>
+        </dialog>
+        <script id="token-data" type="application/json">
+            [
+                { "name": "--radius", "value": "0.5rem" },
+                { "name": "--background", "value": "oklch(98.6% 0.00216 106.83)" },
+                { "name": "--foreground", "value": "oklch(0 0 0)" },
+                { "name": "--card", "value": "oklch(99.675% 0.00121 107.847)" },
+                { "name": "--card-foreground", "value": "var(--foreground)" },
+                { "name": "--popover", "value": "var(--card)" },
+                { "name": "--popover-foreground", "value": "var(--foreground)" },
+                { "name": "--primary", "value": "oklch(0.53732 0.25524 262.34)" },
+                { "name": "--primary-soft", "value": "oklch(0.95 0.02 262.34)" },
+                { "name": "--primary-soft-foreground", "value": "oklch(0.52 0.13 262.34)" },
+                { "name": "--primary-hover", "value": "oklch(0.48732 0.22972 262.34)" },
+                { "name": "--primary-hover-foreground", "value": "var(--primary-foreground)" },
+                { "name": "--primary-active", "value": "oklch(0.43732 0.22972 262.34)" },
+                { "name": "--primary-active-foreground", "value": "var(--primary-foreground)" },
+                { "name": "--primary-foreground", "value": "oklch(1 0 0)" },
+                { "name": "--neutral-selected", "value": "oklch(0.91 0.004 107)" },
+                { "name": "--neutral-selected-foreground", "value": "var(--foreground)" },
+                { "name": "--secondary", "value": "var(--muted)" },
+                { "name": "--secondary-foreground", "value": "var(--foreground)" },
+                { "name": "--muted", "value": "oklch(96.959% 0.00154 107.11)" },
+                { "name": "--muted-foreground", "value": "oklch(0.48 0.006 107)" },
+                { "name": "--accent", "value": "oklch(0.94 0.003 107)" },
+                { "name": "--accent-foreground", "value": "var(--foreground)" },
+                { "name": "--destructive", "value": "oklch(0.61834 0.25143 29.08)" },
+                { "name": "--destructive-soft", "value": "oklch(0.96 0.02 29.08)" },
+                { "name": "--destructive-soft-foreground", "value": "oklch(0.5 0.13 29.08)" },
+                { "name": "--destructive-hover", "value": "oklch(0.64334 0.22629 29.08)" },
+                { "name": "--destructive-active", "value": "oklch(0.66834 0.22629 29.08)" },
+                { "name": "--destructive-foreground", "value": "var(--foreground)" },
+                { "name": "--success", "value": "oklch(0.63339 0.14652 158.65)" },
+                { "name": "--success-soft", "value": "oklch(0.96 0.02 158.65)" },
+                { "name": "--success-soft-foreground", "value": "oklch(0.5 0.1 158.65)" },
+                { "name": "--success-foreground", "value": "var(--foreground)" },
+                { "name": "--caution", "value": "oklch(0.70616 0.19411 46.68)" },
+                { "name": "--caution-soft", "value": "oklch(0.96 0.025 46.68)" },
+                { "name": "--caution-soft-foreground", "value": "oklch(0.52 0.11 46.68)" },
+                { "name": "--caution-foreground", "value": "var(--foreground)" },
+                { "name": "--warning", "value": "oklch(0.82 0.16 85)" },
+                { "name": "--warning-soft", "value": "oklch(0.97 0.035 85)" },
+                { "name": "--warning-soft-foreground", "value": "oklch(0.5 0.09 85)" },
+                { "name": "--warning-foreground", "value": "var(--foreground)" },
+                { "name": "--border", "value": "oklch(0.9 0.003 107)" },
+                { "name": "--input", "value": "oklch(0.64 0.005 107)" },
+                { "name": "--ring", "value": "var(--primary)" },
+                { "name": "--chart-1", "value": "oklch(0.62 0.18 250)" },
+                { "name": "--chart-2", "value": "oklch(0.65 0.14 155)" },
+                { "name": "--chart-3", "value": "oklch(0.67 0.15 65)" },
+                { "name": "--chart-4", "value": "oklch(0.61 0.17 310)" },
+                { "name": "--chart-5", "value": "oklch(0.64 0.18 25)" },
+                { "name": "--chart-6", "value": "oklch(0.63 0.105 205)" },
+                { "name": "--chart-7", "value": "oklch(0.67 0.14 110)" },
+                { "name": "--chart-8", "value": "oklch(0.63 0.17 285)" },
+                { "name": "--chart-9", "value": "oklch(0.61 0.17 350)" },
+                { "name": "--chart-10", "value": "oklch(0.66 0.12 230)" },
+                { "name": "--sidebar", "value": "var(--muted)" },
+                { "name": "--sidebar-foreground", "value": "var(--foreground)" },
+                { "name": "--sidebar-primary", "value": "var(--primary)" },
+                { "name": "--sidebar-primary-foreground", "value": "var(--primary-foreground)" },
+                { "name": "--sidebar-accent", "value": "var(--accent)" },
+                { "name": "--sidebar-accent-foreground", "value": "var(--foreground)" },
+                { "name": "--sidebar-border", "value": "var(--border)" },
+                { "name": "--sidebar-ring", "value": "var(--ring)" },
+                { "name": "--shadow-xs", "value": "0 1px 2px oklch(0.21 0 0 / 4%)" },
+                { "name": "--shadow-sm", "value": "0 1px 3px oklch(0.21 0 0 / 6%), 0 1px 2px oklch(0.21 0 0 / 4%)" },
+                { "name": "--shadow-md", "value": "0 4px 10px oklch(0.21 0 0 / 8%), 0 2px 4px oklch(0.21 0 0 / 4%)" },
+                { "name": "--shadow-lg", "value": "0 12px 24px oklch(0.21 0 0 / 10%), 0 4px 8px oklch(0.21 0 0 / 4%)" },
+                {
+                    "name": "--shadow-xl",
+                    "value": "0 20px 40px oklch(0.21 0 0 / 12%), 0 8px 16px oklch(0.21 0 0 / 5%)"
+                },
+                { "name": "--ease-standard", "value": "cubic-bezier(0.2, 0, 0, 1)" },
+                { "name": "--radius-sm", "value": "calc(var(--radius) - 4px)" },
+                { "name": "--radius-md", "value": "calc(var(--radius) - 2px)" },
+                { "name": "--radius-lg", "value": "var(--radius)" },
+                { "name": "--radius-xl", "value": "calc(var(--radius) + 4px)" },
+                { "name": "--radius-2xl", "value": "calc(var(--radius) + 8px)" },
+                { "name": "--radius-3xl", "value": "calc(var(--radius) + 12px)" },
+                { "name": "--text-md", "value": "1rem" }
+            ]
+        </script>
+        <script>
+            const tokens = JSON.parse(document.getElementById('token-data').textContent);
+            const root = getComputedStyle(document.documentElement);
+            const value = (name) => root.getPropertyValue(name).trim();
+            // Geometric color specimens, not interface icons.
+            const svgSamples =
+                '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="currentColor" /></svg><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" /></svg>';
+            const groups = {
+                表面与文字: [],
+                交互与选择: [],
+                品牌与业务状态: [],
+                图表系列: [],
+                侧栏兼容别名: [],
+                几何与动效: [],
+            };
+            for (const token of tokens) {
+                const name = token.name;
+                const group = /^--chart-/.test(name)
+                    ? '图表系列'
+                    : /^--sidebar/.test(name)
+                      ? '侧栏兼容别名'
+                      : /^--(radius|shadow|ease)/.test(name)
+                        ? '几何与动效'
+                        : /^--(primary|success|caution|warning|destructive)/.test(name)
+                          ? '品牌与业务状态'
+                          : /^--(accent|secondary|neutral-selected|ring|input)/.test(name)
+                            ? '交互与选择'
+                            : '表面与文字';
+                groups[group].push(token);
+            }
+            for (const [title, items] of Object.entries(groups)) {
+                const group = document.createElement('div');
+                group.className = 'group';
+                const heading = document.createElement('h3');
+                heading.textContent = `${title} · ${items.length}`;
+                group.append(heading);
+                const grid = document.createElement('div');
+                grid.className = 'token-grid';
+                group.append(grid);
+                for (const token of items) {
+                    const card = document.createElement('article');
+                    card.className = 'token-card';
+                    const chip = document.createElement('div');
+                    chip.className = 'chip';
+                    const meta = document.createElement('div');
+                    meta.className = 'token-meta';
+                    const name = document.createElement('strong');
+                    name.textContent = token.name;
+                    const literal = document.createElement('code');
+                    literal.textContent = token.value;
+                    const resolved = document.createElement('small');
+                    resolved.textContent =
+                        token.value.includes('var(') || token.value.includes('calc(')
+                            ? `解析值：${value(token.name)}`
+                            : '直接定义';
+                    meta.append(name, literal, resolved);
+                    if (/^--(radius|shadow|ease)/.test(token.name)) {
+                        const demo = document.createElement('div');
+                        demo.className = 'geometry';
+                        chip.append(demo);
+                        if (token.name.startsWith('--radius')) demo.style.borderRadius = `var(${token.name})`;
+                        if (token.name.startsWith('--shadow')) demo.style.boxShadow = `var(${token.name})`;
+                        if (token.name.startsWith('--ease')) {
+                            demo.textContent = '150ms';
+                            demo.style.transition = `transform 150ms var(${token.name})`;
+                            chip.onmouseenter = () => (demo.style.transform = 'translateX(60px)');
+                            chip.onmouseleave = () => (demo.style.transform = '');
+                        }
+                    } else if (token.name.endsWith('foreground')) {
+                        chip.classList.add('foreground-sample');
+                        chip.style.setProperty('--sample-foreground', `var(${token.name})`);
+                        const paired = token.name === '--foreground' ? '--background' : token.name.slice(0, -11);
+                        chip.style.background = value(paired) ? `var(${paired})` : 'var(--card)';
+                        chip.innerHTML = `<b>Aa 文本</b>${svgSamples}`;
+                    } else chip.style.background = `var(${token.name})`;
+                    card.dataset.search = `${token.name} ${token.value}`.toLowerCase();
+                    card.append(chip, meta);
+                    grid.append(card);
+                }
+                document.getElementById('tokens').append(group);
+            }
+            document.getElementById('coverage').textContent = `${tokens.length} 个 Token · style.css 派生快照`;
+            for (const tone of ['primary', 'success', 'caution', 'warning', 'destructive']) {
+                const row = document.createElement('div');
+                row.className = 'foreground-row';
+                const name = document.createElement('code');
+                name.textContent = `--${tone}-soft-foreground`;
+                row.append(name);
+                for (const surface of [`${tone}-soft`, 'card', 'background', 'muted']) {
+                    const sample = document.createElement('div');
+                    sample.className = 'foreground-sample';
+                    sample.style.background = `var(--${surface})`;
+                    sample.style.setProperty('--sample-foreground', `var(--${tone}-soft-foreground)`);
+                    sample.innerHTML = `${svgSamples}<span>状态文字<br><code>${surface}</code></span>`;
+                    row.append(sample);
+                }
+                document.getElementById('foreground-samples').append(row);
+            }
+            document.getElementById('token-search').oninput = (event) => {
+                const query = event.target.value.toLowerCase();
+                let count = 0;
+                document.querySelectorAll('.token-card').forEach((card) => {
+                    card.hidden = !card.dataset.search.includes(query);
+                    if (!card.hidden) count++;
+                });
+                document
+                    .querySelectorAll('.group')
+                    .forEach((group) => (group.hidden = !group.querySelector('.token-card:not([hidden])')));
+                document.getElementById('no-results').hidden = count > 0;
+            };
+            const materials = [
+                ['FBS', '2 瓶', '王教授', 'caution', '库存不足'],
+                ['胰蛋白酶', '3 瓶', '王教授', 'warning', '3 天后到期'],
+                ['HeLa 细胞系', '1 管', '张教授', 'destructive', '严重短缺'],
+                ['DMEM 高糖培养基', '4 瓶', '王教授', 'caution', '库存不足'],
+            ];
+            materials.forEach(([name, count, owner, tone, status]) => {
+                const row = document.createElement('tr');
+                row.dataset.tone = tone;
+                row.innerHTML = `<td><input type="checkbox" aria-label="选择 ${name}" /></td><td>${name}</td><td>${count}</td><td>${owner}</td><td><span class="badge" data-tone="${tone}"><span class="dot"></span>${status}</span></td>`;
+                row.querySelector('input').onchange = (event) => row.classList.toggle('selected', event.target.checked);
+                document.getElementById('inventory').append(row);
+            });
+            document.querySelectorAll('[data-tone]').forEach((el) => {
+                const tone = el.dataset.tone;
+                el.style.setProperty('--tone', `var(--${tone})`);
+                el.style.setProperty('--tone-soft', `var(--${tone}-soft)`);
+                el.style.setProperty('--tone-text', `var(--${tone}-soft-foreground)`);
+            });
+            document.querySelectorAll('#filters button').forEach(
+                (button) =>
+                    (button.onclick = () => {
+                        document
+                            .querySelectorAll('#filters button')
+                            .forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+                        document
+                            .querySelectorAll('#inventory tr')
+                            .forEach(
+                                (row) =>
+                                    (row.hidden =
+                                        button.dataset.filter !== 'all' && row.dataset.tone !== button.dataset.filter)
+                            );
+                    })
+            );
+            document.querySelectorAll('.segmented button, .nav').forEach(
+                (button) =>
+                    (button.onclick = () => {
+                        const selector = button.classList.contains('nav') ? '.nav' : '.segmented button';
+                        document
+                            .querySelectorAll(selector)
+                            .forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+                        if (selector === '.nav') document.getElementById('page-name').textContent = button.textContent;
+                    })
+            );
+            const tabs = [...document.querySelectorAll('[role=tab]')];
+            function selectTab(button) {
+                tabs.forEach((tab) => {
+                    tab.setAttribute('aria-selected', String(tab === button));
+                    tab.tabIndex = tab === button ? 0 : -1;
+                    document.getElementById(tab.getAttribute('aria-controls')).hidden = tab !== button;
+                });
+            }
+            tabs.forEach((button) => {
+                button.onclick = () => selectTab(button);
+                button.onkeydown = (event) => {
+                    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                        event.preventDefault();
+                        const next =
+                            tabs[
+                                event.key === 'Home'
+                                    ? 0
+                                    : event.key === 'End'
+                                      ? tabs.length - 1
+                                      : (tabs.indexOf(button) + 1) % tabs.length
+                            ];
+                        selectTab(next);
+                        next.focus();
+                    }
+                };
+            });
+            const dialog = document.getElementById('dialog');
+            function openDialog(title, copy) {
+                document.getElementById('dialog-title').textContent = title;
+                document.getElementById('dialog-copy').textContent = copy;
+                dialog.showModal();
+            }
+            document.getElementById('open-dialog').onclick = () => openDialog('新建材料', '当前工作区：王教授课题组');
+            document.getElementById('remove-button').onclick = () =>
+                openDialog('删除记录', '组件预览，不会删除真实数据。');
+            document.getElementById('workspace-trigger').onclick = () =>
+                openDialog('切换工作区', '当前工作区：王教授课题组');
+            document.getElementById('workspace-settings').onclick = () =>
+                openDialog('工作区设置', '当前工作区：王教授课题组');
+            document.getElementById('search-command').onclick = () => document.getElementById('token-search').focus();
+            [48, 35, 62, 29, 44, 53, 38, 26, 57, 41].forEach((n, index) => {
+                const row = document.createElement('div');
+                row.className = 'bar-row';
+                row.innerHTML = `<span>系列 ${index + 1}</span><div class="track"><div class="bar" style="background:var(--chart-${index + 1});width:${(n / 70) * 100}%"></div></div><span>${n}</span>`;
+                document.getElementById('chart').append(row);
+            });
+            // Canvas resolves OKLCH and browser gamut mapping before measuring sRGB contrast.
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 1;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            function luminance(name) {
+                ctx.clearRect(0, 0, 1, 1);
+                ctx.fillStyle = value(name);
+                ctx.fillRect(0, 0, 1, 1);
+                const rgb = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => {
+                    const x = v / 255;
+                    return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+                });
+                return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+            }
+            const pairs = [
+                ['foreground', 'background'],
+                ['muted-foreground', 'muted'],
+                ['muted-foreground', 'card'],
+                ['primary-foreground', 'primary'],
+                ['primary-hover-foreground', 'primary-hover'],
+                ['primary-active-foreground', 'primary-active'],
+                ['destructive-foreground', 'destructive'],
+                ['destructive-foreground', 'destructive-hover'],
+                ['destructive-foreground', 'destructive-active'],
+            ];
+            for (const tone of ['primary', 'success', 'caution', 'warning', 'destructive']) {
+                for (const surface of [`${tone}-soft`, 'card', 'background', 'muted'])
+                    pairs.push([`${tone}-soft-foreground`, surface]);
+                if (tone !== 'primary' && tone !== 'destructive') pairs.push([`${tone}-foreground`, tone]);
+            }
+            pairs.forEach(([fg, bg]) => {
+                const a = luminance(`--${fg}`),
+                    b = luminance(`--${bg}`),
+                    ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+                const row = document.createElement('tr');
+                row.dataset.ratio = ratio;
+                row.innerHTML = `<td>--${fg}</td><td>--${bg}</td><td>${ratio.toFixed(2)}:1</td><td class="${ratio >= 4.5 ? 'pass' : 'fail'}">${ratio >= 4.5 ? '通过' : '待调整'}</td>`;
+                document.getElementById('contrast').append(row);
+            });
+        </script>
     </body>
 </html>
