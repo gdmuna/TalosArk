@@ -1,14 +1,23 @@
 <template>
     <div class="h-full min-h-0 flex min-w-0">
-        <div class="flex flex-col h-full min-h-0 w-60 border-r">
-            <div class="shrink-0 p-4">
+        <div class="flex flex-col h-full min-h-0 w-60">
+            <div class="shrink-0 m-2 space-y-2">
                 <Popover>
                     <PopoverAnchor>
                         <PopoverTrigger as-child class="group/switcher">
-                            <Button size="lg" variant="outline" class="w-full h-auto p-3 bg-card hover:bg-accent/85">
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                class="w-full h-auto p-3 bg-muted shadow-none border-none"
+                            >
                                 <div class="flex items-center justify-between h-full w-full">
-                                    <div class="flex min-h-0 min-w-0 max-h-full items-center gap-2">
-                                        <Building2 class="size-6" stroke-width="1.5" />
+                                    <div class="flex min-h-0 min-w-0 max-h-full items-center gap-1">
+                                        <!-- <Building2 class="size-9 p-1.5 bg-primary rounded text-primary-foreground" stroke-width="1.5" /> -->
+                                        <div
+                                            class="size-10 bg-primary/95 rounded text-primary-foreground shrink-0 flex"
+                                        >
+                                            <span class="m-auto text-md">孙</span>
+                                        </div>
                                         <div class="flex flex-col items-start justify-center min-w-0 ml-1">
                                             <span class="truncate w-full font-semibold">孙教授课题组321321321312</span>
                                             <span class="text-xs text-muted-foreground truncate w-full mt-1">
@@ -16,7 +25,7 @@
                                             </span>
                                         </div>
                                     </div>
-                                    <ChevronDown stroke-width="1.5" />
+                                    <!-- <ChevronDown stroke-width="1.5" /> -->
                                 </div>
                             </Button>
                         </PopoverTrigger>
@@ -24,8 +33,17 @@
                     <PopoverContent class="px-4 py-2" align="start">wow</PopoverContent>
                 </Popover>
             </div>
+
             <ScrollArea type="auto" class="min-h-0 flex-1">
-                <div class="flex flex-col p-4 gap-0.5">
+                <div class="relative m-2">
+                    <Search
+                        aria-hidden="true"
+                        stroke-width="1.5"
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input class="pl-9 cursor-pointer bg-foreground/5 border-none" placeholder="搜索工作区或执行命令" />
+                </div>
+                <div class="flex flex-col gap-0.5 m-2">
                     <Button
                         v-for="(item, idx) in navigation"
                         :key="item.label"
@@ -41,7 +59,7 @@
                         </div>
                     </Button>
                 </div>
-                <Collapsible class="flex flex-col p-4 gap-0.5 group" default-open>
+                <Collapsible class="flex flex-col gap-0.5 m-2 group" default-open>
                     <CollapsibleTrigger as-child>
                         <Button class="min-w-0" variant="ghost">
                             <div class="flex items-center min-w-0 w-full text-muted-foreground gap-1">
@@ -77,21 +95,20 @@
                     </CollapsibleContent>
                 </Collapsible>
             </ScrollArea>
-            <div class="shrink-0 p-4 flex flex-col gap-0.5">
+            <div class="shrink-0 m-2 mb-4 flex flex-col gap-0.5">
                 <Button class="w-full" variant="ghost" tooltip="管理中心">
                     <div class="flex items-center flex-1 gap-2">
                         <ShieldKeyhole class="size-5" stroke-width="1.5" />
                         <span>管理中心</span>
                     </div>
                 </Button>
-                <Separator />
-                <Button class="w-full" :tooltip="open ? '收起侧栏' : '展开侧栏'" variant="ghost" @click="toggleSidebar">
+                <!-- <Button class="w-full" :tooltip="open ? '收起侧栏' : '展开侧栏'" variant="ghost" @click="toggleSidebar">
                     <div class="flex-1 flex items-center gap-2">
                         <PanelLeftClose v-if="open" class="size-5" stroke-width="1.5" />
                         <PanelLeftOpen v-else class="size-5" stroke-width="1.5" />
                         <span>{{ open ? '收起侧栏' : '展开侧栏' }}</span>
                     </div>
-                </Button>
+                </Button> -->
             </div>
         </div>
         <DesktopPrimaryContentShell class="flex-1 h-full">
@@ -105,6 +122,7 @@ import { useRoutePathMatch } from '@/shared/composables';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Button } from '@/ui/button';
+import { Input } from '@/ui/input';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/ui/popover';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Separator } from '@/ui/separator';
@@ -120,6 +138,7 @@ import {
     LayoutDashboard,
     PanelLeftClose,
     PanelLeftOpen,
+    Search,
     ShieldKeyhole,
     Building2,
     ArrowRight,

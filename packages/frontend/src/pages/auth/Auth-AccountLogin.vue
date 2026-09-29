@@ -9,7 +9,12 @@
             <Field>
                 <div class="flex items-center justify-between gap-3">
                     <FieldLabel for="auth-password">密码</FieldLabel>
-                    <Button type="button" variant="link" size="sm" class="h-auto px-0 text-xs font-normal">
+                    <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        class="h-auto px-0 text-xs font-normal cursor-pointer"
+                    >
                         忘记密码？
                     </Button>
                 </div>

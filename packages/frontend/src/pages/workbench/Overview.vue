@@ -248,7 +248,7 @@ const overviewStats = [
         value: '23',
         delta: '+3',
         icon: TriangleAlert,
-        iconClass: 'bg-warning-soft text-warning-soft-foreground',
+        iconClass: 'bg-warning-soft text-warning',
         deltaClass: 'text-destructive',
     },
     {
@@ -256,7 +256,7 @@ const overviewStats = [
         value: '48',
         delta: '+5',
         icon: FlaskConical,
-        iconClass: 'bg-success-soft text-success-soft-foreground',
+        iconClass: 'bg-success-soft text-success',
         deltaClass: 'text-success',
     },
     {
@@ -264,7 +264,7 @@ const overviewStats = [
         value: '8',
         delta: '−1',
         icon: ClipboardCheck,
-        iconClass: 'bg-primary-soft text-primary-soft-foreground',
+        iconClass: 'bg-primary-soft text-primary',
         deltaClass: 'text-success',
     },
     {
@@ -272,7 +272,7 @@ const overviewStats = [
         value: '5',
         delta: '+2',
         icon: BellRing,
-        iconClass: 'bg-destructive-soft text-destructive-soft-foreground',
+        iconClass: 'bg-destructive-soft text-destructive',
         deltaClass: 'text-destructive',
     },
 ] as const;
@@ -314,7 +314,7 @@ const todoItems = [
 
 const inventoryAlerts = [
     { label: '严重短缺', value: 5, indicatorClass: 'bg-destructive' },
-    { label: '库存不足', value: 11, indicatorClass: 'bg-warning' },
+    { label: '库存不足', value: 11, indicatorClass: 'bg-caution' },
     { label: '即将用尽', value: 7, indicatorClass: 'bg-warning' },
 ] as const;
 

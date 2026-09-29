@@ -1,23 +1,10 @@
 <template>
-    <div class="flex flex-col min-h-0 min-w-0">
+    <div class="flex flex-col min-h-0 min-w-0 bg-background border-l border-t rounded-tl-2xl">
         <div class="flex h-15 items-center justify-between gap-5 overflow-hidden border-b px-4 py-2 shrink-0">
             <div class="shrink-0 font-medium">
                 <span>工作台 / 总览</span>
             </div>
             <div class="flex min-w-0">
-                <div class="relative w-96 mr-4 shrink-2">
-                    <Search
-                        aria-hidden="true"
-                        stroke-width="1.5"
-                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                    />
-                    <Input class="pl-9 pr-21 cursor-pointer" placeholder="搜索工作区或执行命令" />
-                    <kbd
-                        class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                    >
-                        Ctrl + K
-                    </kbd>
-                </div>
                 <div class="flex *:size-9">
                     <Button variant="ghost" size="sm" class="p-1" title="通知">
                         <span class="sr-only">通知</span>
@@ -78,10 +65,9 @@
 import { RouterTabProvider } from '@/modules';
 
 import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/ui/popover';
 
-import { Search, Bell, CircleQuestionMark, Settings, LogOut, UserRound } from '@lucide/vue';
+import { Bell, CircleQuestionMark, Settings, LogOut, UserRound } from '@lucide/vue';
 </script>
 
 <style scoped></style>

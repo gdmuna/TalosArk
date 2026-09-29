@@ -1,9 +1,9 @@
 <template>
-    <div class="flex flex-col h-svh min-w-4xl">
-        <header class="shrink-0 flex h-10 items-center justify-between border-b bg-card">
-            <div class="flex items-center justify-between ml-4 gap-1">
-                <Box stroke-width="1.5" />
-                <span class="font-medium">Talos Ark 璇玑云库</span>
+    <div class="flex flex-col h-svh min-w-4xl bg-muted">
+        <header class="shrink-0 flex h-10 items-center justify-between">
+            <div class="flex items-center justify-between ml-4.5 gap-1 text-md">
+                <Box class="fill-primary text-muted size-7.5" stroke-width="2.25" />
+                <span class="font-medium">璇玑云库</span>
             </div>
             <div class="flex items-center justify-between h-full *:h-full *:w-12 *:rounded-none">
                 <Button variant="ghost" size="sm" class="p-1" title="最小化">

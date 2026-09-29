@@ -1,18 +1,22 @@
 <template>
-    <main class="flex min-h-full w-full items-center justify-center bg-card px-4 sm:p-8">
-        <section class="w-full max-w-md rounded-xl p-6 sm:p-8" aria-labelledby="auth-title">
+    <main class="flex min-h-full w-full items-center justify-center px-4 sm:p-8">
+        <section class="w-full max-w-md rounded-xl p-6 sm:p-8 bg-card" aria-labelledby="auth-title">
             <header class="flex flex-col items-center text-center">
-                <h1 id="auth-title" class="mt-5 text-xl font-semibold tracking-tight">登录璇玑云库</h1>
+                <h1 id="auth-title" class="mt-5 text-xl font-semibold flex items-center">
+                    登录到
+                    <Box class="fill-primary text-muted size-7.5 inline ml-1" stroke-width="2.25" />
+                    璇玑云库
+                </h1>
             </header>
 
-            <div class="mt-7 rounded-lg bg-muted p-1" role="group" aria-label="选择登录方式">
+            <div class="mt-7 rounded-lg bg-muted p-1 flex gap-1" role="group" aria-label="选择登录方式">
                 <Button
                     v-for="method in loginMethods"
                     :key="method.value"
                     type="button"
                     variant="ghost"
                     size="sm"
-                    class="w-1/3 px-2 text-muted-foreground data-[active=true]:bg-card data-[active=true]:text-foreground data-[active=true]:shadow-xs"
+                    class="w-1/3 px-2 text-muted-foreground data-[active=true]:bg-card data-[active=true]:text-foreground data-[active=true]:shadow-xs shrink"
                     :data-active="activeMethod === method.value"
                     :aria-pressed="activeMethod === method.value"
                     @click="activeMethod = method.value"
@@ -58,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { Building2, Globe2, KeyRound, Mail, MessageCircle, Smartphone } from '@lucide/vue';
+import { Building2, Globe2, KeyRound, Mail, MessageCircle, Smartphone, Box } from '@lucide/vue';
 import { ref } from 'vue';
 import AuthAccountLogin from './Auth-AccountLogin.vue';
 import AuthEmailLogin from './Auth-EmailLogin.vue';
