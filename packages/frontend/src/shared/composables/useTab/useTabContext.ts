@@ -1,29 +1,28 @@
 // TODO: 考虑废弃
 
-import { reactive, readonly, onUnmounted, type InjectionKey } from 'vue';
+import { readonly, onUnmounted, type InjectionKey } from 'vue';
+import { useUiContextStore } from '@/shared/stores/ui-context.store';
+import type {
+    TabCustomContextNamespace,
+    TabCustomContextStore,
+    TabCustomContextNamespaceKey,
+} from '@/shared/models/ui-context';
 
 import { provideLocal, injectLocal } from '@vueuse/core';
 
 import { useTab } from './useTab';
 
-export type TabCustomContextNamespace = {
-    navigation: { path: string; canGoBack: boolean; canForward: boolean };
-    session: { visits: number; lastAccess: Date };
-};
-
-export type TabCustomContextStore = Map<
-    string,
-    {
-        [Ns in keyof TabCustomContextNamespace]?: TabCustomContextNamespace[Ns];
-    }
->;
-
-export type TabCustomContextNamespaceKey = keyof TabCustomContextNamespace;
+export type {
+    TabCustomContextNamespace,
+    TabCustomContextStore,
+    TabCustomContextNamespaceKey,
+} from '@/shared/models/ui-context';
 
 export const TabCustomContextKey: InjectionKey<TabCustomContextStore> = Symbol('TabCustomContext');
 
 export function useTabCustomContextProvider() {
-    const store = reactive<TabCustomContextStore>(new Map());
+    const scope = useUiContextStore().createTabContext();
+    const store = scope.state;
     provideLocal(TabCustomContextKey, store);
 
     const clear = () => {
@@ -32,6 +31,7 @@ export function useTabCustomContextProvider() {
 
     onUnmounted(() => {
         clear();
+        scope.dispose();
     });
 
     return { clear };

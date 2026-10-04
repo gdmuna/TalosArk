@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SidebarProps } from '.';
+import type { SidebarProps } from './variants';
 import { cn } from '@/shared/lib/utils';
 import { Sheet, SheetContent } from '@/ui/sheet';
 import SheetDescription from '@/ui/sheet/SheetDescription.vue';

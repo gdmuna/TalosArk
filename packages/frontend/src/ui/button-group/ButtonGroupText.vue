@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PrimitiveProps } from 'reka-ui';
 import type { HTMLAttributes } from 'vue';
-import type { ButtonGroupVariants } from '.';
+import type { ButtonGroupVariants } from './variants';
 import { Primitive } from 'reka-ui';
 import { cn } from '@/shared/lib/utils';
 

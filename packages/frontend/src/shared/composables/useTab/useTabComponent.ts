@@ -1,12 +1,11 @@
 import {
-    ref,
     unref,
     readonly,
-    reactive,
     computed,
     watch,
     watchEffect,
     onUnmounted,
+    markRaw,
     type Ref,
     type MaybeRef,
     type Reactive,
@@ -15,6 +14,16 @@ import {
 } from 'vue';
 
 import { provideLocal, injectLocal, toRef } from '@vueuse/core';
+import { useUiContextStore } from '@/shared/stores/ui-context.store';
+import type {
+    TabComponentContextEntity,
+    TabComponentContextState,
+} from '@/shared/models/ui-context';
+
+export type {
+    TabComponentContextEntity,
+    TabComponentContextState,
+} from '@/shared/models/ui-context';
 
 type TabId = string;
 
@@ -22,17 +31,9 @@ export type NullableTabId = TabId | undefined | null;
 
 type Path = string;
 
-export type TabComponentContextEntity = {
-    tabId: TabId;
-    path: Path;
-    component: Component;
-};
-
 export type TabComponentProviderConf = {
     disableWhenTabNull?: boolean;
 };
-
-export type TabComponentContextState = 'idle' | 'switching';
 
 export type TabComponentContext = {
     store: Reactive<Map<TabId, Map<Path, TabComponentContextEntity>>>;
@@ -48,15 +49,13 @@ export const TabComponentContextKey: InjectionKey<TabComponentContext> =
     Symbol('TabComponentContext');
 
 export function useTabComponentProvider(opts?: MaybeRef<TabComponentProviderConf>) {
-    const store = reactive(new Map<TabId, Map<Path, TabComponentContextEntity>>());
-
-    const _state = ref<TabComponentContextState>('idle');
+    const scope = useUiContextStore().createTabComponents();
+    const { store, state: _state, createTabRule: _createTabRule } = scope.state;
     const state = readonly(_state);
     const setState = (state: TabComponentContextState) => {
         _state.value = state;
     };
 
-    const _createTabRule = reactive(new Set<RegExp>());
     const createTabRule = readonly(_createTabRule);
     const setCreateTabRule = (pattern: RegExp) => {
         _createTabRule.add(pattern);
@@ -83,6 +82,7 @@ export function useTabComponentProvider(opts?: MaybeRef<TabComponentProviderConf
 
     onUnmounted(() => {
         clear();
+        scope.dispose();
     });
 
     return {
@@ -101,8 +101,7 @@ export function useTabComponent() {
         throw new Error('useTabComponent 未在 TabComponentProvider 上下文中使用');
     }
 
-    const { store, conf, state, setState, createTabRule, setCreateTabRule, deleteCreateTabRule } =
-        ctx;
+    const { store, state, setState, createTabRule, setCreateTabRule, deleteCreateTabRule } = ctx;
 
     const resolveTabId = (tabId: MaybeRef<NullableTabId> = null) => {
         return computed(() => unref(tabId) ?? '__NULL__');
@@ -127,9 +126,7 @@ export function useTabComponent() {
             // if (conf.value?.disableWhenTabNull && tid === '__NULL__') return;
 
             const p = resolvedPath.value;
-            const rawComponent = unref(component);
-
-            console.log({ tid, p });
+            const rawComponent = markRaw(unref(component));
 
             let entityMap = store.get(tid);
             if (!entityMap) {
@@ -137,7 +134,6 @@ export function useTabComponent() {
                 store.set(tid, entityMap);
             }
             entityMap.set(p, { tabId: tid, path: p, component: rawComponent });
-            console.log('注册 tab 组件', { tid, p, rawComponent });
         });
 
         watch(
@@ -178,7 +174,7 @@ export function useTabComponent() {
         return store.delete(resolvedTabId);
     };
 
-    const withSwitching = async (callback: () => any | Promise<any>) => {
+    const withSwitching = async (callback: () => unknown | Promise<unknown>) => {
         try {
             setState('switching');
             await callback();

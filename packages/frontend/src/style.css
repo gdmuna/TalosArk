@@ -1,9 +1,13 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './shared/assets/fonts/source-han-sans.css';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
+    --font-sans:
+        'TalosArk Source Han Sans', 'Source Han Sans SC', 'Source Han Sans CN', 'Noto Sans CJK SC',
+        'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     --shadow-xs: 0 1px 2px oklch(0.21 0 0 / 4%);
     --shadow-sm: 0 1px 3px oklch(0.21 0 0 / 6%), 0 1px 2px oklch(0.21 0 0 / 4%);
     --shadow-md: 0 4px 10px oklch(0.21 0 0 / 8%), 0 2px 4px oklch(0.21 0 0 / 4%);
@@ -99,48 +103,59 @@
     --background: oklch(98.6% 0.00216 106.83);
     --foreground: oklch(0 0 0);
     --card: oklch(99.675% 0.00121 107.847);
+    /* A near-gray surface's hue must not rotate brand and status tints. */
+    --surface-tint-base: oklch(from var(--card) l 0 none);
     --card-foreground: var(--foreground);
     --popover: var(--card);
     --popover-foreground: var(--foreground);
     --primary: oklch(0.53732 0.25524 262.34);
-    --primary-soft: oklch(0.95 0.02 262.34);
+    /* Mix weights fitted to the existing soft surfaces, with an opaque card base. */
+    --primary-soft: color-mix(in oklch, var(--primary) 10%, var(--surface-tint-base));
     /* Colored text and SVG fill/stroke only; calibrated on light neutral and soft surfaces. */
     --primary-soft-foreground: oklch(0.52 0.13 262.34);
-    --primary-hover: oklch(0.48732 0.22972 262.34);
+    --primary-hover: color-mix(
+        in oklch,
+        var(--primary) 90%,
+        oklch(from var(--foreground) l 0 none)
+    );
     --primary-hover-foreground: var(--primary-foreground);
     --primary-active: oklch(0.43732 0.22972 262.34);
     --primary-active-foreground: var(--primary-foreground);
     --primary-foreground: oklch(1 0 0);
-    --neutral-selected: oklch(0.91 0.004 107);
+    /* --neutral-selected: oklch(0.91 0.004 107); */
+    --neutral-selected: var(--accent);
     --neutral-selected-foreground: var(--foreground);
-    --secondary: var(--muted);
+    --secondary: oklch(0.95259 0.00187 108.11);
     --secondary-foreground: var(--foreground);
     --muted: oklch(96.959% 0.00154 107.11);
     --muted-foreground: oklch(0.48 0.006 107);
-    --accent: oklch(0.94 0.003 107);
+    /* Matches the existing bg-foreground/5 interaction intensity. */
+    --accent: color-mix(in oklch, var(--foreground) 7.5%, var(--card));
     --accent-foreground: var(--foreground);
     --destructive: oklch(0.61834 0.25143 29.08);
-    --destructive-soft: oklch(0.96 0.02 29.08);
+    --destructive-soft: color-mix(in oklch, var(--destructive) 9%, var(--surface-tint-base));
     --destructive-soft-foreground: oklch(0.5 0.13 29.08);
-    --destructive-hover: oklch(0.64334 0.22629 29.08);
+    --destructive-hover: color-mix(in oklch, var(--destructive) 94%, var(--surface-tint-base));
     --destructive-active: oklch(0.66834 0.22629 29.08);
     --destructive-foreground: var(--foreground);
     --success: oklch(0.63339 0.14652 158.65);
-    --success-soft: oklch(0.96 0.02 158.65);
+    --success-soft: color-mix(in oklch, var(--success) 11%, var(--surface-tint-base));
     --success-soft-foreground: oklch(0.5 0.1 158.65);
     --success-foreground: var(--foreground);
     /* C-07: red = critical, orange = shortage, amber/yellow = approaching expiry. */
     --caution: oklch(0.70616 0.19411 46.68);
-    --caution-soft: oklch(0.96 0.025 46.68);
+    --caution-soft: color-mix(in oklch, var(--caution) 13%, var(--surface-tint-base));
     --caution-soft-foreground: oklch(0.52 0.11 46.68);
     --caution-foreground: var(--foreground);
-    --warning: oklch(0.82 0.16 85);
-    --warning-soft: oklch(0.97 0.035 85);
-    --warning-soft-foreground: oklch(0.5 0.09 85);
+    --warning: oklch(0.8102 0.2 88.76);
+    --warning-soft: color-mix(in oklch, var(--warning) 21%, var(--surface-tint-base));
+    --warning-soft-foreground: oklch(0.46 0.11 85);
     --warning-foreground: var(--foreground);
     /* Separators are quiet; form boundaries and keyboard focus remain identifiable. */
-    --border: oklch(0.9 0.003 107);
-    --input: oklch(0.64 0.005 107);
+    --border: oklch(0.92 0.005 107);
+    --input: oklch(0.82 0.005 107);
+    --scroll-bar: oklch(0.78 0.005 107);
+    /* --input: var(--border); */
     --ring: var(--primary);
     /* Categorical series, not severity colors; always pair with labels. */
     --chart-1: oklch(0.62 0.18 250);
@@ -175,8 +190,8 @@
         outline-offset: 2px;
     }
     ::selection {
-        background: var(--primary-soft);
-        /* color: var(--primary-soft-foreground); */
+        background: color-mix(in oklch, var(--primary) 28%, var(--surface-tint-base));
+        color: color-mix(in oklch, var(--primary-soft-foreground) 85%, var(--foreground));
     }
 }
 
@@ -193,8 +208,8 @@ body {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 0.6rem;
+    height: 0.6rem;
 }
 
 ::-webkit-scrollbar-track {
@@ -225,4 +240,8 @@ html {
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
     }
+}
+
+button {
+    cursor: pointer;
 }

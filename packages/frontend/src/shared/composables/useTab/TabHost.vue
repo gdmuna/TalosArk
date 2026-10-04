@@ -48,8 +48,7 @@ function isActive(tabId: string, path: string) {
 const { on } = useEventBus();
 
 on('workbench.tab:delete', ({ tabId }) => {
-    const ok = drop({ tabId });
-    console.log('删除 tab 组件', { tabId, ok });
+    drop({ tabId });
 });
 
 const guard = (to: RouteLocationNormalized) => {

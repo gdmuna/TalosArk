@@ -10,7 +10,10 @@ defineOptions({
 });
 
 const props = withDefaults(defineProps<DropdownMenuContentProps & { class?: HTMLAttributes['class'] }>(), {
-    sideOffset: 4,
+    side: 'bottom',
+    align: 'start',
+    sideOffset: 6,
+    collisionPadding: 8,
 });
 const emits = defineEmits<DropdownMenuContentEmits>();
 

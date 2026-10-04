@@ -18,6 +18,8 @@ const { toggleSidebar } = useSidebar();
         data-slot="sidebar-trigger"
         variant="ghost"
         size="icon"
+        use-tooltip
+        aria-label="切换侧边栏"
         :class="cn('h-7 w-7', props.class)"
         @click="toggleSidebar"
     >

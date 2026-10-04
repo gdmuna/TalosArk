@@ -1,7 +1,6 @@
 import {
     provide,
     inject,
-    reactive,
     computed,
     markRaw,
     onUnmounted,
@@ -13,16 +12,10 @@ import {
 import { v7 as uuidv7 } from 'uuid';
 
 import { useTab } from '@/shared/composables/useTab';
+import { useUiContextStore } from '@/shared/stores/ui-context.store';
+import type { SlotContextEntity } from '@/shared/models/ui-context';
 
-export type SlotContextEntity = {
-    id: string;
-    tabId: string | null;
-    component: Component;
-    order: number | string;
-    enable: boolean;
-    stable: boolean;
-    keepAlive: boolean;
-};
+export type { SlotContextEntity } from '@/shared/models/ui-context';
 
 export type SlotContext = Reactive<Map<string, SlotContextEntity[]>>;
 
@@ -30,11 +23,13 @@ export const SlotContextKey: InjectionKey<SlotContext> = Symbol('SlotContext');
 export const SlotNamespaceKey: InjectionKey<string> = Symbol('SlotNamespace');
 
 export function useSlotProvider() {
-    const store = reactive(new Map<string, SlotContextEntity[]>());
+    const scope = useUiContextStore().createSlots();
+    const store = scope.state;
     provide(SlotContextKey, store);
 
     onUnmounted(() => {
         store.clear();
+        scope.dispose();
     });
 
     const clear = () => {
@@ -65,12 +60,11 @@ export function useSlotTarget(
     if (!store.has(key)) store.set(key, []);
 
     const rawSlotEntity = computed(() => {
-        console.log(`useSlotTarget: 获取 slot 实体，key=${key}，数量=${store.get(key)?.length}`);
         return store.get(key) ?? [];
     });
 
     const slotEntity = computed(() => {
-        return rawSlotEntity.value.sort(customCompareFn ?? sortCompareFn);
+        return [...rawSlotEntity.value].sort(customCompareFn ?? sortCompareFn);
     });
 
     return { rawSlotEntity, slotEntity };
@@ -123,10 +117,6 @@ export function useSlot(slotName: string, component: Component, opts: UseSlotOpt
     } = opts;
     const key = resolveKey(slotName, namespace);
 
-    console.log(
-        `useSlot: 注册 slot 实体，id=${id}，slotName=${slotName}, activeTabId=${activeTabId.value}`
-    );
-
     const slotEntity = store.get(key) ?? [];
 
     slotEntity.push({
@@ -142,9 +132,6 @@ export function useSlot(slotName: string, component: Component, opts: UseSlotOpt
     store.set(key, slotEntity);
 
     const dispose = () => {
-        console.log(
-            `useSlot: 卸载 slot 实体，id=${id}，slotName=${slotName}, activeTabId=${activeTabId.value}`
-        );
         const entries = store.get(key) ?? [];
 
         const idx = entries.findIndex((e) => e.id === id);
@@ -166,14 +153,10 @@ export function useSlot(slotName: string, component: Component, opts: UseSlotOpt
 }
 
 export function isAvailableSlot(slotName: string, namespace?: string) {
-    return computed(() => {
-        const store = inject(SlotContextKey);
-        if (!store) {
-            throw new Error(`'isAvailableSlot' 必须在提供 'SlotContextKey' 的组件树中使用`);
-        }
-
-        const key = resolveKey(slotName, namespace);
-
-        return store.has(key);
-    });
+    const store = inject(SlotContextKey);
+    if (!store) {
+        throw new Error(`'isAvailableSlot' 必须在提供 'SlotContextKey' 的组件树中使用`);
+    }
+    const key = resolveKey(slotName, namespace);
+    return computed(() => store.has(key));
 }

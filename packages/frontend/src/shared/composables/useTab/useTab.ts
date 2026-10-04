@@ -1,6 +1,4 @@
 import {
-    ref,
-    reactive,
     readonly,
     computed,
     onUnmounted,
@@ -15,22 +13,10 @@ import { v7 as uuidv7 } from 'uuid';
 import { provideLocal, injectLocal } from '@vueuse/core';
 
 import { eventBus } from './eventBus';
+import { useUiContextStore } from '@/shared/stores/ui-context.store';
+import type { TabContextEntity, TabContextCreateOpts } from '@/shared/models/ui-context';
 
-export type TabContextEntity = {
-    id: string;
-    // title: string;
-    // scroll: {
-    //     x: number
-    //     y: number
-    // }
-    createAt: Date;
-};
-
-export type TabContextCreateOpts = Partial<
-    TabContextEntity & {
-        afterIdx: number;
-    }
->;
+export type { TabContextEntity, TabContextCreateOpts } from '@/shared/models/ui-context';
 
 export type TabContext = {
     store: Reactive<Map<string, TabContextEntity>>;
@@ -43,10 +29,8 @@ export type TabContext = {
 export const TabContextKey: InjectionKey<TabContext> = Symbol('TabContext');
 
 export function useTabProvider() {
-    const store = reactive(new Map<string, TabContextEntity>());
-    const tabOrder = reactive<string[]>([]);
-
-    const _activeTabId = ref<string>('__NULL__');
+    const scope = useUiContextStore().createWorkspaceTabs();
+    const { store, tabOrder, activeTabId: _activeTabId } = scope.state;
     const activeTabId = readonly(_activeTabId);
     const setActiveTabId = (tabId?: string | null) => {
         if (tabId === undefined || tabId === null) _activeTabId.value = '__NULL__';
@@ -64,6 +48,7 @@ export function useTabProvider() {
 
     onUnmounted(() => {
         store.clear();
+        scope.dispose();
     });
 
     const clear = () => {
@@ -116,15 +101,16 @@ export function useTab() {
     const getTabEntity = (tabId: string) => {
         if (!store) throw new Error('该函数未在 TabProvider 上下文中使用');
 
-        if (!store.has(tabId)) {
+        const entity = store.get(tabId);
+        if (!entity) {
             throw new Error(`tabId ${tabId} 不存在`);
         }
-        return store.get(tabId)!;
+        return entity;
     };
 
     const activeTabEntity = computed(() => {
         if (activeTabIdIsNull.value || !store) return null;
-        return store.get(activeTabId.value)!;
+        return store.get(activeTabId.value) ?? null;
     });
 
     const deleteTab = (tabId: string | string[]) => {

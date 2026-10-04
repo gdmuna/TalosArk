@@ -1,41 +1,18 @@
-import {
-    unref,
-    reactive,
-    readonly,
-    computed,
-    onUnmounted,
-    type InjectionKey,
-    type MaybeRef,
-} from 'vue';
+import { unref, readonly, computed, onUnmounted, type InjectionKey, type MaybeRef } from 'vue';
 
 import { provideLocal, injectLocal } from '@vueuse/core';
 
-import {
-    useRouter,
-    useRoute,
-    type RouteLocationRaw,
-    type RouteParamsGeneric,
-    type LocationQuery,
-} from 'vue-router';
+import { useRouter, useRoute, type RouteLocationRaw } from 'vue-router';
 
 import { resolveDefaultTitle } from '@/shared/utils';
+import { useUiContextStore } from '@/shared/stores/ui-context.store';
+import type { ViewHistoryEntryOpts, ViewHistoryEntity } from '@/shared/models/ui-context';
 
-export type ViewHistoryEntry = {
-    contextId: string;
-    path: string;
-    fullPath: string;
-    params?: RouteParamsGeneric;
-    query?: LocationQuery;
-    hash?: string;
-    title: string;
-};
-
-export type ViewHistoryEntryOpts = Omit<ViewHistoryEntry, 'contextId'>;
-
-export type ViewHistoryEntity = {
-    entry: ViewHistoryEntry[];
-    cursor: number;
-};
+export type {
+    ViewHistoryEntry,
+    ViewHistoryEntryOpts,
+    ViewHistoryEntity,
+} from '@/shared/models/ui-context';
 
 export type ViewHistorySyncOpts = {
     force?: boolean;
@@ -46,7 +23,8 @@ export type ViewHistoryContext = Map<string, ViewHistoryEntity>;
 export const ViewHistoryContextKey: InjectionKey<ViewHistoryContext> = Symbol('ViewHistoryContext');
 
 export function useViewHistoryProvider() {
-    const store = reactive(new Map<string, ViewHistoryEntity>());
+    const scope = useUiContextStore().createViewHistory();
+    const store = scope.state;
     provideLocal(ViewHistoryContextKey, store);
 
     const clear = () => {
@@ -55,6 +33,7 @@ export function useViewHistoryProvider() {
 
     onUnmounted(() => {
         clear();
+        scope.dispose();
     });
 
     return { clear };
@@ -72,33 +51,62 @@ export function useViewHistory() {
         let entity = store.get(contextId);
 
         if (!entity) {
-            entity = { entry: [], cursor: -1 };
+            entity = { entry: [], cursor: -1, navigationPending: false };
             store.set(contextId, entity);
         }
 
-        const cnt = entity.entry.length - entity.cursor - 1;
-        if (cnt > 0) entity.entry.splice(entity.cursor + 1);
-        entity.cursor = entity.entry.length - 1;
         const previousEntry = entity.entry[entity.cursor];
-        if (!previousEntry || previousEntry.fullPath !== payload.fullPath) {
-            entity.entry.push({ ...payload, contextId });
-            entity.cursor = entity.entry.length - 1;
-            return true;
-        }
-        return false;
+        if (previousEntry?.fullPath === payload.fullPath) return false;
+        entity.entry.splice(entity.cursor + 1);
+        entity.entry.push({ ...payload, contextId });
+        entity.cursor = entity.entry.length - 1;
+        return true;
     };
 
     const pushNow = (contextId: string) => {
         const { path, fullPath, query, hash, params } = route;
         const title = resolveDefaultTitle(route);
-        console.log('pushNow:', { contextId, path, fullPath, query, hash, params, title });
         return push(contextId, {
             path,
             fullPath,
             query,
             hash,
+            params,
             title,
         });
+    };
+
+    const trackRouter = (contextId: string) => {
+        pushNow(contextId);
+        const stop = router.afterEach((to, _from, failure) => {
+            if (failure || store.get(contextId)?.navigationPending) return;
+            const { path, fullPath, params, query, hash } = to;
+            push(contextId, {
+                path,
+                fullPath,
+                params,
+                query,
+                hash,
+                title: resolveDefaultTitle(to),
+            });
+        });
+        onUnmounted(stop);
+        return stop;
+    };
+
+    // Replaying an entry must not be recorded as a new navigation or truncate its forward branch.
+    const syncToIndex = async (contextId: string, index: number) => {
+        const entity = store.get(contextId);
+        const target = entity?.entry[index];
+        if (!entity || !target || entity.navigationPending || !Number.isInteger(index)) return;
+        entity.navigationPending = true;
+        try {
+            const failure = await router.push(target.fullPath);
+            if (!failure) entity.cursor = index;
+            return failure;
+        } finally {
+            entity.navigationPending = false;
+        }
     };
 
     const syncPush = async (
@@ -118,76 +126,75 @@ export function useViewHistory() {
 
     const back = (contextId: string) => {
         const entity = store.get(contextId);
-        if (!entity) return undefined;
+        if (!entity || entity.cursor <= 0 || entity.navigationPending) return undefined;
         entity.cursor--;
         return entity.entry[entity.cursor];
     };
 
     const syncBack = (contextId: string) => {
-        const { path, query, hash } = back(contextId) ?? {};
-        console.log(path, query, hash);
-        return router.push({
-            path,
-            query,
-            hash,
-        });
+        const entity = store.get(contextId);
+        if (entity) return syncToIndex(contextId, entity.cursor - 1);
     };
 
     const canBack = (contextId: MaybeRef<string>) => {
         return computed(() => {
             const entity = store.get(unref(contextId));
             if (!entity) return false;
-            return entity.cursor > 0;
+            return !entity.navigationPending && entity.cursor > 0;
         });
     };
 
     const forward = (contextId: string) => {
         const entity = store.get(contextId);
-        if (!entity) return undefined;
+        if (!entity || entity.cursor >= entity.entry.length - 1 || entity.navigationPending)
+            return undefined;
         entity.cursor++;
         return entity.entry[entity.cursor];
     };
 
     const syncForward = (contextId: string) => {
-        const { path, query, hash } = forward(contextId) ?? {};
-        console.log(path, query, hash);
-        return router.push({
-            path,
-            query,
-            hash,
-        });
+        const entity = store.get(contextId);
+        if (entity) return syncToIndex(contextId, entity.cursor + 1);
     };
 
     const canForward = (contextId: MaybeRef<string>) => {
         return computed(() => {
             const entity = store.get(unref(contextId));
             if (!entity) return false;
-            return entity.cursor < entity.entry.length - 1;
+            return !entity.navigationPending && entity.cursor < entity.entry.length - 1;
         });
     };
 
     const go = (contextId: string, delta: number) => {
         const entity = store.get(contextId);
         delta = Math.floor(delta);
-        if (!entity || delta > entity.entry.length - 1 || delta < 0) return undefined;
+        if (
+            !entity ||
+            !Number.isFinite(delta) ||
+            delta > entity.entry.length - 1 ||
+            delta < 0 ||
+            entity.navigationPending
+        )
+            return undefined;
         entity.cursor = delta;
         return entity.entry[entity.cursor];
     };
 
     const syncGo = (contextId: string, delta: number) => {
-        const { path, query, hash } = go(contextId, delta) ?? {};
-        return router.push({
-            path,
-            query,
-            hash,
-        });
+        return syncToIndex(contextId, delta);
     };
 
     const canGo = (contextId: MaybeRef<string>, delta: MaybeRef<number>) => {
         return computed(() => {
             const entity = store.get(unref(contextId));
-            delta = unref(delta);
-            return entity && delta >= 0 && delta <= entity.entry.length - 1;
+            const index = unref(delta);
+            return (
+                !!entity &&
+                !entity.navigationPending &&
+                Number.isInteger(index) &&
+                index >= 0 &&
+                index < entity.entry.length
+            );
         });
     };
 
@@ -259,6 +266,7 @@ export function useViewHistory() {
     return {
         push,
         pushNow,
+        trackRouter,
         syncPush,
         back,
         syncBack,
