@@ -1,349 +1,309 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { RouterLink } from 'vue-router';
+import { ArrowRight, Bell, ClipboardCheck, FileText, FlaskConical, ListTodo, Monitor, Package } from '@lucide/vue';
+import { useWorkbenchStore } from '@/shared/stores';
+import { exceptionTone, stateTone, isTaskOverdue, taskDisplayStatus, type Resource } from '@/shared/models/workbench';
+import { formatTime, isToday } from '@/shared/utils/date-time';
+import { Button } from '@/ui/button';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/ui/empty';
+import StateBadge from '@/modules/state-badge/StateBadge.vue';
+import ResourceDialog from '@/modules/workbench/ResourceDialog.vue';
+
+const workbench = useWorkbenchStore();
+const preview = ref<Resource | null>(null);
+const paths = {
+    tasks: '/main/workbench/my-task',
+    approvals: '/main/workbench/pending-approval',
+    exceptions: '/main/workbench/exception-alert',
+};
+const pendingTasks = computed(() =>
+    workbench.currentTasks.filter((item) => item.status === '待处理').sort((a, b) => a.dueAt - b.dueAt)
+);
+const pendingApprovals = computed(() =>
+    workbench.currentApprovals.filter((item) => item.status === '待审批').sort((a, b) => a.createdAt - b.createdAt)
+);
+const severityOrder = { 严重: 0, 一般: 1, 提示: 2 };
+const unresolved = computed(() =>
+    workbench.currentExceptions
+        .filter((item) => item.status === '未处理')
+        .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || b.createdAt - a.createdAt)
+);
+const summaries = computed(() => [
+    {
+        id: 'tasks',
+        label: '未完成待办',
+        count: pendingTasks.value.length,
+        icon: ListTodo,
+        path: paths.tasks,
+        color: 'bg-primary-soft text-primary-soft-foreground',
+        detail: `今日到期 ${pendingTasks.value.filter((item) => isToday(item.dueAt)).length} · 已逾期 ${pendingTasks.value.filter(isTaskOverdue).length}`,
+    },
+    {
+        id: 'approvals',
+        label: '待审批',
+        count: pendingApprovals.value.length,
+        icon: ClipboardCheck,
+        path: paths.approvals,
+        color: 'bg-warning-soft text-warning-soft-foreground',
+        detail: '待审核的申请',
+    },
+    {
+        id: 'exceptions',
+        label: '异常与提醒',
+        count: unresolved.value.length,
+        icon: Bell,
+        path: paths.exceptions,
+        color: 'bg-caution-soft text-caution-soft-foreground',
+        detail: `严重 ${unresolved.value.filter((item) => item.severity === '严重').length} · 一般 ${unresolved.value.filter((item) => item.severity === '一般').length} · 提醒 ${unresolved.value.filter((item) => item.severity === '提示').length}`,
+    },
+]);
+const recentResources = computed(() =>
+    [...workbench.overview.recentItems]
+        .sort((a, b) => b.visitedAt - a.visitedAt)
+        .flatMap((item) => {
+            const resource = workbench.resourceById.get(item.resourceId);
+            return resource ? [{ resource, visitedAt: item.visitedAt }] : [];
+        })
+        .slice(0, 4)
+);
+const resourceIcon = (resource: Resource) =>
+    resource.kind === '设备'
+        ? Monitor
+        : resource.kind === '库存实例'
+          ? Package
+          : resource.kind === '文件'
+            ? FileText
+            : FlaskConical;
+const resourceName = (id: string) => workbench.resourceById.get(id)?.name ?? '关联对象不可用';
+</script>
+
 <template>
-    <main class="min-w-0 space-y-5 p-4 lg:p-6">
-        <header class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div class="min-w-0">
-                <h1 class="whitespace-nowrap text-xl font-semibold tracking-tight">欢迎回来</h1>
-                <p class="mt-1 text-sm text-muted-foreground">今天是 {{ todayLabel }}。以下是当前工作区的状态摘要。</p>
+    <main aria-label="工作台总览" class="min-w-0 p-4 pt-2 lg:p-6 lg:pt-2">
+        <div class="mx-auto w-full max-w-[1200px] space-y-7" data-slot="workbench-overview">
+            <section aria-label="工作概览" class="flex flex-wrap gap-3">
+                <RouterLink
+                    v-for="item in summaries"
+                    :key="item.id"
+                    :to="item.path"
+                    :aria-label="`${item.label}，${item.count} 项`"
+                    class="group flex w-64 max-w-full items-start gap-3 rounded-lg border bg-card p-4 shadow-xs transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                    :data-summary="item.id"
+                >
+                    <span :class="['flex size-10 shrink-0 items-center justify-center rounded-md', item.color]">
+                        <component :is="item.icon" class="size-5" aria-hidden="true" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm">{{ item.label }}</span>
+                        <span class="mt-1 block text-2xl font-semibold tabular-nums">{{ item.count }}</span>
+                        <span class="mt-2 block text-xs text-muted-foreground">{{ item.detail }}</span>
+                    </span>
+                    <ArrowRight class="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                </RouterLink>
+            </section>
+
+            <div class="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                <div class="min-w-0 space-y-7">
+                    <section aria-labelledby="overview-tasks">
+                        <header class="mb-2 flex items-center justify-between gap-3">
+                            <h2 id="overview-tasks" class="flex items-center gap-2 text-base font-semibold">
+                                优先待办
+                                <span class="text-sm font-normal tabular-nums text-muted-foreground">
+                                    {{ pendingTasks.length }}
+                                </span>
+                            </h2>
+                            <Button variant="ghost" size="sm" as-child>
+                                <RouterLink :to="paths.tasks">
+                                    全部待办
+                                    <ArrowRight class="size-3.5" aria-hidden="true" />
+                                </RouterLink>
+                            </Button>
+                        </header>
+                        <ul v-if="pendingTasks.length" class="border-y divide-y" data-queue="tasks">
+                            <li v-for="item in pendingTasks.slice(0, 5)" :key="item.id">
+                                <RouterLink
+                                    :to="{ path: paths.tasks, query: { task: item.id } }"
+                                    class="flex min-w-0 items-start gap-3 px-2.5 py-3 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                                    :aria-label="`查看${item.title}`"
+                                >
+                                    <component
+                                        :is="item.kind === '审批' ? ClipboardCheck : ListTodo"
+                                        class="mt-1 size-4 shrink-0 text-primary"
+                                        aria-hidden="true"
+                                    />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block font-medium">
+                                            {{ item.title }}
+                                        </span>
+                                        <span class="mt-1 block truncate text-xs text-muted-foreground">
+                                            {{ item.subtitle }}
+                                        </span>
+                                    </span>
+                                    <span class="flex shrink-0 flex-col items-end gap-1.5">
+                                        <StateBadge :tone="isTaskOverdue(item) ? 'destructive' : 'warning'">
+                                            {{ taskDisplayStatus(item) }}
+                                        </StateBadge>
+                                        <time
+                                            :datetime="new Date(item.dueAt).toISOString()"
+                                            class="text-xs tabular-nums text-muted-foreground"
+                                        >
+                                            {{ formatTime(item.dueAt) }}
+                                        </time>
+                                    </span>
+                                </RouterLink>
+                            </li>
+                        </ul>
+                        <Empty v-else class="min-h-40 border-y rounded-none">
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon"><ListTodo /></EmptyMedia>
+                                <EmptyTitle class="text-sm">暂无未完成待办</EmptyTitle>
+                            </EmptyHeader>
+                        </Empty>
+                    </section>
+
+                    <section aria-labelledby="overview-approvals">
+                        <header class="mb-2 flex items-center justify-between gap-3">
+                            <h2 id="overview-approvals" class="flex items-center gap-2 text-base font-semibold">
+                                待审批
+                                <span class="text-sm font-normal tabular-nums text-muted-foreground">
+                                    {{ pendingApprovals.length }}
+                                </span>
+                            </h2>
+                            <Button variant="ghost" size="sm" as-child>
+                                <RouterLink :to="paths.approvals">
+                                    全部申请
+                                    <ArrowRight class="size-3.5" aria-hidden="true" />
+                                </RouterLink>
+                            </Button>
+                        </header>
+                        <ul v-if="pendingApprovals.length" class="border-y divide-y" data-queue="approvals">
+                            <li v-for="item in pendingApprovals.slice(0, 4)" :key="item.id">
+                                <RouterLink
+                                    :to="{ path: paths.approvals, query: { approval: item.id } }"
+                                    class="flex min-w-0 items-start gap-3 px-2.5 py-3 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                                    :aria-label="`查看${item.applicant}的${item.kind}`"
+                                >
+                                    <ClipboardCheck class="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block font-medium">
+                                            {{ item.kind }}
+                                            <span class="font-normal text-muted-foreground">
+                                                · {{ item.applicant }}
+                                            </span>
+                                        </span>
+                                        <span class="mt-1 block truncate text-xs text-muted-foreground">
+                                            {{ resourceName(item.resourceId) }}
+                                        </span>
+                                    </span>
+                                    <span class="flex shrink-0 flex-col items-end gap-1.5">
+                                        <span class="tabular-nums">{{ item.quantity }} {{ item.unit }}</span>
+                                        <time
+                                            :datetime="new Date(item.createdAt).toISOString()"
+                                            class="text-xs tabular-nums text-muted-foreground"
+                                        >
+                                            {{ formatTime(item.createdAt) }}
+                                        </time>
+                                    </span>
+                                </RouterLink>
+                            </li>
+                        </ul>
+                        <Empty v-else class="min-h-40 border-y rounded-none">
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon"><ClipboardCheck /></EmptyMedia>
+                                <EmptyTitle class="text-sm">暂无待审批申请</EmptyTitle>
+                            </EmptyHeader>
+                        </Empty>
+                    </section>
+                </div>
+
+                <div class="min-w-0 space-y-7">
+                    <section aria-labelledby="overview-exceptions">
+                        <header class="mb-2 flex items-center justify-between gap-3">
+                            <h2 id="overview-exceptions" class="flex items-center gap-2 text-base font-semibold">
+                                异常与提醒
+                                <span class="text-sm font-normal tabular-nums text-muted-foreground">
+                                    {{ unresolved.length }}
+                                </span>
+                            </h2>
+                            <Button variant="ghost" size="sm" as-child>
+                                <RouterLink :to="paths.exceptions">
+                                    全部提醒
+                                    <ArrowRight class="size-3.5" aria-hidden="true" />
+                                </RouterLink>
+                            </Button>
+                        </header>
+                        <ul v-if="unresolved.length" class="border-y divide-y" data-queue="exceptions">
+                            <li v-for="item in unresolved.slice(0, 4)" :key="item.id">
+                                <RouterLink
+                                    :to="{ path: paths.exceptions, query: { exception: item.id } }"
+                                    class="flex min-w-0 items-start gap-3 px-2.5 py-3 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                                    :aria-label="`查看${item.title}`"
+                                >
+                                    <Bell
+                                        class="mt-1 size-4 shrink-0"
+                                        :style="{ color: `var(--${exceptionTone(item)}-soft-foreground)` }"
+                                        aria-hidden="true"
+                                    />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block font-medium">
+                                            {{ item.title }}
+                                        </span>
+                                        <span class="mt-1 block truncate text-xs text-muted-foreground">
+                                            {{ resourceName(item.resourceId) }}
+                                        </span>
+                                    </span>
+                                    <StateBadge class="mt-0.5 shrink-0" :tone="exceptionTone(item)">
+                                        {{ item.severity }}
+                                    </StateBadge>
+                                </RouterLink>
+                            </li>
+                        </ul>
+                        <Empty v-else class="min-h-40 border-y rounded-none">
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon"><Bell /></EmptyMedia>
+                                <EmptyTitle class="text-sm">暂无未处理的异常与提醒</EmptyTitle>
+                            </EmptyHeader>
+                        </Empty>
+                    </section>
+
+                    <section aria-labelledby="overview-recent">
+                        <h2 id="overview-recent" class="mb-3 text-base font-semibold">最近访问</h2>
+                        <ul v-if="recentResources.length" class="border-y divide-y" data-queue="resources">
+                            <li v-for="item in recentResources" :key="item.resource.id">
+                                <button
+                                    class="flex w-full min-w-0 items-start gap-3 px-2.5 py-3 text-left transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                                    :aria-label="`查看${item.resource.name}`"
+                                    @click="preview = item.resource"
+                                >
+                                    <component
+                                        :is="resourceIcon(item.resource)"
+                                        class="mt-1 size-4 shrink-0 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block font-medium">
+                                            {{ item.resource.name }}
+                                        </span>
+                                        <span class="mt-1 block text-xs text-muted-foreground">
+                                            {{ item.resource.kind }} · {{ formatTime(item.visitedAt) }}
+                                        </span>
+                                    </span>
+                                    <StateBadge class="mt-0.5 shrink-0" :tone="stateTone(item.resource.status)">
+                                        {{ item.resource.status }}
+                                    </StateBadge>
+                                </button>
+                            </li>
+                        </ul>
+                        <Empty v-else class="min-h-40 border-y rounded-none">
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon"><Package /></EmptyMedia>
+                                <EmptyTitle class="text-sm">暂无最近访问的资源</EmptyTitle>
+                            </EmptyHeader>
+                        </Empty>
+                    </section>
+                </div>
             </div>
-            <Button type="button" variant="outline" class="w-full md:w-auto md:shrink-0">
-                <Blocks class="size-4" stroke-width="1.75" aria-hidden="true" />
-                自定义布局
-            </Button>
-        </header>
-
-        <section aria-label="工作概况" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <article v-for="item in overviewStats" :key="item.label" class="rounded-lg border bg-card p-4 shadow-xs">
-                <div class="flex items-start gap-3">
-                    <div :class="['flex size-14 shrink-0 items-center justify-center rounded-lg', item.iconClass]">
-                        <component :is="item.icon" class="size-8" stroke-width="1.75" aria-hidden="true" />
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm text-muted-foreground">{{ item.label }}</p>
-                        <p class="mt-0.5 text-2xl font-semibold tracking-tight">{{ item.value }}</p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            较昨日
-                            <span :class="item.deltaClass">{{ item.delta }}</span>
-                        </p>
-                    </div>
-                </div>
-            </article>
-        </section>
-
-        <section aria-label="工作区状态" class="grid gap-4 lg:grid-cols-2 xl:grid-cols-12">
-            <article class="flex h-full flex-col rounded-lg border bg-card p-4 shadow-xs xl:col-span-4">
-                <header class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-2">
-                        <h2 class="font-semibold">今日待办</h2>
-                        <span
-                            class="inline-flex size-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground"
-                        >
-                            {{ todoItems.length }}
-                        </span>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        class="h-auto px-1 text-xs font-normal text-primary"
-                    >
-                        查看全部
-                        <ArrowRight class="size-3.5" stroke-width="1.75" aria-hidden="true" />
-                    </Button>
-                </header>
-                <ul class="mt-3 divide-y">
-                    <li
-                        v-for="item in todoItems"
-                        :key="item.title"
-                        class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                    >
-                        <div :class="['flex size-7 shrink-0 items-center justify-center rounded-md', item.iconClass]">
-                            <component :is="item.icon" class="size-4" stroke-width="1.75" aria-hidden="true" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm">{{ item.title }}</p>
-                            <p class="mt-0.5 text-xs text-muted-foreground">{{ item.meta }}</p>
-                        </div>
-                        <span :class="['shrink-0 rounded px-1.5 py-0.5 text-xs', item.statusClass]">
-                            {{ item.status }}
-                        </span>
-                    </li>
-                </ul>
-            </article>
-
-            <article class="flex h-full flex-col rounded-lg border bg-card p-4 shadow-xs xl:col-span-4">
-                <header>
-                    <h2 class="font-semibold">库存预警</h2>
-                    <p class="mt-0.5 text-xs text-muted-foreground">需要优先处理的库存风险</p>
-                </header>
-                <div class="mt-5 space-y-4">
-                    <div v-for="item in inventoryAlerts" :key="item.label" class="flex items-center gap-3">
-                        <span :class="['size-2 shrink-0 rounded-full', item.indicatorClass]" aria-hidden="true" />
-                        <span class="min-w-0 flex-1 text-sm">{{ item.label }}</span>
-                        <span class="text-sm font-medium tabular-nums">{{ item.value }}</span>
-                    </div>
-                </div>
-                <div class="mt-auto rounded-md bg-muted p-3 pt-3">
-                    <p class="text-xs text-muted-foreground">本周预警趋势</p>
-                    <p class="mt-1 text-sm font-medium">较上周增加 2 项</p>
-                </div>
-            </article>
-
-            <article class="flex h-full flex-col rounded-lg border bg-card p-4 shadow-xs lg:col-span-2 xl:col-span-4">
-                <header>
-                    <h2 class="font-semibold">设备状态</h2>
-                    <p class="mt-0.5 text-xs text-muted-foreground">当前已登记设备的运行情况</p>
-                </header>
-                <div class="mt-5 space-y-4">
-                    <div v-for="item in equipmentStatus" :key="item.label">
-                        <div class="flex items-center justify-between gap-3 text-sm">
-                            <span class="flex items-center gap-2">
-                                <span :class="['size-2 rounded-full', item.indicatorClass]" aria-hidden="true" />
-                                {{ item.label }}
-                            </span>
-                            <span class="font-medium tabular-nums">{{ item.value }}</span>
-                        </div>
-                        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div :class="['h-full rounded-full', item.indicatorClass, item.widthClass]" />
-                        </div>
-                    </div>
-                </div>
-                <p class="mt-auto pt-4 text-xs text-muted-foreground">已登记 48 台设备</p>
-            </article>
-        </section>
-
-        <section aria-label="工作区快捷入口" class="grid gap-4 lg:grid-cols-2 xl:grid-cols-12">
-            <article class="flex h-full flex-col rounded-lg border bg-card p-4 shadow-xs xl:col-span-4">
-                <header class="flex items-center justify-between gap-3">
-                    <div>
-                        <h2 class="font-semibold">最近访问</h2>
-                        <p class="mt-0.5 text-xs text-muted-foreground">继续处理最近打开的资源</p>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        class="h-auto px-1 text-xs font-normal text-primary"
-                    >
-                        全部记录
-                        <ArrowRight class="size-3.5" stroke-width="1.75" aria-hidden="true" />
-                    </Button>
-                </header>
-                <ul class="mt-3 divide-y">
-                    <li
-                        v-for="item in recentItems"
-                        :key="item.name"
-                        class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                    >
-                        <div
-                            class="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-soft-foreground"
-                        >
-                            <component :is="item.icon" class="size-4" stroke-width="1.75" aria-hidden="true" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm">{{ item.name }}</p>
-                            <p class="mt-0.5 text-xs text-muted-foreground">{{ item.meta }}</p>
-                        </div>
-                        <span class="shrink-0 text-xs text-muted-foreground">{{ item.time }}</span>
-                    </li>
-                </ul>
-                <footer class="mt-auto pt-3">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        class="h-auto px-1 text-xs font-normal text-primary"
-                    >
-                        查看全部记录
-                        <ArrowRight class="size-3.5" stroke-width="1.75" aria-hidden="true" />
-                    </Button>
-                </footer>
-            </article>
-
-            <article class="flex h-full flex-col rounded-lg border bg-card p-4 shadow-xs xl:col-span-4">
-                <header>
-                    <h2 class="font-semibold">快捷操作</h2>
-                    <p class="mt-0.5 text-xs text-muted-foreground">常用工作流的快速入口</p>
-                </header>
-                <div class="mt-4 grid grid-cols-3 gap-2">
-                    <Button
-                        v-for="item in quickActions"
-                        :key="item.label"
-                        type="button"
-                        variant="outline"
-                        class="h-20 flex-col gap-2 px-2 text-xs font-normal"
-                    >
-                        <component :is="item.icon" class="size-5 text-primary" stroke-width="1.75" aria-hidden="true" />
-                        <span class="truncate">{{ item.label }}</span>
-                    </Button>
-                </div>
-            </article>
-
-            <article class="flex h-full flex-col rounded-lg border bg-card p-4 shadow-xs lg:col-span-2 xl:col-span-4">
-                <header class="flex items-center justify-between gap-3">
-                    <div>
-                        <h2 class="font-semibold">即将到期</h2>
-                        <p class="mt-0.5 text-xs text-muted-foreground">需要提前安排的材料与试剂</p>
-                    </div>
-                    <TriangleAlert class="size-5 text-warning" stroke-width="1.75" aria-hidden="true" />
-                </header>
-                <ul class="mt-3 divide-y">
-                    <li
-                        v-for="item in expiringItems"
-                        :key="item.name"
-                        class="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                    >
-                        <div
-                            class="flex size-7 shrink-0 items-center justify-center rounded-md bg-warning-soft text-warning-soft-foreground"
-                        >
-                            <TriangleAlert class="size-4" stroke-width="1.75" aria-hidden="true" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm">{{ item.name }}</p>
-                            <p class="mt-0.5 text-xs text-muted-foreground">{{ item.meta }}</p>
-                        </div>
-                        <span :class="['shrink-0 text-xs font-medium', item.timeClass]">{{ item.time }}</span>
-                    </li>
-                </ul>
-                <footer class="mt-auto pt-3">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        class="h-auto px-1 text-xs font-normal text-primary"
-                    >
-                        查看全部到期项
-                        <ArrowRight class="size-3.5" stroke-width="1.75" aria-hidden="true" />
-                    </Button>
-                </footer>
-            </article>
-        </section>
+        </div>
+        <ResourceDialog v-model="preview" />
     </main>
 </template>
-
-<script setup lang="ts">
-import {
-    Archive,
-    ArrowRight,
-    BellRing,
-    Blocks,
-    Box,
-    Boxes,
-    ClipboardCheck,
-    FlaskConical,
-    ListTodo,
-    PackageSearch,
-    Plus,
-    TriangleAlert,
-    Wrench,
-} from '@lucide/vue';
-import { Button } from '@/ui/button';
-
-const todayLabel = new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'full',
-}).format(new Date());
-
-const overviewStats = [
-    {
-        label: '低库存预警',
-        value: '23',
-        delta: '+3',
-        icon: TriangleAlert,
-        iconClass: 'bg-warning-soft text-warning',
-        deltaClass: 'text-destructive',
-    },
-    {
-        label: '活跃培养物',
-        value: '48',
-        delta: '+5',
-        icon: FlaskConical,
-        iconClass: 'bg-success-soft text-success',
-        deltaClass: 'text-success',
-    },
-    {
-        label: '待审批',
-        value: '8',
-        delta: '−1',
-        icon: ClipboardCheck,
-        iconClass: 'bg-primary-soft text-primary',
-        deltaClass: 'text-success',
-    },
-    {
-        label: '设备告警',
-        value: '5',
-        delta: '+2',
-        icon: BellRing,
-        iconClass: 'bg-destructive-soft text-destructive',
-        deltaClass: 'text-destructive',
-    },
-] as const;
-
-const todoItems = [
-    {
-        title: '审批细胞系使用申请（张晓明）',
-        meta: '09:20',
-        status: '审批中',
-        icon: ClipboardCheck,
-        iconClass: 'bg-primary-soft text-primary-soft-foreground',
-        statusClass: 'bg-primary-soft text-primary-soft-foreground',
-    },
-    {
-        title: '领取试剂：胰蛋白酶（Trypsin-EDTA）',
-        meta: '10:00',
-        status: '待领取',
-        icon: FlaskConical,
-        iconClass: 'bg-warning-soft text-warning-soft-foreground',
-        statusClass: 'bg-warning-soft text-warning-soft-foreground',
-    },
-    {
-        title: '确认超低温冰箱巡检结果',
-        meta: '10:30',
-        status: '进行中',
-        icon: Box,
-        iconClass: 'bg-success-soft text-success-soft-foreground',
-        statusClass: 'bg-success-soft text-success-soft-foreground',
-    },
-    {
-        title: '审核样品检测任务结果',
-        meta: '14:00',
-        status: '待审批',
-        icon: ListTodo,
-        iconClass: 'bg-primary-soft text-primary-soft-foreground',
-        statusClass: 'bg-primary-soft text-primary-soft-foreground',
-    },
-] as const;
-
-const inventoryAlerts = [
-    { label: '严重短缺', value: 5, indicatorClass: 'bg-destructive' },
-    { label: '库存不足', value: 11, indicatorClass: 'bg-caution' },
-    { label: '即将用尽', value: 7, indicatorClass: 'bg-warning' },
-] as const;
-
-const equipmentStatus = [
-    { label: '运行中', value: 32, indicatorClass: 'bg-success', widthClass: 'w-2/3' },
-    { label: '空闲', value: 10, indicatorClass: 'bg-primary', widthClass: 'w-1/5' },
-    { label: '维护中', value: 4, indicatorClass: 'bg-muted-foreground/45', widthClass: 'w-[8%]' },
-    { label: '故障', value: 2, indicatorClass: 'bg-destructive', widthClass: 'w-[4%]' },
-] as const;
-
-const quickActions = [
-    { label: '新建材料', icon: Plus },
-    { label: '新建设备', icon: Wrench },
-    { label: '新建任务', icon: ListTodo },
-    { label: '库存查询', icon: PackageSearch },
-    { label: '领取申请', icon: ClipboardCheck },
-    { label: '库存盘点', icon: Boxes },
-] as const;
-
-const recentItems = [
-    { name: 'pET-28a 质粒', meta: '材料 · 质粒', time: '今天 09:32', icon: FlaskConical },
-    { name: 'DMEM 高糖培养基', meta: '材料 · 培养基', time: '今天 08:45', icon: Box },
-    { name: '超低温冰箱 −80°C−02', meta: '设备 · 冰箱', time: '昨天 16:20', icon: Wrench },
-    { name: '样品 #S-20250919-001', meta: '样品 · 细胞系', time: '昨天 14:11', icon: Archive },
-] as const;
-
-const expiringItems = [
-    { name: '胰酶（0.25%）', meta: 'CAS: 9002-07-7', time: '3 天后', timeClass: 'text-destructive' },
-    { name: '胎牛血清（FBS）', meta: 'CAS: 16000-44-5', time: '7 天后', timeClass: 'text-warning-foreground' },
-    { name: '双抗（青链霉素）', meta: 'CAS: 541-05-6', time: '15 天后', timeClass: 'text-warning-foreground' },
-] as const;
-</script>
