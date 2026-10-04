@@ -1,18 +1,24 @@
 <template>
-    <ScrollArea type="auto" class="min-w-0">
-        <div class="flex">
-            <RouterTabItem
-                v-for="item in tabEntity"
-                :id="item.id"
-                :key="item.id"
-                :label="item.value.label"
-                :disabled="item.value.disabled"
-                :data-active="resolveActiveState(item.value)"
-                @click="handleClick(item.id)"
-            />
+    <header class="flex h-20 shrink-0 items-center justify-between gap-6 px-4 lg:px-6">
+        <ScrollArea type="auto" edges="horizontal" edge-effect="line" class="min-w-0 flex-1">
+            <nav aria-label="页面视图" class="flex gap-6">
+                <RouterTabItem
+                    v-for="item in tabEntity"
+                    :id="item.id"
+                    :key="item.id"
+                    :label="item.value.label"
+                    :disabled="item.value.disabled"
+                    :data-active="resolveActiveState(item.value)"
+                    :aria-current="resolveActiveState(item.value) ? 'page' : undefined"
+                    @click="handleClick(item.id)"
+                />
+            </nav>
+            <ScrollBar orientation="horizontal" class="h-2" />
+        </ScrollArea>
+        <div v-if="$slots.actions" class="flex shrink-0 items-center gap-3">
+            <slot name="actions" />
         </div>
-        <ScrollBar orientation="horizontal" class="h-2" />
-    </ScrollArea>
+    </header>
 </template>
 
 <script setup lang="ts">
@@ -21,7 +27,8 @@ import RouterTabItem from './RouterTabItem.vue';
 
 import { matchesRoutePath } from '@/shared/utils';
 
-import { ScrollArea, ScrollBar } from '@/ui/scroll-area';
+import { ScrollBar } from '@/ui/scroll-area';
+import { ScrollSurface as ScrollArea } from '@/modules/scroll-surface';
 
 import { useRouter, useRoute } from 'vue-router';
 

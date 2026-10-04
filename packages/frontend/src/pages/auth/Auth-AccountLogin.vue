@@ -34,6 +34,6 @@
 
 <script setup lang="ts">
 import { Button } from '@/ui/button';
-import { Field, FieldGroup, FieldLabel, FieldSet } from '@/ui/field';
+import { Field, FieldGroup, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
 </script>

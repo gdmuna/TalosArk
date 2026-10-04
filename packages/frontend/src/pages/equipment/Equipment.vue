@@ -1,13 +1,13 @@
 <template>
-    <RouterTabBar class="border-b" />
-    <ScrollArea type="auto" class="min-h-0 scroll-smooth">
+    <RouterTabBar />
+    <ScrollArea type="auto" class="min-h-0 flex-1 scroll-smooth">
         <RouterView />
     </ScrollArea>
 </template>
 
 <script setup lang="ts">
-import { RouterTabBar, useRouteTab } from '@/modules';
-import { ScrollArea } from '@/ui/scroll-area';
+import { RouterTabBar, useRouteTab } from '@/modules/routerTab';
+import { ScrollSurface as ScrollArea } from '@/modules/scroll-surface';
 
 const { setEntity } = useRouteTab();
 

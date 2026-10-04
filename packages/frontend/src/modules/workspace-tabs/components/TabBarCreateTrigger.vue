@@ -1,5 +1,5 @@
 <template>
-    <Button variant="ghost" class="size-7" @click="handleCreate">
+    <Button variant="ghost" class="size-7" use-tooltip tooltip="新建标签页" @click="handleCreate">
         <slot>
             <Plus class="size-4" />
         </slot>

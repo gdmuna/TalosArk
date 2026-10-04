@@ -1,73 +1,116 @@
 <template>
     <div class="flex flex-col min-h-0 min-w-0 bg-background border-l border-t rounded-tl-2xl">
-        <div class="flex h-15 items-center justify-between gap-5 overflow-hidden border-b px-4 py-2 shrink-0">
-            <div class="shrink-0 font-medium">
-                <span>工作台 / 总览</span>
+        <div class="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4 lg:px-6">
+            <div class="flex min-w-0 items-center gap-4">
+                <div class="flex shrink-0 items-center">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        use-tooltip
+                        :title="open ? '收起侧栏' : '展开侧栏'"
+                        :aria-label="open ? '收起侧栏' : '展开侧栏'"
+                        :aria-expanded="open"
+                        @click="toggleSidebar"
+                    >
+                        <component
+                            :is="open ? PanelLeftClose : PanelLeftOpen"
+                            class="size-5"
+                            stroke-width="1.5"
+                            aria-hidden="true"
+                        />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        use-tooltip
+                        title="后退"
+                        aria-label="后退"
+                        :disabled="!navigation.canBack"
+                        @click="navigation.back"
+                    >
+                        <ArrowLeft class="size-5" stroke-width="1.5" aria-hidden="true" />
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        use-tooltip
+                        class="p-1"
+                        title="前进"
+                        aria-label="前进"
+                        :disabled="!navigation.canForward"
+                        @click="navigation.forward"
+                    >
+                        <ArrowRight class="size-5" stroke-width="1.5" aria-hidden="true" />
+                    </Button>
+                </div>
+                <span class="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
+                <nav aria-label="当前位置" class="flex min-w-0 items-center gap-3 text-base font-medium">
+                    <RouterLink :to="sectionPath" class="shrink-0 text-muted-foreground hover:text-foreground">
+                        {{ sectionLabel }}
+                    </RouterLink>
+                    <span class="text-muted-foreground" aria-hidden="true">/</span>
+                    <span class="truncate text-primary" aria-current="page">{{ activeTab?.value.label }}</span>
+                </nav>
             </div>
             <div class="flex min-w-0">
                 <div class="flex *:size-9">
-                    <Button variant="ghost" size="sm" class="p-1" title="通知">
+                    <Button variant="ghost" size="icon" use-tooltip title="通知">
                         <span class="sr-only">通知</span>
                         <Bell aria-hidden="true" class="size-5" stroke-width="1.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" class="p-1" title="帮助">
+                    <Button variant="ghost" size="icon" use-tooltip title="帮助">
                         <span class="sr-only">帮助</span>
                         <CircleQuestionMark aria-hidden="true" class="size-5" stroke-width="1.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" class="p-1" title="设置">
-                        <span class="sr-only">设置</span>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        use-tooltip
+                        title="账户设置"
+                        @click="accountMenu?.openSettings()"
+                    >
+                        <span class="sr-only">账户设置</span>
                         <Settings aria-hidden="true" class="size-5" stroke-width="1.5" />
                     </Button>
                 </div>
-                <Popover>
-                    <PopoverAnchor class="min-w-0">
-                        <PopoverTrigger as-child>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                class="flex h-full w-full min-w-0 max-w-48 items-center justify-between gap-2.5"
-                            >
-                                <div class="rounded-full size-6 bg-primary/10 shrink-0"></div>
-                                <span class="truncate">Maiturin</span>
-                            </Button>
-                        </PopoverTrigger>
-                    </PopoverAnchor>
-                    <PopoverContent class="p-0 w-32" align="end">
-                        <div class="flex flex-col items-center p-1">
-                            <Button class="font-normal text-sm py-1.5 px-2 h-auto w-full" variant="ghost">
-                                <div class="flex items-center justify-between w-full h-full gap-1">
-                                    <span>账号设置</span>
-                                    <UserRound />
-                                </div>
-                            </Button>
-                            <Button
-                                class="hover:bg-destructive/20 font-normal text-sm py-1.5 px-2 h-auto w-full"
-                                variant="ghost"
-                                @click="$router.push('/auth/login')"
-                            >
-                                <div class="flex items-center justify-between w-full h-full gap-1">
-                                    <span>退出登录</span>
-                                    <LogOut />
-                                </div>
-                            </Button>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                <UserMenu ref="accountMenu" />
             </div>
         </div>
-        <RouterTabProvider>
-            <slot />
-        </RouterTabProvider>
+        <slot />
     </div>
 </template>
 
 <script setup lang="ts">
-import { RouterTabProvider } from '@/modules';
+import { provideRouteTabContext, useRouteTab } from '@/modules/routerTab';
+import { matchesRoutePath } from '@/shared/utils';
+import { useNavigationStore } from '@/shared/stores';
+import { computed, useTemplateRef } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { Button } from '@/ui/button';
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/ui/popover';
+import UserMenu from '@/modules/user-menu/UserMenu.vue';
+import { useSidebar } from '@/ui/sidebar';
 
-import { Bell, CircleQuestionMark, Settings, LogOut, UserRound } from '@lucide/vue';
+import { ArrowLeft, ArrowRight, Bell, CircleQuestionMark, Settings, PanelLeftClose, PanelLeftOpen } from '@lucide/vue';
+
+defineProps<{
+    sectionLabel: string;
+    sectionPath: string;
+}>();
+
+const { open, toggleSidebar } = useSidebar();
+const accountMenu = useTemplateRef('accountMenu');
+provideRouteTabContext();
+const { tabEntity } = useRouteTab();
+const route = useRoute();
+const activeTab = computed(() =>
+    tabEntity.value.find((item) => matchesRoutePath(route.path, { type: 'prefix', value: item.value.path }))
+);
+
+const navigation = useNavigationStore();
 </script>
 
 <style scoped></style>

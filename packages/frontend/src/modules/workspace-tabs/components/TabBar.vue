@@ -1,5 +1,5 @@
 <template>
-    <ScrollArea class="scroll-smooth bg-card">
+    <ScrollArea edges="horizontal" edge-effect="line" class="scroll-smooth bg-card">
         <ButtonGroup>
             <TabBarItem
                 v-for="entity in tabEntity"
@@ -20,7 +20,8 @@ import TabBarItem from './TabBarItem.vue';
 import { useTab, useTabComponent, useViewHistory } from '@/shared/composables';
 import { ButtonGroup } from '@/ui/button-group';
 import { useRouter } from 'vue-router';
-import { ScrollArea, ScrollBar } from '@/ui/scroll-area';
+import { ScrollBar } from '@/ui/scroll-area';
+import { ScrollSurface as ScrollArea } from '@/modules/scroll-surface';
 
 const { tabEntity, setActiveTabId, deleteTab, activeTabId } = useTab();
 
@@ -41,7 +42,6 @@ function handleSwitch(tabId: string) {
 
 function handleDelete(tabId: string) {
     withSwitching(async () => {
-        console.log('FUCK YOU DELETE HANDLER');
         const { next } = deleteTab(tabId);
         const entry = getActiveEntry(next).value;
         const nextPath = entry?.path ?? '/workbench/welcome';

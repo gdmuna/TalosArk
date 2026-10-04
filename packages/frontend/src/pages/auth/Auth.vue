@@ -84,7 +84,6 @@ const loginMethods = [
 
 async function handleCasdoorLogin() {
     const res = await axiosInstance.post<any, { url: string }>('http://localhost:3000/api/v1/auth/oidc/start');
-    console.log(res);
     window.location.href = res.url;
 }
 </script>

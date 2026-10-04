@@ -6,7 +6,7 @@
             <p class="truncate max-w-32">
                 <slot />
             </p>
-            <Button variant="ghost" class="size-5 p-2!" @click.stop="$emit('close')">
+            <Button variant="ghost" class="size-5 p-2!" use-tooltip tooltip="关闭标签页" @click.stop="$emit('close')">
                 <X class="size-3.5" />
             </Button>
         </div>

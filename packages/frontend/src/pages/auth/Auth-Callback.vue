@@ -10,16 +10,14 @@ const router = useRouter();
 
 onMounted(async () => {
     const { code, state } = route.query;
-    console.log(route.query);
     if (!code || !state) {
         router.push('/');
-        console.error('wtf');
+        console.error('OIDC 回调缺少 code 或 state');
     }
-    const res = await axiosInstance.post<any, any>('auth/oidc/login-callback', {
+    await axiosInstance.post<any, any>('auth/oidc/login-callback', {
         code,
         state,
     });
-    console.log(res);
     router.push('/');
 });
 </script>
