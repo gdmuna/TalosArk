@@ -63,11 +63,15 @@ caution-soft / caution-soft-foreground
 destructive-soft / destructive-soft-foreground
 ```
 
-这些成对 Token 用于状态 Icon 容器、Badge、Alert、摘要卡的低强调业务表面。它们是已批准的精确配色，不是任意颜色都可随意扩展的 `*-soft` 体系。
+这些成对 Token 用于状态 Icon 容器、Badge、Alert、摘要卡的低强调业务表面。Soft 背景在 `:root` 中由对应实色与不透明 `card` 混合派生，Tailwind 在 `@theme inline` 中只引用映射。
+
+当前比例尽量接近此前已校准的表面：Primary 10%、Success 11%、Destructive 9%、Caution 13%、Warning 26%。Warning 提高色彩权重，以避免提醒 Badge 与浅底难以区分。通用 Hover (`accent`) 使用 Foreground 5% 与 Card 混色，参考已有侧栏 `bg-foreground/5`。实色按钮 Hover 则使用 Primary 90% 与 Foreground、Destructive 94% 与 Card 混色。这里的比例是颜色权重，不是最终表面的透明度；两个混色输入都不透明。
+
+彩色混色使用 `surface-tint-base`：从 Card 保留明度、将彩度设为零且色相设为 `none`。否则 Card 的微弱黄色相仍会参与 OKLCH 色相插值，导致蓝色浅底偏绿、红色浅底偏黄。Primary Hover 的暗色基底同样使用无彩度、无色相的 Foreground。该辅助值只参与混色，原始 Card 保持其暖中性色。
 
 `*-foreground` 表示实色背景上的文字；`*-soft-foreground` 正式限定为带色前景，专用于文本 `color`、SVG `fill` / `stroke`（建议使用 `currentColor` 继承）。不用于按钮、Badge、面板等背景，也不用于图表系列填充。普通无业务语义的正文仍使用 `foreground` / `muted-foreground`。
 
-Soft Foreground 不再强制莫兰迪观感，改为明度 0.50–0.52、彩度 0.09–0.13 的清晰语义前景。需在对应 `*-soft` 和 `card`、`background`、`muted` 上满足普通正文 4.5:1；使用同一值的小尺寸 SVG 同样按这个更严格目标验收。它不是任意底色上的通用前景，尤其不保证在实色 Primary / Destructive 或深色背景上可读。纯黄色在浅底无法承担小字，Warning 前景保持深金黄色，而不是强行使用鲜黄。
+Soft Foreground 不再强制莫兰迪观感，改为明度 0.46–0.52、彩度 0.09–0.13 的清晰语义前景。需在对应 `*-soft` 和 `card`、`background`、`muted` 上满足普通正文 4.5:1；使用同一值的小尺寸 SVG 同样按这个更严格目标验收。它不是任意底色上的通用前景，尤其不保证在实色 Primary / Destructive 或深色背景上可读。纯黄色在浅底无法承担小字，Warning 前景保持深金黄色，而不是强行使用鲜黄。
 
 C-07 的三色不是设计错误：严重短缺用 `destructive`，库存不足用 `caution`，临期用 `warning`。修复的是原 Token 系统将橙黄合并的不足；`warning` 从橙色迁移为黄 / 琥珀色。颜色必须伴随明确状态文字，库存数量风险与时间风险不等于固定的三级严重度。已过期、不可用等状态需根据业务单独判断。
 
@@ -98,7 +102,7 @@ C-07 的三色不是设计错误：严重短缺用 `destructive`，库存不足�
 
 ## Typography、几何与层级
 
-- 字体采用 System UI Stack：`ui-sans-serif → system-ui → -apple-system → BlinkMacSystemFont → Segoe UI → PingFang SC → Microsoft YaHei → sans-serif`。不依赖 Inter Web Font 作为运行时前置条件。
+- 默认字体为本地打包的 Adobe 思源黑体简体中文可变 WOFF2，字重 250–900，`font-display: swap`；中英文正文均使用该字体。字体声明在 `src/shared/assets/fonts/source-han-sans.css`，应用与静态预览共用它；`@theme` 的 `--font-sans` 是字体栈的唯一配置。缺字时回退到 Noto Sans CJK SC、苹方、微软雅黑等字体，代码色值继续使用等宽字体。
 - 默认正文为 `14px / 20px`；主要文字为 `foreground`，辅助文字为 `muted-foreground`。不保留第三个全局文字 Token；更弱元数据用 `text-muted-foreground` 的透明度表达。
 - 基础圆角为 `8px`；按钮和输入优先使用 32 / 36 / 40px 控制高度。
 - 阴影保持克制：`shadow-xs` 用于输入等轻微抬升，`shadow-md` 用于 Popover / Dropdown，`shadow-lg` 用于 Dialog / Sheet。

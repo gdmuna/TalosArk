@@ -16,10 +16,15 @@ for (const block of blocks) {
             tokens.set(match[1], match[2].trim());
     }
 }
-const declarations = [...tokens].map(([name, value]) => `        ${name}: ${value};`).join('\n');
+const fontSans = css.match(/--font-sans:\s*([^;]+);/)[1].trim();
+const selection = css.match(/::selection\s*\{([^}]+)\}/)[1].trim();
+const declarations = [
+    `        --font-sans: ${fontSans};`,
+    ...[...tokens].map(([name, value]) => `        ${name}: ${value};`),
+].join('\n');
 html = html.replace(
     /<style id="design-tokens">[\s\S]*?<\/style>/,
-    `<style id="design-tokens">\n    :root {\n${declarations}\n    }\n    </style>`
+    `<style id="design-tokens">\n    :root {\n${declarations}\n    }\n    ::selection {\n${selection}\n    }\n    </style>`
 );
 html = html.replace(
     /<script id="token-data" type="application\/json">[\s\S]*?<\/script>/,

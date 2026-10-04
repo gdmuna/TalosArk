@@ -4,11 +4,13 @@
 
 - `layout/`: application shells.
 - `pages/`: route entry views. Page-owned navigation contributions live beside their page under `navigation/`.
-- `modules/`: reusable product capabilities. `workspace-tabs/` owns the tab-bar UI; its state and events remain in `shared/composables/`.
-- `shared/`: non-visual reusable code, including HTTP adapters, static assets, composables, utility functions, and `cn`.
+- `modules/`: reusable product capabilities, including DataTable, SheetInspector, StateBadge and workspace-tab UI.
+- `shared/`: non-visual reusable code. `stores/` owns business and application-context state; `models/` owns data types; `data/` owns data-source interfaces; `mocks/` supplies development data. Composables handle injection, subscriptions and lifecycle around store-owned state, not fixtures or business singletons.
 - `ui/`: shadcn-vue primitives only; no TalosArk business semantics.
 
 `App.vue`, `router/`, `main.ts`, and `style.css` remain conventional Vite entry files. Do not recreate broad top-level `app/`, `components/`, `composables/`, `events/`, `lib/`, or `utils/` directories.
+
+Only `main.ts` selects a mock data source. Pages and components consume stores, never mock fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
 
 ## Dependency direction
 
