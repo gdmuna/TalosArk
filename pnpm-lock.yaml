@@ -344,6 +344,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@inquirer/select':
+        specifier: 4.4.2
+        version: 4.4.2(@types/node@26.6.4)
       '@nestjs/cli':
         specifier: ^11.0.24
         version: 11.0.24(@types/node@26.6.4)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(prettier@3.9.9)
@@ -380,6 +383,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.11
         version: 4.1.11(vitest@4.1.11)
+      commander:
+        specifier: 14.0.3
+        version: 14.0.3
       prisma:
         specifier: ^7.10.0
         version: 7.10.0(@types/react@19.3.0)(magicast@0.5.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@6.0.3)
