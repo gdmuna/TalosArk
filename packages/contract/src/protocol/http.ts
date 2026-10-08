@@ -1,13 +1,7 @@
 import { z } from 'zod';
 import { UtcDateTimeSchema } from './scalar.js';
-
-export const ApiResponseContextSchema = z.object({
-    requestId: z.string().min(1),
-    time: z.int().nonnegative().describe('Request start time in Unix milliseconds'),
-    version: z.string().optional(),
-    userId: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-});
+import { ApiResponseContextSchema } from './context.js';
+import { PublicErrorSchema, type ErrorContract } from './error.js';
 
 export const ApiSuccessResponseSchema = z.object({
     success: z.literal(true),
@@ -16,15 +10,21 @@ export const ApiSuccessResponseSchema = z.object({
     context: ApiResponseContextSchema.nullable(),
 });
 
-export const ApiErrorResponseSchema = z.object({
+export const ApiErrorResponseSchema = PublicErrorSchema.extend({
     success: z.literal(false),
-    code: z.string(),
-    message: z.string(),
     type: z.url().describe('Error documentation URL'),
     timestamp: UtcDateTimeSchema,
     context: ApiResponseContextSchema.nullable(),
-    details: z.unknown(),
 });
+
+export function createApiErrorResponseSchema<S extends z.ZodType, const C extends string>(
+    contract: ErrorContract<S, C>
+) {
+    return ApiErrorResponseSchema.extend({
+        code: z.literal(contract.code),
+        details: contract.details,
+    });
+}
 
 export function createApiSuccessResponseSchema<T extends z.ZodType>(dataSchema: T) {
     return ApiSuccessResponseSchema.extend({ data: dataSchema });
@@ -39,7 +39,6 @@ export function createApiResponseSchema<T extends z.ZodType>(dataSchema: T) {
 
 export const ApiResponseSchema = createApiResponseSchema(z.unknown());
 
-export type ApiResponseContext = z.infer<typeof ApiResponseContextSchema>;
 export type ApiSuccessResponse<T = unknown> = Omit<
     z.infer<typeof ApiSuccessResponseSchema>,
     'data'

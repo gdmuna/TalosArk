@@ -11,10 +11,14 @@ src/
   auth/
     oidc.http.ts     OIDC request bodies and unwrapped responses
     session.ts       Login session credentials in their existing wire shape
+    error.ts         Auth public error codes and safe details schemas
     index.ts
   protocol/
     scalar.ts        UUIDs and UTC ISO timestamps
-    http.ts          Success/error envelopes and public response context
+    context.ts       Allowlisted public response context
+    error.ts         Shared error content and request rejection definitions
+    http.ts          HTTP success/error envelopes
+    websocket.ts     WebSocket error message and optional correlation ID
     index.ts
   index.ts
 ```
@@ -69,32 +73,54 @@ library is required here.
 - `ApiResponse` is discriminated by `success`. Error responses have `code`,
   `message`, `type`, and `details`, not a success `data` member. Error details
   remain endpoint-specific instead of forcing a global business-error taxonomy.
-- The public response context preserves existing fields, but is defined
-  independently of ALS. The backend projects its allowed fields explicitly so
-  adding an internal context property cannot automatically expose it.
+- Error definitions pair a literal `code` with its details schema. HTTP and WS
+  schema builders consume the same definition. HTTP adds its documentation URL
+  and response envelope; WS adds `kind: 'error'` and optional `correlationId`.
+  Details are JSON-safe and validated before publication. Causes, SDK error
+  objects, stack traces, headers and arbitrary metadata are never public details.
+- The public response context only contains `requestId`, `time`, and optional
+  `version` / `userId`. Internal ALS metadata is never included in either success
+  or error envelopes. The backend projects public fields explicitly instead of
+  spreading the execution context.
 - Schema validation establishes payload shape, not authorization, JWT signature
   validity, replay protection, or business success. An OIDC `block` result can
   still be inside a successful HTTP envelope.
 
 ## Backend Binding
 
-Use the schema directly on the body parameter; no backend DTO wrapper class or
-duplicate HTTP contract file is required:
+Declare request and response schemas once with the backend's `ApiRoute` method
+decorator. No backend DTO wrapper class or duplicate HTTP contract is required:
 
 ```ts
-@Body(new ZodValidationPipe(OidcLoginCallbackBodySchema))
-body: OidcLoginCallbackBody
+@Post('oidc/login-callback')
+@ApiRoute({
+    auth: 'public',
+    summary: 'Complete OIDC login',
+    request: { body: OidcLoginCallbackBodySchema },
+    responses: [{ status: 201, schema: OidcLoginCallbackResponseSchema }],
+    errors: [/* explicit business HTTP error bindings */],
+})
+async callback(@Body() body: OidcLoginCallbackBody) {
+    // Return the endpoint's unwrapped payload.
+}
 ```
 
-Bind a response schema with `@ZodSerializerDto(ResponseSchema)`. The existing
-global serializer validates the unwrapped result before the envelope is added.
-OpenAPI body/response metadata is derived with
-`z.toJSONSchema(schema, { target: 'openapi-3.0' })`; it does not depend on runtime
-reflection of an erased TypeScript type alias.
+`request.body`, `request.query` and `request.params` supply both OpenAPI input
+documentation and validation before Nest extracts parameter values. Inferred
+aliases may reflect as `Object`; this does not affect route-level validation.
 
-Do not enable a globally strict DTO-declaration pipe with this parameter-level
-schema pattern. Nest reflects inferred aliases as `Object`; the explicit
-parameter pipe is what supplies the runtime schema.
+`responses` supports multiple statuses and schemas. Its first entry sets the
+default HTTP status; `@Res({ passthrough: true })` may select another declared
+status. The backend constructs and validates the complete success envelope,
+including `data`, against the actual status's compiled schema. Error bindings
+produce complete error-envelope alternatives, including literal code/message
+and safe details, used for both documentation and runtime validation.
+
+No additional `ApiBody`, `ZodSerializerDto` or `HttpCode` decorator is needed.
+Use only schemas that can be converted to OpenAPI 3.0. Response data must be
+JSON-safe. Invalid or undeclared responses become a safe internal `500` rather
+than leaking controller output. See `packages/backend/docs/design/api-route.md`
+for authentication defaults, empty responses and transport limitations.
 
 ## Build and Development
 
