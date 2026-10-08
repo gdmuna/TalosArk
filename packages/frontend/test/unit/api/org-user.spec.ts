@@ -22,7 +22,7 @@ import {
     listOrgMembers,
     quitOrg,
     updateMemberAuthority,
-} from '@/shared/api/modules/org-user';
+} from '@/shared/api/module/org-user';
 
 describe('org-user API module', () => {
     beforeEach(() => {

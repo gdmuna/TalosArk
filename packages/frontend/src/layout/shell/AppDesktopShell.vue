@@ -52,7 +52,7 @@ import { SidebarProvider } from '@/ui/sidebar';
 
 import { ref } from 'vue';
 import { useElementBounding } from '@vueuse/core';
-import { provideOverlayContainer } from '@/shared/composables/useOverlayContainer/useOverlayContainer';
+import { provideOverlayContainer } from '@/shared/browser/overlay-container';
 
 import { X, Square, Minus, Box, Copy } from '@lucide/vue';
 

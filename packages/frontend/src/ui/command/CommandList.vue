@@ -3,7 +3,7 @@ import type { ListboxContentProps } from 'reka-ui';
 import type { HTMLAttributes } from 'vue';
 import { reactiveOmit } from '@vueuse/core';
 import { ListboxContent, useForwardProps } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 
 const props = defineProps<ListboxContentProps & { class?: HTMLAttributes['class'] }>();
 

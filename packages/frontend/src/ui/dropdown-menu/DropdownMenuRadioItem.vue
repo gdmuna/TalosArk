@@ -4,7 +4,7 @@ import type { HTMLAttributes } from 'vue';
 import { Circle } from '@lucide/vue';
 import { reactiveOmit } from '@vueuse/core';
 import { DropdownMenuItemIndicator, DropdownMenuRadioItem, useForwardPropsEmits } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 
 const props = defineProps<DropdownMenuRadioItemProps & { class?: HTMLAttributes['class'] }>();
 

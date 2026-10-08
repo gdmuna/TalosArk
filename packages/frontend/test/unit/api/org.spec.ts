@@ -17,7 +17,7 @@ import {
     listOrgs,
     searchOrgs,
     updateOrg,
-} from '@/shared/api/modules/org';
+} from '@/shared/api/module/org';
 
 describe('org API module', () => {
     beforeEach(() => {

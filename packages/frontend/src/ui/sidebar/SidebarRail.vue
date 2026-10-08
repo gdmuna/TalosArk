@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
-import { cn } from '@/shared/lib/utils';
-import { useSidebar } from './utils';
+import { cn } from '@/shared/util/cn';
+import { useSidebar } from './util';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 
 const props = defineProps<{

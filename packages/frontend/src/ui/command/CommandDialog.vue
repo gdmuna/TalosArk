@@ -2,7 +2,7 @@
 import type { DialogRootEmits, DialogRootProps } from 'reka-ui';
 import type { HTMLAttributes } from 'vue';
 import { useForwardPropsEmits } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/dialog';
 import Command from './Command.vue';
 

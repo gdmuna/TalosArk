@@ -4,10 +4,10 @@ import type { HTMLAttributes } from 'vue';
 import { X } from '@lucide/vue';
 import { reactiveOmit } from '@vueuse/core';
 import { DialogClose, DialogContent, DialogPortal, useForwardPropsEmits } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 import DialogOverlay from './DialogOverlay.vue';
 import { Button } from '@/ui/button';
-import { useOverlayContainer } from '@/shared/composables/useOverlayContainer/useOverlayContainer';
+import { useOverlayContainer } from '@/shared/browser/overlay-container';
 
 defineOptions({
     inheritAttrs: false,

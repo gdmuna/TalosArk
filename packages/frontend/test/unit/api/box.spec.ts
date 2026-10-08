@@ -19,7 +19,7 @@ import {
     deleteBoxAlias,
     listBoxAliases,
     updateBoxAlias,
-} from '@/shared/api/modules/box';
+} from '@/shared/api/module/box';
 
 describe('box API module', () => {
     beforeEach(() => {

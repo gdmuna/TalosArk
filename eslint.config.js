@@ -5,6 +5,7 @@ import vueParser from 'vue-eslint-parser';
 import vuePlugin from 'eslint-plugin-vue';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
+import { frontendImportBoundaries } from './packages/frontend/script/eslint-architecture.mjs';
 
 // 各工作区共享的基础规则
 const commonRules = {
@@ -103,6 +104,7 @@ export default [
         plugins: {
             vue: vuePlugin,
             '@typescript-eslint': tsPlugin,
+            architecture: { rules: { imports: frontendImportBoundaries } },
         },
         rules: {
             ...eslint.configs.recommended.rules,
@@ -110,6 +112,7 @@ export default [
             ...vuePlugin.configs.recommended.rules,
             ...commonRules,
             'no-console': 'off',
+            'architecture/imports': 'error',
         },
     },
 

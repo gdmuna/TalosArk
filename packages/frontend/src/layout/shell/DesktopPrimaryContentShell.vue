@@ -84,14 +84,14 @@
 </template>
 
 <script setup lang="ts">
-import { provideRouteTabContext, useRouteTab } from '@/modules/routerTab';
-import { matchesRoutePath } from '@/shared/utils';
-import { useNavigationStore } from '@/shared/stores';
+import { provideRouteTabContext, useRouteTab } from '@/component/route-tab';
+import { matchesRoutePath } from '@/shared/util';
+import { useNavigationStore } from '@/platform/navigation';
 import { computed, useTemplateRef } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Button } from '@/ui/button';
-import UserMenu from '@/modules/user-menu/UserMenu.vue';
+import { UserMenu } from '@/layout/user-menu';
 import { useSidebar } from '@/ui/sidebar';
 
 import { ArrowLeft, ArrowRight, Bell, CircleQuestionMark, Settings, PanelLeftClose, PanelLeftOpen } from '@lucide/vue';

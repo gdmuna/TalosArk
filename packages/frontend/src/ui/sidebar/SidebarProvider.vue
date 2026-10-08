@@ -3,7 +3,7 @@ import type { HTMLAttributes, Ref } from 'vue';
 import { defaultDocument, useEventListener, useMediaQuery, useVModel } from '@vueuse/core';
 import { TooltipProvider } from 'reka-ui';
 import { computed, ref } from 'vue';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 import {
     provideSidebarContext,
     SIDEBAR_COOKIE_MAX_AGE,
@@ -11,7 +11,7 @@ import {
     SIDEBAR_KEYBOARD_SHORTCUT,
     SIDEBAR_WIDTH,
     SIDEBAR_WIDTH_ICON,
-} from './utils';
+} from './util';
 
 const props = withDefaults(
     defineProps<{

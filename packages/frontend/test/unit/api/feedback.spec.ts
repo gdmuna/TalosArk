@@ -10,7 +10,7 @@ vi.mock('@/shared/api/client', () => ({
 }));
 
 import api from '@/shared/api/client';
-import { listBoxLogs, listReagentLogs, createFeedback } from '@/shared/api/modules/feedback';
+import { listBoxLogs, listReagentLogs, createFeedback } from '@/shared/api/module/feedback';
 
 describe('feedback API module', () => {
     beforeEach(() => {

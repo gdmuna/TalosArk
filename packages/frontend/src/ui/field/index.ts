@@ -8,4 +8,4 @@ export { default as FieldLegend } from './FieldLegend.vue';
 export { default as FieldSeparator } from './FieldSeparator.vue';
 export { default as FieldSet } from './FieldSet.vue';
 export { default as FieldTitle } from './FieldTitle.vue';
-export * from './variants';
+export * from './variant';

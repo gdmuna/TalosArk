@@ -4,7 +4,7 @@ import type { HTMLAttributes } from 'vue';
 import { Check } from '@lucide/vue';
 import { reactiveOmit } from '@vueuse/core';
 import { DropdownMenuCheckboxItem, DropdownMenuItemIndicator, useForwardPropsEmits } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 
 const props = defineProps<DropdownMenuCheckboxItemProps & { class?: HTMLAttributes['class'] }>();
 const emits = defineEmits<DropdownMenuCheckboxItemEmits>();

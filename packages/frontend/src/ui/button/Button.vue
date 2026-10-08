@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { PrimitiveProps } from 'reka-ui';
 import { computed, ref, useAttrs, type HTMLAttributes } from 'vue';
-import type { ButtonVariants } from './variants';
+import type { ButtonVariants } from './variant';
 import { Primitive, useForwardExpose } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
-import { buttonVariants } from './variants';
+import { cn } from '@/shared/util/cn';
+import { buttonVariants } from './variant';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/tooltip';
 
 defineOptions({ inheritAttrs: false });

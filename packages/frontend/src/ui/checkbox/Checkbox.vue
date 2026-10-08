@@ -5,7 +5,7 @@ import type { HTMLAttributes } from 'vue';
 import { CheckIcon, MinusIcon } from '@lucide/vue';
 import { reactiveOmit } from '@vueuse/core';
 import { CheckboxIndicator, CheckboxRoot, useForwardPropsEmits } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 
 const props = defineProps<CheckboxRootProps & { class?: HTMLAttributes['class'] }>();
 const emits = defineEmits<CheckboxRootEmits>();

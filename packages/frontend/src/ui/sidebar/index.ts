@@ -21,5 +21,5 @@ export { default as SidebarProvider } from './SidebarProvider.vue';
 export { default as SidebarRail } from './SidebarRail.vue';
 export { default as SidebarSeparator } from './SidebarSeparator.vue';
 export { default as SidebarTrigger } from './SidebarTrigger.vue';
-export { useSidebar } from './utils';
-export * from './variants';
+export { useSidebar } from './util';
+export * from './variant';

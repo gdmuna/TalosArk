@@ -89,19 +89,19 @@
 </template>
 
 <script setup lang="ts">
-import { useRoutePathMatch } from '@/shared/composables';
-import { useWorkbenchStore } from '@/shared/stores';
-import type { Resource } from '@/shared/models/workbench';
-import ResourceDialog from '@/modules/workbench/ResourceDialog.vue';
+import { useRoutePathMatch } from '@/platform/navigation';
+import { useWorkbenchStore } from '@/module/workbench';
+import type { Resource } from '@/module/workbench';
+import { ResourceDialog } from '@/module/workbench/ui';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Button } from '@/ui/button';
 import { useSidebar } from '@/ui/sidebar';
-import { ScrollSurface as ScrollArea } from '@/modules/scroll-surface';
+import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
 
 import DesktopPrimaryContentShell from '@/layout/shell/DesktopPrimaryContentShell.vue';
-import { WorkspaceSwitcher } from '@/modules/workspace-switcher';
-import { CommandPalette } from '@/modules/command-palette';
+import { WorkspaceSwitcher } from '@/module/workspace/ui';
+import { CommandPalette } from '@/layout/command-palette';
 import { useEventListener } from '@vueuse/core';
 
 import { computed, ref } from 'vue';

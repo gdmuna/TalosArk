@@ -11,7 +11,7 @@ vi.mock('@/shared/api/client', () => ({
 }));
 
 import api from '@/shared/api/client';
-import { login, register, logout, getMyInfo } from '@/shared/api/modules/auth';
+import { login, register, logout, getMyInfo } from '@/shared/api/module/auth';
 
 describe('auth API module', () => {
     beforeEach(() => {

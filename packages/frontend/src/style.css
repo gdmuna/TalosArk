@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import './shared/assets/fonts/source-han-sans.css';
+@import './shared/asset/font/source-han-sans.css';
 
 @custom-variant dark (&:is(.dark *));
 

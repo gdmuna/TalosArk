@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
+import { workbenchRoutes } from '@/module/workbench/route';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -19,14 +20,14 @@ const routes: RouteRecordRaw[] = [
         children: [
             {
                 path: 'login',
-                component: () => import('@/pages/auth/Auth.vue'),
+                component: () => import('@/page/auth/Auth.vue'),
                 meta: {
                     defaultTitle: 'login',
                 },
             },
             {
                 path: 'callback',
-                component: () => import('@/pages/auth/Auth-Callback.vue'),
+                component: () => import('@/page/auth/Auth-Callback.vue'),
                 meta: {
                     defaultTitle: 'callback',
                 },
@@ -43,45 +44,16 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'workbench',
-                component: () => import('@/pages/workbench/Workbench.vue'),
+                component: () => import('@/page/workbench/Workbench.vue'),
                 redirect: '/main/workbench/overview',
                 meta: {
                     defaultTitle: 'workbench',
                 },
-                children: [
-                    {
-                        path: 'overview',
-                        component: () => import('@/pages/workbench/Overview.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                    {
-                        path: 'my-task',
-                        component: () => import('@/pages/workbench/MyTask.vue'),
-                        meta: {
-                            defaultTitle: 'my-task',
-                        },
-                    },
-                    {
-                        path: 'pending-approval',
-                        component: () => import('@/pages/workbench/PendingApproval.vue'),
-                        meta: {
-                            defaultTitle: 'pending-approval',
-                        },
-                    },
-                    {
-                        path: 'exception-alert',
-                        component: () => import('@/pages/workbench/ExceptionAlert.vue'),
-                        meta: {
-                            defaultTitle: 'exception-alert',
-                        },
-                    },
-                ],
+                children: workbenchRoutes,
             },
             {
                 path: 'material',
-                component: () => import('@/pages/material/Material.vue'),
+                component: () => import('@/page/material/Material.vue'),
                 redirect: '/main/material/overview',
                 meta: {
                     defaultTitle: 'material',
@@ -89,21 +61,21 @@ const routes: RouteRecordRaw[] = [
                 children: [
                     {
                         path: 'overview',
-                        component: () => import('@/pages/material/Overview.vue'),
+                        component: () => import('@/page/material/Overview.vue'),
                         meta: {
                             defaultTitle: 'overview',
                         },
                     },
                     {
                         path: 'list',
-                        component: () => import('@/pages/material/List.vue'),
+                        component: () => import('@/page/material/List.vue'),
                         meta: {
                             defaultTitle: 'list',
                         },
                     },
                     {
                         path: 'culture',
-                        component: () => import('@/pages/material/Culture.vue'),
+                        component: () => import('@/page/material/Culture.vue'),
                         meta: {
                             defaultTitle: 'culture',
                         },
@@ -112,7 +84,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'inventory',
-                component: () => import('@/pages/inventory/Inventory.vue'),
+                component: () => import('@/page/inventory/Inventory.vue'),
                 redirect: '/main/inventory/overview',
                 meta: {
                     defaultTitle: 'inventory',
@@ -120,28 +92,28 @@ const routes: RouteRecordRaw[] = [
                 children: [
                     {
                         path: 'overview',
-                        component: () => import('@/pages/inventory/Overview.vue'),
+                        component: () => import('@/page/inventory/Overview.vue'),
                         meta: {
                             defaultTitle: 'overview',
                         },
                     },
                     {
                         path: 'ledger',
-                        component: () => import('@/pages/inventory/Ledger.vue'),
+                        component: () => import('@/page/inventory/Ledger.vue'),
                         meta: {
                             defaultTitle: 'overview',
                         },
                     },
                     {
                         path: 'storage-topology',
-                        component: () => import('@/pages/inventory/StorageTopology.vue'),
+                        component: () => import('@/page/inventory/StorageTopology.vue'),
                         meta: {
                             defaultTitle: 'overview',
                         },
                     },
                     {
                         path: 'stocktake',
-                        component: () => import('@/pages/inventory/Stocktake.vue'),
+                        component: () => import('@/page/inventory/Stocktake.vue'),
                         meta: {
                             defaultTitle: 'overview',
                         },
@@ -150,7 +122,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'equipment',
-                component: () => import('@/pages/equipment/Equipment.vue'),
+                component: () => import('@/page/equipment/Equipment.vue'),
                 redirect: '/main/equipment/overview',
                 meta: {
                     defaultTitle: 'equipment',
@@ -158,14 +130,14 @@ const routes: RouteRecordRaw[] = [
                 children: [
                     {
                         path: 'overview',
-                        component: () => import('@/pages/equipment/Overview.vue'),
+                        component: () => import('@/page/equipment/Overview.vue'),
                         meta: {
                             defaultTitle: 'overview',
                         },
                     },
                     {
                         path: 'list',
-                        component: () => import('@/pages/equipment/List.vue'),
+                        component: () => import('@/page/equipment/List.vue'),
                         meta: {
                             defaultTitle: 'list',
                         },

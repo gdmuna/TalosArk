@@ -18,7 +18,7 @@ import {
     emailLogin,
     updateEmail,
     emailUpdatePassword,
-} from '@/shared/api/modules/user';
+} from '@/shared/api/module/user';
 
 describe('user API module', () => {
     beforeEach(() => {

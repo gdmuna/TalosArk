@@ -2,7 +2,7 @@
 import type { SeparatorProps } from 'reka-ui';
 import type { HTMLAttributes } from 'vue';
 import { reactiveOmit } from '@vueuse/core';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 import { Separator } from '@/ui/separator';
 
 const props = withDefaults(defineProps<SeparatorProps & { class?: HTMLAttributes['class'] }>(), {

@@ -15,7 +15,7 @@ import {
     listBoxImages,
     compareBoxImage,
     deleteBoxImage,
-} from '@/shared/api/modules/box-image';
+} from '@/shared/api/module/box-image';
 
 describe('box-image API module', () => {
     beforeEach(() => {

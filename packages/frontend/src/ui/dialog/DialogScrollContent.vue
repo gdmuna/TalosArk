@@ -4,7 +4,7 @@ import type { HTMLAttributes } from 'vue';
 import { X } from '@lucide/vue';
 import { reactiveOmit } from '@vueuse/core';
 import { DialogClose, DialogContent, DialogOverlay, DialogPortal, useForwardPropsEmits } from 'reka-ui';
-import { cn } from '@/shared/lib/utils';
+import { cn } from '@/shared/util/cn';
 
 defineOptions({
     inheritAttrs: false,
