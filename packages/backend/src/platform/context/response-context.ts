@@ -1,5 +1,5 @@
 import type { ApiResponseContext } from '@talos-ark/contracts/protocol';
-import type { AlsExecutionContext } from '@/platform/context/als-context.adapter.js';
+import type { AlsExecutionContext } from './als-context.adapter.js';
 
 export function toApiResponseContext(
     context: AlsExecutionContext | undefined
@@ -10,6 +10,5 @@ export function toApiResponseContext(
         time: context.time,
         version: context.version,
         userId: context.userId,
-        metadata: context.metadata,
     };
 }

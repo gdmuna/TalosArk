@@ -5,6 +5,8 @@ import { AllConfig } from '@/config/index.js';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
+import { createPublicKey, type KeyObject } from 'node:crypto';
+import { IamError } from './iam.error.js';
 
 /** 已验签并校验标准声明的 Casdoor JWT；业务侧不应直接依赖额外的 Casdoor 字段。 */
 export interface VerifiedIamToken {
@@ -53,10 +55,20 @@ export class IamTokenAdapter {
 
     private verifyToken(token: string): VerifiedIamToken | null {
         const config = this.configService.get('casdoor.oidc', { infer: true });
-        if (!config) return null;
+        if (!config) throw new IamError({ reason: 'not-configured' });
+
+        let publicKey: KeyObject;
+        try {
+            publicKey = createPublicKey(config.certificate);
+        } catch (cause) {
+            throw new IamError({ reason: 'configuration' }, { cause });
+        }
+        if (publicKey.asymmetricKeyType !== 'rsa') {
+            throw new IamError({ reason: 'configuration' });
+        }
 
         try {
-            const claims = jwt.verify(token, config.certificate, {
+            const claims = jwt.verify(token, publicKey, {
                 algorithms: ['RS256'],
                 issuer: config.issuer,
                 audience: config.clientId,
@@ -93,8 +105,14 @@ export class IamTokenAdapter {
                 nonce: typeof claims.nonce === 'string' ? claims.nonce : undefined,
                 claims,
             };
-        } catch {
-            return null;
+        } catch (error) {
+            if (
+                error instanceof jwt.JsonWebTokenError ||
+                error instanceof jwt.TokenExpiredError ||
+                error instanceof jwt.NotBeforeError
+            )
+                return null;
+            throw error;
         }
     }
 }

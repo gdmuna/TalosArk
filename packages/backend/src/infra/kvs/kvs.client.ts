@@ -6,8 +6,10 @@ import { KvsSetAtomic } from './lua/set.atomic.js';
 import { KvsStringAtomic } from './lua/string.atomic.js';
 
 import { timeout } from '@/common/utils/index.js';
+import { KvsError, normalizeKvsError } from './kvs.error.js';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
 /**
  * Valkey 的应用入口，负责客户端连接生命周期与按数据类型组织的原子 Lua 操作。
@@ -16,28 +18,41 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nest
  */
 @Injectable()
 export class KvsClient implements OnModuleInit, OnModuleDestroy {
-    private readonly logger = new Logger(KvsClient.name);
-
     public readonly atomic: KvsStringAtomic;
     public readonly hAtomic: KvsHashAtomic;
     public readonly lAtomic: KvsListAtomic;
     public readonly sAtomic: KvsSetAtomic;
 
-    public constructor(@Inject(REDIS_CLIENT) public readonly redisClient: RedisClient) {
+    public constructor(
+        @Inject(REDIS_CLIENT) public readonly redisClient: RedisClient,
+        @InjectPinoLogger(KvsClient.name) private readonly logger: PinoLogger
+    ) {
         this.atomic = new KvsStringAtomic(redisClient);
         this.hAtomic = new KvsHashAtomic(redisClient);
         this.lAtomic = new KvsListAtomic(redisClient);
         this.sAtomic = new KvsSetAtomic(redisClient);
 
         this.redisClient.on('error', (error) => {
-            this.logger.error(error, 'Valkey client error');
+            this.logger.error(
+                { err: normalizeKvsError(error) ?? error },
+                'Valkey connection error'
+            );
         });
     }
 
     /** 在 Nest 模块初始化时建立连接，使基础设施故障能尽早暴露。 */
     public async onModuleInit(): Promise<void> {
         if (!this.redisClient.isOpen) {
-            await timeout(this.redisClient.connect(), 3000, 'KVS Connect Timeout');
+            try {
+                await this.execute(() =>
+                    timeout(this.redisClient.connect(), 3000, 'KVS Connect Timeout')
+                );
+            } catch (cause) {
+                if (cause instanceof Error && cause.message === 'KVS Connect Timeout') {
+                    throw new KvsError({ reason: 'unavailable' }, { cause });
+                }
+                throw cause;
+            }
         }
         this.logger.debug('KVS connected');
     }
@@ -45,7 +60,15 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
     /** 进程正常关闭时关闭连接。 */
     public async onModuleDestroy(): Promise<void> {
         if (this.redisClient.isOpen) {
-            await this.redisClient.close();
+            await this.execute(() => this.redisClient.close());
+        }
+    }
+
+    public async execute<T>(operation: () => PromiseLike<T>): Promise<T> {
+        try {
+            return await operation();
+        } catch (error) {
+            throw normalizeKvsError(error) ?? error;
         }
     }
 }

@@ -1,4 +1,5 @@
-import { Logger } from '@/platform/observability/index.js';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { normalizeDatabaseError } from './prisma.error.js';
 
 import { AllConfig } from '@/config/index.js';
 
@@ -14,15 +15,14 @@ import { PrismaPg } from '@prisma/adapter-pg';
  * @description Prisma 数据库服务
  * - 管理数据库连接生命周期
  * - 监控慢查询并记录日志
- * - 开发环境下记录所有 SQL 查询
+ * - 只记录耗时与上下文，不记录 SQL 或绑定参数
  */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleDestroy, OnModuleInit {
-    private readonly logger = new Logger(PrismaService.name);
-
     constructor(
         private readonly configService: ConfigService<AllConfig, true>,
-        private readonly alsContextAdapter: AlsContextAdapter
+        private readonly alsContextAdapter: AlsContextAdapter,
+        @InjectPinoLogger(PrismaService.name) private readonly logger: PinoLogger
     ) {
         const DATABASE_URL = configService.get('database.databaseUrl', { infer: true });
         if (!DATABASE_URL) {
@@ -39,64 +39,34 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy, OnMo
         // 开发环境启用查询日志
         super({
             adapter,
-            log: [
-                { emit: 'event', level: 'query' },
-                { emit: 'event', level: 'error' },
-                { emit: 'event', level: 'warn' },
-            ],
+            log: [{ emit: 'event', level: 'query' }],
         });
     }
 
     async onModuleInit() {
         // 连接数据库
-        await this.$connect();
-        this.logger.log('Database connected successfully');
+        await this.execute(() => this.$connect());
+        this.logger.info('Database connected successfully');
 
         // 订阅查询事件（用于慢查询监控）
         this.$on('query' as never, (event: any) => {
             this.handleQueryEvent(event);
         });
+    }
 
-        // 订阅错误事件
-        this.$on('error' as never, (event: any) => {
-            const requestContext = this.alsContextAdapter.get();
-            this.logger.error(
-                {
-                    requestId: requestContext?.requestId || 'unknown',
-                    version: requestContext?.version || 'unknown',
-                    database: {
-                        target: event.target ?? 'Unknown',
-                        timestamp: event.timestamp ?? new Date().toISOString(),
-                    },
-                    error: {
-                        message: event.message ?? 'Unknown error',
-                    },
-                },
-                `Database error occurred\n${event.stack ?? 'No stack trace available'}`
-            );
-        });
-
-        // 订阅警告事件
-        this.$on('warn' as never, (event: any) => {
-            const requestContext = this.alsContextAdapter.get();
-            this.logger.warn(
-                {
-                    requestId: requestContext?.requestId || 'unknown',
-                    version: requestContext?.version || 'unknown',
-                    database: {
-                        message: event.message ?? 'Unknown error',
-                        timestamp: event.timestamp ?? new Date().toISOString(),
-                    },
-                },
-                `Database warning\n${event.stack ?? 'No stack trace available'}`
-            );
-        });
+    // Wrap the awaited operation, not individual PrismaPromises inside a transaction array.
+    async execute<T>(operation: () => PromiseLike<T>): Promise<T> {
+        try {
+            return await operation();
+        } catch (error) {
+            throw normalizeDatabaseError(error) ?? error;
+        }
     }
 
     // 处理查询事件，检测慢查询并记录日志
     private handleQueryEvent(event: { timestamp: Date; query: string; duration: number }) {
         const requestContext = this.alsContextAdapter.get();
-        const { timestamp, query } = event;
+        const { timestamp } = event;
         const duration = Math.round(event.duration);
 
         // 构造日志上下文
@@ -104,7 +74,6 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy, OnMo
             requestId: requestContext?.requestId || 'unknown',
             version: requestContext?.version || 'unknown',
             database: {
-                query: this.formatSql(query),
                 duration,
                 durationUnit: 'ms',
                 timestamp: timestamp.toISOString(),
@@ -128,12 +97,8 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy, OnMo
         }
     }
 
-    private formatSql(sql: string): string {
-        return sql.replace(/"([^"]+)"/g, '$1');
-    }
-
     async onModuleDestroy() {
-        await this.$disconnect();
-        this.logger.log('Database disconnected');
+        await this.execute(() => this.$disconnect());
+        this.logger.info('Database disconnected');
     }
 }

@@ -1,2 +1,1 @@
-export * from './logger.service.js';
-export * from './console.formatter.js';
+export * from './error-serializer.js';

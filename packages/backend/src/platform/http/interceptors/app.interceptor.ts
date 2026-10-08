@@ -1,21 +1,11 @@
-import { Logger } from '@/platform/observability/index.js';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { RequestError } from '@/platform/error/request.error.js';
 
 import { AllConfig } from '@/config/index.js';
 
-import { AlsContextAdapter as RequestContextService } from '@/platform/context/als-context.adapter.js';
-import { toApiResponseContext } from '../response-context.js';
-import type { ApiSuccessResponse } from '@talos-ark/contracts/protocol';
-
-import {
-    Injectable,
-    NestInterceptor,
-    ExecutionContext,
-    CallHandler,
-    RequestTimeoutException,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { map } from 'rxjs/operators';
 import { throwError, TimeoutError } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 
@@ -27,15 +17,16 @@ import { catchError, timeout } from 'rxjs/operators';
  */
 @Injectable()
 export class PerformanceInterceptor implements NestInterceptor {
-    private readonly logger = new Logger(PerformanceInterceptor.name);
-
-    constructor(private readonly configService: ConfigService<AllConfig, true>) {}
+    constructor(
+        private readonly configService: ConfigService<AllConfig, true>,
+        @InjectPinoLogger(PerformanceInterceptor.name) private readonly logger: PinoLogger
+    ) {}
 
     intercept(context: ExecutionContext, next: CallHandler) {
         const ctx = context.switchToHttp();
         const response = ctx.getResponse<FastifyReply>();
         const startTime = performance.now();
-        response.raw.on('finish', () => {
+        response.raw.once('finish', () => {
             const logContext = this.getContext(context);
             const hasError = response.statusCode >= 400;
             this.logPerformance(logContext, startTime, hasError);
@@ -49,7 +40,7 @@ export class PerformanceInterceptor implements NestInterceptor {
         const response = ctx.getResponse<FastifyReply>();
         const requestId = String(request.id) || 'unknown';
         const method = request.method;
-        const url = request.url;
+        const url = request.routeOptions.url;
         const status = response.statusCode;
         const remoteAddress = request.ip || request.socket?.remoteAddress;
         const remotePort = request.socket?.remotePort;
@@ -99,24 +90,6 @@ export class PerformanceInterceptor implements NestInterceptor {
     }
 }
 
-@Injectable()
-export class ResponseFormatInterceptor implements NestInterceptor {
-    constructor(private readonly requestContextService: RequestContextService) {}
-
-    intercept(_: ExecutionContext, next: CallHandler) {
-        return next.handle().pipe(
-            map((data) => {
-                const requestContext = toApiResponseContext(this.requestContextService.get());
-                return {
-                    success: true,
-                    data: data ?? null,
-                    timestamp: new Date().toISOString(),
-                    context: requestContext,
-                } satisfies ApiSuccessResponse;
-            })
-        );
-    }
-}
 /**
  * @description 请求超时拦截器
  * - 限制请求处理时间不超过配置的阈值
@@ -137,11 +110,7 @@ export class TimeoutInterceptor implements NestInterceptor {
             catchError((err) => {
                 if (err instanceof TimeoutError) {
                     return throwError(
-                        () =>
-                            new RequestTimeoutException({
-                                message: `Request timed out after ${this.timeoutMs}ms`,
-                                code: 'REQUEST_TIMEOUT',
-                            })
+                        () => new RequestError({ reason: 'processingTimeout' }, { cause: err })
                     );
                 }
                 return throwError(() => err);

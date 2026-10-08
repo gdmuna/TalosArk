@@ -4,6 +4,11 @@ import { AlsContextAdapter as RequestContextService } from '@/platform/context/a
 
 import { Logger, Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpErrorPolicy, createHttpErrorResponse } from '../error/http-error.policy.js';
+import { RequestError } from '@/platform/error/request.error.js';
+import { toApiResponseContext } from '@/platform/context/response-context.js';
+import { errorResponseSchema } from '../route/route.contract.js';
+import { parseJsonResponse } from '../route/route.response.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
 // Per NestJS docs (techniques/performance): middleware with Fastify receives raw
@@ -47,8 +52,16 @@ export class CorsMiddleware implements NestMiddleware {
     private readonly allowedMethods: string;
     private readonly allowedHeaders: string;
     private readonly maxAge: number;
+    private readonly errorReferenceUrl: string;
 
-    constructor(configService: ConfigService<AllConfig, true>) {
+    constructor(
+        configService: ConfigService<AllConfig, true>,
+        private readonly errorPolicy: HttpErrorPolicy,
+        private readonly requestContextService: RequestContextService
+    ) {
+        this.errorReferenceUrl = configService.get('observability.errorReferenceUrl', {
+            infer: true,
+        });
         this.isDev = configService.get('app.isDev', { infer: true });
         this.allowedOrigins = configService.get('http.corsAllowedOrigin', { infer: true });
         this.allowedMethods = configService
@@ -70,15 +83,19 @@ export class CorsMiddleware implements NestMiddleware {
             this.allowedOrigins.includes(origin);
 
         if (!isAllowed) {
-            this.logger.warn(`CORS blocked: ${origin}`);
+            this.logger.warn('CORS request blocked');
             res.statusCode = 403;
             res.setHeader('Content-Type', 'application/json');
-            res.end(
-                JSON.stringify({
-                    success: false,
-                    message: `Origin "${origin}" is not allowed by CORS policy`,
-                })
+            const { error } = this.errorPolicy.resolve(new RequestError({ reason: 'forbidden' }));
+            const body = parseJsonResponse(
+                errorResponseSchema(error.definition),
+                createHttpErrorResponse(
+                    error,
+                    toApiResponseContext(this.requestContextService.get()),
+                    this.errorReferenceUrl
+                )
             );
+            res.end(JSON.stringify(body));
             return;
         }
 

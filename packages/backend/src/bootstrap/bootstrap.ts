@@ -1,15 +1,10 @@
 import { APP_AUTHOR, APP_VERSION, type AllConfig } from '@/config/index.js';
-import {
-    enrichErrorResponses,
-    wrapSuccessResponses,
-} from '@/platform/http/openapi/openapi-envelope.js';
-import { Logger } from '@/platform/observability/index.js';
 
 import { AppModule } from '../app.module.js';
 
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
-import { VersioningType } from '@nestjs/common';
+import { Logger, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -73,7 +68,13 @@ export async function bootstrap(): Promise<void> {
     } catch (error) {
         logListenFailure(logger, port, error);
         app.flushLogs();
-        await app.close();
+        try {
+            await app.close();
+        } catch (closeError) {
+            throw new AggregateError([error, closeError], 'Startup and cleanup failed', {
+                cause: closeError,
+            });
+        }
         throw error;
     }
 
@@ -94,9 +95,7 @@ TalosArk 后端 API。
         .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'accessToken')
         .build();
     const document = SwaggerModule.createDocument(app, documentConfig);
-    const processedDocument = enrichErrorResponses(
-        wrapSuccessResponses(cleanupOpenApiDoc(document))
-    );
+    const processedDocument = cleanupOpenApiDoc(document);
 
     SwaggerModule.setup('api-doc', app, processedDocument);
 

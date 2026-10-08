@@ -4,7 +4,8 @@ import { AccessKernel } from '@/core/access/index.js';
 
 import { AUTH_STRATEGY_KEY, AUTH_STRATEGY_TYPE } from '@/platform/http/decorators/index.js';
 
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { RequestError } from '@/platform/error/request.error.js';
 import { Reflector } from '@nestjs/core';
 
 import { FastifyRequest } from 'fastify';
@@ -39,12 +40,12 @@ export class AuthGuard implements CanActivate {
         }
 
         if (!accessToken) {
-            throw new UnauthorizedException('Missing access token');
+            throw new RequestError({ reason: 'authentication' });
         }
 
         const claim = await this.accessKernel.verifyAccessToken({ accessToken });
         if (!claim) {
-            throw new UnauthorizedException('Invalid access token');
+            throw new RequestError({ reason: 'authentication' });
         }
 
         request.jwtClaim = claim;

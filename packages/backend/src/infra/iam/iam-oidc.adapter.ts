@@ -1,7 +1,10 @@
 import { CASDOOR_SDK } from './iam.constants.js';
 import { IamTokenAdapter } from './iam-token.adapter.js';
+import { IamError, normalizeIamSdkError, normalizeIamHttpError } from './iam.error.js';
 
 import { AllConfig } from '@/config/index.js';
+import { HttpClientFactory } from '@/infra/http/http-client.factory.js';
+import type { HttpClient, HttpResponse } from '@/infra/http/type.js';
 
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -60,11 +63,24 @@ export interface VerifiedOidcIdentity {
  */
 @Injectable()
 export class IamOidcAdapter {
+    private readonly http: HttpClient | undefined;
+
     public constructor(
         private readonly configService: ConfigService<AllConfig, true>,
         @Inject(CASDOOR_SDK) private readonly sdk: CasdoorOidcSdk,
-        private readonly tokenAdapter: IamTokenAdapter
-    ) {}
+        private readonly tokenAdapter: IamTokenAdapter,
+        http: HttpClientFactory
+    ) {
+        const config = this.getOidcConfig();
+        this.http = config
+            ? http.create({
+                  name: 'casdoor-oidc',
+                  baseUrl: `${config.endpoint}/api`,
+                  timeoutMs: 10_000,
+                  retry: false,
+              })
+            : undefined;
+    }
 
     /** 判断当前环境是否完整配置了 TalosArk 的标准 OIDC 登录回调。 */
     public isOidcConfigured(): boolean {
@@ -73,11 +89,11 @@ export class IamOidcAdapter {
 
     /**
      * 生成标准 OIDC 授权码登录地址，携带 CSRF state、nonce 与 S256 PKCE challenge。
-     * 未配置平台 OIDC 时返回 null，由 IdentityKernel 映射为领域错误。
+     * 配置与上游故障以 Infra 错误返回，由 IdentityKernel 决定业务语义。
      */
-    public createAuthorizationUrl(command: CreateOidcAuthorizationUrlCommand): string | null {
+    public createAuthorizationUrl(command: CreateOidcAuthorizationUrlCommand): string {
         const config = this.getOidcConfig();
-        if (!config) return null;
+        if (!config) throw new IamError({ reason: 'not-configured' });
 
         const authorizationUrl = new URL(`${config.endpoint}/login/oauth/authorize`);
         authorizationUrl.searchParams.set('client_id', config.clientId);
@@ -94,47 +110,77 @@ export class IamOidcAdapter {
 
     /**
      * 使用授权码和 PKCE verifier 向 Casdoor 交换 OIDC 令牌。
-     * 网络、协议或令牌响应失败均返回 null，避免底层 HTTP 细节越过 Infra 边界。
+     * 区分授权拒绝、上游不可用和协议错误；不向业务层暴露响应正文。
      */
     public async exchangeAuthorizationCode(
         command: ExchangeOidcAuthorizationCodeCommand
-    ): Promise<OidcTokenSet | null> {
+    ): Promise<OidcTokenSet> {
         const config = this.getOidcConfig();
-        if (!config) return null;
+        if (!config || !this.http) throw new IamError({ reason: 'not-configured' });
 
+        let response: HttpResponse;
         try {
-            const response = await fetch(`${config.endpoint}/api/login/oauth/access_token`, {
+            response = await this.http.request({
+                operation: 'oidc.exchange-code',
                 method: 'POST',
+                path: '/login/oauth/access_token',
+                responseType: 'text',
+                auth: 'none',
+                retry: false,
+                singleflight: false,
+                replay: 'never',
+                acceptStatus: () => true,
                 headers: {
                     accept: 'application/json',
                     'content-type': 'application/json',
                 },
-                body: JSON.stringify({
+                body: {
                     client_id: config.clientId,
                     client_secret: config.clientSecret,
                     grant_type: 'authorization_code',
                     code: command.code,
                     redirect_uri: config.redirectUri,
                     code_verifier: command.codeVerifier,
-                }),
+                },
             });
-            if (!response.ok) return null;
-
-            const result = await response.json();
-            if (!isRecord(result) || typeof result.access_token !== 'string') {
-                return null;
-            }
-
-            const idToken =
-                typeof result.id_token === 'string' ? result.id_token : result.access_token;
-
-            return {
-                accessToken: result.access_token,
-                idToken,
-            };
-        } catch {
-            return null;
+        } catch (cause) {
+            throw normalizeIamHttpError(cause) ?? cause;
         }
+        if (response.status >= 500 || response.status === 429) {
+            throw new IamError({ reason: 'unavailable', upstreamStatus: response.status });
+        }
+        let result: unknown;
+        try {
+            result = JSON.parse(String(response.data)) as unknown;
+        } catch (cause) {
+            if (cause instanceof SyntaxError) {
+                throw new IamError(
+                    { reason: 'invalid-response', upstreamStatus: response.status },
+                    { cause }
+                );
+            }
+            throw cause;
+        }
+        if (isRecord(result) && result.error === 'invalid_grant') {
+            throw new IamError({ reason: 'grant-rejected', upstreamStatus: response.status });
+        }
+        if (
+            isRecord(result) &&
+            (result.error === 'invalid_client' || result.error === 'unauthorized_client')
+        ) {
+            throw new IamError({ reason: 'configuration', upstreamStatus: response.status });
+        }
+        if (
+            response.status < 200 ||
+            response.status >= 300 ||
+            !isRecord(result) ||
+            typeof result.access_token !== 'string' ||
+            !result.access_token
+        ) {
+            throw new IamError({ reason: 'invalid-response', upstreamStatus: response.status });
+        }
+        const idToken = typeof result.id_token === 'string' ? result.id_token : result.access_token;
+        return { accessToken: result.access_token, idToken };
     }
 
     /**
@@ -183,12 +229,12 @@ export class IamOidcAdapter {
 
     /** 使用 Casdoor SDK 的旧接口交换授权码；不应用于 TalosArk 的 PKCE 登录链。 */
     public exchangeLegacyAuthorizationCode(code: string): Promise<CasdoorOidcTokenSet> {
-        return this.requireSdk().getAuthToken(code);
+        return this.executeSdk(() => this.requireSdk().getAuthToken(code));
     }
 
     /** 使用 Casdoor SDK 刷新 Casdoor 自身的 token 对。 */
     public refreshAccessToken(refreshToken: string, scope?: string): Promise<CasdoorOidcTokenSet> {
-        return this.requireSdk().refreshToken(refreshToken, scope);
+        return this.executeSdk(() => this.requireSdk().refreshToken(refreshToken, scope));
     }
 
     /** 使用 Casdoor 的 OAuth introspection 端点检查 access token 状态。 */
@@ -196,7 +242,7 @@ export class IamOidcAdapter {
         accessToken: string,
         tokenTypeHint = 'access_token'
     ): Promise<CasdoorOidcTokenIntrospection> {
-        return this.requireSdk().introspect(accessToken, tokenTypeHint);
+        return this.executeSdk(() => this.requireSdk().introspect(accessToken, tokenTypeHint));
     }
 
     /** 使用 Casdoor SDK 验签并解析令牌；不替代标准 OIDC 的 issuer/audience/nonce 校验。 */
@@ -218,9 +264,17 @@ export class IamOidcAdapter {
         return this.configService.get('casdoor.oidc', { infer: true });
     }
 
+    private async executeSdk<T>(operation: () => PromiseLike<T>): Promise<T> {
+        try {
+            return await operation();
+        } catch (error) {
+            throw normalizeIamSdkError(error) ?? error;
+        }
+    }
+
     private requireSdk(): CasdoorOidcSdk {
         if (!this.sdk) {
-            throw new Error('Casdoor SDK 未配置，无法调用 Casdoor 管理 API。');
+            throw new IamError({ reason: 'not-configured' });
         }
 
         return this.sdk;

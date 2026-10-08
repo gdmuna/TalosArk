@@ -1,19 +1,11 @@
-import {
-    StorageUploadFailedException,
-    StorageDownloadFailedException,
-    StorageDeleteFailedException,
-    StorageObjectNotFoundException,
-    StorageMultipartInitFailedException,
-    StorageMultipartCompleteFailedException,
-    StorageMultipartAbortFailedException,
-} from './storage.exception.js';
+import { StorageError, normalizeStorageError, type StorageOperation } from './storage.error.js';
 import { S3_OPTIONS } from './storage.constant.js';
 import type { StorageModuleOptions } from './storage.interface.js';
 
-import { Logger } from '@/platform/observability/index.js';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 import { Inject, Injectable } from '@nestjs/common';
-import { Readable, PassThrough } from 'stream';
+import { Readable } from 'stream';
 
 import {
     S3Client,
@@ -64,11 +56,10 @@ const DEFAULT_PART_SIZE = 5 * 1024 * 1024; // 5MB
 
 @Injectable()
 export class StorageService {
-    private readonly logger = new Logger(StorageService.name);
-
     constructor(
         private readonly s3Client: S3Client,
-        @Inject(S3_OPTIONS) private readonly opts: StorageModuleOptions
+        @Inject(S3_OPTIONS) private readonly opts: StorageModuleOptions,
+        @InjectPinoLogger(StorageService.name) private readonly logger: PinoLogger
     ) {}
 
     // ─── 存储桶解析 ────────────────────────────────────────────────────────────
@@ -111,10 +102,12 @@ export class StorageService {
     ): Promise<string> {
         const bucketName =
             bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        return getSignedUrl(
-            this.s3Client,
-            new PutObjectCommand({ Bucket: bucketName, Key: key, ContentType: contentType }),
-            { expiresIn }
+        return this.execute('presign', () =>
+            getSignedUrl(
+                this.s3Client,
+                new PutObjectCommand({ Bucket: bucketName, Key: key, ContentType: contentType }),
+                { expiresIn }
+            )
         );
     }
 
@@ -136,16 +129,18 @@ export class StorageService {
     ): Promise<string> {
         // S3 ChecksumSHA256 要求 base64 编码
         const sha256Base64 = Buffer.from(sha256Hex, 'hex').toString('base64');
-        return getSignedUrl(
-            this.s3Client,
-            new PutObjectCommand({
-                Bucket: this.stagingBucket,
-                Key: sha256Hex,
-                ContentType: contentType,
-                ChecksumAlgorithm: ChecksumAlgorithm.SHA256,
-                ChecksumSHA256: sha256Base64,
-            }),
-            { expiresIn }
+        return this.execute('presign', () =>
+            getSignedUrl(
+                this.s3Client,
+                new PutObjectCommand({
+                    Bucket: this.stagingBucket,
+                    Key: sha256Hex,
+                    ContentType: contentType,
+                    ChecksumAlgorithm: ChecksumAlgorithm.SHA256,
+                    ChecksumSHA256: sha256Base64,
+                }),
+                { expiresIn }
+            )
         );
     }
 
@@ -181,9 +176,11 @@ export class StorageService {
     ): Promise<string> {
         const bucketName =
             bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        return getSignedUrl(this.s3Client, new GetObjectCommand({ Bucket: bucketName, Key: key }), {
-            expiresIn,
-        });
+        return this.execute('presign', () =>
+            getSignedUrl(this.s3Client, new GetObjectCommand({ Bucket: bucketName, Key: key }), {
+                expiresIn,
+            })
+        );
     }
 
     // ─── 服务端直接操作 ────────────────────────────────────────────────────────
@@ -208,10 +205,9 @@ export class StorageService {
                     ContentType: contentType,
                 })
             );
-            this.logger.log(`Object uploaded: ${bucketName}/${key}`);
+            this.logger.debug('Object uploaded');
         } catch (err) {
-            this.logger.error({ bucket: bucketName, key, err }, 'Object upload failed');
-            throw new StorageUploadFailedException({ cause: err });
+            throw normalizeStorageError(err, 'upload') ?? err;
         }
     }
 
@@ -242,10 +238,9 @@ export class StorageService {
             }
 
             await upload.done();
-            this.logger.log(`Stream uploaded: ${bucketName}/${key}`);
+            this.logger.debug('Stream uploaded');
         } catch (err) {
-            this.logger.error({ bucket: bucketName, key, err }, 'Stream upload failed');
-            throw new StorageUploadFailedException({ cause: err });
+            throw normalizeStorageError(err, 'upload') ?? err;
         }
     }
 
@@ -259,14 +254,12 @@ export class StorageService {
             const resp = await this.s3Client.send(
                 new GetObjectCommand({ Bucket: bucketName, Key: key })
             );
-            const bytes = (await resp.Body?.transformToByteArray()) ?? new Uint8Array();
+            if (!resp.Body)
+                throw new StorageError({ reason: 'invalid-response', operation: 'download' });
+            const bytes = await resp.Body.transformToByteArray();
             return Buffer.from(bytes);
-        } catch (err: any) {
-            if (err?.name === 'NoSuchKey') {
-                throw new StorageObjectNotFoundException({ cause: err });
-            }
-            this.logger.error({ bucket: bucketName, key, err }, 'Object download failed');
-            throw new StorageDownloadFailedException({ cause: err });
+        } catch (err) {
+            throw normalizeStorageError(err, 'download') ?? err;
         }
     }
 
@@ -274,7 +267,7 @@ export class StorageService {
      * 获取文件可读流（大文件/视频代理场景）
      *
      * 注意：AWS SDK v3 的 resp.Body 是 ChecksumStream（非标准 Readable，含循环引用），
-     * 通过 PassThrough 中继转换为标准 Node.js Readable，避免序列化循环引用错误。
+     * 通过异步迭代中继转换为标准 Node.js Readable，同时包装传输中的晚到错误。
      */
     async getObjectStream(bucket: BucketType | string, key: string): Promise<Readable> {
         const bucketName =
@@ -282,19 +275,23 @@ export class StorageService {
         let resp;
         try {
             resp = await this.s3Client.send(new GetObjectCommand({ Bucket: bucketName, Key: key }));
-        } catch (err: any) {
-            if (err?.name === 'NoSuchKey') {
-                throw new StorageObjectNotFoundException({ cause: err });
-            }
-            this.logger.error({ bucket: bucketName, key, err }, 'Object stream failed');
-            throw new StorageDownloadFailedException({ cause: err });
+        } catch (err) {
+            throw normalizeStorageError(err, 'download') ?? err;
         }
         if (!resp.Body) {
-            throw new StorageDownloadFailedException();
+            throw new StorageError({ reason: 'invalid-response', operation: 'download' });
         }
-        const pass = new PassThrough();
-        (resp.Body as any).pipe(pass);
-        return pass;
+        const body = resp.Body as Readable;
+        return Readable.from(
+            (async function* () {
+                try {
+                    for await (const chunk of body) yield chunk;
+                } catch (err) {
+                    throw normalizeStorageError(err, 'download') ?? err;
+                }
+            })(),
+            { objectMode: false }
+        );
     }
 
     /**
@@ -305,10 +302,9 @@ export class StorageService {
             bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
         try {
             await this.s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
-            this.logger.log(`Object deleted: ${bucketName}/${key}`);
+            this.logger.debug('Object deleted');
         } catch (err) {
-            this.logger.error({ bucket: bucketName, key, err }, 'Object delete failed');
-            throw new StorageDeleteFailedException({ cause: err });
+            throw normalizeStorageError(err, 'delete') ?? err;
         }
     }
 
@@ -319,16 +315,18 @@ export class StorageService {
         const bucketName =
             bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
         try {
-            await this.s3Client.send(
+            const result = await this.s3Client.send(
                 new DeleteObjectsCommand({
                     Bucket: bucketName,
                     Delete: { Objects: keys.map((Key) => ({ Key })) },
                 })
             );
-            this.logger.log(`Batch deleted ${keys.length} objects from ${bucketName}`);
+            if (result.Errors?.length) {
+                throw new StorageError({ reason: 'partial-delete', operation: 'delete' });
+            }
+            this.logger.debug({ count: keys.length }, 'Objects deleted');
         } catch (err) {
-            this.logger.error({ bucket: bucketName, keys, err }, 'Batch delete failed');
-            throw new StorageDeleteFailedException({ cause: err });
+            throw normalizeStorageError(err, 'delete') ?? err;
         }
     }
 
@@ -341,17 +339,18 @@ export class StorageService {
         try {
             await this.s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
             return true;
-        } catch (err: any) {
-            if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) {
+        } catch (err) {
+            const normalized = normalizeStorageError(err, 'download');
+            if (normalized?.failure.reason === 'not-found') {
                 return false;
             }
-            throw new StorageDownloadFailedException({ cause: err });
+            throw normalized ?? err;
         }
     }
 
     /**
      * 获取对象大小（字节），通过 HEAD 请求，不传输文件内容。
-     * 若对象不存在则抛出 StorageObjectNotFoundException。
+     * 若对象不存在则抛出 reason=not-found 的 StorageError。
      */
     async getObjectSize(bucket: BucketType | string, key: string): Promise<number> {
         const bucketName =
@@ -361,11 +360,8 @@ export class StorageService {
                 new HeadObjectCommand({ Bucket: bucketName, Key: key })
             );
             return resp.ContentLength ?? 0;
-        } catch (err: any) {
-            if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) {
-                throw new StorageObjectNotFoundException({ cause: err });
-            }
-            throw new StorageDownloadFailedException({ cause: err });
+        } catch (err) {
+            throw normalizeStorageError(err, 'download') ?? err;
         }
     }
 
@@ -394,13 +390,9 @@ export class StorageService {
                     CopySource: `${srcBucket}/${sourceKey}`,
                 })
             );
-            this.logger.log(`Object copied: ${srcBucket}/${sourceKey} → ${dstBucket}/${destKey}`);
+            this.logger.debug('Object copied');
         } catch (err) {
-            this.logger.error(
-                { srcBucket, sourceKey, dstBucket, destKey, err },
-                'Object copy failed'
-            );
-            throw new StorageUploadFailedException({ cause: err });
+            throw normalizeStorageError(err, 'copy') ?? err;
         }
     }
 
@@ -428,6 +420,8 @@ export class StorageService {
                     ContentType: contentType,
                 })
             );
+            if (!UploadId)
+                throw new StorageError({ reason: 'invalid-response', operation: 'multipart-init' });
 
             const partUrls = await Promise.all(
                 Array.from({ length: partCount }, (_, i) =>
@@ -444,13 +438,10 @@ export class StorageService {
                 )
             );
 
-            this.logger.log(
-                `Multipart upload initiated: ${bucketName}/${key}, uploadId=${UploadId}`
-            );
-            return { uploadId: UploadId ?? '', partUrls };
+            this.logger.debug('Multipart upload initiated');
+            return { uploadId: UploadId, partUrls };
         } catch (err) {
-            this.logger.error({ bucket: bucketName, key, err }, 'Multipart upload init failed');
-            throw new StorageMultipartInitFailedException({ cause: err });
+            throw normalizeStorageError(err, 'multipart-init') ?? err;
         }
     }
 
@@ -466,42 +457,44 @@ export class StorageService {
         completedPartNumbers: number[],
         expiresIn = DEFAULT_PRESIGN_EXPIRES
     ): Promise<{ completedParts: ListedPart[]; partUrls: PartPresignResult[] }> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
+        return this.execute('multipart-list', async () => {
+            const bucketName =
+                bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
 
-        // 从 S3 查询已完成的分片（权威来源）
-        const { Parts = [] } = await this.s3Client.send(
-            new ListPartsCommand({ Bucket: bucketName, Key: key, UploadId: uploadId })
-        );
+            // 从 S3 查询已完成的分片（权威来源）
+            const { Parts = [] } = await this.s3Client.send(
+                new ListPartsCommand({ Bucket: bucketName, Key: key, UploadId: uploadId })
+            );
 
-        const completedSet = new Set(Parts.map((p) => p.PartNumber ?? 0));
-        const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter(
-            (n) => !completedSet.has(n)
-        );
+            const completedSet = new Set(Parts.map((p) => p.PartNumber ?? 0));
+            const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter(
+                (n) => !completedSet.has(n)
+            );
 
-        const partUrls = await Promise.all(
-            remaining.map((partNumber) =>
-                getSignedUrl(
-                    this.s3Client,
-                    new PutObjectCommand({
-                        Bucket: bucketName,
-                        Key: key,
-                        UploadId: uploadId,
-                        PartNumber: partNumber,
-                    } as any),
-                    { expiresIn }
-                ).then((url) => ({ partNumber, url }))
-            )
-        );
+            const partUrls = await Promise.all(
+                remaining.map((partNumber) =>
+                    getSignedUrl(
+                        this.s3Client,
+                        new PutObjectCommand({
+                            Bucket: bucketName,
+                            Key: key,
+                            UploadId: uploadId,
+                            PartNumber: partNumber,
+                        } as any),
+                        { expiresIn }
+                    ).then((url) => ({ partNumber, url }))
+                )
+            );
 
-        return {
-            completedParts: Parts.map((p) => ({
-                partNumber: p.PartNumber ?? 0,
-                etag: p.ETag ?? '',
-                size: p.Size ?? 0,
-            })),
-            partUrls,
-        };
+            return {
+                completedParts: Parts.map((p) => ({
+                    partNumber: p.PartNumber ?? 0,
+                    etag: p.ETag ?? '',
+                    size: p.Size ?? 0,
+                })),
+                partUrls,
+            };
+        });
     }
 
     /**
@@ -524,13 +517,9 @@ export class StorageService {
                     MultipartUpload: { Parts: parts },
                 })
             );
-            this.logger.log(`Multipart upload completed: ${bucketName}/${key}`);
+            this.logger.debug('Multipart upload completed');
         } catch (err) {
-            this.logger.error(
-                { bucket: bucketName, key, uploadId, err },
-                'Multipart upload complete failed'
-            );
-            throw new StorageMultipartCompleteFailedException({ cause: err });
+            throw normalizeStorageError(err, 'multipart-complete') ?? err;
         }
     }
 
@@ -552,13 +541,17 @@ export class StorageService {
                     UploadId: uploadId,
                 })
             );
-            this.logger.log(`Multipart upload aborted: ${bucketName}/${key}, uploadId=${uploadId}`);
+            this.logger.debug('Multipart upload aborted');
         } catch (err) {
-            this.logger.error(
-                { bucket: bucketName, key, uploadId, err },
-                'Multipart upload abort failed'
-            );
-            throw new StorageMultipartAbortFailedException({ cause: err });
+            throw normalizeStorageError(err, 'multipart-abort') ?? err;
+        }
+    }
+
+    private async execute<T>(operation: StorageOperation, run: () => PromiseLike<T>): Promise<T> {
+        try {
+            return await run();
+        } catch (error) {
+            throw normalizeStorageError(error, operation) ?? error;
         }
     }
 }

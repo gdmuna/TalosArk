@@ -50,6 +50,7 @@ const ObservabilityConfigValidateSchema = z
     })
     .transform((env) => ({
         apiDocsBaseUrl: env.API_DOCS_BASE_URL,
+        errorReferenceUrl: env.ERROR_REFERENCE_URL,
         logLevel: env.LOG_LEVEL,
         slowRequestThreshold: {
             warn: env.SLOW_REQUEST_WARN_MS,

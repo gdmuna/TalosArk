@@ -34,7 +34,7 @@ features:
     details: Pino JSON 日志 + AsyncLocalStorage 链路追踪，请求 ID 贯穿完整调用链；慢请求与慢查询自动分级告警。
   - icon: 🛡️
     title: 类型安全的异常体系
-    details: '@RegisterException 装饰器按域注册错误码，AppException 分层继承体系（ClientException / SystemException），编译期类型约束错误码，错误响应格式标准化。'
+    details: 'Owner-local native errors preserve their causes; explicit mappings and Zod validation publish safe errors through separate HTTP and WebSocket adapters.'
   - icon: 📦
     title: 完整 CI/CD 流水线
     details: 10 个 GitHub Actions 工作流，覆盖特性开发、集成测试、版本发布、Docker 镜像构建与自动打 Tag。

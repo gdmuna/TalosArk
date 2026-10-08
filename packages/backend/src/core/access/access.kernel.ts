@@ -1,4 +1,6 @@
 import type * as Access from './access.contract.js';
+import { AccessError } from './access.error.js';
+import { DatabaseError } from '@/infra/database/prisma/prisma.error.js';
 
 import type { AllConfig } from '@/config/index.js';
 import { createSecureRandomString } from '@/common/utils/index.js';
@@ -54,34 +56,36 @@ export class AccessKernel {
             timeReference: nowDate,
         });
 
-        const session = await this.prismaService.session.create({
-            data: {
-                id: sessionId,
-                version: sessionVersion,
-                idleExpiresAt: sessionIdleExpiresAt.toDate(),
-                user: { connect: { id: input.userId } },
-                tokenPairs: {
-                    create: {
-                        id: tokenPair.tokenPairId,
-                        accessToken: {
-                            create: {
-                                id: tokenPair.accessToken.jti,
-                                // Match the persisted issue time to the JWT's rounded-down iat.
-                                createdAt: now.startOf('second').toDate(),
-                                expiresAt: tokenPair.accessToken.expiresAt,
+        const session = await this.execute(() =>
+            this.prismaService.session.create({
+                data: {
+                    id: sessionId,
+                    version: sessionVersion,
+                    idleExpiresAt: sessionIdleExpiresAt.toDate(),
+                    user: { connect: { id: input.userId } },
+                    tokenPairs: {
+                        create: {
+                            id: tokenPair.tokenPairId,
+                            accessToken: {
+                                create: {
+                                    id: tokenPair.accessToken.jti,
+                                    // Match the persisted issue time to the JWT's rounded-down iat.
+                                    createdAt: now.startOf('second').toDate(),
+                                    expiresAt: tokenPair.accessToken.expiresAt,
+                                },
                             },
-                        },
-                        refreshToken: {
-                            create: {
-                                tokenHash: tokenPair.refreshToken.hash,
-                                createdAt: now.startOf('second').toDate(),
-                                expiresAt: tokenPair.refreshToken.expiresAt,
+                            refreshToken: {
+                                create: {
+                                    tokenHash: tokenPair.refreshToken.hash,
+                                    createdAt: now.startOf('second').toDate(),
+                                    expiresAt: tokenPair.refreshToken.expiresAt,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            })
+        );
 
         return {
             session: {
@@ -112,28 +116,33 @@ export class AccessKernel {
             .update(input.refreshToken)
             .digest('base64url');
 
-        const unionData = await this.prismaService.refreshToken.findUnique({
-            where: {
-                tokenHash: refreshTokenHash,
-                expiresAt: { gt: nowDate },
-            },
-            select: {
-                consumedAt: true,
-                tokenPair: {
-                    select: {
-                        session: true,
+        const unionData = await this.execute(() =>
+            this.prismaService.refreshToken.findUnique({
+                where: {
+                    tokenHash: refreshTokenHash,
+                    expiresAt: { gt: nowDate },
+                },
+                select: {
+                    consumedAt: true,
+                    tokenPair: {
+                        select: {
+                            session: true,
+                        },
                     },
                 },
-            },
-        });
+            })
+        );
 
         const session = unionData?.tokenPair.session;
-        if (unionData?.consumedAt || !session) {
-            throw new Error('wtf');
+        if (unionData?.consumedAt) {
+            throw new AccessError({ reason: 'refresh-token-reused' });
+        }
+        if (!session) {
+            throw new AccessError({ reason: 'session-inactive' });
         }
 
         if (session.revokedAt) {
-            throw new Error('wtf');
+            throw new AccessError({ reason: 'session-inactive' });
         }
 
         const now = dayjs(nowDate).utc();
@@ -194,10 +203,10 @@ export class AccessKernel {
             },
         });
 
-        const [updatedSession, _updateRefreshToken] = await this.prismaService.$transaction([
-            updatedSessionClient,
-            updateRefreshTokenClient,
-        ]);
+        const [updatedSession, _updateRefreshToken] = await this.execute(
+            () => this.prismaService.$transaction([updatedSessionClient, updateRefreshTokenClient]),
+            true
+        );
 
         return {
             session: {
@@ -258,27 +267,29 @@ export class AccessKernel {
             return null;
         }
 
-        const accessToken = await this.prismaService.accessToken.findUnique({
-            where: { id: payload.jti },
-            select: {
-                expiresAt: true,
-                tokenPair: {
-                    select: {
-                        id: true,
-                        generation: true,
-                        revokedAt: true,
-                        session: {
-                            select: {
-                                id: true,
-                                userId: true,
-                                idleExpiresAt: true,
-                                revokedAt: true,
+        const accessToken = await this.execute(() =>
+            this.prismaService.accessToken.findUnique({
+                where: { id: payload.jti },
+                select: {
+                    expiresAt: true,
+                    tokenPair: {
+                        select: {
+                            id: true,
+                            generation: true,
+                            revokedAt: true,
+                            session: {
+                                select: {
+                                    id: true,
+                                    userId: true,
+                                    idleExpiresAt: true,
+                                    revokedAt: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            })
+        );
 
         if (!accessToken) return null;
 
@@ -312,17 +323,21 @@ export class AccessKernel {
     async revokeUserSession(
         input: Access.RevokeUserSessionInput
     ): Promise<Access.RevokeUserSessionOutput> {
-        const session = await this.prismaService.session.update({
-            where: {
-                id: input.sessionId,
-            },
-            data: {
-                revokedAt: new Date(),
-            },
-            select: {
-                id: true,
-            },
-        });
+        const session = await this.execute(
+            () =>
+                this.prismaService.session.update({
+                    where: {
+                        id: input.sessionId,
+                    },
+                    data: {
+                        revokedAt: new Date(),
+                    },
+                    select: {
+                        id: true,
+                    },
+                }),
+            true
+        );
 
         return session ? session.id : null;
     }
@@ -330,17 +345,19 @@ export class AccessKernel {
     async revokeUserSessionAll(
         input: Access.RevokeUserSessionAllInput
     ): Promise<Access.RevokeUserSessionAllOutput> {
-        const session = await this.prismaService.session.updateManyAndReturn({
-            where: {
-                userId: input.userId,
-            },
-            data: {
-                revokedAt: new Date(),
-            },
-            select: {
-                id: true,
-            },
-        });
+        const session = await this.execute(() =>
+            this.prismaService.session.updateManyAndReturn({
+                where: {
+                    userId: input.userId,
+                },
+                data: {
+                    revokedAt: new Date(),
+                },
+                select: {
+                    id: true,
+                },
+            })
+        );
 
         if (session.length > 0) {
             return {
@@ -364,12 +381,14 @@ export class AccessKernel {
             const pageSize = Math.max(Math.min(input.pageSize, 1000), 1);
             const queryOrder =
                 direction === 'backward' ? (order === 'asc' ? 'desc' : 'asc') : order;
-            const rows = await this.prismaService.session.findMany({
-                where: { userId },
-                orderBy: { id: queryOrder },
-                ...(cursor ? { cursor: { id: cursor, userId }, skip: 1 } : {}),
-                take: pageSize + 1,
-            });
+            const rows = await this.execute(() =>
+                this.prismaService.session.findMany({
+                    where: { userId },
+                    orderBy: { id: queryOrder },
+                    ...(cursor ? { cursor: { id: cursor, userId }, skip: 1 } : {}),
+                    take: pageSize + 1,
+                })
+            );
 
             const items = rows.slice(0, pageSize);
             if (direction === 'backward') items.reverse();
@@ -394,15 +413,17 @@ export class AccessKernel {
         const pageSize = Math.max(Math.min(input.pageSize, 1000), 1);
         const where = { userId };
         const skip = Math.max((page - 1) * pageSize, 0);
-        const [items, total] = await this.prismaService.$transaction([
-            this.prismaService.session.findMany({
-                where,
-                orderBy: { id: order },
-                skip,
-                take: pageSize,
-            }),
-            this.prismaService.session.count({ where }),
-        ]);
+        const [items, total] = await this.execute(() =>
+            this.prismaService.$transaction([
+                this.prismaService.session.findMany({
+                    where,
+                    orderBy: { id: order },
+                    skip,
+                    take: pageSize,
+                }),
+                this.prismaService.session.count({ where }),
+            ])
+        );
 
         const totalPages = Math.ceil(total / pageSize);
         const currentPage = Math.min(totalPages, page);
@@ -418,6 +439,25 @@ export class AccessKernel {
             hasPrevPage,
             hasNextPage,
         };
+    }
+
+    private async execute<T>(
+        operation: () => PromiseLike<T>,
+        inactiveOnMissing = false
+    ): Promise<T> {
+        try {
+            return await this.prismaService.execute(operation);
+        } catch (cause) {
+            if (cause instanceof DatabaseError) {
+                if (cause.failure.reason === 'unavailable') {
+                    throw new AccessError({ reason: 'session-unavailable' }, { cause });
+                }
+                if (inactiveOnMissing && cause.failure.reason === 'record-not-found') {
+                    throw new AccessError({ reason: 'session-inactive' }, { cause });
+                }
+            }
+            throw cause;
+        }
     }
 
     private async generateTokenPair(

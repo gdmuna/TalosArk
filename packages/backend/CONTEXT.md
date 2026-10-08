@@ -10,9 +10,13 @@ The package is intentionally in a structure-first phase:
 
 - Deprecated business implementations, the former file system, their paired
   tests, historical Prisma migrations, and the seed script have been removed.
-- prisma/schema.prisma remains the database definition. Development schema
-  synchronization uses pnpm db:push; do not recreate migrations or a seed
-  script during this phase.
+- prisma/schema.prisma contains the generator and datasource; prisma/model/*.prisma
+  contains domain-owned models. prisma.config.ts loads the prisma directory.
+  Development schema
+  synchronization uses pnpm db:push. The approved native DDL under prisma/ddl
+  installs database prerequisites before synchronization and storage-tree
+  invariants afterward; it is not a replayable Prisma business migration history.
+  Do not recreate historical migrations or a seed script during this phase.
 - Most files in the new core, modules, platform, and future Infra areas are
   TODO-only seams. A directory or class is not evidence that its runtime
   behavior exists. main.ts, app.module.ts, and bootstrap/bootstrap.ts are the
@@ -25,10 +29,32 @@ The package is intentionally in a structure-first phase:
 Do not turn TODO seams into implementations without an approved vertical slice.
 Do not restore a removed legacy module merely to make an old route work.
 
+## Database CLI
+
+The `pnpm prisma` wrapper uses Commander for wrapper arguments and Inquirer Select
+for environment selection. Explicit `--env`/`--env-file` selectors remain valid;
+without one, interactive terminals choose from Prisma-only files in ops/prisma/env.
+CI/non-interactive calls must select explicitly; there is no implicit dev fallback.
+`pnpm db:init` runs only prisma/ddl/init SQL against the selected primary database,
+and db:prepare remains an alias. It never synchronizes business tables or applies
+upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.md.
+
 ## Current iteration policy
 
 The backend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
+
+## Outbound HTTP
+
+`infra/http` provides independent, factory-managed Axios clients, total deadlines,
+cancellation, bounded admission/send queues, safe retries, opt-in request
+singleflight and scoped credential-refresh gates. Provider adapters retain endpoint
+contracts, credential protocols and domain error interpretation. Casdoor uses its
+public Axios adapter hook; standard OIDC uses the ordinary client. Existing IAM
+requests retain disabled retries/singleflight. Refresh callbacks must use a
+separate ungated client, never the blocked client's admission queue. No outbound
+Core Kernel, global Axios mutation or additional S3 retry layer is introduced.
+Usage, limits and lifecycle semantics live in docs/design/outbound-http.md.
 
 ## Dependency direction
 
@@ -82,6 +108,12 @@ visibility; they are not an application-wide public surface.
   Adapter-local resource lifecycle remains in that adapter's Nest lifecycle
   hooks. platform/lifecycle exists only if a real bridge from Nest lifecycle to
   a Core runtime lifecycle is introduced.
+- JSON controller interfaces declare request schemas and status-specific response
+  schemas in ApiRoute. platform/http/route compiles the same envelope contracts
+  for OpenAPI and runtime validation. Method/path and parameter binding remain
+  Nest concerns; business authorization and error reframing remain owner-local.
+  The first global guard captures route contracts before authentication/throttling.
+  Streams and manually sent responses are not JSON ApiRoute interfaces.
 - core consists of cross-domain application capabilities. Each Kernel is the
   stable public entry point of one capability; its directory may also contain
   contracts, policies, registries, ports, and direct implementation
@@ -99,9 +131,18 @@ visibility; they are not an application-wide public surface.
   infrastructure, and public; only public is a stable cross-module API.
 - system is for application-level health, version, and diagnostics, never a
   business domain.
-- nestjs-pino is the configured process logger. The current
-  platform/observability/Logger wrapper is legacy code that must be retired
-  rather than evolved into a second logging pipeline. platform/observability
+- Owner-local native Error classes describe capability/technical failures and
+  keep their original cause. Infra normalizes recognized SDK failures; Core and
+  Modules reframe them only when the operation changes their meaning. Unknown
+  defects must not become availability, invalid-token, or retryable outcomes.
+- platform/error resolves channel-neutral public codes and validated details
+  through explicitly composed mappers. HTTP owns statuses, headers and envelope
+  I/O; WebSocket owns message construction and correlation. No import-side-effect
+  error registry, universal business-error hierarchy or public ALS metadata.
+- nestjs-pino is the configured process logger; the legacy Logger wrapper has
+  been removed. A transport boundary records the terminal failure once, using
+  the allowlisted, bounded cause serializer. Adapters that rethrow do not also
+  log the same command failure. platform/observability
   owns inbound request instrumentation; infra/observability is reserved for a
   real external sink or exporter, not another logger wrapper.
 
@@ -118,6 +159,7 @@ visibility; they are not an application-wide public surface.
     |   +-- config/                            # typed runtime configuration
     |   +-- common/utils/                      # only proven pure cross-domain helpers
     |   +-- platform/
+    |   |   +-- error/                         # neutral public error resolution
     |   |   +-- http/                          # HTTP guards, filters, pipes, decorators
     |   |   +-- realtime/                      # websocket and SSE adapters
     |   |   +-- worker/
@@ -145,13 +187,45 @@ visibility; they are not an application-wide public surface.
     |   |   +-- facility/ equipment/ approval/
     |   +-- system/                            # health, version, diagnostics
     +-- prisma/
-    |   +-- schema.prisma                      # retained; no migrations or seed
+    |   +-- schema.prisma                      # generator + datasource; no migrations or seed
+    |   +-- model/*.prisma                     # MVP models split by domain
+    |   `-- ddl/                              # controlled native SQL, not Prisma migration history
+    |       +-- init/                         # database prerequisites before schema synchronization
+    |       +-- schema/                       # native objects after schema synchronization
+    |       `-- upgrade/                      # explicit upgrades for existing data only
     +-- ops/
     |   +-- prisma/                            # Prisma CLI-only environment profiles
     |   +-- docker/                            # Dockerfile and dev/full Compose
     +-- secrets/                               # environment and key material
     +-- test/
         +-- unit/                              # retained technical-adapter tests only
+
+## MVP database vocabulary
+
+- First-party MVP identity uses account/password login and email password reset,
+  alongside existing OIDC. Phone authentication is deferred. PasswordResetToken
+  stores only a hashed, expiring credential and its consumption/revocation state.
+- Material is a definition owned exclusively by one workspace. MVP does not
+  share materials across workspaces.
+- MaterialType is a flat classification owned by one workspace, not a category tree.
+- MaterialBatch is optional lot metadata. MaterialInstance is one physical
+  bottle or tube; StockItem is its current remaining quantity and stock state.
+- Placement is a current, exclusive occupancy of one physical POSITION node.
+  InventoryTransactionLine preserves previous and resulting states/locations.
+- ApprovalRequest grants eligibility to execute. Approval does not reserve or
+  change stock; execution confirms an InventoryTransaction.
+- Task is ordinary work. Approval todos and overdue presentation states are
+  derived queries, not a second writable workflow or stored OVERDUE status.
+- ResourceIdentity bridges attachments, audit and other cross-cutting references.
+  Its concrete owner decides workspace ownership and authorization.
+- A storage-node permission inheritance boundary is a node's explicit choice
+  not to inherit parent-node grants. Missing local grants alone do not express
+  this choice; opting out is not an explicit Deny rule.
+
+Schema coverage and transaction-level invariants are documented in
+docs/design/mvp-prisma-schema.md. Schema validation is not evidence that the
+MVP business services or database synchronization have been implemented.
+Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/README.md.
 
 ## File-system and authorization decisions
 

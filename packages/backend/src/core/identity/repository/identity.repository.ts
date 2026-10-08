@@ -10,13 +10,15 @@ export class IdentityRepository {
     constructor(private readonly prismaService: PrismaService) {}
 
     getUser(id: string, db: Prisma.TransactionClient = this.prismaService) {
-        return db.user.findUnique({ where: { id } });
+        return this.prismaService.execute(() => db.user.findUnique({ where: { id } }));
     }
 
     createUser(data: UserCreateInput, db: Prisma.TransactionClient = this.prismaService) {
-        return db.user.create({
-            data,
-        });
+        return this.prismaService.execute(() =>
+            db.user.create({
+                data,
+            })
+        );
     }
 
     getExternalIdentity(
@@ -26,13 +28,15 @@ export class IdentityRepository {
         },
         db: Prisma.TransactionClient = this.prismaService
     ) {
-        return db.externalIdentity.findUnique({
-            where: {
-                issuer_subject: {
-                    ...input,
+        return this.prismaService.execute(() =>
+            db.externalIdentity.findUnique({
+                where: {
+                    issuer_subject: {
+                        ...input,
+                    },
                 },
-            },
-        });
+            })
+        );
     }
 
     createExternalIdentity(
@@ -43,9 +47,11 @@ export class IdentityRepository {
         },
         db: Prisma.TransactionClient = this.prismaService
     ) {
-        return db.externalIdentity.create({
-            data,
-        });
+        return this.prismaService.execute(() =>
+            db.externalIdentity.create({
+                data,
+            })
+        );
     }
 
     $transaction() {

@@ -8,11 +8,11 @@ import {
     type OidcStartResponse,
 } from '@talos-ark/contracts/auth';
 import { AuthService } from './auth.service.js';
+import { AuthHttpError } from './api/auth.http-error.js';
+import { AccessHttpError } from '@/platform/http/guards/auth.error.js';
+import { RequestHttpError } from '@/platform/http/error/http-error.policy.js';
 
 import { Body, Controller, NotImplementedException, Post, Res } from '@nestjs/common';
-import { ApiBody, type SchemaObject } from '@nestjs/swagger';
-import { ZodSerializerDto, ZodValidationPipe } from 'nestjs-zod';
-import { z } from 'zod';
 import { Cookie } from '@/platform/http/decorators/cookie.decorator.js';
 import { ApiRoute } from '@/platform/http/decorators/route.decorator.js';
 
@@ -24,10 +24,9 @@ export class AuthController {
     @ApiRoute({
         auth: 'public',
         summary: 'Start OIDC login',
-        successStatus: 201,
-        responseType: z.toJSONSchema(OidcStartResponseSchema, { target: 'openapi-3.0' }),
+        errors: [AuthHttpError.loginUnavailable, AuthHttpError.providerUnavailable],
+        responses: [{ status: 201, schema: OidcStartResponseSchema }],
     })
-    @ZodSerializerDto(OidcStartResponseSchema)
     async oidcStart(@Res({ passthrough: true }) res: FastifyReply): Promise<OidcStartResponse> {
         const { transactionId, url } = await this.authService.oidcStart();
         res.cookie('talosArk_oidc_transaction', transactionId, {
@@ -42,22 +41,21 @@ export class AuthController {
     @ApiRoute({
         auth: 'public',
         summary: 'Complete OIDC login',
-        successStatus: 201,
-        responseType: z.toJSONSchema(OidcLoginCallbackResponseSchema, {
-            target: 'openapi-3.0',
-        }),
+        errors: [
+            AuthHttpError.transactionInvalid,
+            AuthHttpError.authorizationRejected,
+            AuthHttpError.providerUnavailable,
+            AuthHttpError.providerResponseInvalid,
+            AuthHttpError.loginUnavailable,
+            AccessHttpError.sessionUnavailable,
+            AuthHttpError.userConflict,
+            AuthHttpError.identityConflict,
+        ],
+        request: { body: OidcLoginCallbackBodySchema },
+        responses: [{ status: 201, schema: OidcLoginCallbackResponseSchema }],
     })
-    @ApiBody({
-        // Zod's static return type spans JSON Schema targets, not just OpenAPI 3.0.
-        schema: z.toJSONSchema(OidcLoginCallbackBodySchema, {
-            target: 'openapi-3.0',
-            io: 'input',
-        }) as SchemaObject,
-    })
-    @ZodSerializerDto(OidcLoginCallbackResponseSchema)
     async oidcLoginCallback(
-        @Body(new ZodValidationPipe(OidcLoginCallbackBodySchema))
-        dto: OidcLoginCallbackBody,
+        @Body() dto: OidcLoginCallbackBody,
         @Cookie('talosArk_oidc_transaction') id: string,
         @Res({ passthrough: true }) res: FastifyReply
     ): Promise<OidcLoginCallbackResponse> {
@@ -94,6 +92,8 @@ export class AuthController {
     @ApiRoute({
         auth: 'required',
         summary: 'Refresh session',
+        responses: [],
+        errors: [RequestHttpError.notImplemented],
     })
     async sessionRefresh(@Cookie('talosArk_session_id') sessionId: string) {
         throw new NotImplementedException('Session refresh is not implemented');
@@ -103,6 +103,8 @@ export class AuthController {
     @ApiRoute({
         auth: 'required',
         summary: 'Log out session',
+        responses: [],
+        errors: [RequestHttpError.notImplemented],
     })
     async sessionLogout(@Cookie('talosArk_session_id') sessionId: string) {
         throw new NotImplementedException('Session logout is not implemented');

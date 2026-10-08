@@ -2,12 +2,13 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
 import { bootstrap } from './bootstrap/bootstrap.js';
+import { serializeError } from './platform/observability/error-serializer.js';
 
 dayjs.extend(utc);
 
 // 进程入口只负责触发启动编排；Nest 配置与网络副作用位于 bootstrap.ts。
 bootstrap().catch((error: unknown) => {
     // eslint-disable-next-line no-console
-    console.error('Bootstrap failed:', error);
+    console.error('Bootstrap failed:', serializeError(error));
     process.exit(1);
 });

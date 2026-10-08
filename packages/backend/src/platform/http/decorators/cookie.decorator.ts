@@ -1,5 +1,4 @@
-import { ValidationFailedException } from '@/platform/errors/client.exception.js';
-import type { FieldError } from '@/platform/errors/client.exception.js';
+import { RequestError, validationIssues } from '@/platform/error/request.error.js';
 
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { z } from 'zod/v4';
@@ -31,8 +30,15 @@ export const Cookie = createParamDecorator((selector: CookieSelector, ctx: Execu
     if (typeof selector === 'string') {
         const cookieValue = cookies[selector];
         if (cookieValue === undefined) {
-            throw new ValidationFailedException({
-                message: `缺少必需的 Cookie: ${selector}`,
+            throw new RequestError({
+                reason: 'validation',
+                issues: [
+                    {
+                        path: [selector],
+                        code: 'missing_cookie',
+                        message: 'Required cookie is missing',
+                    },
+                ],
             });
         }
         return cookieValue;
@@ -43,8 +49,15 @@ export const Cookie = createParamDecorator((selector: CookieSelector, ctx: Execu
         for (const cookieName of selector) {
             const cookieValue = cookies[cookieName];
             if (cookieValue === undefined) {
-                throw new ValidationFailedException({
-                    message: `缺少必需的 Cookie: ${cookieName}`,
+                throw new RequestError({
+                    reason: 'validation',
+                    issues: [
+                        {
+                            path: [cookieName],
+                            code: 'missing_cookie',
+                            message: 'Required cookie is missing',
+                        },
+                    ],
                 });
             }
             result[cookieName] = cookieValue;
@@ -57,12 +70,10 @@ export const Cookie = createParamDecorator((selector: CookieSelector, ctx: Execu
 
     const result = schema.safeParse(cookies);
     if (!result.success) {
-        const fieldErrors: FieldError[] = result.error.issues.map((issue) => ({
-            field: issue.path.join('.') || '(cookie)',
-            message: issue.message,
-            code: issue.code,
-        }));
-        throw new ValidationFailedException({ details: fieldErrors });
+        throw new RequestError(
+            { reason: 'validation', issues: validationIssues(result.error) },
+            { cause: result.error }
+        );
     }
 
     return result.data;

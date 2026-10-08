@@ -7,14 +7,14 @@ import { KvsModule } from '@/infra/kvs/kvs.module.js';
 import { AuthModule } from '@/modules/auth/index.js';
 
 import { PlatformContextModule } from '@/platform/context/context.module.js';
-import {
-    AllExceptionFilter,
-    ThrottlerExceptionFilter,
-} from '@/platform/http/filters/app.filter.js';
+import { HttpErrorFilter } from '@/platform/http/error/http-error.filter.js';
+import { errorProviders } from './bootstrap/composition/error.provider.js';
+import { serializeError } from '@/platform/observability/error-serializer.js';
 import { AuthGuard } from './platform/http/guards/auth.guard.js';
+import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
+import { RouteContractInterceptor } from '@/platform/http/route/route.interceptor.js';
 import {
     PerformanceInterceptor,
-    ResponseFormatInterceptor,
     TimeoutInterceptor,
 } from '@/platform/http/interceptors/app.interceptor.js';
 import {
@@ -28,7 +28,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE, APP_FILTER } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
-import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
+import { ZodValidationPipe } from 'nestjs-zod';
 import pino from 'pino';
 
 /**
@@ -81,9 +81,11 @@ import pino from 'pino';
                                   }
                                 : undefined,
                             serializers: {
-                                err: () => undefined,
+                                err: serializeError,
+                                mappingError: serializeError,
                                 req: () => undefined,
                             },
+                            wrapSerializers: false,
                             // TODO: 第一个平台遥测实现落地后，改由其统一输出访问日志。
                             autoLogging: false,
                         },
@@ -102,6 +104,11 @@ import pino from 'pino';
         PlatformContextModule,
     ],
     providers: [
+        ...errorProviders,
+        {
+            provide: APP_GUARD,
+            useClass: RouteContractGuard,
+        },
         {
             provide: APP_GUARD,
             useClass: ThrottlerGuard,
@@ -110,7 +117,7 @@ import pino from 'pino';
             provide: APP_GUARD,
             useClass: AuthGuard,
         },
-        // 入站按声明顺序执行；出站反向执行，使 Zod 先校验控制器结果再包装成功响应。
+        // Route contracts validate inputs before pipes, and the final envelope on output.
         {
             provide: APP_INTERCEPTOR,
             useClass: PerformanceInterceptor,
@@ -121,11 +128,7 @@ import pino from 'pino';
         },
         {
             provide: APP_INTERCEPTOR,
-            useClass: ResponseFormatInterceptor,
-        },
-        {
-            provide: APP_INTERCEPTOR,
-            useClass: ZodSerializerInterceptor,
+            useClass: RouteContractInterceptor,
         },
         {
             provide: APP_PIPE,
@@ -133,11 +136,7 @@ import pino from 'pino';
         },
         {
             provide: APP_FILTER,
-            useClass: AllExceptionFilter,
-        },
-        {
-            provide: APP_FILTER,
-            useClass: ThrottlerExceptionFilter,
+            useClass: HttpErrorFilter,
         },
     ],
 })
