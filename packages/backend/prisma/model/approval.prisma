@@ -1,0 +1,89 @@
+/// Fixed single-approver requests. Approval grants execution eligibility, never reservation.
+model ApprovalRequest {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @db.Uuid
+  workspaceId    String         @db.Uuid
+  resourceId     String         @db.Uuid
+  type           ApprovalType
+  title          String
+  description    String?
+  requesterId    String         @db.Uuid
+  approverId     String         @db.Uuid
+  status         ApprovalStatus @default(PENDING)
+  dueAt          DateTime?      @db.Timestamptz(3)
+  decidedAt      DateTime?      @db.Timestamptz(3)
+  version        Int            @default(1)
+  idempotencyKey String
+  requestHash    String
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+
+  workspace Workspace             @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource  ResourceIdentity      @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  requester User                  @relation("ApprovalRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  approver  User                  @relation("ApprovalApprover", fields: [approverId], references: [id], onDelete: Restrict)
+  lines     ApprovalLine[]
+  events    ApprovalEvent[]
+  execution InventoryTransaction?
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, approverId, status, createdAt])
+  @@index([workspaceId, requesterId, createdAt])
+}
+
+model ApprovalLine {
+  id                String  @id @default(uuid(7)) @db.Uuid
+  organizationId    String  @db.Uuid
+  workspaceId       String  @db.Uuid
+  requestId         String  @db.Uuid
+  stockItemId       String  @db.Uuid
+  quantity          Decimal @db.Decimal(20, 6)
+  destinationNodeId String? @db.Uuid
+  note              String?
+
+  request     ApprovalRequest @relation(fields: [organizationId, workspaceId, requestId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  stockItem   StockItem       @relation(fields: [organizationId, workspaceId, stockItemId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  destination StorageNode?    @relation(fields: [organizationId, destinationNodeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([requestId, stockItemId])
+  @@index([organizationId, workspaceId, stockItemId])
+  @@index([organizationId, destinationNodeId])
+}
+
+model ApprovalEvent {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @db.Uuid
+  workspaceId    String         @db.Uuid
+  requestId      String         @db.Uuid
+  actorUserId    String         @db.Uuid
+  action         ApprovalAction
+  note           String?
+  occurredAt     DateTime       @default(now()) @db.Timestamptz(3)
+
+  request ApprovalRequest @relation(fields: [organizationId, workspaceId, requestId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  actor   User            @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, workspaceId, requestId, occurredAt])
+  @@index([actorUserId])
+}
+
+enum ApprovalType {
+  ISSUE
+  TRANSFER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ApprovalAction {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}

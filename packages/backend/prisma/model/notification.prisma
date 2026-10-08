@@ -1,0 +1,44 @@
+model Notification {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  organizationId String           @db.Uuid
+  workspaceId    String           @db.Uuid
+  resourceId     String?          @db.Uuid
+  type           NotificationType
+  title          String
+  body           String?
+  dedupeKey      String
+  createdAt      DateTime         @default(now()) @db.Timestamptz(3)
+
+  workspace  Workspace               @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource   ResourceIdentity?       @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  recipients NotificationRecipient[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([workspaceId, dedupeKey])
+  @@index([workspaceId, createdAt])
+  @@index([organizationId, resourceId])
+}
+
+model NotificationRecipient {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  workspaceId    String    @db.Uuid
+  notificationId String    @db.Uuid
+  userId         String    @db.Uuid
+  readAt         DateTime? @db.Timestamptz(3)
+  dismissedAt    DateTime? @db.Timestamptz(3)
+
+  notification Notification @relation(fields: [organizationId, workspaceId, notificationId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([notificationId, userId])
+  @@index([workspaceId, userId, readAt])
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  APPROVAL_REQUESTED
+  APPROVAL_DECIDED
+  ALERT
+}

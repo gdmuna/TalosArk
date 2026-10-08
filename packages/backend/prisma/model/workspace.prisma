@@ -1,0 +1,47 @@
+model Workspace {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  name           String
+  description    String?
+  archivedAt     DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization          Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members               WorkspaceMember[]
+  invitations           OrganizationInvitation[]
+  materialTypes         MaterialType[]
+  materials             Material[]
+  managedFacilities     Facility[]                @relation("FacilityManagement")
+  facilityAccess        FacilityWorkspaceAccess[]
+  inventoryTransactions InventoryTransaction[]
+  stocktakes            StocktakeSession[]
+  approvalRequests      ApprovalRequest[]
+  tasks                 Task[]
+  alerts                Alert[]
+  notifications         Notification[]
+  equipment             Equipment[]
+  auditEvents           AuditEvent[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, archivedAt])
+}
+
+model WorkspaceMember {
+  id                   String       @id @default(uuid(7)) @db.Uuid
+  organizationId       String       @db.Uuid
+  workspaceId          String       @db.Uuid
+  organizationMemberId String       @db.Uuid
+  status               MemberStatus @default(ACTIVE)
+  joinedAt             DateTime     @default(now()) @db.Timestamptz(3)
+  leftAt               DateTime?    @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
+
+  workspace          Workspace              @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  organizationMember OrganizationMember     @relation(fields: [organizationId, organizationMemberId], references: [organizationId, id], onDelete: Restrict)
+  roleBindings       WorkspaceRoleBinding[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([workspaceId, organizationMemberId])
+  @@index([organizationId, organizationMemberId])
+}

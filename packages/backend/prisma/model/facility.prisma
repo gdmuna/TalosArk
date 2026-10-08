@@ -1,0 +1,108 @@
+/// Organization-owned physical facility; management is delegated to a workspace.
+model Facility {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  organizationId        String    @db.Uuid
+  managementWorkspaceId String    @db.Uuid
+  resourceId            String    @db.Uuid
+  code                  String
+  name                  String
+  description           String?
+  archivedAt            DateTime? @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  managementWorkspace Workspace                 @relation("FacilityManagement", fields: [organizationId, managementWorkspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource            ResourceIdentity          @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  workspaceAccess     FacilityWorkspaceAccess[]
+  topologies          StorageTopology[]
+  equipment           Equipment[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([organizationId, code])
+  @@index([organizationId, managementWorkspaceId])
+}
+
+model FacilityWorkspaceAccess {
+  organizationId String              @db.Uuid
+  facilityId     String              @db.Uuid
+  workspaceId    String              @db.Uuid
+  level          FacilityAccessLevel
+  createdAt      DateTime            @default(now()) @db.Timestamptz(3)
+
+  facility  Facility  @relation(fields: [organizationId, facilityId], references: [organizationId, id], onDelete: Restrict)
+  workspace Workspace @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([facilityId, workspaceId])
+  @@index([organizationId, workspaceId])
+}
+
+model StorageTopology {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  facilityId     String    @db.Uuid
+  resourceId     String    @db.Uuid
+  name           String
+  archivedAt     DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  facility Facility         @relation(fields: [organizationId, facilityId], references: [organizationId, id], onDelete: Restrict)
+  resource ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  nodes    StorageNode[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, resourceId])
+  @@index([organizationId, facilityId])
+}
+
+/// Arbitrary-depth containers end in exclusive physical positions, not fixed levels.
+model StorageNode {
+  id             String               @id @default(uuid(7)) @db.Uuid
+  organizationId String               @db.Uuid
+  topologyId     String               @db.Uuid
+  resourceId     String               @db.Uuid
+  parentId       String?              @db.Uuid
+  /// Native, non-null path maintained with parentId by the storage-node DDL.
+  path           Unsupported("ltree")
+  code           String
+  name           String
+  kind           StorageNodeKind
+  rowIndex       Int?
+  columnIndex    Int?
+  sortOrder      Int                  @default(0)
+  archivedAt     DateTime?            @db.Timestamptz(3)
+  createdAt      DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
+
+  topology                 StorageTopology            @relation(fields: [organizationId, topologyId], references: [organizationId, id], onDelete: Restrict)
+  resource                 ResourceIdentity           @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  parent                   StorageNode?               @relation("StorageNodeTree", fields: [organizationId, topologyId, parentId], references: [organizationId, topologyId, id], onDelete: Restrict)
+  children                 StorageNode[]              @relation("StorageNodeTree")
+  placement                Placement?
+  outgoingLines            InventoryTransactionLine[] @relation("TransactionFromNode")
+  incomingLines            InventoryTransactionLine[] @relation("TransactionToNode")
+  approvalDestinations     ApprovalLine[]
+  stocktakeScopes          StocktakeScope[]
+  expectedStocktakeEntries StocktakeEntry[]           @relation("StocktakeExpectedNode")
+  observedStocktakeEntries StocktakeEntry[]           @relation("StocktakeObservedNode")
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([organizationId, topologyId, id])
+  @@unique([topologyId, code])
+  @@unique([parentId, rowIndex, columnIndex])
+  @@index([organizationId, topologyId, parentId, sortOrder])
+  @@index([path(ops: raw("gist_ltree_ops"))], type: Gist, map: "StorageNode_path_gist")
+}
+
+enum FacilityAccessLevel {
+  USE
+  MANAGE
+}
+
+enum StorageNodeKind {
+  CONTAINER
+  POSITION
+}

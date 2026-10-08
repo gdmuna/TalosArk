@@ -1,0 +1,68 @@
+/// Business permission codes form an allow-only catalog, not an ABAC language.
+model Permission {
+  code        String           @id
+  name        String
+  description String?
+  roles       RolePermission[]
+}
+
+model Role {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  code           String
+  name           String
+  scope          RoleScope
+  archivedAt     DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  organization         Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  permissions          RolePermission[]
+  organizationBindings OrganizationRoleBinding[]
+  workspaceBindings    WorkspaceRoleBinding[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, scope, code])
+}
+
+model RolePermission {
+  roleId         String     @db.Uuid
+  permissionCode String
+  role           Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission     Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict)
+
+  @@id([roleId, permissionCode])
+  @@index([permissionCode])
+}
+
+model OrganizationRoleBinding {
+  organizationId       String   @db.Uuid
+  organizationMemberId String   @db.Uuid
+  roleId               String   @db.Uuid
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+
+  member OrganizationMember @relation(fields: [organizationId, organizationMemberId], references: [organizationId, id], onDelete: Restrict)
+  role   Role               @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([organizationMemberId, roleId])
+  @@index([organizationId, roleId])
+}
+
+model WorkspaceRoleBinding {
+  organizationId    String   @db.Uuid
+  workspaceId       String   @db.Uuid
+  workspaceMemberId String   @db.Uuid
+  roleId            String   @db.Uuid
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  member WorkspaceMember @relation(fields: [organizationId, workspaceId, workspaceMemberId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  role   Role            @relation(fields: [organizationId, roleId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([workspaceMemberId, roleId])
+  @@index([organizationId, roleId])
+}
+
+enum RoleScope {
+  ORGANIZATION
+  WORKSPACE
+}

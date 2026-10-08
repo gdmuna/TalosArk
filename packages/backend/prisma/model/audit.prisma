@@ -1,0 +1,34 @@
+/// Append-only application audit. Details are sanitized business facts, never credentials.
+model AuditEvent {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @db.Uuid
+  workspaceId    String?  @db.Uuid
+  actorUserId    String?  @db.Uuid
+  action         String
+  requestId      String?
+  details        Json?
+  occurredAt     DateTime @default(now()) @db.Timestamptz(3)
+
+  organization Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  workspace    Workspace?               @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  actor        User?                    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  resources    AuditResourceReference[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, workspaceId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([requestId])
+}
+
+model AuditResourceReference {
+  organizationId String @db.Uuid
+  eventId        String @db.Uuid
+  resourceId     String @db.Uuid
+  labelSnapshot  String
+
+  event    AuditEvent       @relation(fields: [organizationId, eventId], references: [organizationId, id], onDelete: Restrict)
+  resource ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+
+  @@id([eventId, resourceId])
+  @@index([organizationId, resourceId])
+}
