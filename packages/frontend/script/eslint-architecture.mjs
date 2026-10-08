@@ -18,9 +18,11 @@ const componentDependencies = {
     'route-tab': new Set(['scroll-surface', 'view-context']),
     'view-host': new Set(['scroll-surface', 'view-context']),
 };
+const platformDependencies = { http: new Set(['task']) };
 const publicEntries = {
     module: new Set(['index.ts', 'ui/index.ts', 'route.ts']),
     component: new Set(['index.ts']),
+    platform: new Set(['index.ts']),
 };
 
 function classify(filename) {
@@ -62,6 +64,7 @@ export const frontendImportBoundaries = {
             internal:
                 'Use a relative implementation import inside {{owner}}, not its own public barrel or alias.',
             mock: 'Only main.ts selects mock adapters; only each adapter imports its fixtures.',
+            modelData: 'Module models depend on data/source.ts, not concrete data adapters.',
         },
     },
     create(context) {
@@ -91,13 +94,24 @@ export const frontendImportBoundaries = {
             if (!Object.hasOwn(publicEntries, to.layer)) return;
             const sameOwner = from.layer === to.layer && from.owner === to.owner;
             if (sameOwner) {
+                if (
+                    from.layer === 'module' &&
+                    from.entry.startsWith('model/') &&
+                    to.entry.startsWith('data/') &&
+                    to.entry !== 'data/source.ts'
+                )
+                    report('modelData');
                 if (node.value.startsWith('@/') || publicEntries[to.layer].has(to.entry))
                     report('internal', { owner: to.owner });
                 return;
             }
             if (from.layer === to.layer) {
                 const dependencies =
-                    from.layer === 'module' ? moduleDependencies : componentDependencies;
+                    from.layer === 'module'
+                        ? moduleDependencies
+                        : from.layer === 'platform'
+                          ? platformDependencies
+                          : componentDependencies;
                 if (!dependencies[from.owner]?.has(to.owner)) {
                     report('owner', { from: from.owner, to: to.owner });
                     return;

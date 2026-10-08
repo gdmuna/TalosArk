@@ -39,6 +39,7 @@
                     type="button"
                     variant="outline"
                     class="h-10 min-w-0 px-2 font-normal"
+                    :disabled="loginPending"
                     @click="handleCasdoorLogin"
                 >
                     <Building2 class="size-4" stroke-width="1.75" aria-hidden="true" />
@@ -54,6 +55,8 @@
                 </Button>
             </div>
 
+            <p v-if="loginError" role="alert" class="mt-3 text-sm text-destructive">{{ loginError }}</p>
+
             <p class="mt-6 text-center text-xs leading-5 text-muted-foreground">
                 登录即表示你同意璇玑云库的服务条款与隐私政策。
             </p>
@@ -63,18 +66,23 @@
 
 <script setup lang="ts">
 import { Building2, Globe2, KeyRound, Mail, MessageCircle, Smartphone, Box } from '@lucide/vue';
-import { ref } from 'vue';
+import { onBeforeUnmount, ref } from 'vue';
 import AuthAccountLogin from './Auth-AccountLogin.vue';
 import AuthEmailLogin from './Auth-EmailLogin.vue';
 import AuthPhoneNumLogin from './Auth-PhoneNumLogin.vue';
 import { Button } from '@/ui/button';
 import { FieldSeparator } from '@/ui/field';
 
-import { axiosInstance } from '@/shared/api/client';
+import { useAuthApi } from '@/module/auth';
 
 type LoginMethod = 'account' | 'email' | 'phone';
 
 const activeMethod = ref<LoginMethod>('account');
+const api = useAuthApi();
+const loginPending = ref(false);
+const loginError = ref('');
+const controller = new AbortController();
+onBeforeUnmount(() => controller.abort());
 
 const loginMethods = [
     { value: 'account', label: '账号密码', icon: KeyRound },
@@ -83,7 +91,16 @@ const loginMethods = [
 ] as const;
 
 async function handleCasdoorLogin() {
-    const res = await axiosInstance.post<any, { url: string }>('http://localhost:3000/api/v1/auth/oidc/start');
-    window.location.href = res.url;
+    if (loginPending.value) return;
+    loginPending.value = true;
+    loginError.value = '';
+    try {
+        const res = await api.startOidcLogin({ signal: controller.signal });
+        window.location.href = res.url;
+    } catch (error) {
+        if (!controller.signal.aborted) loginError.value = error instanceof Error ? error.message : '无法开始登录';
+    } finally {
+        loginPending.value = false;
+    }
 }
 </script>

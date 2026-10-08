@@ -9,6 +9,8 @@ import { useNavigationStore } from '@/platform/navigation';
 import { createMockAccountDataSource } from '@/module/account/data/mock';
 import { createMockWorkspaceDataSource } from '@/module/workspace/data/mock';
 import { createMockWorkbenchDataSource } from '@/module/workbench/data/mock';
+import { authApiKey, createAuthApi, createAuthSession } from '@/module/auth';
+import { createHttpClient } from '@/platform/http';
 
 import '@/style.css';
 
@@ -16,6 +18,19 @@ const app = createApp(App);
 
 const pinia = createPinia();
 app.use(pinia);
+
+const authSession = createAuthSession();
+const http = createHttpClient({
+    baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api/v1',
+    auth: authSession.gate,
+});
+app.provide(authApiKey, createAuthApi(http, authSession));
+function disposeApi() {
+    http.dispose();
+    authSession.dispose();
+}
+app.onUnmount(disposeApi);
+import.meta.hot?.dispose(disposeApi);
 
 async function bootstrap() {
     const sources = {
@@ -32,4 +47,4 @@ async function bootstrap() {
     app.mount('#app');
 }
 
-void bootstrap();
+bootstrap();

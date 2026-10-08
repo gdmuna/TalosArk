@@ -1,24 +1,35 @@
-<template></template>
+<template>
+    <p v-if="error" role="alert" class="p-6 text-destructive">{{ error }}</p>
+</template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { axiosInstance } from '@/shared/api/client';
+import { useAuthApi } from '@/module/auth';
 
 const route = useRoute();
 const router = useRouter();
+const api = useAuthApi();
+const error = ref('');
+const controller = new AbortController();
+onBeforeUnmount(() => controller.abort());
 
 onMounted(async () => {
     const { code, state } = route.query;
-    if (!code || !state) {
-        router.push('/');
-        console.error('OIDC 回调缺少 code 或 state');
+    if (typeof code !== 'string' || typeof state !== 'string' || !code || !state) {
+        error.value = 'OIDC 回调缺少有效的 code 或 state';
+        return;
     }
-    await axiosInstance.post<any, any>('auth/oidc/login-callback', {
-        code,
-        state,
-    });
-    router.push('/');
+    try {
+        const response = await api.completeOidcLogin({ code, state }, { signal: controller.signal });
+        if (response.type === 'block') {
+            error.value = '当前账户无法登录';
+            return;
+        }
+        await router.push('/');
+    } catch (cause) {
+        if (!controller.signal.aborted) error.value = cause instanceof Error ? cause.message : '登录失败';
+    }
 });
 </script>
 

@@ -18,11 +18,13 @@ import {
 import { useAccountStore } from '@/module/account';
 import { useWorkspaceStore } from '@/module/workspace';
 import { version, license } from '../../../package.json';
+import { useAuthApi } from '@/module/auth';
 
 const account = useAccountStore();
 const workspace = useWorkspaceStore();
 const router = useRouter();
 const trigger = useTemplateRef('trigger');
+const authApi = useAuthApi();
 const aboutTitle = useTemplateRef('aboutTitle');
 const menuOpen = ref(false);
 const workspaceOpen = ref(false);
@@ -75,6 +77,10 @@ async function saveProfile() {
     if (!error.value) profileOpen.value = false;
 }
 defineExpose({ openSettings });
+function signOut() {
+    authApi.clearLocalSession();
+    void router.push('/auth/login');
+}
 </script>
 
 <template>
@@ -143,7 +149,7 @@ defineExpose({ openSettings });
                 关于璇玑云库
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" class="min-h-9 gap-3 px-3" @select="router.push('/auth/login')">
+            <DropdownMenuItem variant="destructive" class="min-h-9 gap-3 px-3" @select="signOut">
                 <LogOut aria-hidden="true" />
                 退出登录
             </DropdownMenuItem>
