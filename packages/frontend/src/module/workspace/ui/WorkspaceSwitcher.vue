@@ -5,21 +5,38 @@
             <Button
                 ref="workspaceTrigger"
                 variant="ghost"
-                class="h-auto w-full justify-start gap-3 p-3 text-left"
+                class="workspace-trigger h-auto w-full justify-start overflow-hidden text-left transition-[background-color,padding,gap] duration-(--sidebar-transition-duration,240ms) ease-standard"
+                :class="compact ? 'gap-0 p-0' : 'gap-3 p-2'"
+                :data-compact="compact"
                 aria-label="切换组织或工作区"
+                use-tooltip
+                :tooltip-disabled="!compact"
+                tooltip="切换组织或工作区"
+                tooltip-side="right"
+                :tooltip-delay-duration="0"
             >
                 <span
                     class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-base text-primary-foreground"
                 >
                     {{ workspace.current?.name.slice(0, 1) ?? '' }}
                 </span>
-                <span class="min-w-0 flex-1">
+                <span
+                    class="workspace-label min-w-0 flex-1 transition-opacity duration-(--sidebar-transition-duration,240ms) ease-standard"
+                    :class="compact && 'opacity-0'"
+                    :aria-hidden="compact"
+                >
                     <span class="block truncate">{{ workspace.current?.name }}</span>
                     <span class="mt-1 block truncate text-xs text-muted-foreground">
                         {{ workspace.organization?.name }}
                     </span>
                 </span>
-                <ChevronDown class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span
+                    class="workspace-chevron shrink-0 overflow-hidden transition-[width,opacity] duration-(--sidebar-transition-duration,240ms) ease-standard"
+                    :class="compact ? 'w-0 opacity-0' : 'w-4 opacity-100'"
+                    aria-hidden="true"
+                >
+                    <ChevronDown class="size-4 text-muted-foreground" />
+                </span>
             </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -44,7 +61,14 @@
                         <Folders class="size-4" aria-hidden="true" />
                     </Button>
                 </span> -->
-                <Button variant="secondary" size="icon-sm" aria-label="工作区管理" title="工作区管理" use-tooltip>
+                <Button
+                    variant="secondary"
+                    size="icon-sm"
+                    aria-label="工作区管理"
+                    title="工作区管理"
+                    use-tooltip
+                    @click="openManagement"
+                >
                     <Folders aria-hidden="true" />
                 </Button>
             </div>
@@ -170,13 +194,15 @@ import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 
 // External anchors keep this panel independent from its caller's menu positioning root.
-const props = defineProps<{ anchor?: HTMLElement | SVGElement | null }>();
+const props = withDefaults(defineProps<{ anchor?: HTMLElement | SVGElement | null; compact?: boolean }>(), {
+    compact: false,
+});
 const workspace = useWorkspaceStore();
 const workspaceTrigger = useTemplateRef('workspaceTrigger');
 const workspaceList = useTemplateRef('workspaceList');
 const { height: listHeight } = useElementSize(workspaceList, { width: 0, height: 0 }, { box: 'border-box' });
 const popoverOpen = defineModel<boolean>('open', { default: false });
-const emit = defineEmits<{ 'close-auto-focus': [event: Event] }>();
+const emit = defineEmits<{ 'close-auto-focus': [event: Event]; manage: [] }>();
 const interactedOutside = ref(false);
 const query = ref('');
 const collapsed = ref<string[]>([]);
@@ -210,6 +236,10 @@ function toggleGroup(id: string) {
 function selectWorkspace(id: string) {
     workspace.select(id);
     popoverOpen.value = false;
+}
+function openManagement() {
+    popoverOpen.value = false;
+    emit('manage');
 }
 function openForm(value: 'create' | 'join') {
     mode.value = value;

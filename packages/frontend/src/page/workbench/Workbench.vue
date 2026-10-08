@@ -4,9 +4,8 @@
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button type="button" class="h-10 gap-3 px-4 text-base shadow-none">
-                        <Plus class="size-5" stroke-width="1.75" aria-hidden="true" />
                         新建
-                        <ChevronDown class="size-4" stroke-width="1.75" aria-hidden="true" />
+                        <Plus aria-hidden="true" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" class="w-44">

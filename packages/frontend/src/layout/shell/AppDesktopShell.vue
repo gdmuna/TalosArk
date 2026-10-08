@@ -5,7 +5,9 @@
             data-slot="window-titlebar"
             class="shrink-0 flex h-10 items-center justify-between bg-muted pointer-events-auto"
         >
-            <div class="flex items-center justify-between ml-4.5 gap-1 text-md select-none">
+            <div
+                class="application-brand flex items-center justify-between ml-4.5 gap-1 text-md select-none transition-[margin-left] duration-(--sidebar-transition-duration) ease-standard"
+            >
                 <Box class="fill-primary text-muted size-7.5" stroke-width="2.25" />
                 <span class="font-medium">璇玑云库</span>
             </div>
@@ -34,9 +36,9 @@
                 <X class="size-4.5" />
             </Button>
         </div>
-        <SidebarProvider class="min-h-0 flex-1">
+        <div class="flex min-h-0 min-w-0 flex-1">
             <RouterView />
-        </SidebarProvider>
+        </div>
         <div
             ref="overlayContainer"
             data-slot="overlay-container"
@@ -48,7 +50,6 @@
 
 <script setup lang="ts">
 import { Button } from '@/ui/button';
-import { SidebarProvider } from '@/ui/sidebar';
 
 import { ref } from 'vue';
 import { useElementBounding } from '@vueuse/core';
@@ -65,6 +66,14 @@ provideOverlayContainer(overlayContainer);
 </script>
 
 <style scoped>
+.desktop-shell {
+    --sidebar-transition-duration: 240ms;
+}
+
+.desktop-shell:has(:deep([data-slot='application-sidebar'][data-collapsed='true'])) .application-brand {
+    margin-left: calc(var(--spacing) * 1.5);
+}
+
 .desktop-shell:has(:deep([data-slot='sheet-overlay'])) .window-controls,
 .desktop-shell:has(:deep([data-slot='dialog-overlay'])) .window-controls {
     background: transparent;

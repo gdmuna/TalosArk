@@ -8,13 +8,14 @@
                         variant="ghost"
                         size="icon"
                         use-tooltip
-                        :title="open ? '收起侧栏' : '展开侧栏'"
-                        :aria-label="open ? '收起侧栏' : '展开侧栏'"
-                        :aria-expanded="open"
-                        @click="toggleSidebar"
+                        :title="sidebarExpanded ? '收起侧栏' : '展开侧栏'"
+                        :aria-label="sidebarExpanded ? '收起侧栏' : '展开侧栏'"
+                        :aria-expanded="sidebarExpanded"
+                        aria-controls="application-sidebar"
+                        @click="emit('toggle-sidebar')"
                     >
                         <MorphIcon
-                            :icon="open ? PanelLeftClose : PanelLeftOpen"
+                            :icon="sidebarExpanded ? PanelLeftClose : PanelLeftOpen"
                             spring="snappy"
                             :stroke-width="lucideProps.strokeWidth"
                             class="size-5"
@@ -53,7 +54,9 @@
                         {{ sectionLabel }}
                     </RouterLink>
                     <span class="text-muted-foreground" aria-hidden="true">/</span>
-                    <span class="truncate text-primary" aria-current="page">{{ activeTab?.value.label }}</span>
+                    <span class="truncate text-primary" aria-current="page">
+                        {{ route.meta.pageLabel ?? activeTab?.value.label }}
+                    </span>
                 </nav>
             </div>
             <div class="flex min-w-0">
@@ -93,7 +96,6 @@ import { useRoute } from 'vue-router';
 
 import { Button } from '@/ui/button';
 import { UserMenu } from '@/layout/user-menu';
-import { useSidebar } from '@/ui/sidebar';
 
 import { MorphIcon } from 'morphicons/vue';
 
@@ -105,9 +107,10 @@ const lucideProps = useLucideProps();
 defineProps<{
     sectionLabel: string;
     sectionPath: string;
+    sidebarExpanded: boolean;
 }>();
 
-const { open, toggleSidebar } = useSidebar();
+const emit = defineEmits<{ 'toggle-sidebar': [] }>();
 const accountMenu = useTemplateRef('accountMenu');
 provideRouteTabContext();
 const { tabEntity } = useRouteTab();

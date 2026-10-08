@@ -1,10 +1,16 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { workbenchRoutes } from '@/module/workbench/route';
+import { managementPath, managementRoutes } from './management';
+import { materialRoutes, inventoryRoutes, equipmentRoutes } from './resource';
 
 declare module 'vue-router' {
     interface RouteMeta {
         /** 浏览器标签页标题 */
         defaultTitle?: string;
+        pageLabel?: string;
+        sectionLabel?: string;
+        sectionPath?: string;
+        resourceDetail?: boolean;
     }
 }
 
@@ -43,6 +49,13 @@ const routes: RouteRecordRaw[] = [
                 redirect: '/main/workbench',
             },
             {
+                path: 'management',
+                component: () => import('@/page/management/Management.vue'),
+                redirect: `${managementPath}/overview`,
+                meta: { sectionLabel: '管理中心', sectionPath: managementPath },
+                children: managementRoutes,
+            },
+            {
                 path: 'workbench',
                 component: () => import('@/page/workbench/Workbench.vue'),
                 redirect: '/main/workbench/overview',
@@ -57,30 +70,10 @@ const routes: RouteRecordRaw[] = [
                 redirect: '/main/material/overview',
                 meta: {
                     defaultTitle: 'material',
+                    sectionLabel: '材料',
+                    sectionPath: '/main/material/overview',
                 },
-                children: [
-                    {
-                        path: 'overview',
-                        component: () => import('@/page/material/Overview.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                    {
-                        path: 'list',
-                        component: () => import('@/page/material/List.vue'),
-                        meta: {
-                            defaultTitle: 'list',
-                        },
-                    },
-                    {
-                        path: 'culture',
-                        component: () => import('@/page/material/Culture.vue'),
-                        meta: {
-                            defaultTitle: 'culture',
-                        },
-                    },
-                ],
+                children: materialRoutes,
             },
             {
                 path: 'inventory',
@@ -88,37 +81,10 @@ const routes: RouteRecordRaw[] = [
                 redirect: '/main/inventory/overview',
                 meta: {
                     defaultTitle: 'inventory',
+                    sectionLabel: '库存',
+                    sectionPath: '/main/inventory/overview',
                 },
-                children: [
-                    {
-                        path: 'overview',
-                        component: () => import('@/page/inventory/Overview.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                    {
-                        path: 'ledger',
-                        component: () => import('@/page/inventory/Ledger.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                    {
-                        path: 'storage-topology',
-                        component: () => import('@/page/inventory/StorageTopology.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                    {
-                        path: 'stocktake',
-                        component: () => import('@/page/inventory/Stocktake.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                ],
+                children: inventoryRoutes,
             },
             {
                 path: 'equipment',
@@ -126,23 +92,10 @@ const routes: RouteRecordRaw[] = [
                 redirect: '/main/equipment/overview',
                 meta: {
                     defaultTitle: 'equipment',
+                    sectionLabel: '设备',
+                    sectionPath: '/main/equipment/overview',
                 },
-                children: [
-                    {
-                        path: 'overview',
-                        component: () => import('@/page/equipment/Overview.vue'),
-                        meta: {
-                            defaultTitle: 'overview',
-                        },
-                    },
-                    {
-                        path: 'list',
-                        component: () => import('@/page/equipment/List.vue'),
-                        meta: {
-                            defaultTitle: 'list',
-                        },
-                    },
-                ],
+                children: equipmentRoutes,
             },
         ],
     },

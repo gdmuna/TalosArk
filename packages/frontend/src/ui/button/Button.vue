@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { PrimitiveProps } from 'reka-ui';
-import { computed, ref, useAttrs, type HTMLAttributes } from 'vue';
+import type { PrimitiveProps, TooltipContentProps } from 'reka-ui';
+import { computed, ref, useAttrs, watch, type HTMLAttributes } from 'vue';
 import type { ButtonVariants } from './variant';
 import { Primitive, useForwardExpose } from 'reka-ui';
 import { cn } from '@/shared/util/cn';
@@ -16,11 +16,18 @@ interface Props extends PrimitiveProps {
     title?: string;
     tooltip?: string;
     useTooltip?: boolean;
+    // Suspend the tooltip without replacing the trigger DOM.
+    tooltipDisabled?: boolean;
+    tooltipSide?: TooltipContentProps['side'];
+    tooltipDelayDuration?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     as: 'button',
     useTooltip: false,
+    tooltipDisabled: undefined,
+    tooltipSide: 'top',
+    tooltipDelayDuration: 300,
 });
 const attrs = useAttrs();
 const { forwardRef } = useForwardExpose();
@@ -28,10 +35,22 @@ const tooltipOpen = ref(false);
 const tooltipText = computed(() =>
     props.useTooltip === false ? '' : (props.tooltip ?? props.title ?? String(attrs['aria-label'] ?? ''))
 );
+watch(
+    () => props.tooltipDisabled,
+    (disabled) => {
+        if (disabled) tooltipOpen.value = false;
+    }
+);
 </script>
 
 <template>
-    <Tooltip v-if="tooltipText" v-model:open="tooltipOpen" :ignore-non-keyboard-focus="true" :delay-duration="300">
+    <Tooltip
+        v-if="tooltipText"
+        v-model:open="tooltipOpen"
+        :disabled="tooltipDisabled"
+        :ignore-non-keyboard-focus="true"
+        :delay-duration="tooltipDelayDuration"
+    >
         <TooltipTrigger as-child>
             <Primitive
                 :ref="forwardRef"
@@ -48,7 +67,9 @@ const tooltipText = computed(() =>
                 <slot />
             </Primitive>
         </TooltipTrigger>
-        <TooltipContent :aria-label="tooltipText" class="duration-200 ease-standard">{{ tooltipText }}</TooltipContent>
+        <TooltipContent :aria-label="tooltipText" :side="tooltipSide" class="duration-200 ease-standard z-20000">
+            {{ tooltipText }}
+        </TooltipContent>
     </Tooltip>
     <Primitive
         v-else

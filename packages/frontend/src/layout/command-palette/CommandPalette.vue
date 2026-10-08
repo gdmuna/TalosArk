@@ -90,6 +90,8 @@ import { useWorkbenchStore } from '@/module/workbench';
 import { StateBadge } from '@/component/state-badge';
 import { ResourceDialog } from '@/module/workbench/ui';
 import { ScrollSurface } from '@/component/scroll-surface';
+import { managementNavigation, managementPath } from '@/router/management';
+import { resourceNavigation, type ResourceDomain } from '@/router/resource';
 import { stateTone, type Resource } from '@/module/workbench';
 
 type Result = {
@@ -111,6 +113,17 @@ const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
 const router = useRouter();
 const pages: Result[] = [
+    ...managementNavigation.flatMap((group) =>
+        group.items.map((item) => ({
+            id: `management-${item.path}`,
+            group: '页面',
+            label: `管理中心 · ${item.label}`,
+            description: `管理中心 / ${group.label} / ${item.label}`,
+            keywords: `管理中心 ${group.label} ${item.label}`,
+            icon: item.icon,
+            path: `${managementPath}/${item.path}`,
+        }))
+    ),
     {
         id: 'overview',
         group: '页面',
@@ -147,33 +160,22 @@ const pages: Result[] = [
         icon: TriangleAlert,
         path: '/main/workbench/exception-alert',
     },
-    {
-        id: 'materials',
-        group: '页面',
-        label: '材料列表',
-        description: '材料 / 材料列表',
-        keywords: '培养基 细胞 试剂 材料',
-        icon: FlaskConical,
-        path: '/main/material/list',
-    },
-    {
-        id: 'equipment',
-        group: '页面',
-        label: '设备列表',
-        description: '设备 / 设备列表',
-        keywords: '设备 冰箱 离心机',
-        icon: Monitor,
-        path: '/main/equipment/list',
-    },
-    {
-        id: 'inventory',
-        group: '页面',
-        label: '库存台账',
-        description: '库存 / 台账',
-        keywords: '库存 盘点 库存查询',
-        icon: PackageSearch,
-        path: '/main/inventory/ledger',
-    },
+    ...(['material', 'inventory', 'equipment'] as ResourceDomain[]).flatMap((domain) => {
+        const context = {
+            material: { label: '材料', icon: FlaskConical, keywords: '培养基 细胞 试剂' },
+            inventory: { label: '库存', icon: PackageSearch, keywords: '台账 库存查询 存储' },
+            equipment: { label: '设备', icon: Monitor, keywords: '冰箱 离心机' },
+        }[domain];
+        return resourceNavigation[domain].map((item) => ({
+            id: `${domain}-${item.path}`,
+            group: '页面',
+            label: `${context.label} · ${item.label}`,
+            description: `${context.label} / ${item.label}`,
+            keywords: `${context.label} ${item.label} ${context.keywords}`,
+            icon: context.icon,
+            path: `/main/${domain}/${item.path}`,
+        }));
+    }),
 ];
 const resourceIcons = { 材料定义: FlaskConical, 库存实例: Package, 设施: Building2, 设备: Monitor, 文件: FileText };
 const candidates = computed(() => {

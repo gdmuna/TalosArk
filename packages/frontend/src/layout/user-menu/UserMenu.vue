@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
+import { managementPath } from '@/router/management';
 import { unrefElement } from '@vueuse/core';
 import { Box, ChevronDown, ChevronRight, Info, ListTodo, LogOut, Mail, UserRound, UsersRound } from '@lucide/vue';
 import { WorkspaceSwitcher } from '@/module/workspace/ui';
@@ -17,14 +18,14 @@ import {
 } from '@/ui/dropdown-menu';
 import { useAccountStore } from '@/module/account';
 import { useWorkspaceStore } from '@/module/workspace';
-import { version, license } from '../../../package.json';
 import { useAuthApi } from '@/module/auth';
+import { version, license } from '../../../package.json';
 
 const account = useAccountStore();
 const workspace = useWorkspaceStore();
 const router = useRouter();
-const trigger = useTemplateRef('trigger');
 const authApi = useAuthApi();
+const trigger = useTemplateRef('trigger');
 const aboutTitle = useTemplateRef('aboutTitle');
 const menuOpen = ref(false);
 const workspaceOpen = ref(false);
@@ -76,11 +77,11 @@ async function saveProfile() {
     error.value = await account.updateDisplayName(displayName.value);
     if (!error.value) profileOpen.value = false;
 }
-defineExpose({ openSettings });
 function signOut() {
     authApi.clearLocalSession();
     void router.push('/auth/login');
 }
+defineExpose({ openSettings });
 </script>
 
 <template>
@@ -160,6 +161,7 @@ function signOut() {
         v-model:open="workspaceOpen"
         :anchor="unrefElement(trigger) ?? null"
         @close-auto-focus="restoreFocus"
+        @manage="router.push(`${managementPath}/workspace`)"
     />
 
     <Dialog v-model:open="profileOpen">

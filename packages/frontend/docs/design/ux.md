@@ -32,7 +32,12 @@ Custom Title Bar (muted)
 - 顶部或页面内 Router Tab 保持透明背景；未激活项的 Hover 文字由 `muted-foreground` 变为 `foreground`，激活项的 Hover 保持 `primary`。当前项以 `primary` 文字和底部指示线表现，不使用整块浅蓝背景。
 - `data-[active=true]`、`data-[activated=true]` 表示持久状态，不能与 CSS `:active` 混用。
 - 组织 / 工作区切换器是小型上下文选择面板，使用 Popover 容器；简单动作列表使用 Dropdown Menu。
-- 侧栏开合统一消费 `useSidebar`；壳层前进 / 后退使用 Vue Router 的浏览器 History，刷新后保留浏览器历史。`navigation` store 订阅路由与 `popstate`，更新按钮可用状态，不另建主导航内存栈。
+- 侧栏由 `layout/sidebar/ApplicationSidebar.vue` 自定义实现，业务壳层不依赖 shadcn SidebarProvider / useSidebar。主壳层拥有展开状态，以 props / event 与顶部切换按钮共享，保留 `sidebar_state` 偏好 cookie 与 Ctrl / Cmd + B 快捷键。展开宽度 240px，收起为 56px 图标窄栏，宽度以 240ms 过渡；窄栏保留导航、搜索、工作区切换与最近访问。普通侧栏按钮通过 `SidebarButton` 统一图标、文字与提示策略，窄栏 Tooltip 向右显示且延迟为 0；工作区切换器的窄栏触发器沿用相同策略，不修改其他页面 Tooltip 的默认值。
+- 工作区切换器与搜索保持在分页区域之外；工作区导航页与管理中心导航页共用左侧栏空间，以 280ms 横向滑动切换。管理入口位于工作区页底部，管理页底部提供“返回工作区”，分页区域顶部不重复显示管理中心标题；各页独立滚动，未激活页使用 inert / aria-hidden 并恢复到激活页的按钮焦点。管理入口打开上次管理页面（首次为概览），返回时恢复上次工作区路由；直接访问管理 URL 与浏览器前进后退同步侧栏页及当前项。管理中心 15 个一级入口已接通页面骨架，写操作禁用；菜单、路由、面包屑与命令搜索共用入口定义。Reduced Motion 沿用全局规则。
+- 管理页面只在设计图明确存在时增加局部视图导航，使用 URL 查询参数保留刷新与前进后退状态，不重复一级管理入口。页面级导航沿用工作台的固定高度与侧边距，置于正文滚动区外，不随局部视图内容宽度改变位置。集成详情区域的视图导航独立于集成管理 / 日志切换，并保留在详情区域。表单、列表和综合页面的标题、控件和正文分别按内容宽度限宽居中；表格保留实际列宽，综合布局按内容容器宽度响应侧栏变化。详见 `management-skeleton.md`。
+- 展开侧栏时工作区切换器保留 `p-2` 的 ghost 按钮悬停留白，收起时内边距缓动到 0；名称、组织名与箭头保留 DOM 并淡出。标题栏应用标题的左外边距由 `ml-4.5` 缓动到 `ml-1.5`。侧栏宽度、按钮内边距、名称淡出与标题位移统一使用壳层提供的 `--sidebar-transition-duration: 240ms` 和 standard easing，反向切换时从当前值继续。工作区触发按钮与普通侧栏按钮保持同一个 DOM，以 Tooltip 的 disabled 状态控制窄栏提示，避免定位、焦点和文字过渡失效。
+- 可折叠侧栏分组使用 `SidebarCollapsible`：展开侧栏时显示原有 Collapsible，标题不带左侧图标，箭头默认隐藏、悬停分组时显示、折叠后常显、展开后旋转；窄栏时仅保留图标触发器，点击在右侧打开带标题的 Popover，不将所有子项铺成图标。两种展示以与侧栏同长的 240ms 交叉淡入淡出切换，旧内容完成离场后再卸载，离场时立即设置 inert / aria-hidden，避免隐藏内容接收操作。两种展示复用同一内容插槽，保留此前的展开状态；切换回展开侧栏时关闭 Popover。从弹出层打开详情或命令面板时关闭菜单并将焦点交给持久触发器，避免浮层关闭后返回已卸载的菜单项。“最近访问”条目沿用纯文字与完整资源名称提示，“查看更多”保留右侧箭头的悬停淡入和位移效果。
+- 壳层前进 / 后退使用 Vue Router 的浏览器 History，刷新后保留浏览器历史。`navigation` store 订阅路由与 `popstate`，更新按钮可用状态，不另建主导航内存栈。
 - 工作台、材料、库存与设备共用 Router Tab 工具栏；二级导航靠左，页面操作放入右侧插槽，不新增重复一级标题。
 - 全局搜索位于工作区切换器下方，使用 shadcn Command 与 Dialog，按材料定义、库存实例、设施、设备、文件、页面、命令分组。每项一行名称与通用 StateBadge，不显示编号；编号仍可用于搜索。资源与命令只消费当前工作区，不提供跨工作区搜索范围。方向键选择、回车执行和中文输入组合交给 Reka Listbox。
 - 当前工作区由工作区切换器唯一决定。页面的查询、摘要、关联对象、详情与批量操作都使用 Store 的当前工作区集合，不提供额外工作区筛选。切换后清理详情、勾选与待确认的批量操作；清除表格筛选不改变数据范围。
@@ -49,7 +54,7 @@ Custom Title Bar (muted)
 - Primary Button 的实体 Hover 可以使用 `primary-hover`；其他按钮的 Hover 统一使用 `accent`。
 - 普通操作 Button 的 Hover 不改变文字或图标的颜色；Router Tab 沿用上述导航专用 Hover 规则。选中项保持自己的前景色。四个一级导航图标始终不填充，激活时只使用 Primary 描边；分别使用 Lucide 的 LayoutDashboard、Shapes、Package 与 Microscope。
 - 任何键盘可达 Button 都必须显示 `ring`；不要把 Focus 伪装成 Selected。
-- Button 的 `useTooltip` 默认关闭，只由需要提示的图标控件显式开启；`tooltip` 仅负责提示文本，缺省时使用 `title` 或 `aria-label`。开启后采用 shadcn Tooltip 并移除原生标题浮层，普通文字按钮保留原有行为。共享 Button 不添加布局包装；程序自动聚焦不打开提示，键盘聚焦仍提供提示。拖拽开始时关闭提示，避免遮挡预览。
+- Button 的 `useTooltip` 默认关闭，只由需要提示的图标控件显式开启；`tooltip` 仅负责提示文本，缺省时使用 `title` 或 `aria-label`。`tooltipSide` 默认 top，`tooltipDelayDuration` 默认 300ms，允许调用方覆盖，但不按业务位置隐式推断。`tooltipDisabled` 临时停用提示并关闭已打开的提示，不卸载触发器，用于需要稳定定位或焦点引用的控件。开启后采用 shadcn Tooltip 并移除原生标题浮层，普通文字按钮保留原有行为。共享 Button 不添加布局包装；程序自动聚焦不打开提示，键盘聚焦仍提供提示。拖拽开始时关闭提示，避免遮挡预览。
 
 ### Input 与表单
 
@@ -57,7 +62,7 @@ Custom Title Bar (muted)
 - `success`、`warning`、`destructive` 表示表单或业务结果，不能仅靠颜色传递状态；同时需要文字、图标或说明。
 - 表单与设置中的单值下拉选择统一使用 shadcn Select；`modules/select-field` 同时提供 Trigger 的可访问名称和菜单顶部的 `PopoverTitle` 主标题，不将分组用的 `SelectLabel` 用作整个菜单的标题。表格每页条数选择器不渲染菜单标题与其分隔线，仍保留可访问名称。表格的枚举筛选在 Dropdown Menu 中使用带方框的 shadcn Checkbox，复选框与整行均可切换，点击后保持打开；不将表单 Select 用作筛选工具栏。
 - Select 默认使用 `popper`，菜单沿 Trigger 下边缘展开，保留 6px 间距；空间不足时自动翻转或限制高度，不使用默认 `item-aligned` 覆盖 Trigger。动作菜单与筛选菜单同样需要顶部视觉锚点，子菜单通过 Portal 避免被父菜单裁切。
-- 侧栏与用户菜单共用 `WorkspaceSwitcher` 的可搜索 Popover；用户菜单关闭后在用户按钮下方打开工作区面板，不再维护另一套子菜单。面板行高为 32px，组织标题与列表间留 4px 间距，移除容器叠加间距；右上角提供对应 E-03 工作区列表的“工作区管理”入口，管理中心未实现前禁用并提示暂未开放，不跳转空路由。面板受可用视口高度约束，列表最高 256px，内部滚动，搜索与底部操作固定。
+- 侧栏与用户菜单共用 `WorkspaceSwitcher` 的可搜索 Popover；用户菜单关闭后在用户按钮下方打开工作区面板，不再维护另一套子菜单。面板行高为 32px，组织标题与列表间留 4px 间距，移除容器叠加间距；右上角“工作区管理”关闭面板并打开管理中心的工作区列表，模块只发出 manage 事件，由应用布局负责路由。面板受可用视口高度约束，列表最高 256px，内部滚动，搜索与底部操作固定。
 - Popover 的开合动画消费 Reka 的 `data-state=open/closed`，用户菜单转入工作区面板时保留退出与进入动画。
 - CollapsibleContent 统一提供 150ms 高度与透明度动画；Reduced Motion 沿用全局规则。
 
