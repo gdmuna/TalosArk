@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-col min-h-0 min-w-0 bg-background border-l border-t rounded-tl-2xl">
+    <div class="flex flex-col min-h-0 min-w-0 bg-background border-l border-t rounded-tl-2xl shadow-sm">
         <div class="flex h-14 shrink-0 items-center justify-between gap-4 border-b px-4 lg:px-6">
             <div class="flex min-w-0 items-center gap-4">
                 <div class="flex shrink-0 items-center">
@@ -13,10 +13,11 @@
                         :aria-expanded="open"
                         @click="toggleSidebar"
                     >
-                        <component
-                            :is="open ? PanelLeftClose : PanelLeftOpen"
+                        <MorphIcon
+                            :icon="open ? PanelLeftClose : PanelLeftOpen"
+                            spring="snappy"
+                            :stroke-width="lucideProps.strokeWidth"
                             class="size-5"
-                            stroke-width="1.5"
                             aria-hidden="true"
                         />
                     </Button>
@@ -30,7 +31,7 @@
                         :disabled="!navigation.canBack"
                         @click="navigation.back"
                     >
-                        <ArrowLeft class="size-5" stroke-width="1.5" aria-hidden="true" />
+                        <ArrowLeft class="size-5" aria-hidden="true" />
                     </Button>
                     <Button
                         type="button"
@@ -43,7 +44,7 @@
                         :disabled="!navigation.canForward"
                         @click="navigation.forward"
                     >
-                        <ArrowRight class="size-5" stroke-width="1.5" aria-hidden="true" />
+                        <ArrowRight class="size-5" aria-hidden="true" />
                     </Button>
                 </div>
                 <span class="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
@@ -59,11 +60,11 @@
                 <div class="flex *:size-9">
                     <Button variant="ghost" size="icon" use-tooltip title="通知">
                         <span class="sr-only">通知</span>
-                        <Bell aria-hidden="true" class="size-5" stroke-width="1.5" />
+                        <Bell aria-hidden="true" class="size-5" />
                     </Button>
                     <Button variant="ghost" size="icon" use-tooltip title="帮助">
                         <span class="sr-only">帮助</span>
-                        <CircleQuestionMark aria-hidden="true" class="size-5" stroke-width="1.5" />
+                        <CircleQuestionMark aria-hidden="true" class="size-5" />
                     </Button>
                     <Button
                         variant="ghost"
@@ -73,7 +74,7 @@
                         @click="accountMenu?.openSettings()"
                     >
                         <span class="sr-only">账户设置</span>
-                        <Settings aria-hidden="true" class="size-5" stroke-width="1.5" />
+                        <Settings aria-hidden="true" class="size-5" />
                     </Button>
                 </div>
                 <UserMenu ref="accountMenu" />
@@ -94,7 +95,12 @@ import { Button } from '@/ui/button';
 import { UserMenu } from '@/layout/user-menu';
 import { useSidebar } from '@/ui/sidebar';
 
-import { ArrowLeft, ArrowRight, Bell, CircleQuestionMark, Settings, PanelLeftClose, PanelLeftOpen } from '@lucide/vue';
+import { MorphIcon } from 'morphicons/vue';
+
+import { PanelLeftClose, PanelLeftOpen } from 'lucide';
+import { ArrowLeft, ArrowRight, Bell, CircleQuestionMark, Settings, useLucideProps } from '@lucide/vue';
+
+const lucideProps = useLucideProps();
 
 defineProps<{
     sectionLabel: string;

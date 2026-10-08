@@ -17,21 +17,21 @@
         >
             <Button variant="ghost" size="sm" class="p-1" title="最小化">
                 <span class="sr-only">最小化</span>
-                <Minus class="size-5" stroke-width="1.5" />
+                <Minus class="size-5" />
             </Button>
             <Button variant="ghost" size="sm" class="p-1" :title="windowState !== 'maximize' ? '最大化' : '还原'">
                 <template v-if="windowState !== 'maximize'">
                     <span class="sr-only">最大化</span>
-                    <Square class="size-3.5" stroke-width="1.5" />
+                    <Square class="size-3.5" />
                 </template>
                 <template v-else>
                     <span class="sr-only">还原</span>
-                    <Copy class="size-3.5 -scale-x-100" stroke-width="1.5" />
+                    <Copy class="size-3.5 -scale-x-100" />
                 </template>
             </Button>
             <Button variant="ghost" size="sm" class="p-1 hover:bg-destructive hover:text-card" title="关闭">
                 <span class="sr-only">关闭</span>
-                <X class="size-4.5" stroke-width="1.5" />
+                <X class="size-4.5" />
             </Button>
         </div>
         <SidebarProvider class="min-h-0 flex-1">

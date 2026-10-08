@@ -8,7 +8,7 @@
                     class="h-9 w-full justify-start gap-2 bg-accent px-3 font-normal text-muted-foreground"
                     @click="paletteOpen = true"
                 >
-                    <Search class="size-4" stroke-width="1.5" aria-hidden="true" />
+                    <Search class="size-4" aria-hidden="true" />
                     <span class="min-w-0 flex-1 truncate text-left">搜索工作区或执行命令</span>
                 </Button>
             </div>
@@ -25,7 +25,7 @@
                         @click="$router.push(item.to)"
                     >
                         <div class="flex-1 flex min-w-0 items-center gap-2">
-                            <component :is="item.icon" class="size-5 fill-none" v-bind="item.attrs" />
+                            <component :is="item.icon" class="size-5 fill-none" />
                             <span>{{ item.label }}</span>
                         </div>
                     </Button>
@@ -70,7 +70,7 @@
             <div class="shrink-0 m-2 mb-4 flex flex-col gap-0.5">
                 <Button class="w-full" variant="ghost" title="管理中心">
                     <div class="flex items-center flex-1 gap-2">
-                        <ShieldKeyhole class="size-5" stroke-width="1.5" />
+                        <ShieldKeyhole class="size-5" />
                         <span>管理中心</span>
                     </div>
                 </Button>
@@ -124,36 +124,24 @@ const navigation = [
         label: '工作台',
         icon: LayoutDashboard,
         to: '/main/workbench',
-        attrs: {
-            strokeWidth: 1.5,
-        },
     },
     {
         type: 'navigation',
         label: '材料',
         icon: Shapes,
         to: '/main/material',
-        attrs: {
-            strokeWidth: 1.5,
-        },
     },
     {
         type: 'navigation',
         label: '库存',
         icon: Package,
         to: '/main/inventory',
-        attrs: {
-            strokeWidth: 1.5,
-        },
     },
     {
         type: 'navigation',
         label: '设备',
         icon: Microscope,
         to: '/main/equipment',
-        attrs: {
-            strokeWidth: 1.5,
-        },
     },
 ];
 
