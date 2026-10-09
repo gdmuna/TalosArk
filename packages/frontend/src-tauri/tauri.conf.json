@@ -5,7 +5,7 @@
   "identifier": "com.gdmuna.apps.talos-ark",
   "build": {
     "beforeDevCommand": "pnpm vite",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:4444",
     "beforeBuildCommand": "pnpm vite:build",
     "frontendDist": "../dist"
   },
