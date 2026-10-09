@@ -11,7 +11,7 @@ src/
   auth/
     oidc.http.ts     OIDC request bodies and unwrapped responses
     session.ts       Login session credentials in their existing wire shape
-    error.ts         Auth public error codes and safe details schemas
+    error.ts         Auth public code/message/details schemas
     index.ts
   protocol/
     scalar.ts        UUIDs and UTC ISO timestamps
@@ -19,6 +19,11 @@ src/
     error.ts         Shared error content and request rejection definitions
     http.ts          HTTP success/error envelopes
     websocket.ts     WebSocket error message and optional correlation ID
+    index.ts
+  backend/          Backend-only error catalogs: public + optional protocol + internal policy
+    auth.error.ts
+    request.error.ts
+    system.error.ts
     index.ts
   index.ts
 ```
@@ -73,7 +78,7 @@ library is required here.
 - `ApiResponse` is discriminated by `success`. Error responses have `code`,
   `message`, `type`, and `details`, not a success `data` member. Error details
   remain endpoint-specific instead of forcing a global business-error taxonomy.
-- Error definitions pair a literal `code` with its details schema. HTTP and WS
+- Public error contracts pair a literal `code`, fixed `message` and details schema. HTTP and WS
   schema builders consume the same definition. HTTP adds its documentation URL
   and response envelope; WS adds `kind: 'error'` and optional `correlationId`.
   Details are JSON-safe and validated before publication. Causes, SDK error
@@ -88,6 +93,14 @@ library is required here.
 
 ## Backend Binding
 
+`@talos-ark/contracts/backend` is an explicit backend-only entry. It exports
+declarative error catalogs with `public`, optional `protocol.http` /
+`protocol.ws`, and optional `internal.logLevel`. Public root/auth/protocol entries
+never re-export these catalogs; frontend code must not import the backend entry.
+The definitions contain no logger callbacks, SDK errors or runtime business code.
+HTTP defaults to status 500, logging to error level, and WS leaves the connection
+open when no close policy is declared. Retry hints are optional, not automatic retries.
+
 Declare request and response schemas once with the backend's `ApiRoute` method
 decorator. No backend DTO wrapper class or duplicate HTTP contract is required:
 
@@ -98,7 +111,7 @@ decorator. No backend DTO wrapper class or duplicate HTTP contract is required:
     summary: 'Complete OIDC login',
     request: { body: OidcLoginCallbackBodySchema },
     responses: [{ status: 201, schema: OidcLoginCallbackResponseSchema }],
-    errors: [/* explicit business HTTP error bindings */],
+    errors: [/* shared business ErrorDefinition values */],
 })
 async callback(@Body() body: OidcLoginCallbackBody) {
     // Return the endpoint's unwrapped payload.

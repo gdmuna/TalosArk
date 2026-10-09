@@ -22,6 +22,7 @@ export function createApiErrorResponseSchema<S extends z.ZodType, const C extend
 ) {
     return ApiErrorResponseSchema.extend({
         code: z.literal(contract.code),
+        message: z.literal(contract.message),
         details: contract.details,
     });
 }

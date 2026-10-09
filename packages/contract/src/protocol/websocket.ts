@@ -8,6 +8,7 @@ export const WsErrorMessageSchema = PublicErrorSchema.extend({
     correlationId: z.string().min(1).optional(),
     timestamp: UtcDateTimeSchema,
     context: ApiResponseContextSchema.nullable(),
+    retryAfterMs: z.number().nonnegative().optional(),
 });
 
 export function createWsErrorMessageSchema<S extends z.ZodType, const C extends string>(
@@ -15,6 +16,7 @@ export function createWsErrorMessageSchema<S extends z.ZodType, const C extends 
 ) {
     return WsErrorMessageSchema.extend({
         code: z.literal(contract.code),
+        message: z.literal(contract.message),
         details: contract.details,
     });
 }
