@@ -14,7 +14,8 @@ const allowedLayers = {
 };
 const moduleDependencies = { workbench: new Set(['workspace']) };
 const componentDependencies = {
-    'data-table': new Set(['scroll-surface', 'select-field']),
+    'data-table': new Set(['scroll-surface', 'select-field', 'inspector']),
+    breadcrumb: new Set(['view-context']),
     'route-tab': new Set(['scroll-surface', 'view-context']),
     'view-host': new Set(['scroll-surface', 'view-context']),
 };

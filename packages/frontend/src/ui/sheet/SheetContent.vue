@@ -36,7 +36,7 @@ const { container: overlayContainer, onInteractOutside } = useOverlayContainer()
             data-slot="sheet-content"
             :class="
                 cn(
-                    'pointer-events-auto bg-card data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-standard data-[state=closed]:duration-200 data-[state=open]:duration-250',
+                    'pointer-events-auto bg-card data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-standard data-[state=open]:duration-250 data-[state=closed]:duration-200',
                     side === 'right' &&
                         'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
                     side === 'left' &&
@@ -46,7 +46,7 @@ const { container: overlayContainer, onInteractOutside } = useOverlayContainer()
                     side === 'bottom' &&
                         'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t',
                     props.class,
-                    overlayContainer && side !== 'bottom' && 'top-[var(--overlay-chrome-height)]',
+                    overlayContainer && side !== 'bottom' && 'top-(--overlay-chrome-height)',
                     overlayContainer && (side === 'right' || side === 'left') && 'h-auto'
                 )
             "

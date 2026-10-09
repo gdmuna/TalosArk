@@ -8,7 +8,7 @@ const open = defineModel<boolean>('open', { required: true });
 </script>
 
 <template>
-    <div class="min-w-0"><slot name="main" /></div>
+    <div v-if="$slots.main" class="min-w-0"><slot name="main" /></div>
     <Sheet v-model:open="open">
         <SheetContent side="right" class="w-full gap-0 p-0 sm:max-w-lg">
             <SheetTitle class="sr-only">{{ title }}</SheetTitle>
