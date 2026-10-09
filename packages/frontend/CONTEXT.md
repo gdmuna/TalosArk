@@ -3,9 +3,9 @@
 ## Source layout
 
 - `layout/`: application shells and cross-business composition, including the command palette, user menu and custom paged sidebar. Sidebar expansion belongs to the primary shell and is passed by props/events; sidebar-page selection belongs to `layout/sidebar/`. Business layouts do not depend on shadcn SidebarProvider or useSidebar.
-- `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the 15 first-level administration skeletons, with private presentation helpers; it does not establish a catch-all management business module. Their navigation, lazy routes and breadcrumb labels share `router/management.ts`.
+- `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the administration skeletons and current-account settings, with private presentation helpers; it does not establish a catch-all management business module. Their navigation, static routes and breadcrumb labels share `router/management.ts`.
 - `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account, workspace and workbench use Pinia and mock adapters; auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
-- `component/`: reusable functional component modules without business semantics: DataTable, Inspector, ScrollSurface, SelectField, StateBadge, route-tab, view-host and view-context. Each component owns its private interaction, state and context, not just Vue files. DataTable internals are organized under `control/`, `interaction/`, `layout/` and `model/`.
+- `component/`: reusable functional component modules without business semantics: DataTable, Inspector, ScrollSurface, SelectField, StateBadge, breadcrumb, route-tab, view-host and view-context. Each component owns its private interaction, state and context, not just Vue files. DataTable internals are organized under `control/`, `interaction/`, `layout/` and `model/`.
 - `platform/`: environment mechanisms: navigation, HTTP execution and task scheduling. HTTP owns retry, cancellation, validated response decoding and an authentication barrier; `module/auth` owns session credentials and the actual refresh adapter. Platform code never imports a business module.
 - `shared/`: business-free leaves: `asset/`, `util/` and headless browser contracts. The overlay-container contract is shared by primitives and shells without depending on either.
 - `ui/`: shadcn-vue primitives only; no TalosArk business semantics.
@@ -33,11 +33,11 @@ Update imports, generator alias values and architecture rules together when movi
 
 - `main`, `App`, `router`, `layout` and `page` compose module and component public entries, platform, shared and ui.
 - `module` may use component, platform, shared and ui. The approved cross-business dependency is `workbench -> workspace`, through the workspace public entry.
-- `component` may use ui, shared and platform. Approved cross-component dependencies are `data-table -> scroll-surface/select-field`, `route-tab -> scroll-surface/view-context` and `view-host -> scroll-surface/view-context`. `view-context` does not depend on its consumers.
+- `component` may use ui, shared and platform. Approved cross-component dependencies are `data-table -> inspector/scroll-surface/select-field`, `breadcrumb -> view-context`, `route-tab -> scroll-surface/view-context` and `view-host -> scroll-surface/view-context`. `view-context` does not depend on its consumers.
 - `platform` may use shared. `ui` may use shared. `shared` must not depend on higher layers.
 - Within a module, component or platform owner, use relative implementation imports, not its own public barrel. Consumers use explicit `index.ts` entries; module `ui/index.ts` and `route.ts` are separate public entries. The approved cross-platform dependency is `http -> task`. Do not aggregate views or mocks into the non-visual module index.
 - Module models depend on `data/source.ts`, not concrete adapters. `data/api.ts` owns endpoint paths, transport policies, response decoding and wire mappings, never local session/store writes. Where needed, a small module `factory.ts` composes an adapter with its model without taking over business rules. A private credential runtime belongs in `model/`; Pinia is used when a module owns shared observable view state, not just to make directory trees identical.
-- Keep the workbench route views lazy through `module/workbench/route.ts`. Store IDs, provider keys, scope disposal, component APIs and business state transitions are not changed by directory migrations.
+- All route components use static imports, including the workbench public `module/workbench/route.ts` entry. Do not reintroduce route lazy loading. Store IDs, provider keys, scope disposal, component APIs and business state transitions are not changed by directory migrations.
 
 `script/eslint-architecture.mjs`, registered in the root ESLint configuration, enforces these boundaries for resolved alias/relative imports, re-exports, type imports and dynamic imports. Missing modules remain TypeScript errors, not lint exemptions. UI generators use `shared/util/cn` and `shared/browser`, not the retired shared composables or lib trees.
 
@@ -51,6 +51,12 @@ Only the OIDC start/callback endpoints have a complete backend contract today. S
 
 Administration skeletons use the current workspace store only for known organization/workspace identity. Other records and settings remain unloaded; counters and fields do not invent values. Write actions are disabled. Existing workspace-switcher create/join behavior is unchanged. Design-backed local views use the private `page/management/useManagementView.ts` helper and `ManagementViewNav`, with query-backed history rather than new primary routes. Personal notification preferences retain current-account context, separate from organization policy. `ManagementPage` keeps page-level navigation outside the body scroll owner, matching the workbench bar's stable height and insets. Only the body content group uses centered table, form or wide layouts; responsive inner grids use container width. Integration detail navigation stays local to its detail region. Administration navigation is not a permission boundary; authorization and real configuration loading belong to later backend-connected business slices. See `docs/design/management-skeleton.md` for scope and design references.
 
+Account Settings is an uncategorized top management entry. Its profile and personal
+notification views use the existing current-account context. Profile editing
+retains `account.updateDisplayName` and its mock data source; notification writes
+remain disabled until loading and API contracts exist. The header settings button
+and user menu route here instead of maintaining a second profile Dialog.
+
 The user approved removal of the unused legacy `shared/api` adapters. Their missing-schema source errors are gone, but old tests still reference retired API paths and previously removed stores/pages/schemas. Do not repair this with compatibility stubs, placeholder types, `any`, or wider compiler exclusions. See `docs/reviews/frontend-api-platform-2026-10-08.md` for the current design and verification limits; the earlier migration record remains historical.
 
 ## Current iteration policy
@@ -59,11 +65,56 @@ Resource skeletons live in `page/material`, `page/inventory` and `page/equipment
 with object workspaces in each owner's `detail/`. `page/resource/` shares only
 application-level presentation and scoped resource-summary composition; it is not
 a business module or an API contract. `router/resource.ts` owns domain navigation
-and lazy routes. Domain tabs stay outside the body scroll owner; object routes
-instead own local query-backed views below their object header. Only already-known
+and static routes. Domain tabs stay outside the body scroll owner. Object routes
+use `ResourceDetailPage`: the object header and local query-backed navigation share
+a full-width top region outside the body scroll owner. Each body composition sets
+its intrinsic width and is centered with margins, without moving the top region.
+`component/breadcrumb` combines provider-owned layers, labels and actions; the
+shell renders them without inferring business routes. Resource pages provide list
+return URLs, searchable active-workspace record pickers and deep-page ancestors;
+local view navigation supplies the final level. `platform/navigation` remembers
+the last complete URL per visited path for the current application session.
+It also records an entry's origin URL, page label and browser-history position in
+history state. Object-header quick returns use that origin, including after local
+view changes and refresh; direct URL entries fall back to their declared parent.
+List breadcrumbs remain catalog links rather than adopting the quick-return target.
+Record-picker switches preserve the original entry context.
+Route pages switch immediately without whole-page fade or translation. Keyed
+resource outlets replace record content and breadcrumb providers together, without
+retaining an outgoing page. Sidebar, overlay and drag-reorder motion remain local
+to those components.
+Resource list search uses `q`, preserving other query parameters on updates.
+`platform/navigation` distinguishes persistent query state from one-shot commands.
+Resource, task, approval, exception and storage-selection entry commands use
+`useQueryCommand`: replace the current URL before executing, remove only the
+consumed key, and retain other query values, hash and history metadata. Removing
+a command does not close the local inspector. Workspace changes clear selection.
+OIDC callbacks capture and consume `code/state` before the request, then replace
+the callback entry on success. Do not replay consumed commands on Back or refresh.
+DataTable identity cells open caller-supplied previews or its column-based default
+Sheet. Callers own the primary detail action and route to full details when available.
+Row menus include every registered action, including primary actions.
+DataTable reserves three complete record rows by default (`minRows`), measured
+from the first visible record and retained for the empty state. An explicit
+`minHeight` is rounded up to complete rows after reserving header/footer/scrollbar
+space. Empty content fills the entire record viewport. Header and footer remain
+outside the vertical scroll owner.
+Only already-known
 active-workspace resource summaries are displayed. Other fields stay unloaded and
 write actions disabled. Professional culture/Bank/Batch skeletons do not expand
 backend MVP scope. See `docs/design/resource-skeleton.md`.
+
+Material now has only Overview and List as domain-level pages. Product branches
+are Consumable, Chemical Reagent and Biological Material; Culture is a capability
+within Biological Material, not a synonym for Biological Reagent or a separate
+domain page. Culture and lineage navigation requires an explicit biological
+material summary with `supportsCulture`; media, serum and plasmids do not receive
+these entries merely because they are biological. `Resource.material` is an
+optional resource-summary facet provided by the current mock adapter, not a new
+backend contract or a hierarchy for the workspace's flat MaterialType. The two
+material pages own their compositions and the private `useMaterialSummary`
+projection. Unknown QC, activity and stock-balance fields remain unloaded. See
+`docs/design/material-page-redesign.md` for naming, data and reuse boundaries.
 
 The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
