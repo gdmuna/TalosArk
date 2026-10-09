@@ -3,10 +3,9 @@ import { computed, ref, shallowRef, useTemplateRef } from 'vue';
 import { useRouter } from 'vue-router';
 import { managementPath } from '@/router/management';
 import { unrefElement } from '@vueuse/core';
-import { Box, ChevronDown, ChevronRight, Info, ListTodo, LogOut, Mail, UserRound, UsersRound } from '@lucide/vue';
+import { Box, ChevronDown, ChevronRight, Info, ListTodo, LogOut, UserRound, UsersRound } from '@lucide/vue';
 import { WorkspaceSwitcher } from '@/module/workspace/ui';
 import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import {
     DropdownMenu,
@@ -30,10 +29,7 @@ const aboutTitle = useTemplateRef('aboutTitle');
 const menuOpen = ref(false);
 const workspaceOpen = ref(false);
 const workspacePending = ref(false);
-const profileOpen = ref(false);
 const aboutOpen = ref(false);
-const displayName = ref('');
-const error = ref('');
 const returnFocus = shallowRef<HTMLElement | null>(null);
 const initial = computed(() => account.profile?.displayName.slice(0, 1).toUpperCase() ?? '');
 
@@ -42,10 +38,7 @@ function captureFocus() {
     returnFocus.value = target instanceof HTMLElement ? target : null;
 }
 function openSettings() {
-    captureFocus();
-    displayName.value = account.profile?.displayName ?? '';
-    error.value = '';
-    profileOpen.value = true;
+    void router.push(`${managementPath}/account-setting`);
 }
 function openAbout() {
     captureFocus();
@@ -61,7 +54,7 @@ function onMenuClose(event: Event) {
         event.preventDefault();
         workspacePending.value = false;
         workspaceOpen.value = true;
-    } else if (profileOpen.value || aboutOpen.value || workspaceOpen.value) {
+    } else if (aboutOpen.value || workspaceOpen.value) {
         event.preventDefault();
     }
 }
@@ -72,10 +65,6 @@ function restoreFocus(event: Event) {
 function focusAbout(event: Event) {
     event.preventDefault();
     unrefElement(aboutTitle)?.focus();
-}
-async function saveProfile() {
-    error.value = await account.updateDisplayName(displayName.value);
-    if (!error.value) profileOpen.value = false;
 }
 function signOut() {
     authApi.clearLocalSession();
@@ -163,55 +152,6 @@ defineExpose({ openSettings });
         @close-auto-focus="restoreFocus"
         @manage="router.push(`${managementPath}/workspace`)"
     />
-
-    <Dialog v-model:open="profileOpen">
-        <DialogContent class="sm:max-w-md" @close-auto-focus="restoreFocus">
-            <DialogTitle>账户设置</DialogTitle>
-            <DialogDescription>{{ account.profile?.email }}</DialogDescription>
-            <form class="space-y-5" @submit.prevent="saveProfile">
-                <div class="flex items-center gap-3 border-b pb-4">
-                    <span
-                        class="flex size-12 items-center justify-center rounded-full bg-primary-soft text-lg font-medium text-primary-soft-foreground"
-                        aria-hidden="true"
-                    >
-                        {{ initial }}
-                    </span>
-                    <span class="font-medium">{{ account.profile?.displayName }}</span>
-                </div>
-                <div class="space-y-2">
-                    <label for="account-display-name" class="text-sm font-medium">显示名称</label>
-                    <Input
-                        id="account-display-name"
-                        v-model="displayName"
-                        required
-                        maxlength="40"
-                        autocomplete="nickname"
-                    />
-                </div>
-                <div class="space-y-2">
-                    <label for="account-email" class="text-sm font-medium">邮箱</label>
-                    <div class="relative">
-                        <Mail
-                            class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                            aria-hidden="true"
-                        />
-                        <Input
-                            id="account-email"
-                            :model-value="account.profile?.email"
-                            type="email"
-                            readonly
-                            class="bg-muted pl-9 text-muted-foreground"
-                        />
-                    </div>
-                </div>
-                <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
-                <div class="flex justify-end gap-2 border-t pt-4">
-                    <Button type="button" variant="outline" @click="profileOpen = false">取消</Button>
-                    <Button type="submit" :disabled="account.busy">保存资料</Button>
-                </div>
-            </form>
-        </DialogContent>
-    </Dialog>
 
     <Dialog v-model:open="aboutOpen">
         <DialogContent class="sm:max-w-sm" @open-auto-focus="focusAbout" @close-auto-focus="restoreFocus">

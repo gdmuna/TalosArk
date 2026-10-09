@@ -145,6 +145,7 @@ async function switchPage(value: typeof page.value) {
                         <nav aria-label="管理中心" class="m-2 space-y-3">
                             <div v-for="group in managementNavigation" :key="group.label" class="space-y-0.5">
                                 <div
+                                    v-if="group.label"
                                     class="grid transition-[grid-template-rows,opacity] duration-(--sidebar-transition-duration) ease-standard"
                                     :class="collapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'"
                                     :aria-hidden="collapsed"
