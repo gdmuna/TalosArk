@@ -162,7 +162,7 @@ const pages: Result[] = [
     },
     ...(['material', 'inventory', 'equipment'] as ResourceDomain[]).flatMap((domain) => {
         const context = {
-            material: { label: '材料', icon: FlaskConical, keywords: '培养基 细胞 试剂' },
+            material: { label: '材料', icon: FlaskConical, keywords: '耗材 化学试剂 生物材料 培养基 细胞' },
             inventory: { label: '库存', icon: PackageSearch, keywords: '台账 库存查询 存储' },
             equipment: { label: '设备', icon: Monitor, keywords: '冰箱 离心机' },
         }[domain];

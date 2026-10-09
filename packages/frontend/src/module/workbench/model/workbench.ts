@@ -8,6 +8,12 @@ export type Resource = {
     workspaceId: string;
     description: string;
     status: string;
+    // Optional material facets in the resource read model, not a MaterialType API enum.
+    material?: {
+        branch: 'consumable' | 'chemical' | 'biological';
+        type: string;
+        supportsCulture: boolean;
+    };
 };
 export type Task = {
     id: string;

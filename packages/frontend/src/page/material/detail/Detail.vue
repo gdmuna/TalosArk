@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { FlaskConical, Plus, Pencil, ZoomIn, ZoomOut, Scan, ArrowUpRight } from '@lucide/vue';
+import { FlaskConical, Plus, Pencil, ZoomIn, ZoomOut, Scan, Eye } from '@lucide/vue';
 import { useWorkbenchStore, stateTone, type Resource } from '@/module/workbench';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
 import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import ResourcePreview from '../../resource/ResourcePreview.vue';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceViewNav from '../../resource/ResourceViewNav.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
@@ -16,11 +18,20 @@ import ResourceTable from '../../resource/ResourceTable.vue';
 import ResourceFile from '../../resource/ResourceFile.vue';
 import { useResource } from '../../resource/useResource';
 import { useResourceView } from '../../resource/useResourceView';
+import { materialBranch } from '../useMaterialSummary';
 
 const { resource, resourceId, workspace } = useResource('材料定义');
 const router = useRouter();
 const workbench = useWorkbenchStore();
-const tabs = [
+const selectedInstance = ref<Resource | null>(null);
+const { returnTo } = useResourceBreadcrumb({
+    domain: 'material',
+    kind: '材料定义',
+    listLabel: '材料列表',
+    resource,
+    resourceId,
+});
+const allTabs = [
     { id: 'overview', label: '概览' },
     { id: 'instance', label: '实例与库存' },
     { id: 'culture', label: '培养' },
@@ -29,7 +40,14 @@ const tabs = [
     { id: 'file', label: '文件' },
     { id: 'activity', label: '动态' },
 ];
-const { view, select } = useResourceView(tabs.map((tab) => tab.id));
+const supportsCulture = computed(
+    () => resource.value?.material?.branch === 'biological' && resource.value.material.supportsCulture
+);
+const tabs = computed(() => allTabs.filter((tab) => !['culture', 'lineage'].includes(tab.id) || supportsCulture.value));
+const { view: requestedView, select } = useResourceView(allTabs.map((tab) => tab.id));
+const view = computed(() =>
+    tabs.value.some((tab) => tab.id === requestedView.value) ? requestedView.value : 'overview'
+);
 const instances = computed(() =>
     resource.value
         ? workbench.currentResources.filter((item) => item.kind === '库存实例' && item.materialId === resourceId.value)
@@ -44,39 +62,43 @@ const instanceColumns: DataTableColumn<Resource>[] = [
     { id: 'received', label: '入库时间', size: 180, value: () => '—' },
 ];
 function openInstance(item: Resource) {
-    return router.push(`/main/inventory/detail/${encodeURIComponent(item.id)}`);
+    router.push(`/main/inventory/detail/${encodeURIComponent(item.id)}`);
 }
 </script>
 <template>
-    <ResourcePage label="材料详情">
-        <ResourceObjectHeader
-            :id="resourceId"
-            :title="resource?.name ?? '材料详情'"
-            :icon="FlaskConical"
-            :status="resource?.status"
-            back-to="/main/material/list"
-            back-label="材料列表"
-        >
-            <Button variant="outline" disabled>
-                <Pencil aria-hidden="true" />
-                编辑材料
-            </Button>
-            <Button disabled>
-                <Plus aria-hidden="true" />
-                登记实例
-            </Button>
-        </ResourceObjectHeader>
+    <ResourceDetailPage label="材料详情">
+        <template #header>
+            <ResourceObjectHeader
+                :id="resourceId"
+                :title="resource?.name ?? '材料详情'"
+                :icon="FlaskConical"
+                :status="resource?.status"
+                :back-to="returnTo"
+                back-label="材料列表"
+            >
+                <Button variant="outline" disabled>
+                    <Pencil aria-hidden="true" />
+                    编辑材料
+                </Button>
+                <Button disabled>
+                    <Plus aria-hidden="true" />
+                    登记实例
+                </Button>
+            </ResourceObjectHeader>
+            <ResourceViewNav v-if="resource" :items="tabs" :active="view" label="材料详情视图" @select="select" />
+        </template>
         <ResourceEmpty v-if="!resource" text="当前工作区未找到该材料" />
         <template v-else>
-            <ResourceViewNav :items="tabs" :active="view" label="材料详情视图" @select="select" />
             <template v-if="view === 'overview'">
                 <ResourceSection title="基本信息">
                     <ResourceFactList
                         :fields="[
                             { label: '材料名称', value: resource.name },
-                            { label: '材料类型' },
-                            { label: '来源' },
-                            { label: '物种' },
+                            { label: '业务分支', value: materialBranch(resource)?.label },
+                            { label: '材料类型', value: resource.material?.type },
+                            { label: '制造商' },
+                            { label: '目录编号' },
+                            { label: '计量单位' },
                             { label: '负责人' },
                             { label: '工作区', value: workspace.current?.name },
                             { label: '创建时间' },
@@ -97,10 +119,10 @@ function openInstance(item: Resource) {
                     </ResourceSection>
                     <ResourceSection title="近期动态"><ResourceEmpty text="材料动态未加载" /></ResourceSection>
                 </div>
-                <ResourceSection title="批次与 Cell Bank">
+                <ResourceSection :title="supportsCulture ? '批次与 Cell Bank' : '批次'">
                     <ResourceTable
                         :fields="[
-                            ['name', 'Cell Bank / Batch', 260],
+                            ['name', supportsCulture ? 'Cell Bank / Batch' : '批次', 260],
                             ['type', '类型', 120],
                             ['quality', '检验状态', 130],
                             ['available', '可用实例', 120],
@@ -111,15 +133,34 @@ function openInstance(item: Resource) {
             </template>
             <template v-else-if="view === 'instance'">
                 <ResourceSection title="库存实例">
-                    <DataTable :data="instances" :columns="instanceColumns" empty-text="暂无关联的库存实例摘要">
+                    <DataTable
+                        :data="instances"
+                        :columns="instanceColumns"
+                        :preview="
+                            (row) => {
+                                selectedInstance = row;
+                            }
+                        "
+                        :actions="[
+                            { id: 'detail', label: '详情', icon: Eye, primary: true, run: openInstance },
+                            {
+                                id: 'preview',
+                                label: '预览',
+                                icon: Eye,
+                                run: (row) => {
+                                    selectedInstance = row;
+                                },
+                            },
+                        ]"
+                        empty-text="暂无关联的库存实例摘要"
+                    >
                         <template #cell-name="{ row }">
                             <Button
                                 variant="ghost"
                                 class="group h-auto w-full justify-start whitespace-normal p-0 text-left font-medium hover:bg-transparent after:absolute after:inset-0"
-                                @click="openInstance(row)"
+                                @click="selectedInstance = row"
                             >
                                 <span class="group-hover:underline group-focus-visible:underline">{{ row.name }}</span>
-                                <ArrowUpRight class="shrink-0" aria-hidden="true" />
                             </Button>
                         </template>
                         <template #cell-status="{ row }">
@@ -183,7 +224,9 @@ function openInstance(item: Resource) {
                             </Button>
                         </div>
                     </template>
-                    <div class="flex min-h-[420px] items-center justify-center rounded-md border bg-muted/20">
+                    <div
+                        class="flex min-h-[420px] w-[min(100cqw,72rem)] items-center justify-center rounded-md border bg-muted/20"
+                    >
                         <ResourceEmpty text="谱系节点与关系未加载" />
                     </div>
                 </ResourceSection>
@@ -222,5 +265,11 @@ function openInstance(item: Resource) {
                 />
             </ResourceSection>
         </template>
-    </ResourcePage>
+        <ResourcePreview
+            v-model="selectedInstance"
+            :detail-to="
+                selectedInstance ? `/main/inventory/detail/${encodeURIComponent(selectedInstance.id)}` : undefined
+            "
+        />
+    </ResourceDetailPage>
 </template>

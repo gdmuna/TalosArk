@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Layers, Plus } from '@lucide/vue';
 import { Button } from '@/ui/button';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceViewNav from '../../resource/ResourceViewNav.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
@@ -23,24 +24,34 @@ const tabs = [
     { id: 'file', label: '文件' },
 ];
 const { view, select } = useResourceView(tabs.map((tab) => tab.id));
+useResourceBreadcrumb({
+    domain: 'material',
+    kind: '材料定义',
+    listLabel: '材料列表',
+    resource,
+    resourceId,
+    parents: () => [{ id: 'bank', label: 'Cell Bank' }],
+});
 </script>
 <template>
-    <ResourcePage label="Cell Bank">
-        <ResourceObjectHeader
-            :id="bankId"
-            title="Cell Bank"
-            :icon="Layers"
-            :back-to="`/main/material/detail/${encodeURIComponent(resourceId)}`"
-            back-label="材料详情"
-        >
-            <Button disabled>
-                <Plus aria-hidden="true" />
-                新建 Batch
-            </Button>
-        </ResourceObjectHeader>
+    <ResourceDetailPage label="Cell Bank">
+        <template #header>
+            <ResourceObjectHeader
+                :id="bankId"
+                title="Cell Bank"
+                :icon="Layers"
+                :back-to="`/main/material/detail/${encodeURIComponent(resourceId)}`"
+                back-label="材料详情"
+            >
+                <Button disabled>
+                    <Plus aria-hidden="true" />
+                    新建 Batch
+                </Button>
+            </ResourceObjectHeader>
+            <ResourceViewNav v-if="resource" :items="tabs" :active="view" label="Cell Bank 视图" @select="select" />
+        </template>
         <ResourceEmpty v-if="!resource" text="当前工作区未找到所属材料" />
         <template v-else>
-            <ResourceViewNav :items="tabs" :active="view" label="Cell Bank 视图" @select="select" />
             <template v-if="view === 'overview'">
                 <ResourceSection title="Cell Bank 信息">
                     <ResourceFactList
@@ -92,5 +103,5 @@ const { view, select } = useResourceView(tabs.map((tab) => tab.id));
             </ResourceSection>
             <ResourceFile v-else />
         </template>
-    </ResourcePage>
+    </ResourceDetailPage>
 </template>

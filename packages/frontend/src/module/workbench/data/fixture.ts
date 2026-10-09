@@ -22,6 +22,7 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
             workspaceId: 'wang',
             description: '人源宫颈癌细胞系 · 细胞培养室',
             status: '可用',
+            material: { branch: 'biological', type: '细胞系', supportsCulture: true },
         },
         {
             id: 'MAT-000057',
@@ -30,6 +31,7 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
             workspaceId: 'wang',
             description: '细胞培养用培养基 · 4 °C 保存',
             status: '可用',
+            material: { branch: 'biological', type: '培养基', supportsCulture: false },
         },
         {
             id: 'EQ-000028',
@@ -54,6 +56,7 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
             workspaceId: 'wang',
             description: '胎牛血清 · 细胞培养试剂',
             status: '可用',
+            material: { branch: 'biological', type: '血清', supportsCulture: false },
         },
         {
             id: 'MAT-000125',
@@ -62,6 +65,7 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
             workspaceId: 'wang',
             description: '人源肺癌细胞系 · 细胞培养室',
             status: '可用',
+            material: { branch: 'biological', type: '细胞系', supportsCulture: true },
         },
         {
             id: 'EQ-000015',
@@ -78,6 +82,7 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
             workspaceId: 'wang',
             description: 'Trypsin-EDTA · 细胞消化试剂',
             status: '可用',
+            material: { branch: 'biological', type: '酶', supportsCulture: false },
         },
         {
             id: 'MAT-000015',
@@ -85,6 +90,34 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
             kind: '材料定义',
             workspaceId: 'li',
             description: '细胞与分子生物学 · 质粒库',
+            status: '可用',
+            material: { branch: 'biological', type: '质粒', supportsCulture: false },
+        },
+        {
+            id: 'MAT-DEMO-001',
+            name: '200 μL 移液器吸头',
+            kind: '材料定义',
+            workspaceId: 'wang',
+            description: '耗材示例 · 移液耗材',
+            status: '可用',
+            material: { branch: 'consumable', type: '移液耗材', supportsCulture: false },
+        },
+        {
+            id: 'MAT-DEMO-002',
+            name: '乙醇',
+            kind: '材料定义',
+            workspaceId: 'wang',
+            description: '化学试剂示例 · 溶剂',
+            status: '可用',
+            material: { branch: 'chemical', type: '溶剂', supportsCulture: false },
+        },
+        {
+            id: 'INV-DEMO-001',
+            materialId: 'MAT-DEMO-001',
+            name: '200 μL 移液器吸头 · 库存包装',
+            kind: '库存实例',
+            workspaceId: 'wang',
+            description: '耗材示例 · 库存包装',
             status: '可用',
         },
         {

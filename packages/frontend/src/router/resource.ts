@@ -1,11 +1,28 @@
 import type { RouteRecordRaw } from 'vue-router';
+import MaterialOverview from '@/page/material/Overview.vue';
+import MaterialList from '@/page/material/List.vue';
+import MaterialDetail from '@/page/material/detail/Detail.vue';
+import MaterialBank from '@/page/material/detail/Bank.vue';
+import MaterialBatch from '@/page/material/detail/Batch.vue';
+import InventoryOverview from '@/page/inventory/Overview.vue';
+import InventoryLedger from '@/page/inventory/Ledger.vue';
+import StorageTopology from '@/page/inventory/StorageTopology.vue';
+import Stocktake from '@/page/inventory/Stocktake.vue';
+import InventoryAlert from '@/page/inventory/Alert.vue';
+import Transaction from '@/page/inventory/Transaction.vue';
+import InventoryDetail from '@/page/inventory/detail/Detail.vue';
+import StocktakeExecution from '@/page/inventory/detail/StocktakeExecution.vue';
+import EquipmentOverview from '@/page/equipment/Overview.vue';
+import EquipmentList from '@/page/equipment/List.vue';
+import EquipmentAlert from '@/page/equipment/Alert.vue';
+import EquipmentDetail from '@/page/equipment/detail/Detail.vue';
+import EquipmentConsole from '@/page/equipment/detail/Console.vue';
 
 export type ResourceDomain = 'material' | 'inventory' | 'equipment';
 export const resourceNavigation = {
     material: [
         { path: 'overview', label: '概览' },
         { path: 'list', label: '材料列表' },
-        { path: 'culture', label: '培养物' },
     ],
     inventory: [
         { path: 'overview', label: '概览' },
@@ -43,47 +60,26 @@ function detail(
 }
 
 export const materialRoutes: RouteRecordRaw[] = [
-    page('material', 'overview', () => import('@/page/material/Overview.vue')),
-    page('material', 'list', () => import('@/page/material/List.vue')),
-    page('material', 'culture', () => import('@/page/material/Culture.vue')),
-    detail('detail/:resourceId', '材料详情', () => import('@/page/material/detail/Detail.vue')),
-    detail(
-        'detail/:resourceId/bank/:bankId',
-        'Cell Bank',
-        () => import('@/page/material/detail/Bank.vue')
-    ),
-    detail(
-        'detail/:resourceId/bank/:bankId/batch/:batchId',
-        'Batch',
-        () => import('@/page/material/detail/Batch.vue')
-    ),
+    page('material', 'overview', MaterialOverview),
+    page('material', 'list', MaterialList),
+    detail('detail/:resourceId', '材料详情', MaterialDetail),
+    detail('detail/:resourceId/bank/:bankId', 'Cell Bank', MaterialBank),
+    detail('detail/:resourceId/bank/:bankId/batch/:batchId', 'Batch', MaterialBatch),
 ];
 export const inventoryRoutes: RouteRecordRaw[] = [
-    page('inventory', 'overview', () => import('@/page/inventory/Overview.vue')),
-    page('inventory', 'ledger', () => import('@/page/inventory/Ledger.vue')),
-    page('inventory', 'storage-topology', () => import('@/page/inventory/StorageTopology.vue')),
-    page('inventory', 'stocktake', () => import('@/page/inventory/Stocktake.vue')),
-    page('inventory', 'alert', () => import('@/page/inventory/Alert.vue')),
-    page('inventory', 'transaction', () => import('@/page/inventory/Transaction.vue')),
-    detail(
-        'detail/:resourceId',
-        '库存实例详情',
-        () => import('@/page/inventory/detail/Detail.vue')
-    ),
-    detail(
-        'stocktake/:taskId',
-        '盘点执行',
-        () => import('@/page/inventory/detail/StocktakeExecution.vue')
-    ),
+    page('inventory', 'overview', InventoryOverview),
+    page('inventory', 'ledger', InventoryLedger),
+    page('inventory', 'storage-topology', StorageTopology),
+    page('inventory', 'stocktake', Stocktake),
+    page('inventory', 'alert', InventoryAlert),
+    page('inventory', 'transaction', Transaction),
+    detail('detail/:resourceId', '库存实例详情', InventoryDetail),
+    detail('stocktake/:taskId', '盘点执行', StocktakeExecution),
 ];
 export const equipmentRoutes: RouteRecordRaw[] = [
-    page('equipment', 'overview', () => import('@/page/equipment/Overview.vue')),
-    page('equipment', 'list', () => import('@/page/equipment/List.vue')),
-    page('equipment', 'alert', () => import('@/page/equipment/Alert.vue')),
-    detail('detail/:resourceId', '设备详情', () => import('@/page/equipment/detail/Detail.vue')),
-    detail(
-        'detail/:resourceId/console',
-        '设备操作台',
-        () => import('@/page/equipment/detail/Console.vue')
-    ),
+    page('equipment', 'overview', EquipmentOverview),
+    page('equipment', 'list', EquipmentList),
+    page('equipment', 'alert', EquipmentAlert),
+    detail('detail/:resourceId', '设备详情', EquipmentDetail),
+    detail('detail/:resourceId/console', '设备操作台', EquipmentConsole),
 ];

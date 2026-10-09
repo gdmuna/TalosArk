@@ -2,7 +2,8 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Package } from '@lucide/vue';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
 import ResourceFactList from '../../resource/ResourceFactList.vue';
@@ -13,16 +14,33 @@ const { resource, resourceId } = useResource('材料定义');
 const route = useRoute();
 const bankId = computed(() => String(route.params.bankId));
 const batchId = computed(() => String(route.params.batchId));
+useResourceBreadcrumb({
+    domain: 'material',
+    kind: '材料定义',
+    listLabel: '材料列表',
+    resource,
+    resourceId,
+    parents: () => [
+        {
+            id: 'bank',
+            label: 'Cell Bank',
+            to: `/main/material/detail/${encodeURIComponent(resourceId.value)}/bank/${encodeURIComponent(bankId.value)}?view=batch`,
+        },
+        { id: 'batch', label: 'Batch' },
+    ],
+});
 </script>
 <template>
-    <ResourcePage label="Batch 详情">
-        <ResourceObjectHeader
-            :id="batchId"
-            title="Batch"
-            :icon="Package"
-            :back-to="`/main/material/detail/${encodeURIComponent(resourceId)}/bank/${encodeURIComponent(bankId)}?view=batch`"
-            back-label="Cell Bank"
-        />
+    <ResourceDetailPage label="Batch 详情">
+        <template #header>
+            <ResourceObjectHeader
+                :id="batchId"
+                title="Batch"
+                :icon="Package"
+                :back-to="`/main/material/detail/${encodeURIComponent(resourceId)}/bank/${encodeURIComponent(bankId)}?view=batch`"
+                back-label="Cell Bank"
+            />
+        </template>
         <ResourceEmpty v-if="!resource" text="当前工作区未找到所属材料" />
         <template v-else>
             <ResourceSection title="批次信息">
@@ -60,5 +78,5 @@ const batchId = computed(() => String(route.params.batchId));
                 />
             </ResourceSection>
         </template>
-    </ResourcePage>
+    </ResourceDetailPage>
 </template>
