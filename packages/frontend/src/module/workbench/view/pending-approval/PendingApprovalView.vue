@@ -13,7 +13,7 @@ import {
     ExternalLink,
     Undo2,
 } from '@lucide/vue';
-import { useRoute } from 'vue-router';
+import { useQueryCommand } from '@/platform/navigation';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import { useWorkspaceStore } from '@/module/workspace';
@@ -31,8 +31,7 @@ import WorkbenchSummary from '../../ui/WorkbenchSummary.vue';
 const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
 const filters = ref<Record<string, string[]>>({ status: ['待审批'] });
-const route = useRoute();
-const selectedId = ref<string | null>(typeof route.query.approval === 'string' ? route.query.approval : null);
+const selectedId = ref<string | null>(null);
 const checked = ref<string[]>([]);
 const confirmBatch = ref(false);
 const error = ref('');
@@ -166,16 +165,10 @@ const bulkActions: DataTableBulkAction<Approval>[] = [
         },
     },
 ];
-watch(
-    () => route.query.approval,
-    (id) => {
-        if (typeof id === 'string') {
-            selectedId.value = id;
-            filters.value = {};
-        }
-    },
-    { immediate: true }
-);
+useQueryCommand('approval', (id) => {
+    selectedId.value = id;
+    filters.value = {};
+});
 const selected = computed(() => workbench.currentApprovals.find((item) => item.id === selectedId.value));
 const inspectorOpen = computed({
     get: () => !!selected.value,
@@ -231,6 +224,11 @@ watch(
                         :filter-fields="filterFields"
                         :search-text="searchText"
                         :active-id="selectedId"
+                        :preview="
+                            (row) => {
+                                selectedId = row.id;
+                            }
+                        "
                         :initial-sorting="[{ id: 'createdAt', desc: true }]"
                         :selectable="(item) => item.status === '待审批'"
                         search-label="搜索申请、对象或申请人"

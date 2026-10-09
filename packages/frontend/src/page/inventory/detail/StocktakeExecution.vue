@@ -5,7 +5,9 @@ import { ClipboardCheck, ScanLine, Save, Check } from '@lucide/vue';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import { provideBreadcrumbs } from '@/component/breadcrumb';
+import { useNavigationStore } from '@/platform/navigation';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceViewNav from '../../resource/ResourceViewNav.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
@@ -15,6 +17,12 @@ import ResourceEmpty from '../../resource/ResourceEmpty.vue';
 import { useResourceView } from '../../resource/useResourceView';
 const route = useRoute();
 const taskId = computed(() => String(route.params.taskId));
+const navigation = useNavigationStore();
+const returnTo = computed(() => navigation.lastLocation('/main/inventory/stocktake'));
+provideBreadcrumbs(() => [
+    { id: 'stocktake-list', label: '盘点', to: returnTo.value },
+    { id: 'stocktake-task', label: '盘点任务' },
+]);
 const tabs = [
     { id: 'prepare', label: '准备' },
     { id: 'count', label: '盘点' },
@@ -24,24 +32,26 @@ const tabs = [
 const { view, select } = useResourceView(tabs.map((tab) => tab.id));
 </script>
 <template>
-    <ResourcePage label="盘点执行">
-        <ResourceObjectHeader
-            :id="taskId"
-            title="盘点任务"
-            :icon="ClipboardCheck"
-            back-to="/main/inventory/stocktake"
-            back-label="盘点列表"
-        >
-            <Button variant="outline" disabled>
-                <Save aria-hidden="true" />
-                保存
-            </Button>
-            <Button disabled>
-                <Check aria-hidden="true" />
-                提交复核
-            </Button>
-        </ResourceObjectHeader>
-        <ResourceViewNav :items="tabs" :active="view" label="盘点阶段视图" @select="select" />
+    <ResourceDetailPage label="盘点执行">
+        <template #header>
+            <ResourceObjectHeader
+                :id="taskId"
+                title="盘点任务"
+                :icon="ClipboardCheck"
+                :back-to="returnTo"
+                back-label="盘点列表"
+            >
+                <Button variant="outline" disabled>
+                    <Save aria-hidden="true" />
+                    保存
+                </Button>
+                <Button disabled>
+                    <Check aria-hidden="true" />
+                    提交复核
+                </Button>
+            </ResourceObjectHeader>
+            <ResourceViewNav :items="tabs" :active="view" label="盘点阶段视图" @select="select" />
+        </template>
         <ResourceSection title="任务范围">
             <ResourceFactList
                 :fields="[
@@ -114,5 +124,5 @@ const { view, select } = useResourceView(tabs.map((tab) => tab.id));
             />
             <ResourceEmpty text="盘点结果未加载" />
         </ResourceSection>
-    </ResourcePage>
+    </ResourceDetailPage>
 </template>

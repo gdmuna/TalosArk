@@ -2,6 +2,15 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { workbenchRoutes } from '@/module/workbench/route';
 import { managementPath, managementRoutes } from './management';
 import { materialRoutes, inventoryRoutes, equipmentRoutes } from './resource';
+import DesktopAuthShell from '@/layout/shell/DesktopAuthShell.vue';
+import DesktopPrimarySidebarShell from '@/layout/shell/DesktopPrimarySidebarShell.vue';
+import Auth from '@/page/auth/Auth.vue';
+import AuthCallback from '@/page/auth/Auth-Callback.vue';
+import Management from '@/page/management/Management.vue';
+import Workbench from '@/page/workbench/Workbench.vue';
+import Material from '@/page/material/Material.vue';
+import Inventory from '@/page/inventory/Inventory.vue';
+import Equipment from '@/page/equipment/Equipment.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -21,19 +30,19 @@ const routes: RouteRecordRaw[] = [
     },
     {
         path: '/auth',
-        component: () => import('@/layout/shell/DesktopAuthShell.vue'),
+        component: DesktopAuthShell,
         redirect: '/auth/login',
         children: [
             {
                 path: 'login',
-                component: () => import('@/page/auth/Auth.vue'),
+                component: Auth,
                 meta: {
                     defaultTitle: 'login',
                 },
             },
             {
                 path: 'callback',
-                component: () => import('@/page/auth/Auth-Callback.vue'),
+                component: AuthCallback,
                 meta: {
                     defaultTitle: 'callback',
                 },
@@ -42,7 +51,7 @@ const routes: RouteRecordRaw[] = [
     },
     {
         path: '/main',
-        component: () => import('@/layout/shell/DesktopPrimarySidebarShell.vue'),
+        component: DesktopPrimarySidebarShell,
         children: [
             {
                 path: '',
@@ -50,14 +59,14 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'management',
-                component: () => import('@/page/management/Management.vue'),
+                component: Management,
                 redirect: `${managementPath}/overview`,
                 meta: { sectionLabel: '管理中心', sectionPath: managementPath },
                 children: managementRoutes,
             },
             {
                 path: 'workbench',
-                component: () => import('@/page/workbench/Workbench.vue'),
+                component: Workbench,
                 redirect: '/main/workbench/overview',
                 meta: {
                     defaultTitle: 'workbench',
@@ -66,7 +75,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'material',
-                component: () => import('@/page/material/Material.vue'),
+                component: Material,
                 redirect: '/main/material/overview',
                 meta: {
                     defaultTitle: 'material',
@@ -77,7 +86,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'inventory',
-                component: () => import('@/page/inventory/Inventory.vue'),
+                component: Inventory,
                 redirect: '/main/inventory/overview',
                 meta: {
                     defaultTitle: 'inventory',
@@ -88,7 +97,7 @@ const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'equipment',
-                component: () => import('@/page/equipment/Equipment.vue'),
+                component: Equipment,
                 redirect: '/main/equipment/overview',
                 meta: {
                     defaultTitle: 'equipment',

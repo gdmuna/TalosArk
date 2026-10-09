@@ -4,7 +4,8 @@ import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/ui/collapsible';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
 import ResourceFactList from '../../resource/ResourceFactList.vue';
@@ -12,16 +13,26 @@ import ResourceTable from '../../resource/ResourceTable.vue';
 import ResourceEmpty from '../../resource/ResourceEmpty.vue';
 import { useResource } from '../../resource/useResource';
 const { resource, resourceId, workspace } = useResource('设备');
+useResourceBreadcrumb({
+    domain: 'equipment',
+    kind: '设备',
+    listLabel: '设备列表',
+    resource,
+    resourceId,
+    parents: () => [{ id: 'console', label: '操作台' }],
+});
 </script>
 <template>
-    <ResourcePage label="设备操作台">
-        <ResourceObjectHeader
-            :id="resourceId"
-            :title="`${resource?.name ?? '设备'} · 操作台`"
-            :icon="Terminal"
-            :back-to="`/main/equipment/detail/${encodeURIComponent(resourceId)}`"
-            back-label="设备详情"
-        />
+    <ResourceDetailPage label="设备操作台">
+        <template #header>
+            <ResourceObjectHeader
+                :id="resourceId"
+                :title="`${resource?.name ?? '设备'} · 操作台`"
+                :icon="Terminal"
+                :back-to="`/main/equipment/detail/${encodeURIComponent(resourceId)}`"
+                back-label="设备详情"
+            />
+        </template>
         <ResourceEmpty v-if="!resource" text="当前工作区未找到该设备" />
         <template v-else>
             <ResourceSection title="操作上下文">
@@ -84,5 +95,5 @@ const { resource, resourceId, workspace } = useResource('设备');
                 </CollapsibleContent>
             </Collapsible>
         </template>
-    </ResourcePage>
+    </ResourceDetailPage>
 </template>

@@ -41,6 +41,8 @@ export const useUiContextStore = defineStore('ui-contexts', () => {
     const createTabContext = () => register(reactive<TabCustomContextStore>(new Map()));
     const createViewHistory = () => register(reactive(new Map<string, ViewHistoryEntity>()));
     const createSlots = () => register(reactive(new Map<string, SlotContextEntity[]>()));
+    const createBreadcrumbLayers = <T>() =>
+        register({ layers: shallowReactive(new Map<symbol, T>()) });
     return {
         scopes,
         createRouteTabs,
@@ -49,5 +51,6 @@ export const useUiContextStore = defineStore('ui-contexts', () => {
         createTabContext,
         createViewHistory,
         createSlots,
+        createBreadcrumbLayers,
     };
 });

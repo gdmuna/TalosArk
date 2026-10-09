@@ -2,7 +2,8 @@
 import { useRouter } from 'vue-router';
 import { Monitor, Terminal, Pencil, Plus, Wrench } from '@lucide/vue';
 import { Button } from '@/ui/button';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceViewNav from '../../resource/ResourceViewNav.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
@@ -13,6 +14,13 @@ import { useResource } from '../../resource/useResource';
 import { useResourceView } from '../../resource/useResourceView';
 const { resource, resourceId, workspace } = useResource('设备');
 const router = useRouter();
+const { returnTo } = useResourceBreadcrumb({
+    domain: 'equipment',
+    kind: '设备',
+    listLabel: '设备列表',
+    resource,
+    resourceId,
+});
 const tabs = [
     { id: 'runtime', label: '运行状态' },
     { id: 'information', label: '设备信息' },
@@ -26,27 +34,29 @@ function openConsole() {
 }
 </script>
 <template>
-    <ResourcePage label="设备详情">
-        <ResourceObjectHeader
-            :id="resourceId"
-            :title="resource?.name ?? '设备详情'"
-            :icon="Monitor"
-            :status="resource?.status"
-            back-to="/main/equipment/list"
-            back-label="设备列表"
-        >
-            <Button variant="outline" disabled>
-                <Pencil aria-hidden="true" />
-                编辑信息
-            </Button>
-            <Button :disabled="!resource" @click="openConsole">
-                <Terminal aria-hidden="true" />
-                操作台
-            </Button>
-        </ResourceObjectHeader>
+    <ResourceDetailPage label="设备详情">
+        <template #header>
+            <ResourceObjectHeader
+                :id="resourceId"
+                :title="resource?.name ?? '设备详情'"
+                :icon="Monitor"
+                :status="resource?.status"
+                :back-to="returnTo"
+                back-label="设备列表"
+            >
+                <Button variant="outline" disabled>
+                    <Pencil aria-hidden="true" />
+                    编辑信息
+                </Button>
+                <Button :disabled="!resource" @click="openConsole">
+                    <Terminal aria-hidden="true" />
+                    操作台
+                </Button>
+            </ResourceObjectHeader>
+            <ResourceViewNav v-if="resource" :items="tabs" :active="view" label="设备详情视图" @select="select" />
+        </template>
         <ResourceEmpty v-if="!resource" text="当前工作区未找到该设备" />
         <template v-else>
-            <ResourceViewNav :items="tabs" :active="view" label="设备详情视图" @select="select" />
             <template v-if="view === 'runtime'">
                 <ResourceSection title="当前状态">
                     <ResourceFactList
@@ -182,5 +192,5 @@ function openConsole() {
                 <ResourceSection title="执行回执"><ResourceEmpty text="选择指令记录" /></ResourceSection>
             </template>
         </template>
-    </ResourcePage>
+    </ResourceDetailPage>
 </template>

@@ -19,21 +19,21 @@
         >
             <Button variant="ghost" size="sm" class="p-1" title="最小化">
                 <span class="sr-only">最小化</span>
-                <Minus class="size-5" />
+                <Minus stroke-width="1" class="size-5" />
             </Button>
-            <Button variant="ghost" size="sm" class="p-1" :title="windowState !== 'maximize' ? '最大化' : '还原'">
+            <Button variant="ghost" size="sm" class="p-1" :title="windowState !== 'maximize' ? '最大化' : '恢复'">
                 <template v-if="windowState !== 'maximize'">
                     <span class="sr-only">最大化</span>
-                    <Square class="size-3.5" />
+                    <Square stroke-width="1" class="size-3.5" />
                 </template>
                 <template v-else>
-                    <span class="sr-only">还原</span>
-                    <Copy class="size-3.5 -scale-x-100" />
+                    <span class="sr-only">恢复</span>
+                    <Copy stroke-width="1" class="size-3.5 -scale-x-100" />
                 </template>
             </Button>
-            <Button variant="ghost" size="sm" class="p-1 hover:bg-destructive hover:text-card" title="关闭">
+            <Button variant="ghost" size="sm" class="p-1 hover:bg-destructive hover:text-card group" title="关闭">
                 <span class="sr-only">关闭</span>
-                <X class="size-4.5" />
+                <X stroke-width="1" class="size-4.5 group-hover:stroke-[1.5] duration-100!" />
             </Button>
         </div>
         <div class="flex min-h-0 min-w-0 flex-1">
@@ -42,7 +42,7 @@
         <div
             ref="overlayContainer"
             data-slot="overlay-container"
-            class="pointer-events-none fixed inset-0 z-50 isolate [contain:layout]"
+            class="pointer-events-none fixed inset-0 z-50 isolate contain-layout"
             :style="{ '--overlay-chrome-height': titlebarHeight + 'px' }"
         />
     </div>

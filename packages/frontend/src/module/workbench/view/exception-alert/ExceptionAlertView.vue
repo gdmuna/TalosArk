@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useQueryCommand } from '@/platform/navigation';
 import {
     Bell,
     CircleAlert,
@@ -28,10 +28,9 @@ import WorkbenchSummary from '../../ui/WorkbenchSummary.vue';
 
 const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
-const route = useRoute();
 const filters = ref<Record<string, string[]>>({ status: ['未处理'] });
 const checked = ref<string[]>([]);
-const selectedId = ref<string | null>(typeof route.query.exception === 'string' ? route.query.exception : null);
+const selectedId = ref<string | null>(null);
 const error = ref('');
 const preview = ref<Resource | null>(null);
 const resourceFor = (item: ExceptionItem) => workbench.resourceById.get(item.resourceId);
@@ -176,12 +175,9 @@ const inspectorOpen = computed({
     },
 });
 const searchText = (item: ExceptionItem) => `${item.title} ${item.id} ${item.resourceId} ${resourceFor(item)?.name}`;
-watch(
-    () => route.query.exception,
-    (id) => {
-        if (typeof id === 'string') selectedId.value = id;
-    }
-);
+useQueryCommand('exception', (id) => {
+    selectedId.value = id;
+});
 watch(
     () => workspace.activeId,
     () => {
@@ -211,6 +207,11 @@ watch(
                         :filter-fields="filterFields"
                         :search-text="searchText"
                         :active-id="selectedId"
+                        :preview="
+                            (row) => {
+                                selectedId = row.id;
+                            }
+                        "
                         :initial-sorting="[{ id: 'createdAt', desc: true }]"
                         :selectable="(item) => item.status === '未处理'"
                         search-label="搜索异常或关联对象"

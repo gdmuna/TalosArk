@@ -13,7 +13,18 @@
             :sidebar-expanded="sidebarExpanded"
             @toggle-sidebar="sidebarExpanded = !sidebarExpanded"
         >
-            <RouterView />
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <RouterView v-slot="{ Component, route: pageRoute }">
+                    <div
+                        v-if="Component"
+                        :key="pageRoute.matched[1]?.path"
+                        class="flex min-h-0 min-w-0 flex-1 flex-col"
+                        data-slot="route-page"
+                    >
+                        <component :is="Component" />
+                    </div>
+                </RouterView>
+            </div>
         </DesktopPrimaryContentShell>
         <CommandPalette v-model="paletteOpen" />
         <ResourceDialog v-model="preview" />

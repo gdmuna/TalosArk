@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
+import { useQueryCommand } from '@/platform/navigation';
 import {
     CalendarDays,
     Check,
@@ -28,13 +29,12 @@ import WorkbenchSummary from '../../ui/WorkbenchSummary.vue';
 
 const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
-const route = useRoute();
 const router = useRouter();
 const filters = ref<Record<string, string[]>>({ status: ['待处理', '已逾期'] });
 const checked = ref<string[]>([]);
 const error = ref('');
 const preview = ref<Resource | null>(null);
-const selectedId = ref<string | null>(typeof route.query.task === 'string' ? route.query.task : null);
+const selectedId = ref<string | null>(null);
 const overdue = isTaskOverdue;
 const displayStatus = taskDisplayStatus;
 const resourceFor = (item: Task) => workbench.resourceById.get(item.resourceId);
@@ -196,12 +196,9 @@ watch(
         error.value = '';
     }
 );
-watch(
-    () => route.query.task,
-    (id) => {
-        if (typeof id === 'string') selectedId.value = id;
-    }
-);
+useQueryCommand('task', (id) => {
+    selectedId.value = id;
+});
 </script>
 
 <template>
@@ -222,6 +219,11 @@ watch(
                         :filter-fields="filterFields"
                         :search-text="searchText"
                         :active-id="selectedId"
+                        :preview="
+                            (row) => {
+                                selectedId = row.id;
+                            }
+                        "
                         :initial-sorting="[{ id: 'dueAt', desc: false }]"
                         :selectable="(item) => item.status === '待处理'"
                         search-label="搜索任务、对象或申请人"

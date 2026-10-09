@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { ArrowUpRight, Eye, Plus, Tag } from '@lucide/vue';
+import { useRouter } from 'vue-router';
+import { useQueryCommand } from '@/platform/navigation';
+import { Eye, Plus, Tag } from '@lucide/vue';
 import { useWorkbenchStore, stateTone, type Resource } from '@/module/workbench';
 import { useWorkspaceStore } from '@/module/workspace';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
-import { SheetInspector, CopyableId } from '@/component/inspector';
 import { StateBadge } from '@/component/state-badge';
-import { ScrollSurface } from '@/component/scroll-surface';
 import { Button } from '@/ui/button';
 import ResourcePage from './ResourcePage.vue';
-import ResourceFactList from './ResourceFactList.vue';
+import ResourcePreview from './ResourcePreview.vue';
+import { useResourceQuery } from './useResourceQuery';
 
 const props = defineProps<{
     title: string;
@@ -22,17 +22,16 @@ const props = defineProps<{
 }>();
 const workbench = useWorkbenchStore();
 const workspace = useWorkspaceStore();
-const route = useRoute();
 const router = useRouter();
 const rows = computed(() => workbench.currentResources.filter((item) => item.kind === props.kind));
 const selectedId = ref<string | null>(null);
-const selected = computed(() => rows.value.find((item) => item.id === selectedId.value));
-const open = computed({
-    get: () => !!selected.value,
+const selected = computed({
+    get: () => rows.value.find((item) => item.id === selectedId.value) ?? null,
     set: (value) => {
-        if (!value) selectedId.value = null;
+        selectedId.value = value?.id ?? null;
     },
 });
+const query = useResourceQuery();
 const columns = computed<DataTableColumn<Resource>[]>(() => [
     { id: 'name', label: props.title, size: 300, icon: props.icon, value: (row) => row.name },
     { id: 'id', label: 'ID', size: 180, icon: Tag, value: (row) => row.id },
@@ -40,15 +39,16 @@ const columns = computed<DataTableColumn<Resource>[]>(() => [
     { id: 'status', label: '状态', size: 120, value: (row) => row.status },
 ]);
 watch(
-    () => [route.query.resource, workspace.activeId],
+    () => workspace.activeId,
     () => {
-        selectedId.value = typeof route.query.resource === 'string' ? route.query.resource : null;
-    },
-    { immediate: true }
+        selectedId.value = null;
+    }
 );
-function fullDetail() {
-    if (!selected.value) return;
-    router.push(`/main/${props.domain}/detail/${encodeURIComponent(selected.value.id)}`);
+useQueryCommand('resource', (id) => {
+    selectedId.value = id;
+});
+function fullDetail(item: Resource) {
+    router.push(`/main/${props.domain}/detail/${encodeURIComponent(item.id)}`);
     selectedId.value = null;
 }
 </script>
@@ -60,12 +60,21 @@ function fullDetail() {
                 {{ createLabel }}
             </Button>
         </template>
-        <SheetInspector v-model:open="open" :title="selected?.name ?? title" description="资源摘要">
+        <ResourcePreview
+            v-model="selected"
+            :detail-to="selected ? `/main/${domain}/detail/${encodeURIComponent(selected.id)}` : undefined"
+        >
             <template #main>
                 <DataTable
+                    v-model:query="query"
                     :data="rows"
                     :columns="columns"
                     :active-id="selectedId"
+                    :preview="
+                        (row) => {
+                            selectedId = row.id;
+                        }
+                    "
                     :search-label="`搜索${title}或 ID`"
                     :search-text="(row) => `${row.name} ${row.id} ${row.description}`"
                     :empty-text="workbench.busy ? '正在加载' : '暂无可用的资源摘要'"
@@ -75,6 +84,12 @@ function fullDetail() {
                             label: '详情',
                             icon: Eye,
                             primary: true,
+                            run: fullDetail,
+                        },
+                        {
+                            id: 'preview',
+                            label: '预览',
+                            icon: Eye,
                             run: (row) => {
                                 selectedId = row.id;
                             },
@@ -101,27 +116,6 @@ function fullDetail() {
                     </template>
                 </DataTable>
             </template>
-            <template v-if="selected">
-                <ScrollSurface class="min-h-0 flex-1 scroll-smooth p-6">
-                    <div class="@container space-y-6">
-                        <h2 class="pr-6 text-lg font-semibold">{{ selected.name }}</h2>
-                        <CopyableId :value="selected.id" label="资源 ID" />
-                        <ResourceFactList
-                            :fields="[
-                                { label: '工作区', value: workspace.current?.name },
-                                { label: '状态', value: selected.status },
-                                { label: '说明', value: selected.description },
-                            ]"
-                        />
-                    </div>
-                </ScrollSurface>
-                <div class="shrink-0 border-t p-6">
-                    <Button class="w-full" @click="fullDetail">
-                        <ArrowUpRight aria-hidden="true" />
-                        打开完整详情
-                    </Button>
-                </div>
-            </template>
-        </SheetInspector>
+        </ResourcePreview>
     </ResourcePage>
 </template>

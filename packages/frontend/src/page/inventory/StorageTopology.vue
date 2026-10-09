@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useQueryCommand } from '@/platform/navigation';
 import { Building2, Grid2X2, Network, Plus } from '@lucide/vue';
 import { useWorkbenchStore } from '@/module/workbench';
 import { useWorkspaceStore } from '@/module/workspace';
@@ -12,18 +12,19 @@ import ResourceEmpty from '../resource/ResourceEmpty.vue';
 import ResourceFactList from '../resource/ResourceFactList.vue';
 const workbench = useWorkbenchStore();
 const workspace = useWorkspaceStore();
-const route = useRoute();
 const facilities = computed(() => workbench.currentResources.filter((item) => item.kind === '设施'));
 const selectedId = ref<string | null>(null);
 const mode = ref<'structure' | 'position'>('structure');
 const selected = computed(() => facilities.value.find((item) => item.id === selectedId.value));
 watch(
-    () => [workspace.activeId, route.query.resource],
+    () => workspace.activeId,
     () => {
-        selectedId.value = typeof route.query.resource === 'string' ? route.query.resource : null;
-    },
-    { immediate: true }
+        selectedId.value = null;
+    }
 );
+useQueryCommand('resource', (id) => {
+    selectedId.value = id;
+});
 </script>
 <template>
     <ResourcePage label="存储浏览">

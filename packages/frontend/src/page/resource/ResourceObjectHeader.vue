@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import type { Component } from 'vue';
+import { computed, watchEffect, type Component } from 'vue';
 import { ArrowLeft } from '@lucide/vue';
-import { useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
+import { useNavigationStore } from '@/platform/navigation';
 import { CopyableId } from '@/component/inspector';
 import { StateBadge } from '@/component/state-badge';
 import { stateTone } from '@/module/workbench';
 import { Button } from '@/ui/button';
-defineProps<{ title: string; id: string; icon: Component; backTo: string; backLabel: string; status?: string }>();
-const router = useRouter();
+const props = defineProps<{
+    title: string;
+    id: string;
+    icon: Component;
+    backTo: string;
+    backLabel: string;
+    status?: string;
+}>();
+const navigation = useNavigationStore();
+const route = useRoute();
+const origin = navigation.origin;
+const backLabel = computed(() => origin?.label ?? props.backLabel);
+watchEffect(() => navigation.setPageLabel(route.path, props.title));
 </script>
 <template>
     <header class="space-y-4">
-        <Button variant="ghost" size="sm" class="-ml-2" @click="router.push(backTo)">
+        <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(origin, backTo)">
             <ArrowLeft aria-hidden="true" />
             {{ backLabel }}
         </Button>

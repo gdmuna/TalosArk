@@ -8,7 +8,7 @@ withDefaults(defineProps<{ label: string; layout?: 'wide' | 'table' }>(), { layo
             data-slot="resource-content"
             class="mx-auto min-w-0 space-y-6"
             :class="layout === 'table' ? 'w-fit' : '@container w-full'"
-            :style="{ maxWidth: 'min(100%, 1280px)' }"
+            :style="{ maxWidth: layout === 'table' ? '100%' : 'min(100%, 1280px)' }"
         >
             <div v-if="$slots.actions" class="flex flex-wrap justify-end gap-2"><slot name="actions" /></div>
             <slot />

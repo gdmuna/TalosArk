@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router';
 import { Package, ArrowUpRight, ArrowLeftRight, LockKeyhole } from '@lucide/vue';
 import { useWorkbenchStore } from '@/module/workbench';
 import { Button } from '@/ui/button';
-import ResourcePage from '../../resource/ResourcePage.vue';
+import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 import ResourceObjectHeader from '../../resource/ResourceObjectHeader.vue';
 import ResourceViewNav from '../../resource/ResourceViewNav.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
@@ -17,6 +18,13 @@ import { useResourceView } from '../../resource/useResourceView';
 const { resource, resourceId, workspace } = useResource('库存实例');
 const workbench = useWorkbenchStore();
 const router = useRouter();
+const { returnTo } = useResourceBreadcrumb({
+    domain: 'inventory',
+    kind: '库存实例',
+    listLabel: '库存列表',
+    resource,
+    resourceId,
+});
 const material = computed(() => {
     const item = resource.value?.materialId ? workbench.resourceById.get(resource.value.materialId) : undefined;
     return item?.kind === '材料定义' ? item : undefined;
@@ -32,27 +40,29 @@ function openMaterial() {
 }
 </script>
 <template>
-    <ResourcePage label="库存实例详情">
-        <ResourceObjectHeader
-            :id="resourceId"
-            :title="resource?.name ?? '库存实例详情'"
-            :icon="Package"
-            :status="resource?.status"
-            back-to="/main/inventory/ledger"
-            back-label="库存列表"
-        >
-            <Button variant="outline" disabled>
-                <LockKeyhole aria-hidden="true" />
-                预留
-            </Button>
-            <Button disabled>
-                <ArrowLeftRight aria-hidden="true" />
-                库存转移
-            </Button>
-        </ResourceObjectHeader>
+    <ResourceDetailPage label="库存实例详情">
+        <template #header>
+            <ResourceObjectHeader
+                :id="resourceId"
+                :title="resource?.name ?? '库存实例详情'"
+                :icon="Package"
+                :status="resource?.status"
+                :back-to="returnTo"
+                back-label="库存列表"
+            >
+                <Button variant="outline" disabled>
+                    <LockKeyhole aria-hidden="true" />
+                    预留
+                </Button>
+                <Button disabled>
+                    <ArrowLeftRight aria-hidden="true" />
+                    库存转移
+                </Button>
+            </ResourceObjectHeader>
+            <ResourceViewNav v-if="resource" :items="tabs" :active="view" label="库存实例视图" @select="select" />
+        </template>
         <ResourceEmpty v-if="!resource" text="当前工作区未找到该库存实例" />
         <template v-else>
-            <ResourceViewNav :items="tabs" :active="view" label="库存实例视图" @select="select" />
             <template v-if="view === 'overview'">
                 <ResourceSection title="实例信息">
                     <template #actions>
@@ -99,5 +109,5 @@ function openMaterial() {
             </ResourceSection>
             <ResourceFile v-else />
         </template>
-    </ResourcePage>
+    </ResourceDetailPage>
 </template>

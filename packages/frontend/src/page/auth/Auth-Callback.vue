@@ -6,6 +6,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthApi } from '@/module/auth';
+import { consumeQuery } from '@/platform/navigation';
 
 const route = useRoute();
 const router = useRouter();
@@ -16,6 +17,7 @@ onBeforeUnmount(() => controller.abort());
 
 onMounted(async () => {
     const { code, state } = route.query;
+    await consumeQuery(router, ['code', 'state']);
     if (typeof code !== 'string' || typeof state !== 'string' || !code || !state) {
         error.value = 'OIDC 回调缺少有效的 code 或 state';
         return;
@@ -26,7 +28,7 @@ onMounted(async () => {
             error.value = '当前账户无法登录';
             return;
         }
-        await router.push('/');
+        await router.replace('/');
     } catch (cause) {
         if (!controller.signal.aborted) error.value = cause instanceof Error ? cause.message : '登录失败';
     }
