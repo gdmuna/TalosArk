@@ -1,4 +1,4 @@
-import { RequestError, validationIssues } from '@/platform/error/request.error.js';
+import { RequestError, validationIssues } from '@/platform/request/request.error.js';
 
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { z } from 'zod/v4';
@@ -32,13 +32,15 @@ export const Cookie = createParamDecorator((selector: CookieSelector, ctx: Execu
         if (cookieValue === undefined) {
             throw new RequestError({
                 reason: 'validation',
-                issues: [
-                    {
-                        path: [selector],
-                        code: 'missing_cookie',
-                        message: 'Required cookie is missing',
-                    },
-                ],
+                details: {
+                    issues: [
+                        {
+                            path: [selector],
+                            code: 'missing_cookie',
+                            message: 'Required cookie is missing',
+                        },
+                    ],
+                },
             });
         }
         return cookieValue;
@@ -51,13 +53,15 @@ export const Cookie = createParamDecorator((selector: CookieSelector, ctx: Execu
             if (cookieValue === undefined) {
                 throw new RequestError({
                     reason: 'validation',
-                    issues: [
-                        {
-                            path: [cookieName],
-                            code: 'missing_cookie',
-                            message: 'Required cookie is missing',
-                        },
-                    ],
+                    details: {
+                        issues: [
+                            {
+                                path: [cookieName],
+                                code: 'missing_cookie',
+                                message: 'Required cookie is missing',
+                            },
+                        ],
+                    },
                 });
             }
             result[cookieName] = cookieValue;
@@ -71,7 +75,7 @@ export const Cookie = createParamDecorator((selector: CookieSelector, ctx: Execu
     const result = schema.safeParse(cookies);
     if (!result.success) {
         throw new RequestError(
-            { reason: 'validation', issues: validationIssues(result.error) },
+            { reason: 'validation', details: { issues: validationIssues(result.error) } },
             { cause: result.error }
         );
     }

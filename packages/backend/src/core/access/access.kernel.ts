@@ -1,6 +1,6 @@
 import type * as Access from './access.contract.js';
 import { AccessError } from './access.error.js';
-import { DatabaseError } from '@/infra/database/prisma/prisma.error.js';
+import { mapAccessDatabaseError } from './access.error-mapper.js';
 
 import type { AllConfig } from '@/config/index.js';
 import { createSecureRandomString } from '@/common/utils/index.js';
@@ -448,15 +448,7 @@ export class AccessKernel {
         try {
             return await this.prismaService.execute(operation);
         } catch (cause) {
-            if (cause instanceof DatabaseError) {
-                if (cause.failure.reason === 'unavailable') {
-                    throw new AccessError({ reason: 'session-unavailable' }, { cause });
-                }
-                if (inactiveOnMissing && cause.failure.reason === 'record-not-found') {
-                    throw new AccessError({ reason: 'session-inactive' }, { cause });
-                }
-            }
-            throw cause;
+            throw mapAccessDatabaseError(cause, inactiveOnMissing) ?? cause;
         }
     }
 

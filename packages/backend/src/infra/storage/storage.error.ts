@@ -1,4 +1,4 @@
-import { S3ServiceException } from '@aws-sdk/client-s3';
+import { defineErrorClass, defineInternalErrorCatalog } from '@/platform/error/index.js';
 
 export type StorageOperation =
     | 'presign'
@@ -22,58 +22,18 @@ export type StorageFailure = {
         | 'request-failed';
     operation: StorageOperation;
 };
-
-export class StorageError extends Error {
-    constructor(
-        readonly failure: StorageFailure,
-        options?: ErrorOptions
-    ) {
-        super(`Storage operation failed: ${failure.reason}`, options);
-        this.name = 'StorageError';
-    }
-}
-
-export function normalizeStorageError(
-    error: unknown,
-    operation: StorageOperation
-): StorageError | undefined {
-    if (error instanceof StorageError) return error;
-    if (error instanceof S3ServiceException) {
-        const status = error.$metadata.httpStatusCode;
-        const reason = ['NoSuchBucket', 'InvalidAccessKeyId', 'SignatureDoesNotMatch'].includes(
-            error.name
-        )
-            ? 'configuration'
-            : error.name === 'NoSuchUpload'
-              ? 'invalid-multipart'
-              : status === 404
-                ? 'not-found'
-                : status === 401 || status === 403
-                  ? 'permission-denied'
-                  : (status !== undefined && status >= 500) || status === 429
-                    ? 'unavailable'
-                    : 'request-failed';
-        return new StorageError({ reason, operation }, { cause: error });
-    }
-    if (error instanceof Error) {
-        if (error.name === 'CredentialsProviderError') {
-            return new StorageError({ reason: 'configuration', operation }, { cause: error });
-        }
-        if (
-            error.name === 'TimeoutError' ||
-            ('code' in error &&
-                [
-                    'ECONNREFUSED',
-                    'ECONNRESET',
-                    'ETIMEDOUT',
-                    'EPIPE',
-                    'ENOTFOUND',
-                    'EAI_AGAIN',
-                    'ERR_STREAM_PREMATURE_CLOSE',
-                ].includes(String(error.code)))
-        ) {
-            return new StorageError({ reason: 'unavailable', operation }, { cause: error });
-        }
-    }
-    return undefined;
-}
+const catalog = defineInternalErrorCatalog('storage', [
+    'not-found',
+    'unavailable',
+    'permission-denied',
+    'configuration',
+    'invalid-multipart',
+    'invalid-response',
+    'partial-delete',
+    'request-failed',
+]);
+export const StorageError = defineErrorClass<typeof catalog, StorageFailure>(catalog, {
+    name: 'StorageError',
+});
+// eslint-disable-next-line no-redeclare -- TypeScript value/type namespace pairing.
+export type StorageError = InstanceType<typeof StorageError>;

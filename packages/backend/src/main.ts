@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
 import { bootstrap } from './bootstrap/bootstrap.js';
-import { serializeError } from './platform/observability/error-serializer.js';
+import { serializeError } from './platform/error/error.diagnostic.js';
 
 dayjs.extend(utc);
 

@@ -1,9 +1,11 @@
 import type * as Identity from './identity.contract.js';
 import { identityOidcTransactionKey } from './identity.key.js';
 import { IdentityError } from './identity.error.js';
-import { DatabaseError } from '@/infra/database/prisma/prisma.error.js';
-import { IamError } from '@/infra/iam/iam.error.js';
-import { KvsError } from '@/infra/kvs/kvs.error.js';
+import {
+    mapIdentityIamError,
+    mapIdentityKvsError,
+    mapIdentityDatabaseError,
+} from './identity.error-mapper.js';
 
 import { createSecureRandomString } from '@/common/utils/index.js';
 
@@ -203,45 +205,12 @@ export class IdentityKernel {
         try {
             return await operation();
         } catch (cause) {
-            if (cause instanceof IamError) {
-                const reasons = {
-                    'grant-rejected': 'authorization-rejected',
-                    unavailable: 'provider-unavailable',
-                    'invalid-response': 'provider-response-invalid',
-                    'not-configured': 'login-unavailable',
-                    configuration: 'login-unavailable',
-                    'request-failed': 'provider-response-invalid',
-                } as const;
-                throw new IdentityError({ reason: reasons[cause.failure.reason] }, { cause });
-            }
-            if (
-                (cause instanceof KvsError || cause instanceof DatabaseError) &&
-                cause.failure.reason === 'unavailable'
-            ) {
-                throw new IdentityError({ reason: 'login-unavailable' }, { cause });
-            }
-            if (cause instanceof DatabaseError && cause.failure.reason === 'unique-constraint') {
-                const { model, fields, constraint } = cause.failure;
-                const userConflict =
-                    constraint === 'User_email_key' ||
-                    constraint === 'User_username_key' ||
-                    (model === 'User' &&
-                        fields.length === 1 &&
-                        fields.some((field) => field === 'email' || field === 'username'));
-                if (conflict === 'user' && userConflict) {
-                    throw new IdentityError({ reason: 'user-conflict' }, { cause });
-                }
-                const identityConflict =
-                    constraint === 'ExternalIdentity_issuer_subject_key' ||
-                    (model === 'ExternalIdentity' &&
-                        fields.length === 2 &&
-                        fields.includes('issuer') &&
-                        fields.includes('subject'));
-                if (conflict && identityConflict) {
-                    throw new IdentityError({ reason: 'identity-conflict' }, { cause });
-                }
-            }
-            throw cause;
+            throw (
+                mapIdentityIamError(cause) ??
+                mapIdentityKvsError(cause) ??
+                mapIdentityDatabaseError(cause, conflict) ??
+                cause
+            );
         }
     }
 }

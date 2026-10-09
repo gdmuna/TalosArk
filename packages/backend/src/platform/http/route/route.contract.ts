@@ -2,10 +2,14 @@ import { z } from 'zod';
 import {
     createApiErrorResponseSchema,
     createApiSuccessResponseSchema,
+    type ErrorDefinition,
 } from '@talos-ark/contracts/protocol';
-import type { ErrorDefinition } from '@/platform/error/error.definition.js';
-import { AccessHttpError } from '../guards/auth.error.js';
-import { RequestHttpError, type HttpErrorBinding } from '../error/http-error.policy.js';
+import {
+    AccessErrorDefinition,
+    RequestErrorDefinition,
+    SystemErrorDefinition,
+} from '@talos-ark/contracts/backend';
+import type { HttpErrorBinding } from '../error/http-error.policy.js';
 
 export const AUTH_STRATEGY_KEY = 'auth:strategy';
 export type AUTH_STRATEGY_TYPE = 'public' | 'optional' | 'required';
@@ -29,7 +33,7 @@ export interface ApiRouteOptions {
     request?: ApiRouteRequest;
     /** The first response supplies the default status; [] declares an error-only route. */
     responses: readonly ApiRouteResponse[];
-    errors?: readonly HttpErrorBinding[];
+    errors?: readonly ErrorDefinition[];
     consumes?: readonly string[];
     deprecated?: boolean;
 }
@@ -55,20 +59,19 @@ declare module 'fastify' {
 }
 
 const COMMON_ERRORS = [
-    RequestHttpError.validation,
-    RequestHttpError.invalid,
-    RequestHttpError.forbidden,
-    RequestHttpError.rateLimited,
-    RequestHttpError.payloadTooLarge,
-    RequestHttpError.unsupportedContent,
-    RequestHttpError.processingTimeout,
-    RequestHttpError.internal,
+    RequestErrorDefinition.validation,
+    RequestErrorDefinition.invalid,
+    RequestErrorDefinition.forbidden,
+    RequestErrorDefinition.rateLimited,
+    RequestErrorDefinition.payloadTooLarge,
+    RequestErrorDefinition.unsupportedContent,
+    RequestErrorDefinition.processingTimeout,
+    SystemErrorDefinition.internal,
 ];
 
 export function errorResponseSchema(definition: ErrorDefinition) {
-    return createApiErrorResponseSchema(definition.contract).extend({
-        message: z.literal(definition.message),
-    });
+    if (!definition.public) throw new TypeError(`Error is not public: ${definition.id}`);
+    return createApiErrorResponseSchema(definition.public);
 }
 
 export function compileRouteContract(options: ApiRouteOptions): RouteContract {
@@ -80,8 +83,8 @@ export function compileRouteContract(options: ApiRouteOptions): RouteContract {
     const errors = new Map<string, HttpErrorBinding>();
     const bindings = [
         ...COMMON_ERRORS,
-        ...(auth === 'required' ? [RequestHttpError.authentication] : []),
-        ...(auth !== 'public' ? [AccessHttpError.sessionUnavailable] : []),
+        ...(auth === 'required' ? [RequestErrorDefinition.authentication] : []),
+        ...(auth !== 'public' ? [AccessErrorDefinition['session-unavailable']] : []),
         ...(options.errors ?? []),
     ];
     const schemas = new Map<number, z.ZodType[]>();
@@ -110,21 +113,32 @@ export function compileRouteContract(options: ApiRouteOptions): RouteContract {
             description ?? (empty ? 'Operation succeeded without content' : 'Operation succeeded')
         );
     }
-    for (const binding of bindings) {
-        const code = binding.definition.contract.code;
-        const previous = errors.get(code);
+    const codes = new Map<string, string>();
+    for (const definition of bindings) {
+        if (!definition.public) throw new TypeError(`Error is not public: ${definition.id}`);
+        const code = definition.public.code;
+        const binding: HttpErrorBinding = {
+            definition,
+            status: definition.protocol?.http?.status ?? 500,
+        };
+        const previous = errors.get(definition.id);
         if (
             !Number.isInteger(binding.status) ||
             binding.status < 400 ||
             binding.status > 599 ||
+            (codes.has(code) && codes.get(code) !== definition.id) ||
             (previous &&
-                (previous.definition !== binding.definition || previous.status !== binding.status))
+                (previous.definition.public?.code !== code ||
+                    previous.definition.public?.details !== definition.public.details ||
+                    previous.definition.public?.message !== definition.public.message ||
+                    previous.status !== binding.status))
         ) {
             throw new Error(`Invalid or conflicting route error: ${code}`);
         }
         if (previous) continue;
-        errors.set(code, binding);
-        append(binding.status, errorResponseSchema(binding.definition), binding.definition.message);
+        codes.set(code, definition.id);
+        errors.set(definition.id, binding);
+        append(binding.status, errorResponseSchema(definition), definition.public.message);
     }
 
     const responses = new Map<number, RouteResponseContract>();

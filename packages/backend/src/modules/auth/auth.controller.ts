@@ -8,9 +8,11 @@ import {
     type OidcStartResponse,
 } from '@talos-ark/contracts/auth';
 import { AuthService } from './auth.service.js';
-import { AuthHttpError } from './api/auth.http-error.js';
-import { AccessHttpError } from '@/platform/http/guards/auth.error.js';
-import { RequestHttpError } from '@/platform/http/error/http-error.policy.js';
+import {
+    IdentityErrorDefinition,
+    AccessErrorDefinition,
+    RequestErrorDefinition,
+} from '@talos-ark/contracts/backend';
 
 import { Body, Controller, NotImplementedException, Post, Res } from '@nestjs/common';
 import { Cookie } from '@/platform/http/decorators/cookie.decorator.js';
@@ -24,7 +26,10 @@ export class AuthController {
     @ApiRoute({
         auth: 'public',
         summary: 'Start OIDC login',
-        errors: [AuthHttpError.loginUnavailable, AuthHttpError.providerUnavailable],
+        errors: [
+            IdentityErrorDefinition['login-unavailable'],
+            IdentityErrorDefinition['provider-unavailable'],
+        ],
         responses: [{ status: 201, schema: OidcStartResponseSchema }],
     })
     async oidcStart(@Res({ passthrough: true }) res: FastifyReply): Promise<OidcStartResponse> {
@@ -42,14 +47,14 @@ export class AuthController {
         auth: 'public',
         summary: 'Complete OIDC login',
         errors: [
-            AuthHttpError.transactionInvalid,
-            AuthHttpError.authorizationRejected,
-            AuthHttpError.providerUnavailable,
-            AuthHttpError.providerResponseInvalid,
-            AuthHttpError.loginUnavailable,
-            AccessHttpError.sessionUnavailable,
-            AuthHttpError.userConflict,
-            AuthHttpError.identityConflict,
+            IdentityErrorDefinition['transaction-invalid'],
+            IdentityErrorDefinition['authorization-rejected'],
+            IdentityErrorDefinition['provider-unavailable'],
+            IdentityErrorDefinition['provider-response-invalid'],
+            IdentityErrorDefinition['login-unavailable'],
+            AccessErrorDefinition['session-unavailable'],
+            IdentityErrorDefinition['user-conflict'],
+            IdentityErrorDefinition['identity-conflict'],
         ],
         request: { body: OidcLoginCallbackBodySchema },
         responses: [{ status: 201, schema: OidcLoginCallbackResponseSchema }],
@@ -93,7 +98,7 @@ export class AuthController {
         auth: 'required',
         summary: 'Refresh session',
         responses: [],
-        errors: [RequestHttpError.notImplemented],
+        errors: [RequestErrorDefinition.notImplemented],
     })
     async sessionRefresh(@Cookie('talosArk_session_id') sessionId: string) {
         throw new NotImplementedException('Session refresh is not implemented');
@@ -104,7 +109,7 @@ export class AuthController {
         auth: 'required',
         summary: 'Log out session',
         responses: [],
-        errors: [RequestHttpError.notImplemented],
+        errors: [RequestErrorDefinition.notImplemented],
     })
     async sessionLogout(@Cookie('talosArk_session_id') sessionId: string) {
         throw new NotImplementedException('Session logout is not implemented');

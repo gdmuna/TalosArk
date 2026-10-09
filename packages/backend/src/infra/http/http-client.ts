@@ -157,20 +157,17 @@ export function createHttpClient(
                         outcome = 'success';
                         return response;
                     }
-                    error = new HttpError(
-                        {
-                            reason: 'http-status',
-                            operation: input.operation,
-                            upstreamStatus: response.status,
-                            retryAfterMs: parseRetryAfter(
-                                typeof response.headers['retry-after'] === 'string'
-                                    ? response.headers['retry-after']
-                                    : undefined
-                            ),
-                        },
-                        undefined,
-                        response
-                    );
+                    error = new HttpError({
+                        reason: 'http-status',
+                        operation: input.operation,
+                        upstreamStatus: response.status,
+                        response,
+                        retryAfterMs: parseRetryAfter(
+                            typeof response.headers['retry-after'] === 'string'
+                                ? response.headers['retry-after']
+                                : undefined
+                        ),
+                    });
                     if (response.status === 401 && lease && gate) {
                         if (recovered || !replayable) {
                             gate.invalidate(lease);
@@ -312,9 +309,13 @@ export function createHttpClient(
                 } catch (error) {
                     if (error instanceof HttpError)
                         throw new HttpError(
-                            { ...error.failure },
-                            { cause: error },
-                            error.response ? cloneResponse(error.response) : undefined
+                            {
+                                ...error.failure,
+                                response: error.failure.response
+                                    ? cloneResponse(error.failure.response)
+                                    : undefined,
+                            },
+                            { cause: error }
                         );
                     throw error;
                 }
@@ -336,9 +337,9 @@ export function createHttpClient(
                             reason: 'invalid-response',
                             operation: input.operation,
                             upstreamStatus: response.status,
+                            response,
                         },
-                        { cause: error },
-                        response
+                        { cause: error }
                     );
                 }
             }

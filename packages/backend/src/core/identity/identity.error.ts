@@ -1,20 +1,7 @@
-export type IdentityFailure = {
-    reason:
-        | 'transaction-invalid'
-        | 'authorization-rejected'
-        | 'provider-unavailable'
-        | 'provider-response-invalid'
-        | 'login-unavailable'
-        | 'user-conflict'
-        | 'identity-conflict';
-};
+import { IdentityErrorDefinition } from '@talos-ark/contracts/backend';
+import { defineErrorClass } from '@/platform/error/error.factory.js';
 
-export class IdentityError extends Error {
-    constructor(
-        readonly failure: IdentityFailure,
-        options?: ErrorOptions
-    ) {
-        super(`Identity operation failed: ${failure.reason}`, options);
-        this.name = 'IdentityError';
-    }
-}
+export const IdentityError = defineErrorClass(IdentityErrorDefinition, { name: 'IdentityError' });
+// eslint-disable-next-line no-redeclare -- TypeScript value/type namespace pairing.
+export type IdentityError = InstanceType<typeof IdentityError>;
+export type IdentityFailure = IdentityError['failure'];

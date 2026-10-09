@@ -1,0 +1,1312 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>TalosArk 后端质检 | 2026-10-08</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script type="module">
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'strict' });
+        </script>
+        <style>
+            :root {
+                font-family: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+                color: #20252b;
+                background: #f5f7f8;
+                line-height: 1.65;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+            }
+            main {
+                max-width: 1180px;
+                margin: 0 auto;
+                padding: 36px 28px 70px;
+            }
+            header {
+                padding-bottom: 24px;
+                border-bottom: 1px solid #d8dee3;
+            }
+            h1 {
+                font-size: 30px;
+                line-height: 1.3;
+                margin: 8px 0 12px;
+                font-weight: 700;
+            }
+            h2 {
+                font-size: 23px;
+                margin: 0 0 18px;
+                font-weight: 700;
+            }
+            h3 {
+                font-size: 18px;
+                margin: 0 0 12px;
+                font-weight: 650;
+            }
+            p {
+                margin: 7px 0 12px;
+            }
+            a {
+                color: #146f65;
+                text-decoration: underline;
+                text-underline-offset: 3px;
+            }
+            code {
+                font-family: Consolas, monospace;
+                font-size: 12px;
+                overflow-wrap: anywhere;
+            }
+            .meta,
+            .muted {
+                color: #626d78;
+                font-size: 13px;
+            }
+            .meta {
+                display: flex;
+                gap: 14px;
+                flex-wrap: wrap;
+            }
+            .nav {
+                display: flex;
+                gap: 22px;
+                flex-wrap: wrap;
+                padding: 17px 0;
+            }
+            section {
+                padding-top: 30px;
+            }
+            .summary {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 20px;
+                padding: 20px 0;
+                border-bottom: 1px solid #d8dee3;
+            }
+            .summary strong {
+                display: block;
+                font-size: 24px;
+                line-height: 1.5;
+            }
+            .summary span {
+                font-size: 13px;
+                color: #626d78;
+            }
+            .note {
+                padding: 12px 15px;
+                border-left: 3px solid #69818e;
+                background: #eaf0f3;
+                font-size: 14px;
+                margin: 12px 0;
+            }
+            .warn {
+                border-color: #b85219;
+                background: #fff0e8;
+            }
+            .table-wrap {
+                overflow-x: auto;
+                border: 1px solid #d8dee3;
+                border-radius: 6px;
+                background: white;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                text-align: left;
+                font-size: 13px;
+            }
+            th,
+            td {
+                padding: 12px 13px;
+                border-bottom: 1px solid #e2e7eb;
+                vertical-align: top;
+            }
+            th {
+                background: #f0f4f6;
+                font-weight: 650;
+                white-space: nowrap;
+            }
+            tr:last-child td {
+                border-bottom: 0;
+            }
+            .badge {
+                display: inline-block;
+                padding: 2px 7px;
+                border-radius: 4px;
+                font-size: 12px;
+                line-height: 1.6;
+                white-space: nowrap;
+                font-weight: 650;
+            }
+            .p1 {
+                background: #fde7e6;
+                color: #a02727;
+            }
+            .p2 {
+                background: #fff0e3;
+                color: #985417;
+            }
+            .p3 {
+                background: #edf0f4;
+                color: #586477;
+            }
+            .strong {
+                background: #dff3e9;
+                color: #186342;
+            }
+            .worth {
+                background: #fff0d6;
+                color: #805919;
+            }
+            .speculative {
+                background: #edf0f4;
+                color: #586477;
+            }
+            .pass {
+                color: #20724e;
+            }
+            .fail {
+                color: #a92a34;
+            }
+            .finding {
+                padding: 20px 0;
+                border-bottom: 1px solid #d8dee3;
+            }
+            .finding h3 {
+                display: flex;
+                gap: 10px;
+                align-items: baseline;
+                flex-wrap: wrap;
+            }
+            .finding p {
+                font-size: 14px;
+            }
+            .evidence {
+                color: #596571;
+                font-size: 12px;
+            }
+            article.candidate {
+                border: 1px solid #d8dee3;
+                border-radius: 8px;
+                background: white;
+                padding: 23px;
+                margin: 18px 0;
+            }
+            .candidate-head {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                align-items: baseline;
+                flex-wrap: wrap;
+            }
+            .files {
+                margin: 9px 0 15px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid #e2e7eb;
+            }
+            .diagrams {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 26px;
+                margin: 16px 0;
+            }
+            .diagram {
+                min-width: 0;
+                min-height: 230px;
+            }
+            .diagram-label {
+                font-size: 12px;
+                font-weight: 650;
+                color: #626d78;
+                margin-bottom: 10px;
+            }
+            .mermaid {
+                font-size: 12px;
+                overflow-x: auto;
+                white-space: pre-wrap;
+            }
+            .mermaid svg {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+            .module {
+                padding: 9px 12px;
+                border: 1px solid #afbfc9;
+                border-radius: 4px;
+                margin: 6px 0;
+                text-align: center;
+                font-size: 13px;
+                background: #f7fafb;
+            }
+            .deep {
+                border: 2px solid #247163;
+                background: #e8f4ef;
+                padding: 12px;
+            }
+            .internal {
+                padding: 8px;
+                margin: 8px 0 2px;
+                border: 1px dashed #78a198;
+                color: #476d64;
+                font-size: 12px;
+            }
+            .arrow {
+                text-align: center;
+                color: #788690;
+                font-size: 17px;
+                line-height: 1.2;
+                margin: 3px 0;
+            }
+            .leak {
+                border-color: #c76664;
+                background: #fff0ef;
+            }
+            .band {
+                padding: 10px 12px;
+                border-left: 3px solid #8ca0af;
+                background: #f0f4f6;
+                font-size: 13px;
+                margin: 7px 0;
+            }
+            .wins {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+                font-size: 13px;
+                padding: 0;
+                margin: 12px 0;
+                list-style: none;
+            }
+            .wins li {
+                padding-right: 12px;
+                border-right: 1px solid #d8dee3;
+            }
+            .wins li:last-child {
+                border: 0;
+            }
+            .definition {
+                font-size: 13px;
+                color: #536570;
+                margin: 12px 0;
+            }
+            .top {
+                padding: 20px;
+                border-left: 4px solid #247163;
+                background: #e8f4ef;
+                margin-top: 20px;
+            }
+            .columns {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+            }
+            .list {
+                padding-left: 20px;
+                font-size: 14px;
+            }
+            .list li {
+                margin: 8px 0;
+            }
+            .footer {
+                margin-top: 30px;
+                padding-top: 18px;
+                border-top: 1px solid #d8dee3;
+                font-size: 12px;
+                color: #626d78;
+            }
+            @media (max-width: 760px) {
+                main {
+                    padding: 24px 16px 45px;
+                }
+                h1 {
+                    font-size: 25px;
+                }
+                .summary {
+                    grid-template-columns: 1fr 1fr;
+                }
+                .diagrams,
+                .columns {
+                    grid-template-columns: 1fr;
+                }
+                .diagram {
+                    min-height: auto;
+                }
+                article.candidate {
+                    padding: 17px;
+                }
+            }
+            @media print {
+                body {
+                    background: white;
+                }
+                .nav {
+                    display: none;
+                }
+                main {
+                    max-width: none;
+                    padding: 12px;
+                }
+                article.candidate,
+                .finding {
+                    break-inside: avoid;
+                }
+                a {
+                    color: inherit;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <header>
+                <div class="meta">
+                    <span>2026-10-08</span>
+                    <span>当前工作树，不限于已提交 diff</span>
+                    <span>improve-codebase-architecture / Explore</span>
+                </div>
+                <h1>TalosArk 后端质检</h1>
+                <div class="meta">
+                    <span>模块组织</span>
+                    <span>interface 深度</span>
+                    <span>运行正确性</span>
+                    <span>生命周期</span>
+                    <span>交付契约</span>
+                </div>
+            </header>
+            <nav class="nav" aria-label="报告目录">
+                <a href="#findings">优先发现</a>
+                <a href="#retained">保留实现缺陷</a>
+                <a href="#candidates">架构候选</a>
+                <a href="#verification">验证结果</a>
+                <a href="#scope">范围与限制</a>
+            </nav>
+            <div class="summary">
+                <div>
+                    <strong>480</strong>
+                    <span>src TypeScript 文件扫描</span>
+                </div>
+                <div>
+                    <strong>345</strong>
+                    <span>纯空导出 / 空类骨架</span>
+                </div>
+                <div>
+                    <strong>构建通过</strong>
+                    <span>生产类型检查与 Nest build</span>
+                </div>
+                <div>
+                    <strong>测试失配</strong>
+                    <span>3 个失败文件，1 个通过</span>
+                </div>
+            </div>
+            <div class="note">
+                结论：已有技术实现具备可复用能力，但存在具体缺陷、公开 interface
+                泄漏和交付配置漂移。先修已证实问题，再选定架构深化；不按目录大小启动整体重写。
+            </div>
+
+            <section id="findings">
+                <h2>优先发现：主启动、配置与交付</h2>
+                <div class="finding" id="f1">
+                    <h3>
+                        <span class="badge p1">P1</span>
+                        生产镜像打包本地环境凭据与密钥
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        从当前工作区按 Dockerfile 构建。
+                        <code>secrets/env/*</code>
+                        和
+                        <code>secrets/crypto/*</code>
+                        被无差别 COPY；
+                        <code>.dockerignore</code>
+                        未排除本地配置和密钥。当前本地环境文件确有非空明文敏感赋值，报告不显示其值。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        开发 / 测试凭据及本地密钥进入生产镜像；Git ignore 不会限制 Docker
+                        构建上下文。优先改为按生产用途选择配置并在运行时注入密钥，评估已发布镜像是否需要清理和轮换凭据。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/ops/docker/Dockerfile:24,47,49</code>
+                        ·
+                        <code>.dockerignore:1</code>
+                        · 静态 COPY / 忽略规则与本地文件形态核对；未构建或上传镜像。
+                    </div>
+                </div>
+                <div class="finding" id="f2">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        配置导入顺序决定是否抛出 ESM 初始化错误
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        直接导入
+                        <code>casdoor.config.ts</code>
+                        ，路径经过 common 聚合导出再返回 config。实际 Node / tsx 探针抛出
+                        <code>Cannot access 'casdoorConfig' before initialization</code>
+                        。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        主入口恰好从 config 聚合入口进入而能构建 /
+                        加载；独立配置工具或新入口则可能失败。应消除真实运行依赖循环，不只是移动 barrel 文件。
+                    </p>
+                    <div class="evidence">
+                        <code>
+                            config/casdoor.config.ts:1 → common/utils/index.ts:1 → formatters/console.formatter.ts:1 →
+                            config/index.ts:28
+                        </code>
+                        · 本地导入复现；路径均位于
+                        <code>packages/backend/src/</code>
+                        。
+                    </div>
+                </div>
+                <div class="finding" id="f3">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        正常停止进程没有调用 Nest 资源清理 hooks
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        部署停止向进程发送 SIGTERM。启动实现未启用 shutdown hooks，也没有进程信号桥接；
+                        <code>app.close()</code>
+                        只在监听失败时调用。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        现有 HTTP、KVS、Prisma
+                        清理逻辑不能在正常部署停止时协调运行。在途工作和日志刷新缺少有序终止。应接通生命周期，并为可能等待的
+                        adapter 设置有限收尾策略。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/bootstrap/bootstrap.ts:30,75</code>
+                        ·
+                        <code>packages/backend/src/main.ts:10</code>
+                        · 全源调用链确认；未向真实服务发送停止信号。
+                    </div>
+                </div>
+                <div class="finding" id="f4">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        KVS 优雅关闭可能无限等待未完成命令
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        连接已建立，但 Redis / Valkey 命令一直不返回。
+                        <code>close()</code>
+                        等待 pending commands，当前未设置命令或关闭预算。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        即便补上 shutdown hooks，Nest 关闭仍可能卡住。这与“没有接通 hooks”是两个独立问题。真实
+                        node-redis + 临时本地 RESP 端点探针中，关闭持续 pending，强制 destroy 后才结束。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/infra/kvs/kvs.client.ts:61-64</code>
+                        ·
+                        <code>packages/backend/src/infra/kvs/redis.client.ts:20</code>
+                        · 本地协议端点复现，无真实 Valkey。
+                    </div>
+                </div>
+                <div class="finding" id="f5">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        后端健康探针指向尚不存在的路由
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        按现有 Dockerfile 或完整 Compose 部署。探针访问
+                        <code>/api/v1/health</code>
+                        ，而 health 仍是骨架，当前 AppModule 没有挂载对应 controller。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        进程成功监听也会被标记为
+                        unhealthy。应对齐当前交付声明，不应为了通过探针擅自恢复已删除的旧业务实现。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/ops/docker/Dockerfile:69-70</code>
+                        ·
+                        <code>ops/docker/compose/full/compose.yaml:128-129</code>
+                        ·
+                        <code>src/system/health/index.ts:1</code>
+                        · 运行组合图静态确认。
+                    </div>
+                </div>
+                <div class="finding" id="f6">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        完整 Compose 的 Casdoor 端口配置不一致
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        使用同目录提供的 app.conf 示例。容器监听 / 健康检查使用 8000，主机端口却映射到容器 8001。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        Casdoor
+                        可以通过容器内健康检查，但主机浏览器和外部回调不能通过发布端口访问。修正容器端口映射，避免让用户靠改配置猜出可运行组合。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/ops/docker/compose/full/compose.yaml:81-83</code>
+                        ·
+                        <code>compose/full/casdoor/app.conf.example:6</code>
+                        · 静态端口核对，未启动容器。
+                    </div>
+                </div>
+                <div class="finding" id="f7">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        Prisma CLI 脱敏保留了连接 URL 的完整 query
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        连接 URL query 携带
+                        <code>password</code>
+                        、
+                        <code>sslpassword</code>
+                        或其他敏感参数。脱敏只遮盖 authority password，仍输出
+                        <code>url.search</code>
+                        。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        Prisma 接受或拒绝连接参数之前，包装 CLI 已把 query 原样写入日志。应按安全 allowlist
+                        保留诊断参数或整体去掉 query，而非只遮盖一种密码位置。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/scripts/prisma-environment.ts:166-170</code>
+                        ·
+                        <code>scripts/prisma.ts:143-146</code>
+                        · URL 处理与执行顺序确认，无实际连接。
+                    </div>
+                </div>
+                <div class="finding" id="f8">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        OpenAPI 产物与文档站构建路径脱节
+                    </h3>
+                    <p>
+                        <strong>触发：</strong>
+                        执行
+                        <code>docs:gen-openapi</code>
+                        后构建实际 docsite，或使用 docsite Dockerfile。生成脚本仍写入后端
+                        <code>website/api-reference</code>
+                        ；文档站 Dockerfile 仍 COPY 已不存在的旧项目目录。
+                    </p>
+                    <p>
+                        <strong>影响：</strong>
+                        新 schema 没有进入实际发布路径；文档镜像默认构建路径直接失败。涉及 docsite
+                        的跨包修复应作为明确的工具链任务，而非混入业务重构。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/scripts/generate-openapi.ts:19</code>
+                        ·
+                        <code>packages/docsite/Dockerfile.prod:10-11,32,46</code>
+                        · 文件路径与消费者核对，未生成文档产物。
+                    </div>
+                </div>
+                <div class="finding" id="f9">
+                    <h3>
+                        <span class="badge p3">P3</span>
+                        Casdoor“可选配置”文档与实际校验不一致
+                    </h3>
+                    <p>
+                        注释说明无 Casdoor 配置时可以正常启动，但 early return 被注释，空配置实际得到
+                        ZodError。若当前阶段明确要求 Casdoor
+                        必配，应修改声明；若确实可选，应恢复完整可选语义。审查不替用户决定首发登录依赖策略。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/config/casdoor.config.ts:36-48</code>
+                        · 空配置本地校验复现。
+                    </div>
+                </div>
+            </section>
+
+            <section id="retained">
+                <h2>保留实现：接入业务前必须修复</h2>
+                <div class="note">
+                    以下 Access 刷新方法、Storage 分片路径当前没有真实业务调用方。问题发生在已有实现，不是当前已上线
+                    HTTP 入口的回归；不能把它们描述为已可通过 HTTP 利用的漏洞。
+                </div>
+                <div class="finding" id="f10">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        刷新 TokenPair 忽略撤销与 Session 空闲过期状态
+                    </h3>
+                    <p>
+                        刷新读取只取
+                        <code>tokenPair.session</code>
+                        ，不检查
+                        <code>TokenPair.revokedAt</code>
+                        ，也不检查
+                        <code>Session.idleExpiresAt</code>
+                        。本地密钥 + 实际编译 Kernel + mock Prisma 探针中，两种无效状态都能得到下一代凭据；AT
+                        验证却会检查这些状态。
+                    </p>
+                    <p>
+                        修复目标是让验证 / 刷新采用一致的生命周期不变量，不改变正常登录结果。Session 自然过期与 RT
+                        默认时长关系降低了部分触发机会，但不能消除显式撤销的缺陷。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/core/access/access.kernel.ts:125,144</code>
+                        · 当前 HTTP refresh 仍为明确 501；没有真实 PostgreSQL 验证。
+                    </div>
+                </div>
+                <div class="finding" id="f11">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        相同 RT 并发刷新变成数据库唯一冲突
+                    </h3>
+                    <p>
+                        两次调用可以同时读取相同 version；Session 更新不比较旧 version，并在消费 RT 前创建同 generation
+                        的 TokenPair。数据库唯一约束阻止第二次写入，但错误未解释为预期的重复使用结果。
+                    </p>
+                    <p>
+                        本地 mock 并发屏障及 generation 唯一约束模拟得到“一次成功，一次
+                        DatabaseError(unique-constraint)”。未来接入入口后会成为不可预期内部错误；需要原子状态推进，而不是重试整个发凭据过程。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/core/access/access.kernel.ts:162,206</code>
+                        · mock 复现 + schema 约束推导；实际 PostgreSQL 竞争机制未验证。
+                    </div>
+                </div>
+                <div class="finding" id="f12">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        S3 分片 URL 实际使用普通 PutObject
+                    </h3>
+                    <p>
+                        初始化和续传都把
+                        <code>UploadId / PartNumber</code>
+                        塞入
+                        <code>PutObjectCommand</code>
+                        ，用
+                        <code>as any</code>
+                        绕过编译。真实安装 SDK 的本地签名结果中，两项 query 均缺失；该 URL
+                        指向普通对象上传而非上传分片。
+                    </p>
+                    <p>修复应使用正确的分片命令并保留类型检查。不能通过增加重试弥补协议错误。</p>
+                    <div class="evidence">
+                        <code>packages/backend/src/infra/storage/storage.service.ts:430-435,478-483</code>
+                        · 真实 SDK 本地签名 + adapter 方法 mock，未访问 S3。
+                    </div>
+                </div>
+                <div class="finding" id="f13">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        S3 断点续传只读取一页分片
+                    </h3>
+                    <p>
+                        <code>ListParts</code>
+                        的
+                        <code>IsTruncated / NextPartNumberMarker</code>
+                        被忽略，第二页的已上传分片被判定为“未完成”并重新签名。分片很多时，恢复结果不完整；应让 adapter
+                        拥有协议分页，而不是让业务调用方补偿。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/infra/storage/storage.service.ts:465-472</code>
+                        · mock 两页响应，实际方法只发送一次查询。
+                    </div>
+                </div>
+                <div class="finding" id="f14">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        显式 false 的 S3 寻址选项被转为 true
+                    </h3>
+                    <p>
+                        <code>options.forcePathStyle || true</code>
+                        使调用方无法关闭 path style。真实 factory 探针传入 false，安装 SDK 配置仍为 true；依赖
+                        virtual-hosted style 的部署得不到声明的配置行为。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/infra/storage/storage.module.ts:69</code>
+                        · 本地 factory / SDK config 复现。
+                    </div>
+                </div>
+                <div class="finding" id="f15">
+                    <h3>
+                        <span class="badge p2">P2</span>
+                        对象 key 直接拼接 URL / CopySource
+                    </h3>
+                    <p>
+                        <code>getPublicUrl('报告 #1.txt')</code>
+                        中 # 后内容变成 fragment，而非 key；
+                        <code>CopySource</code>
+                        同样没有 URL 编码。应按路径 segment 编码、保留 key 层级，不把任意对象键当作已经编码的 URL。
+                    </p>
+                    <div class="evidence">
+                        <code>packages/backend/src/infra/storage/storage.service.ts:85,390</code>
+                        · URL 解析与实际参数形态核对，未执行对象复制。
+                    </div>
+                </div>
+            </section>
+
+            <section id="candidates">
+                <h2>架构深化候选</h2>
+                <p class="definition">
+                    module 有 interface 和 implementation；depth 产生 leverage 与 locality。实线盒表示
+                    module，虚线表示内部 seam，红色表示泄漏。这里只给概念方向，不提前规定新 interface。
+                </p>
+                <article class="candidate" id="c1">
+                    <div class="candidate-head">
+                        <h3>A. 让配置初始化脱离 common 聚合链</h3>
+                        <div>
+                            <span class="badge strong">Strong</span>
+                            <span class="badge p3">in-process</span>
+                        </div>
+                    </div>
+                    <div class="files">
+                        <code>src/config/{index,casdoor.config}.ts</code>
+                        <br />
+                        <code>src/common/utils/{index,helpers/file.helper,formatters/console.formatter}.ts</code>
+                    </div>
+                    <div class="diagrams">
+                        <div class="diagram">
+                            <div class="diagram-label">BEFORE · 运行依赖回环</div>
+                            <pre class="mermaid">
+flowchart TB
+          C["config module"] --> U["common aggregate"]
+          U --> F["ConsoleFormatter"]
+          F --> C
+          U --> R["file / env / HTTP helpers"]
+          classDef leak fill:#fff0ef,stroke:#c76664,color:#722f2f;
+          class C,U,F leak;</pre>
+                        </div>
+                        <div class="diagram">
+                            <div class="diagram-label">AFTER · 归属明确的 implementation</div>
+                            <pre class="mermaid">
+flowchart TB
+          C["config module"] --> R["config-local file reader"]
+          P["Platform logging"] --> C
+          O["current owners"] --> U["pure common helpers"]
+          classDef deep fill:#e8f4ef,stroke:#247163,stroke-width:2px;
+          class C,U deep;</pre>
+                        </div>
+                    </div>
+                    <p>
+                        <strong>问题：</strong>
+                        获取一个文件读取 helper 会加载配置、格式化、HTTP / 环境支持，独立入口失去 locality。
+                    </p>
+                    <p>
+                        <strong>方向：</strong>
+                        配置读入归 config，非纯支持归真实 owner；调用方使用精确模块依赖，common 不再聚合反向运行依赖。
+                    </p>
+                    <ul class="wins">
+                        <li>locality：初始化知识归 owner</li>
+                        <li>leverage：不同入口一致运行</li>
+                        <li>纯 helper 可独立验证</li>
+                    </ul>
+                    <p class="muted">
+                        <strong>Deletion test：</strong>
+                        去掉 common → config 的绕行会消除循环，而不会把配置知识转嫁给各业务调用方。不是单纯“禁止
+                        barrel”。
+                    </p>
+                </article>
+                <article class="candidate" id="c2">
+                    <div class="candidate-head">
+                        <h3>B. 收紧 Identity / Access 的公开技术类型</h3>
+                        <div>
+                            <span class="badge strong">Strong</span>
+                            <span class="badge p3">in-process</span>
+                        </div>
+                    </div>
+                    <div class="files">
+                        <code>src/core/identity/identity.contract.ts:15,23,29</code>
+                        <br />
+                        <code>src/core/access/access.contract.ts:105,115</code>
+                        <br />
+                        <code>src/modules/auth/auth.service.ts:38,50,55</code>
+                    </div>
+                    <div class="diagrams">
+                        <div class="diagram">
+                            <div class="diagram-label">BEFORE · 调用方知道技术写入形态</div>
+                            <div class="module">Auth business module</div>
+                            <div class="arrow">↓</div>
+                            <div class="module leak">Casdoor claims + Prisma nested create</div>
+                            <div class="arrow">↓</div>
+                            <div class="module">Identity Kernel → IAM / database</div>
+                        </div>
+                        <div class="diagram">
+                            <div class="diagram-label">AFTER · 能力拥有转换细节</div>
+                            <div class="module">Auth business module</div>
+                            <div class="arrow">↓ capability interface</div>
+                            <div class="module deep">
+                                Identity module
+                                <div class="internal">
+                                    provider interpretation · persistence translation
+                                    <br />
+                                    IAM adapter · database adapter
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p>
+                        <strong>问题：</strong>
+                        Core interface 直接接受 SDK claims 与 Prisma nested CreateInput；更换 provider
+                        字段或存储关系会迫使 Auth module 改动。
+                    </p>
+                    <p>
+                        <strong>方向：</strong>
+                        保持正常登录行为，将技术解释和持久化形态留在能力 implementation。Kernel 直接使用 Infra
+                        仍合法，不新增纯转发 Port。
+                    </p>
+                    <ul class="wins">
+                        <li>locality：provider 变更归内部</li>
+                        <li>leverage：业务只学能力语义</li>
+                        <li>验证穿过同一 interface</li>
+                    </ul>
+                    <p class="muted">
+                        <strong>Deletion test：</strong>
+                        移除公开 interface 的技术形态应减少业务调用方必须知道的知识，不只是换个类型别名。
+                    </p>
+                    <div class="note warn">
+                        这是现有 CONTEXT 约束的落实，不是重新争论依赖方向。收紧输入 /
+                        输出可能改变编译期契约，实施前须确认；本轮没有改动。
+                    </div>
+                </article>
+                <article class="candidate" id="c3">
+                    <div class="candidate-head">
+                        <h3>C. 让 Session / TokenPair 状态推进集中在一个 module</h3>
+                        <div>
+                            <span class="badge strong">Strong</span>
+                            <span class="badge p3">local-substitutable</span>
+                        </div>
+                    </div>
+                    <div class="files">
+                        <code>src/core/access/access.kernel.ts:111-209,231-325</code>
+                        <br />
+                        <code>prisma/model/identity.prisma</code>
+                    </div>
+                    <div class="diagrams">
+                        <div class="diagram">
+                            <div class="diagram-label">BEFORE · 不变量分散</div>
+                            <div class="band">verify：校验 pair / session / expiry</div>
+                            <div class="band">rotate：只校验部分 session 状态</div>
+                            <div class="band">写事务：生成 pair → 消费 RT</div>
+                            <div class="band leak">并发冲突：数据库错误泄出</div>
+                        </div>
+                        <div class="diagram">
+                            <div class="diagram-label">AFTER · 深 capability implementation</div>
+                            <div class="module deep">
+                                Access module
+                                <div class="internal">
+                                    一致生命周期不变量
+                                    <br />
+                                    原子状态推进
+                                    <br />
+                                    已知竞争 → 能力错误
+                                </div>
+                            </div>
+                            <div class="arrow">↓</div>
+                            <div class="module">database adapter</div>
+                        </div>
+                    </div>
+                    <p>
+                        <strong>问题：</strong>
+                        验证与刷新对同一 Session / TokenPair 的解释不同；公开 operation 的安全前提依赖调用方自觉补齐。
+                    </p>
+                    <p>
+                        <strong>方向：</strong>
+                        集中真实生命周期和原子推进语义，不按每条 Prisma 查询拆独立 module，也不以全局重试处理凭据竞争。
+                    </p>
+                    <ul class="wins">
+                        <li>locality：撤销规则单一 owner</li>
+                        <li>leverage：入口无需重复校验</li>
+                        <li>竞争结果可穿 interface 验证</li>
+                    </ul>
+                    <p class="muted">
+                        <strong>Deletion test：</strong>
+                        去掉重复但不一致的判断，应由 Access implementation 承担完整规则，而不是转移给
+                        controller。优先修缺陷，内部抽取仅在减少真实重复时采用。
+                    </p>
+                </article>
+                <article class="candidate" id="c4">
+                    <div class="candidate-head">
+                        <h3>D. 删除没有真实调用链的 DI 中转</h3>
+                        <div>
+                            <span class="badge worth">Worth exploring</span>
+                            <span class="badge p3">in-process</span>
+                        </div>
+                    </div>
+                    <div class="files">
+                        <code>src/core/identity/identity.module.ts:11</code>
+                        <br />
+                        <code>src/core/identity/repository/identity.repository{,.module}.ts</code>
+                        <br />
+                        <code>src/core/access/access.module.ts:10</code>
+                    </div>
+                    <div class="diagrams">
+                        <div class="diagram">
+                            <div class="diagram-label">BEFORE · 两条装配路径，仅一条被使用</div>
+                            <div class="module">Identity module</div>
+                            <div class="arrow">↓</div>
+                            <div class="module">Kernel → Prisma（真实）</div>
+                            <div class="module leak">Repository providers（无人消费）</div>
+                            <div class="module leak">Access → IAM / KVS（无行为依赖）</div>
+                        </div>
+                        <div class="diagram">
+                            <div class="diagram-label">AFTER · 组合图表达真实依赖</div>
+                            <div class="module deep">
+                                Identity module
+                                <div class="internal">当前实际持久化实现</div>
+                            </div>
+                            <div class="arrow">↓</div>
+                            <div class="module">真实使用的 Infra adapters</div>
+                        </div>
+                    </div>
+                    <p>
+                        <strong>问题：</strong>
+                        未被调用的 repository 和无行为 DI 依赖增加导航成本，interface 没有支付对应 leverage。
+                    </p>
+                    <p>
+                        <strong>方向：</strong>
+                        只清理确认无人消费的真实装配，不删除已批准的业务骨架，不为目录对称新建 Port。
+                    </p>
+                    <ul class="wins">
+                        <li>locality：调用链可直接追踪</li>
+                        <li>组合图减少虚假依赖</li>
+                        <li>无需改变业务结果</li>
+                    </ul>
+                    <p class="muted">
+                        <strong>Deletion test：</strong>
+                        移除这些 provider / import 不应改变当前任何调用结果。保留有真实行为的
+                        adapter，而非合并所有小文件。
+                    </p>
+                </article>
+                <article class="candidate" id="c5">
+                    <div class="candidate-head">
+                        <h3>E. 收拢生命周期与交付声明的所有权</h3>
+                        <div>
+                            <span class="badge worth">Worth exploring</span>
+                            <span class="badge p3">in-process / deployment</span>
+                        </div>
+                    </div>
+                    <div class="files">
+                        <code>src/bootstrap/bootstrap.ts</code>
+                        ·
+                        <code>src/infra/kvs/kvs.client.ts</code>
+                        <br />
+                        <code>ops/docker/{Dockerfile,compose/full/compose.yaml}</code>
+                        <br />
+                        <code>scripts/generate-openapi.ts</code>
+                        ·
+                        <code>packages/docsite/Dockerfile.prod</code>
+                    </div>
+                    <div class="diagrams">
+                        <div class="diagram">
+                            <div class="diagram-label">BEFORE · 声明彼此独立</div>
+                            <div class="band">进程信号 ≠ 已有清理 hooks</div>
+                            <div class="band">adapter close ≠ 有限预算</div>
+                            <div class="band">健康探针 ≠ 当前路由</div>
+                            <div class="band">OpenAPI 输出 ≠ 实际发布目录</div>
+                        </div>
+                        <div class="diagram">
+                            <div class="diagram-label">AFTER · 各 owner 兑现其契约</div>
+                            <div class="module deep">Bootstrap lifecycle owner</div>
+                            <div class="module">adapter-local finite cleanup</div>
+                            <div class="module deep">
+                                Delivery owner
+                                <div class="internal">当前配置 / 探针 / 产物路径一致</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p>
+                        <strong>问题：</strong>
+                        真实行为与交付 interface 的前提散落在数个入口，构建通过不能证明部署可用。
+                    </p>
+                    <p>
+                        <strong>方向：</strong>
+                        Bootstrap 负责信号桥接，adapter
+                        负责自身有限清理，工具链维护真实部署配置。先对齐现有实现，不新增通用发布 Kernel。
+                    </p>
+                    <ul class="wins">
+                        <li>locality：失败归真实 owner</li>
+                        <li>leverage：部署声明可验证</li>
+                        <li>启动 / 关闭可独立检查</li>
+                    </ul>
+                    <p class="muted">
+                        <strong>Deletion test：</strong>
+                        移除与当前运行图脱节的旧声明，不能损失真实能力；需要保留的是可执行交付契约，而非旧模板。
+                    </p>
+                </article>
+                <article class="candidate" id="c6">
+                    <div class="candidate-head">
+                        <h3>F. 收拢 Storage tree 原生实现的所有权</h3>
+                        <div>
+                            <span class="badge worth">Worth exploring</span>
+                            <span class="badge p3">local-substitutable</span>
+                        </div>
+                    </div>
+                    <div class="files">
+                        <code>src/modules/facility/infrastructure/persistence/storage-node.writer.ts</code>
+                        <br />
+                        <code>prisma/ddl/schema/storage-node.sql</code>
+                        ·
+                        <code>package.json:19</code>
+                    </div>
+                    <div class="diagrams">
+                        <div class="diagram">
+                            <div class="diagram-label">BEFORE · 一份原子契约，多处前提</div>
+                            <div class="module">Facility writer</div>
+                            <div class="arrow">↓</div>
+                            <div class="module">中央目录 functions / triggers</div>
+                            <div class="module leak">npm 路径 + 手工安装顺序</div>
+                        </div>
+                        <div class="diagram">
+                            <div class="diagram-label">AFTER · native implementation 归 owner</div>
+                            <div class="module deep">
+                                Storage tree persistence module
+                                <div class="internal">
+                                    writer · native SQL assets
+                                    <br />
+                                    path / parent invariants
+                                </div>
+                            </div>
+                            <div class="arrow">↑ 受控安装</div>
+                            <div class="module">init extension → Prisma sync → native assets</div>
+                        </div>
+                    </div>
+                    <p>
+                        <strong>问题：</strong>
+                        理解一个 parent / path 写入契约，需要跨 writer、中央 SQL、npm 路径与安装说明，locality 分散。
+                    </p>
+                    <p>
+                        <strong>方向：</strong>
+                        extension init 保留数据库全局归属；Storage native implementation 与 writer 归同一
+                        owner，由受控工具按已批准顺序安装。不引入正式迁移、权限继承或分页。
+                    </p>
+                    <ul class="wins">
+                        <li>locality：原子契约同处维护</li>
+                        <li>leverage：调用方不写原生 SQL</li>
+                        <li>安装与实现可一起验证</li>
+                    </ul>
+                    <p class="muted">
+                        <strong>Deletion test：</strong>
+                        writer 隐藏类型转换和原子操作，删除会把复杂度送回调用方，应该保留；缺少独立 leverage
+                        的是中央路径与硬编码安装注册，不是 writer 本身。
+                    </p>
+                </article>
+                <div class="top" id="top-recommendation">
+                    <h3>Top recommendation：A. 配置初始化去循环</h3>
+                    <p>
+                        先处理凭据打包风险；架构深化从
+                        <a href="#c1">A</a>
+                        开始：已有真实导入失败、范围小、无需改变正常业务结果。随后处理 C 的生命周期缺陷，再讨论 B
+                        的公开契约收紧。
+                    </p>
+                </div>
+            </section>
+
+            <section id="verification">
+                <h2>验证结果</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>检查</th>
+                                <th>结果</th>
+                                <th>边界</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>生产 TypeScript 检查</td>
+                                <td class="pass">通过</td>
+                                <td><code>tsc --noEmit -p tsconfig.build.json --incremental false</code></td>
+                            </tr>
+                            <tr>
+                                <td>后端构建</td>
+                                <td class="pass">通过</td>
+                                <td>contracts build + Nest build + tsc-alias</td>
+                            </tr>
+                            <tr>
+                                <td>Prisma validate</td>
+                                <td class="pass">通过</td>
+                                <td>dummy URLs；仅 schema 校验，无数据库连接 / DDL 执行</td>
+                            </tr>
+                            <tr>
+                                <td>源代码与保留测试 ESLint</td>
+                                <td>0 errors / 11 warnings</td>
+                                <td>未使用函数、示例变量、骨架参数；没有运行 --fix</td>
+                            </tr>
+                            <tr>
+                                <td>Prettier</td>
+                                <td class="fail">1 个文件不一致</td>
+                                <td>
+                                    <code>src/infra/http/http.module.ts</code>
+                                    ；未格式化源码
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>保留 Vitest</td>
+                                <td class="fail">3 文件失败 / 1 通过；9 测试失败 / 6 通过</td>
+                                <td>
+                                    1 suite 引用已删除模块；OIDC 缺新增依赖且 fetch mock 过时；pagination mock 缺
+                                    execute
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>测试 TypeScript 检查</td>
+                                <td class="fail">3 个错误</td>
+                                <td>缺失旧 Casdoor 权限模块、OIDC 构造参数、introspection AxiosResponse 形态</td>
+                            </tr>
+                            <tr>
+                                <td>HTTP 本地 loopback 探针</td>
+                                <td class="pass">通过</td>
+                                <td>
+                                    GET retry、POST 不重放、请求单飞、等待者取消隔离、deadline、decode 原错误、refresh
+                                    单飞
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Access / S3 / KVS 针对性探针</td>
+                                <td>复现报告所述缺陷</td>
+                                <td>实际编译代码 / 安装 SDK + mock 或本地协议端点，不等价于真实数据库 / 云存储验收</td>
+                            </tr>
+                            <tr>
+                                <td>运行 import 图</td>
+                                <td>1 条真实运行循环</td>
+                                <td>排除了 type-only imports；HTTP 类型互引不误报为运行循环</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="note">
+                    测试失败是当前反馈机制与实现失配的证据，不等于 9 个业务回归。按
+                    CONTEXT，本轮只运行保留测试及无持久文件探针，没有新增或维护测试脚本。
+                </div>
+            </section>
+
+            <section id="appendix">
+                <h2>低优先级：无调用方的通用 helper</h2>
+                <p class="muted">
+                    当前扫描未发现以下 helper
+                    的后端调用方。仍是可复现契约缺陷，但不得把潜在能力问题夸大为已启用业务故障，也不建议据此重写全部
+                    common。
+                </p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>文件 / 位置</th>
+                                <th>本地结果</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>common/utils/operations/async.operation.ts:164</code></td>
+                                <td>
+                                    <code>pLimit([], 2)</code>
+                                    始终 pending
+                                </td>
+                                <td>空任务列表没有启动执行，也没有 resolve</td>
+                            </tr>
+                            <tr>
+                                <td><code>async.operation.ts:222</code></td>
+                                <td>慢的第一个 Promise 先返回；快的成功结果被阻挡</td>
+                                <td>
+                                    <code>firstSuccess</code>
+                                    按顺序 await，不是声明的竞速
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><code>function.operation.ts:84,169</code></td>
+                                <td>
+                                    debounce 第二个独立 burst 的 leading 不执行；throttle leading=false 首次立即执行
+                                </td>
+                                <td>选项语义与 implementation 不一致</td>
+                            </tr>
+                            <tr>
+                                <td><code>validation-schema.ts:183,226</code></td>
+                                <td>纯空格通过非空校验；带外部空格的邮箱在 trim 前失败</td>
+                                <td>校验 / 标准化顺序错误；纯空格得到空字符串</td>
+                            </tr>
+                            <tr>
+                                <td><code>json.operation.ts:39</code></td>
+                                <td>
+                                    <code>safeJsonStringify(undefined, '{}')</code>
+                                    返回 undefined
+                                </td>
+                                <td>JSON.stringify 不抛异常时也可能没有字符串</td>
+                            </tr>
+                            <tr>
+                                <td><code>date.operation.ts:65</code></td>
+                                <td>1 月 31 日的月末查询得到 2 月末</td>
+                                <td>先 setMonth 发生日期溢出，后 setDate(0) 无法恢复目标月份</td>
+                            </tr>
+                            <tr>
+                                <td><code>helpers/crypto.helper.ts:194</code></td>
+                                <td>
+                                    <code>verifyLuhn('79927398713')</code>
+                                    返回 false
+                                </td>
+                                <td>对不含校验位的 prefix 计算时，倍增位置奇偶方向错误</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="muted">
+                    组织漂移：
+                    <code>common</code>
+                    中还保留 HTTP/Fastify、环境加载与配置依赖；Backend README 仍是旧模板入口；KVS key.ts
+                    带示例执行代码。建议随对应 owner 任务定向清理，不把“清空骨架”作为架构优化。
+                </p>
+            </section>
+
+            <section id="scope">
+                <h2>范围、保留决策与限制</h2>
+                <div class="columns">
+                    <div>
+                        <h3>覆盖范围</h3>
+                        <ul class="list">
+                            <li>bootstrap、Nest 组合图、HTTP / WS 错误与路由契约、ALS 与日志。</li>
+                            <li>Identity / Access / Auth 的真实调用链、公开 interface 与私有持久化。</li>
+                            <li>HTTP、IAM、Prisma、KVS / Lua、S3、Mail 技术 implementation。</li>
+                            <li>
+                                全量目录 / imports 扫描，split Prisma schema、ltree DDL、CLI、Docker 与文档产物路径。
+                            </li>
+                            <li>
+                                480 个 src TS 文件中，345
+                                个是纯空导出或空类；其余包含实现、配置和类型，不将其数量等同于上线功能。
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3>不重新争论已确认决策</h3>
+                        <ul class="list">
+                            <li>允许真实、显式、无环的直接依赖；不为对称增加 Kernel / Port。</li>
+                            <li>工作区独占 Material、MaterialType 平面分类、逐件库存、执行时生效且不预留。</li>
+                            <li>ltree path + GiST 已在 schema；权限继承与查询分页仍按明确阶段范围延期。</li>
+                            <li>受控 DDL 不是正式迁移历史；本轮不 db:push / db:init / migrate。</li>
+                            <li>业务 TODO、refresh / logout 的明确 501 不计作已上线回归。</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="note warn">
+                    未连接真实 PostgreSQL / Valkey / S3 / Casdoor / SMTP；未启动完整应用或 Docker；未做依赖 CVE
+                    检索、负载测试和生产环境验收。schema validate 与构建通过不证明 MVP 业务闭环已落地。不存在可读取的
+                    ADR 目录时，依据 CONTEXT 与当前设计文档，未推定不存在历史决策。
+                </div>
+                <p>
+                    <strong>Schema 结论：</strong>
+                    未发现新的违反已确认 MVP 持久化契约的结构缺陷。现有 readiness review 中的账号规范化、数量 /
+                    版本校验、POSITION 占用、单位冻结、角色作用域和资源归属仍是 owning write slice
+                    的上线门槛；不应因为本轮 schema 校验通过而忽略。
+                </p>
+                <p>
+                    <strong>本轮修改边界：</strong>
+                    没有修改仓库业务代码、schema、配置或测试；构建 / 检查产生的本地忽略产物除外。此报告单独写入 Windows
+                    临时目录。
+                </p>
+            </section>
+            <footer class="footer">
+                仓库：F:\tech-otaku\code\TalosArk · 所有 src / prisma / scripts / ops 相对位置均以 packages/backend
+                为根，另有显式跨包位置。缺陷优先级与架构候选强度分别标注，二者不互相替代。
+            </footer>
+        </main>
+    </body>
+</html>

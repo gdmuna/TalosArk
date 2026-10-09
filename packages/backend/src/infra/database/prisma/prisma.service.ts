@@ -1,5 +1,5 @@
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import { normalizeDatabaseError } from './prisma.error.js';
+import { normalizeDatabaseError } from './prisma-error.normalize.js';
 
 import { AllConfig } from '@/config/index.js';
 

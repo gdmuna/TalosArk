@@ -131,17 +131,22 @@ visibility; they are not an application-wide public surface.
   infrastructure, and public; only public is a stable cross-module API.
 - system is for application-level health, version, and diagnostics, never a
   business domain.
-- Owner-local native Error classes describe capability/technical failures and
-  keep their original cause. Infra normalizes recognized SDK failures; Core and
-  Modules reframe them only when the operation changes their meaning. Unknown
-  defects must not become availability, invalid-token, or retryable outcomes.
-- platform/error resolves channel-neutral public codes and validated details
-  through explicitly composed mappers. HTTP owns statuses, headers and envelope
-  I/O; WebSocket owns message construction and correlation. No import-side-effect
-  error registry, universal business-error hierarchy or public ALS metadata.
+- Owners use platform/error's defineErrorClass factory, not hand-written Error
+  subclasses, to declare finite capability/technical reasons and private failure
+  data. Infra normalizers alone know SDK errors; owner-local defineErrorMapper
+  projections reframe only recognized dependency failures and retain cause.
+  catchError consumes explicitly selected reasons; unknown errors rethrow.
+- Contract public entries own code/message/details schemas. The separate
+  @talos-ark/contracts/backend entry combines them with optional HTTP/WS policy
+  and internal log levels. ErrorResolver looks up scope.reason in explicitly
+  composed catalogs and validates public details; it neither traverses causes
+  nor invokes business mappers. Missing protocol defaults safely in each adapter.
+  No import-side-effect registry, global business taxonomy or public ALS metadata.
 - nestjs-pino is the configured process logger; the legacy Logger wrapper has
   been removed. A transport boundary records the terminal failure once, using
-  the allowlisted, bounded cause serializer. Adapters that rethrow do not also
+  platform/error's library-neutral diagnostics and bounded cause serializer.
+  The existing nestjs-pino integration remains replaceable without changing
+  error factories, catalogs, resolver or business projections. Adapters that rethrow do not also
   log the same command failure. platform/observability
   owns inbound request instrumentation; infra/observability is reserved for a
   real external sink or exporter, not another logger wrapper.
@@ -159,7 +164,8 @@ visibility; they are not an application-wide public surface.
     |   +-- config/                            # typed runtime configuration
     |   +-- common/utils/                      # only proven pure cross-domain helpers
     |   +-- platform/
-    |   |   +-- error/                         # neutral public error resolution
+    |   |   +-- error/                         # factory, reframe/catch helpers, resolver, diagnostics
+    |   |   +-- request/                       # channel-neutral request rejection errors
     |   |   +-- http/                          # HTTP guards, filters, pipes, decorators
     |   |   +-- realtime/                      # websocket and SSE adapters
     |   |   +-- worker/

@@ -1,30 +1,12 @@
 import type { ValidationIssue } from '@talos-ark/contracts/protocol';
+import { RequestErrorDefinition } from '@talos-ark/contracts/backend';
+import { defineErrorClass } from '@/platform/error/error.factory.js';
 import type { z } from 'zod';
 
-export type RequestFailure =
-    | { reason: 'validation'; issues: ValidationIssue[] }
-    | {
-          reason:
-              | 'authentication'
-              | 'forbidden'
-              | 'notFound'
-              | 'rateLimited'
-              | 'payloadTooLarge'
-              | 'unsupportedContent'
-              | 'processingTimeout'
-              | 'notImplemented'
-              | 'invalid';
-      };
-
-export class RequestError extends Error {
-    constructor(
-        readonly failure: RequestFailure,
-        options?: ErrorOptions
-    ) {
-        super(`Request rejected: ${failure.reason}`, options);
-        this.name = 'RequestError';
-    }
-}
+export const RequestError = defineErrorClass(RequestErrorDefinition, { name: 'RequestError' });
+// eslint-disable-next-line no-redeclare -- TypeScript value/type namespace pairing.
+export type RequestError = InstanceType<typeof RequestError>;
+export type RequestFailure = RequestError['failure'];
 
 export function validationIssues(error: z.ZodError): ValidationIssue[] {
     const messages: Record<string, string> = {

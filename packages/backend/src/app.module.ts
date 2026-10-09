@@ -9,7 +9,7 @@ import { AuthModule } from '@/modules/auth/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http-error.filter.js';
 import { errorProviders } from './bootstrap/composition/error.provider.js';
-import { serializeError } from '@/platform/observability/error-serializer.js';
+import { serializeError } from '@/platform/error/error.diagnostic.js';
 import { AuthGuard } from './platform/http/guards/auth.guard.js';
 import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
 import { RouteContractInterceptor } from '@/platform/http/route/route.interceptor.js';
@@ -82,7 +82,6 @@ import pino from 'pino';
                                 : undefined,
                             serializers: {
                                 err: serializeError,
-                                mappingError: serializeError,
                                 req: () => undefined,
                             },
                             wrapSerializers: false,

@@ -10,7 +10,7 @@ import { mergeMap } from 'rxjs/operators';
 import { z } from 'zod';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 import { toApiResponseContext } from '@/platform/context/response-context.js';
-import { RequestError, validationIssues } from '@/platform/error/request.error.js';
+import { RequestError, validationIssues } from '@/platform/request/request.error.js';
 import { ROUTE_CONTRACT_KEY, type RouteContract } from './route.contract.js';
 import { parseJsonResponseAsync, RouteResponseError } from './route.response.js';
 
@@ -42,10 +42,12 @@ export class RouteContractInterceptor implements NestInterceptor {
                 throw new RequestError(
                     {
                         reason: 'validation',
-                        issues: validationIssues(cause).map((issue) => ({
-                            ...issue,
-                            path: [source, ...issue.path],
-                        })),
+                        details: {
+                            issues: validationIssues(cause).map((issue) => ({
+                                ...issue,
+                                path: [source, ...issue.path],
+                            })),
+                        },
                     },
                     { cause }
                 );
@@ -57,13 +59,11 @@ export class RouteContractInterceptor implements NestInterceptor {
                 const status = reply.statusCode;
                 const response = contract.responses.get(status);
                 if (!response || status >= 400) {
-                    throw new RouteResponseError(`Undeclared success response status: ${status}`);
+                    throw new RouteResponseError({ reason: 'undeclared-status', status });
                 }
                 if (!response.schema) {
                     if (data !== undefined && data !== null) {
-                        throw new RouteResponseError(
-                            `Status ${status} does not allow a response body`
-                        );
+                        throw new RouteResponseError({ reason: 'body-not-allowed', status });
                     }
                     return undefined;
                 }
@@ -75,9 +75,7 @@ export class RouteContractInterceptor implements NestInterceptor {
                         context: toApiResponseContext(this.context.get()),
                     });
                 } catch (cause) {
-                    throw new RouteResponseError(`Invalid response contract for status ${status}`, {
-                        cause,
-                    });
+                    throw new RouteResponseError({ reason: 'invalid-body', status }, { cause });
                 }
             })
         );

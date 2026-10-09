@@ -169,7 +169,7 @@ export function createSdkAxiosAdapter(client: HttpClient, baseUrl: string): Axio
                       ? AxiosError.ERR_CANCELED
                       : error.failure.reason === 'network'
                         ? AxiosError.ERR_NETWORK
-                        : (error.response?.status ?? 0) >= 500
+                        : (error.failure.response?.status ?? 0) >= 500
                           ? AxiosError.ERR_BAD_RESPONSE
                           : AxiosError.ERR_BAD_REQUEST;
             const wrapped =
@@ -180,7 +180,7 @@ export function createSdkAxiosAdapter(client: HttpClient, baseUrl: string): Axio
                           code,
                           config,
                           undefined,
-                          error.response ? response(error.response) : undefined
+                          error.failure.response ? response(error.failure.response) : undefined
                       );
             wrapped.cause = error;
             throw wrapped;

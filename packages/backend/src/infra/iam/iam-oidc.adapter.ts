@@ -1,6 +1,7 @@
 import { CASDOOR_SDK } from './iam.constants.js';
 import { IamTokenAdapter } from './iam-token.adapter.js';
-import { IamError, normalizeIamSdkError, normalizeIamHttpError } from './iam.error.js';
+import { IamError } from './iam.error.js';
+import { normalizeIamSdkError, normalizeIamHttpError } from './iam-error.normalize.js';
 
 import { AllConfig } from '@/config/index.js';
 import { HttpClientFactory } from '@/infra/http/http-client.factory.js';

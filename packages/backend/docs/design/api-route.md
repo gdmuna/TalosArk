@@ -1,6 +1,6 @@
 # API Route Contract
 
-Status: implemented, 2026-10-08. Replaces the old `responseType` / `successStatus`
+Status: implemented, updated 2026-10-09. Replaces the old `responseType` / `successStatus`
 options and independent body/serializer decorators, without a compatibility layer.
 
 ## Design
@@ -13,7 +13,8 @@ transaction rules and dependency-error reframing remain with their owners.
 Each JSON controller handler needs two method decorators: `@Get` / `@Post` etc.
 for routing, and `@ApiRoute` for the contract. Parameter decorators still bind
 values. Schemas belong to the framework-independent contract package; compiled
-HTTP statuses, Nest metadata and Swagger decorators stay in Backend Platform.
+error protocol/internal policy is available through the contract package's
+backend-only entry. Nest metadata and Swagger decorators stay in Backend Platform.
 
 ## Declaration
 
@@ -31,7 +32,7 @@ HTTP statuses, Nest metadata and Swagger decorators stay in Backend Platform.
         { status: 200, schema: ItemSchema, description: 'Existing item' },
         { status: 202, schema: QueuedItemSchema, description: 'Accepted' },
     ],
-    errors: [ItemHttpError.conflict],
+    errors: [ItemErrorDefinition.conflict],
 })
 async create(
     @Body() body: CreateItemBody,
@@ -99,16 +100,17 @@ Business errors remain explicit. Public login endpoints can declare Auth/Access
 errors even though they bypass guard authentication. Permission/resource errors
 are not guessed from method names or business service implementation.
 
-A mapper must be explicitly composed in `error.provider.ts`. For a matched
-route, its `errors` binding supplies the status and details contract; it does not
-also require registering that status in the global HTTP policy. Global bindings
-are the fallback for parser/middleware/not-found errors before route capture.
-Duplicate identical bindings are deduplicated; conflicting same-code bindings,
+An error catalog must be explicitly composed in `error.provider.ts`. A route's
+`errors` accepts its shared ErrorDefinition directly; compilation derives status
+from `protocol.http.status` (500 when absent) and builds code/message/details
+schemas. Before route capture, the HTTP policy uses the same catalog definition,
+not a second global status table. Duplicate identical definitions are deduplicated;
+conflicting IDs/codes,
 invalid statuses and unsupported JSON Schema conversion fail during declaration.
 
 An undeclared mapped error, undeclared success status, malformed output or
 non-JSON output becomes the route's default internal `500`. Private causes and
-mapping failures remain available to the terminal logger, never the caller.
+resolution failures remain available to the terminal logger, never the caller.
 
 ## Runtime Ownership
 
@@ -145,7 +147,7 @@ can retract an invalid response; the filter logs without sending a second one.
 
 Declared schemas must support Zod's OpenAPI 3.0 conversion. Nonrepresentable
 transforms/custom types fail early rather than generating inaccurate docs.
-Error details and mappers remain synchronous, as required by `ErrorResolver`;
+Error details validation remains synchronous, as required by `ErrorResolver`;
 request and successful-response parsing supports async refinements. Response
 validation does not undo business writes, abort timed-out work, authorize a
 request or replace transactional/idempotency guarantees.

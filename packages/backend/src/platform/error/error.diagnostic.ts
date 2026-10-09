@@ -1,3 +1,5 @@
+import type { ResolvedError } from './error.resolver.js';
+
 const safeLabel = (value: unknown) =>
     typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,100}$/.test(value) ? value : undefined;
 
@@ -50,4 +52,16 @@ export function serializeError(error: unknown): unknown {
         };
     }
     return error === undefined ? undefined : visit(error, 0);
+}
+
+export function createErrorDiagnostic(error: ResolvedError) {
+    return {
+        level: error.definition.internal?.logLevel ?? 'error',
+        message: error.public.message,
+        data: {
+            code: error.public.code,
+            error: serializeError(error.original),
+            resolutionError: serializeError(error.resolutionError),
+        },
+    };
 }

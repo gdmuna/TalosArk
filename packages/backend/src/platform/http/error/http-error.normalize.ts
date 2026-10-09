@@ -2,7 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { ZodSerializationException, ZodValidationException } from 'nestjs-zod';
 import { z } from 'zod';
-import { RequestError, validationIssues } from '@/platform/error/request.error.js';
+import { RequestError, validationIssues } from '@/platform/request/request.error.js';
 
 export function normalizeHttpError(error: unknown): unknown {
     if (error instanceof ZodSerializationException) return error;
@@ -11,7 +11,9 @@ export function normalizeHttpError(error: unknown): unknown {
         return new RequestError(
             {
                 reason: 'validation',
-                issues: zodError instanceof z.ZodError ? validationIssues(zodError) : [],
+                details: {
+                    issues: zodError instanceof z.ZodError ? validationIssues(zodError) : [],
+                },
             },
             { cause: error }
         );

@@ -1,13 +1,7 @@
-export type AccessFailure = {
-    reason: 'session-inactive' | 'refresh-token-reused' | 'session-unavailable';
-};
+import { AccessErrorDefinition } from '@talos-ark/contracts/backend';
+import { defineErrorClass } from '@/platform/error/error.factory.js';
 
-export class AccessError extends Error {
-    constructor(
-        readonly failure: AccessFailure,
-        options?: ErrorOptions
-    ) {
-        super(`Access operation failed: ${failure.reason}`, options);
-        this.name = 'AccessError';
-    }
-}
+export const AccessError = defineErrorClass(AccessErrorDefinition, { name: 'AccessError' });
+// eslint-disable-next-line no-redeclare -- TypeScript value/type namespace pairing.
+export type AccessError = InstanceType<typeof AccessError>;
+export type AccessFailure = AccessError['failure'];

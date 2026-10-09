@@ -1,5 +1,5 @@
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import { RequestError } from '@/platform/error/request.error.js';
+import { RequestError } from '@/platform/request/request.error.js';
 
 import { AllConfig } from '@/config/index.js';
 

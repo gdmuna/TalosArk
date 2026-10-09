@@ -5,7 +5,7 @@ import { AccessKernel } from '@/core/access/index.js';
 import { AUTH_STRATEGY_KEY, AUTH_STRATEGY_TYPE } from '@/platform/http/decorators/index.js';
 
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
-import { RequestError } from '@/platform/error/request.error.js';
+import { RequestError } from '@/platform/request/request.error.js';
 import { Reflector } from '@nestjs/core';
 
 import { FastifyRequest } from 'fastify';

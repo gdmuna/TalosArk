@@ -1,11 +1,18 @@
 import { z } from 'zod';
+import { defineErrorClass, defineInternalErrorCatalog } from '@/platform/error/index.js';
 
-export class RouteResponseError extends Error {
-    constructor(message: string, options?: ErrorOptions) {
-        super(message, options);
-        this.name = 'RouteResponseError';
-    }
-}
+type RouteResponseFailure = {
+    reason: 'undeclared-status' | 'body-not-allowed' | 'invalid-body';
+    status: number;
+};
+const catalog = defineInternalErrorCatalog('route-response', [
+    'undeclared-status',
+    'body-not-allowed',
+    'invalid-body',
+]);
+export const RouteResponseError = defineErrorClass<typeof catalog, RouteResponseFailure>(catalog, {
+    name: 'RouteResponseError',
+});
 
 function jsonResponse(value: unknown): unknown {
     // Validate the wire representation: optional undefined fields are omitted by JSON.
