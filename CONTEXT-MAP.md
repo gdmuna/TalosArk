@@ -8,3 +8,4 @@ Read the context document for the application being changed. Cross-cutting decis
 | Frontend | Client application and user-facing interactions | `packages/frontend/CONTEXT.md` | `packages/frontend/docs/adr/` |
 | Contracts | Shared public wire schemas and inferred types | `packages/contract/README.md` | `docs/adr/` |
 | Docsite | Documentation site and documentation delivery | `packages/docsite/CONTEXT.md` | `packages/docsite/docs/adr/` |
+| Dev Portal | Repository progress, documentation, structure, design previews, schema and API exploration | `packages/dev-portal/CONTEXT.md` | — |
