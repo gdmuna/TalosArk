@@ -19,8 +19,9 @@ The package is intentionally in a structure-first phase:
   Do not recreate historical migrations or a seed script during this phase.
 - Most files in the new core, modules, platform, and future Infra areas are
   TODO-only seams. A directory or class is not evidence that its runtime
-  behavior exists. main.ts, app.module.ts, and bootstrap/bootstrap.ts are the
-  real process and Nest runtime baseline; they do not imply that a business
+  behavior exists. main.ts, bootstrap/composition/app.module.ts, and
+  bootstrap/bootstrap.ts are the real process and Nest runtime baseline;
+  they do not imply that a business
   vertical slice is already available.
 - Generic technical adapters that map cleanly to the target architecture remain
   real code: Prisma, Casdoor OIDC/Casdoor control-plane access, SMTP, ALS,
@@ -58,7 +59,7 @@ Usage, limits and lifecycle semantics live in docs/design/outbound-http.md.
 
 ## Dependency direction
 
-    bootstrap / app.module.ts
+    bootstrap / composition / app.module.ts
         |  explicit Nest composition
         +--> Platform (HTTP / WS / worker runtime)
         +--> Modules (business use cases and transport adapters)
@@ -88,7 +89,8 @@ visibility; they are not an application-wide public surface.
 
 - main.ts calls bootstrap(). bootstrap/bootstrap.ts creates the HTTP runtime,
   installs framework-level behavior, and owns process-startup side effects.
-  app.module.ts is the Nest composition root for active global capabilities.
+  bootstrap/composition/app.module.ts is the Nest composition root for active
+  global capabilities.
 - bootstrap/composition may know the full graph and bind Core ports to Infra
   adapters; it contains no business behavior. Do not use a root infra/index.ts
   barrel as an alternative composition mechanism.
@@ -156,10 +158,11 @@ visibility; they are not an application-wide public surface.
     packages/backend/
     +-- src/
     |   +-- main.ts                            # process entry
-    |   +-- app.module.ts                      # Nest composition root
     |   +-- bootstrap/
     |   |   +-- bootstrap.ts                   # HTTP runtime creation
-    |   |   +-- composition/                   # explicit Port -> Adapter wiring
+    |   |   +-- composition/                   # explicit runtime wiring
+    |   |   |   +-- app.module.ts              # Nest composition root
+    |   |   |   `-- error.provider.ts          # explicit error catalogs and adapters
     |   |   `-- lifecycle/                     # process-wide startup/shutdown only
     |   +-- config/                            # typed runtime configuration
     |   +-- common/utils/                      # only proven pure cross-domain helpers
@@ -205,6 +208,20 @@ visibility; they are not an application-wide public surface.
     +-- secrets/                               # environment and key material
     +-- test/
         +-- unit/                              # retained technical-adapter tests only
+
+## Error file naming
+
+- Owner-local error definitions use `<owner>.error.ts`.
+- Error support uses `<owner>.error.<role>.ts`: `normalize`, `mapper`, `policy`,
+  `filter`, or `adapter`. For example, `prisma.error.normalize.ts` and
+  `identity.error.mapper.ts`. A normalizer classifies SDK/framework failures;
+  a mapper changes the meaning of a recognized dependency failure.
+- Owner-neutral runtime support remains `platform/error/error.<role>.ts`.
+
+The current Platform/Common implementation inventory and proposed follow-up
+cleanup are recorded in docs/reviews/platform-common-review-2026-10-10.md.
+That review distinguishes implemented behavior from unregistered skeletons;
+its proposed removals and relocations are not implemented by this path-only change.
 
 ## MVP database vocabulary
 
