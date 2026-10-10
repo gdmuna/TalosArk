@@ -5,7 +5,7 @@ import {
     mapIdentityIamError,
     mapIdentityKvsError,
     mapIdentityDatabaseError,
-} from './identity.error-mapper.js';
+} from './identity.error.mapper.js';
 
 import { createSecureRandomString } from '@/common/utils/index.js';
 

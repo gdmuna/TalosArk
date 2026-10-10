@@ -1,6 +1,6 @@
 import { APP_AUTHOR, APP_VERSION, type AllConfig } from '@/config/index.js';
 
-import { AppModule } from '../app.module.js';
+import { AppModule } from './composition/app.module.js';
 
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';

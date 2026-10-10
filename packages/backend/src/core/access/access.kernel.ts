@@ -1,6 +1,6 @@
 import type * as Access from './access.contract.js';
 import { AccessError } from './access.error.js';
-import { mapAccessDatabaseError } from './access.error-mapper.js';
+import { mapAccessDatabaseError } from './access.error.mapper.js';
 
 import type { AllConfig } from '@/config/index.js';
 import { createSecureRandomString } from '@/common/utils/index.js';

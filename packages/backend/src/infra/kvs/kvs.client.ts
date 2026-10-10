@@ -7,7 +7,7 @@ import { KvsStringAtomic } from './lua/string.atomic.js';
 
 import { timeout } from '@/common/utils/index.js';
 import { KvsError } from './kvs.error.js';
-import { normalizeKvsError } from './kvs-error.normalize.js';
+import { normalizeKvsError } from './kvs.error.normalize.js';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';

@@ -4,7 +4,7 @@ import { AlsContextAdapter as RequestContextService } from '@/platform/context/a
 
 import { Logger, Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpErrorPolicy, createHttpErrorResponse } from '../error/http-error.policy.js';
+import { HttpErrorPolicy, createHttpErrorResponse } from '../error/http.error.policy.js';
 import { RequestError } from '@/platform/request/request.error.js';
 import { toApiResponseContext } from '@/platform/context/response-context.js';
 import { errorResponseSchema } from '../route/route.contract.js';

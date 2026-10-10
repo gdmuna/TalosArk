@@ -1,5 +1,5 @@
 import { StorageError, type StorageOperation } from './storage.error.js';
-import { normalizeStorageError } from './storage-error.normalize.js';
+import { normalizeStorageError } from './storage.error.normalize.js';
 import { S3_OPTIONS } from './storage.constant.js';
 import type { StorageModuleOptions } from './storage.interface.js';
 

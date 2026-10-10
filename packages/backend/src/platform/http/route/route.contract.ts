@@ -9,7 +9,7 @@ import {
     RequestErrorDefinition,
     SystemErrorDefinition,
 } from '@talos-ark/contracts/backend';
-import type { HttpErrorBinding } from '../error/http-error.policy.js';
+import type { HttpErrorBinding } from '../error/http.error.policy.js';
 
 export const AUTH_STRATEGY_KEY = 'auth:strategy';
 export type AUTH_STRATEGY_TYPE = 'public' | 'optional' | 'required';
