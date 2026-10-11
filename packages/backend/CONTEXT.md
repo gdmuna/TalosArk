@@ -165,8 +165,12 @@ visibility; they are not an application-wide public surface.
   registers platform/observability/logger/logger.module.ts, which supplies one
   Pino root to nestjs-pino for both request and out-of-context logging. Development
   uses its custom pretty worker transport; other environments retain asynchronous
-  JSON file output. The pretty transport changes presentation only and keeps
-  error/structured-field rendering in pino-pretty. Register forRoot() at composition
+  JSON file output. Event-keyed, owner-local pure pretty adapters customize only
+  the summary; existing structured fields remain visible. The worker owns the
+  header and linear error stacks; branching errors and ordinary objects retain
+  pino-pretty rendering. Explicit composition supplies adapter URLs and approved
+  error projections; workers never import Nest or SDK modules. Usage and extension
+  rules live in docs/design/logger-pretty.md. Register forRoot() at composition
   time so every imported InjectPinoLogger context is available. infra/observability
   is reserved for a real external sink or exporter, not another logger wrapper.
 
@@ -249,6 +253,32 @@ process-scoped initialization/draining state, not ongoing external dependency
 health. HealthState is marked ready only after successful listening and cannot
 become ready again after stopping. Future provider health checks require their
 own finite-budget design rather than extending this meaning silently.
+
+## Access lifecycle
+
+core/access now validates TokenPair revocation and Session revocation/idle expiry
+consistently during AT verification and RT rotation. Rotation additionally requires
+an unexpired, unconsumed RT from the current Session generation. Its ReadCommitted
+interactive transaction locks the public Session row, re-reads state and time,
+conditionally consumes the RT, compares/increments version and creates the next
+credential pair before commit. Session UPDATE revocation serializes with this lock;
+future pair-revocation writers must follow the same Session-lock protocol.
+
+RT reuse rejects only that request; it does not automatically revoke a Session.
+Normal rotation does not invalidate older unexpired ATs: AT sv identifies its
+TokenPair generation, not the Session's latest version. Actual PostgreSQL concurrency/rollback evidence,
+schema assumptions and uncertain-commit limits live in
+docs/design/backend-w05-2026-10-11.md. No generic lifecycle or retry layer was added.
+
+Auth exposes POST /api/v1/auth/session/refresh with a strict JSON refreshToken body
+and no AT requirement; a valid RT is still required. It returns the existing
+SessionCredentials wire shape in a 200 envelope with Cache-Control: no-store.
+POST /api/v1/auth/session/logout requires a verified Bearer AT, revokes only its
+claim.sid Session and returns 204 without content. Neither route trusts a caller's
+sessionId or session Cookie. The shared contract lives in auth/session.http.ts;
+transport evidence and client/uncertain-commit limits are recorded in
+docs/design/auth-session-http-2026-10-11.md. Frontend automatic refresh and provider
+single logout are not implemented by these routes.
 
 ## Documentation delivery
 

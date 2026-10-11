@@ -7,7 +7,8 @@ TalosArk's software MVP is under development. This site publishes backend runtim
 The backend implements startup, bounded shutdown, process-scoped health endpoints, ApiRoute contract validation,
 error factories and HTTP/WS error adaptation, and technical adapters for Prisma, KVS, IAM/OIDC, outbound HTTP and Pino.
 
-OIDC login and session creation have endpoints. Public session refresh and logout remain unimplemented.
+OIDC login and session creation have endpoints. Public session refresh and current-session logout passed isolated HTTP/PostgreSQL verification.
+Frontend automatic refresh and real identity-provider end-to-end verification remain separate work.
 Organization, workspace, material, inventory, approval and workbench workflows are delivered incrementally.
 Directories, schemas and placeholder endpoints are not evidence of a completed business workflow.
 
