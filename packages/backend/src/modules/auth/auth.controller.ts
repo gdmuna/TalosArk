@@ -1,22 +1,47 @@
-import { type FastifyReply } from 'fastify';
+import { type FastifyReply, type FastifyRequest } from 'fastify';
 import {
     OidcLoginCallbackBodySchema,
     OidcLoginCallbackResponseSchema,
     OidcStartResponseSchema,
+    SessionRefreshBodySchema,
+    SessionRefreshResponseSchema,
     type OidcLoginCallbackBody,
     type OidcLoginCallbackResponse,
     type OidcStartResponse,
+    type SessionCredentials,
+    type SessionRefreshBody,
+    type SessionRefreshResponse,
 } from '@talos-ark/contracts/auth';
 import { AuthService } from './auth.service.js';
-import {
-    IdentityErrorDefinition,
-    AccessErrorDefinition,
-    RequestErrorDefinition,
-} from '@talos-ark/contracts/backend';
+import { IdentityErrorDefinition, AccessErrorDefinition } from '@talos-ark/contracts/backend';
 
-import { Body, Controller, NotImplementedException, Post, Res } from '@nestjs/common';
+import { Body, Controller, Post, Req, Res } from '@nestjs/common';
 import { Cookie } from '@/platform/http/decorators/cookie.decorator.js';
 import { ApiRoute } from '@/platform/http/decorators/route.decorator.js';
+import { RequestError } from '@/platform/request/request.error.js';
+import type { CreateUserSessionOutput } from '@/core/access/access.contract.js';
+
+function toSessionCredentials({ session, tokenPair }: CreateUserSessionOutput): SessionCredentials {
+    return {
+        session: {
+            id: session.id,
+            userId: session.userId,
+            version: session.version,
+            idleExpiresAt: session.idleExpiresAt.toISOString(),
+        },
+        tokenPair: {
+            id: tokenPair.id,
+            accessToken: {
+                value: tokenPair.accessToken.value,
+                expiresAt: tokenPair.accessToken.expiresAt.toISOString(),
+            },
+            refreshToken: {
+                value: tokenPair.refreshToken.value,
+                expiresAt: tokenPair.refreshToken.expiresAt.toISOString(),
+            },
+        },
+    };
+}
 
 @Controller('auth')
 export class AuthController {
@@ -68,50 +93,47 @@ export class AuthController {
         res.clearCookie('talosArk_oidc_transaction');
         if (data.type === 'block') return { type: 'block', data: {} };
 
-        const { session, tokenPair } = data.data;
         return {
             type: 'success',
-            data: {
-                session: {
-                    id: session.id,
-                    userId: session.userId,
-                    version: session.version,
-                    idleExpiresAt: session.idleExpiresAt.toISOString(),
-                },
-                tokenPair: {
-                    id: tokenPair.id,
-                    accessToken: {
-                        value: tokenPair.accessToken.value,
-                        expiresAt: tokenPair.accessToken.expiresAt.toISOString(),
-                    },
-                    refreshToken: {
-                        value: tokenPair.refreshToken.value,
-                        expiresAt: tokenPair.refreshToken.expiresAt.toISOString(),
-                    },
-                },
-            },
+            data: toSessionCredentials(data.data),
         };
     }
 
     @Post('session/refresh')
     @ApiRoute({
-        auth: 'required',
+        auth: 'public',
         summary: 'Refresh session',
-        responses: [],
-        errors: [RequestErrorDefinition.notImplemented],
+        description: 'Rotate the supplied refresh token without requiring an access token.',
+        request: { body: SessionRefreshBodySchema },
+        responses: [{ status: 200, schema: SessionRefreshResponseSchema }],
+        errors: [
+            AccessErrorDefinition['session-inactive'],
+            AccessErrorDefinition['refresh-token-reused'],
+            AccessErrorDefinition['session-unavailable'],
+        ],
     })
-    async sessionRefresh(@Cookie('talosArk_session_id') sessionId: string) {
-        throw new NotImplementedException('Session refresh is not implemented');
+    async sessionRefresh(
+        @Body() dto: SessionRefreshBody,
+        @Res({ passthrough: true }) res: FastifyReply
+    ): Promise<SessionRefreshResponse> {
+        res.header('Cache-Control', 'no-store');
+        return toSessionCredentials(await this.authService.sessionRefresh(dto));
     }
 
     @Post('session/logout')
     @ApiRoute({
         auth: 'required',
         summary: 'Log out session',
-        responses: [],
-        errors: [RequestErrorDefinition.notImplemented],
+        description: 'Revoke only the session identified by the authenticated access token.',
+        responses: [{ status: 204 }],
+        errors: [
+            AccessErrorDefinition['session-inactive'],
+            AccessErrorDefinition['session-unavailable'],
+        ],
     })
-    async sessionLogout(@Cookie('talosArk_session_id') sessionId: string) {
-        throw new NotImplementedException('Session logout is not implemented');
+    async sessionLogout(@Req() request: FastifyRequest): Promise<void> {
+        const claim = request.jwtClaim;
+        if (!claim) throw new RequestError({ reason: 'authentication' });
+        await this.authService.sessionLogout({ sessionId: claim.sid });
     }
 }

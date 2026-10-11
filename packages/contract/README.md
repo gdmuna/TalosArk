@@ -11,6 +11,7 @@ src/
   auth/
     oidc.http.ts     OIDC request bodies and unwrapped responses
     session.ts       Login session credentials in their existing wire shape
+    session.http.ts  Session refresh body and unwrapped response; logout uses HTTP 204
     error.ts         Auth public code/message/details schemas
     index.ts
   protocol/

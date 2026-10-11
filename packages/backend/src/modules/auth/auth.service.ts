@@ -1,6 +1,7 @@
 import type * as Auth from './auth.contract.js';
 
 import { AccessKernel } from '@/core/access/index.js';
+import type * as Access from '@/core/access/access.contract.js';
 import { IdentityKernel } from '@/core/identity/index.js';
 
 import { Injectable } from '@nestjs/common';
@@ -14,6 +15,14 @@ export class AuthService {
 
     oidcStart() {
         return this.identityKernel.createOidcTransaction();
+    }
+
+    sessionRefresh(input: Access.RotateTokenPairInput): Promise<Access.RotateTokenPairOutput> {
+        return this.accessKernel.rotateTokenPair(input);
+    }
+
+    async sessionLogout(input: Access.RevokeUserSessionInput): Promise<void> {
+        await this.accessKernel.revokeUserSession(input);
     }
 
     async oidcLoginCallback(
