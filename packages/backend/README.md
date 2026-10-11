@@ -1,49 +1,61 @@
-﻿<div align="center">
+# TalosArk Backend
 
-<h1>NestJS Scaffold</h1>
+璇玑云库的 NestJS / Fastify 后端。当前处于软件 MVP 的结构先行阶段，不是可直接交付完整业务的后端模板。
 
-<p align="center">
-  NestJS 后端基线模板——认证系统、分层架构、CI 流水线、容器化部署、结构化日志、开箱即用
-</p>
+## 当前能力
 
-<p align="center">
-  <img src="https://img.shields.io/badge/NestJS-11.x-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
-  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Prisma-7.x-2D3748?logo=prisma&logoColor=white" alt="Prisma" />
-  <img src="https://img.shields.io/badge/pnpm-8.x-F69220?logo=pnpm&logoColor=white" alt="pnpm" />
-  <img src="https://img.shields.io/badge/License-AGPL--3.0-blue?logo=gnu&logoColor=white" alt="License" />
-</p>
+| 范围 | 状态 |
+| --- | --- |
+| 进程启动、有限关闭、live/ready 探针 | 已实现；ready 仅表示进程初始化完成且未进入停止状态 |
+| ApiRoute、公开响应校验、OpenAPI、领域错误工厂与协议适配 | 已实现 |
+| Prisma、KVS、IAM/OIDC、出站 HTTP、Pino 日志 | 已有实际实现；部署必须提供相应配置与依赖 |
+| OIDC 登录及会话创建 | 已有接口；真实提供商联调与完整身份业务验收是独立事项 |
+| 公开会话刷新、退出接口 | 当前返回未实现错误；不能按完整认证系统对外承诺 |
+| 组织、工作区、材料、库存、审批等软件 MVP 业务 | 随业务切片实现；目录与模型不代表业务闭环已完成 |
 
-</div>
+架构约束及准确的源码归属见 [CONTEXT.md](CONTEXT.md)。内部设计与审查记录位于 [docs/](docs/)；
+对外文档站是独立的 [docsite 包](../docsite/README.md)，不再使用旧 website 目录。
 
-NestJS 后端开发基线模板，提供认证系统、分层架构、AOP 切面、结构化日志、类型安全异常体系、OpenAPI 自动富化、CI/CD 流水线，以及以**Harness Engineering**为核心的 AI 协作设计，开箱即用。
+## 本地运行
 
-这个项目最初是我学习 NestJS、后端工程实践、面向切面编程、CI/CD 工作流编排，以及探索 Harness Engineering（如何让 AI 在代码库中可靠协作）的实践项目，同时也是为未来自己的项目打下可复用基础的尝试。如果你也在学习这些方向，希望它能对你有所参考。
+从仓库根目录使用 Node.js 24+ 和 package.json 指定的 pnpm 版本：
 
-> **⚠️ 当前尚未发布首个稳定大版本**
->
-> 项目当前所有版本均为 `0.x`，处于积极开发阶段，尚未发布 `1.0.0`（即首个 Major 版本升级）。
-> 这意味着：接口契约、目录结构、配置项和 API 设计在版本间可能发生较大变动，不保证向后兼容。
-> 如果你将本项目用作其他项目的起点，建议锁定到特定 commit 或 tag，而非直接跟踪 `main` 分支。
-> 正式 v1.0.0 版本的发布计划请参见**文档站**
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @talos-ark/backend db:gen-client --env-file ops/prisma/env/.env.development.local
+pnpm --filter @talos-ark/backend start:local
+```
 
-## 文档站
+Prisma 生成命令的 env 文件路径相对于 backend；它只生成客户端，不同步数据库。
+先配置 runtime env、访问令牌密钥、完整 Casdoor 配置及其证书，并启动数据库和 KVS。
+具体依赖启动、密钥注入与端口说明见 [Docker operations](ops/docker/README.md)；
+数据库 CLI 的选择方式与 DDL 限制见 [Prisma operations](ops/prisma/README.md)。
 
-| 文档站 | 说明 |
-|--------|------|
-| [文档站（main 分支）](https://docs.nestjs-scaffold.prod.maiturin.com) | 跟踪 `main` 分支（最新稳定版） |
-| [文档站（dev 分支）](https://docs.nestjs-scaffold.dev.maiturin.com) | 跟踪 `dev` 分支（最新开发版） |
+当前 Casdoor 的未配置禁用分支仍被注释，**属于启动必配项**。不得仅依据旧注释或目标规划将其当作可选。
 
-## 文档
+## 健康与 API 文档
 
-完整文档见 **[docs/](docs/)** 目录，建议从以下入口开始：
+- `GET /api/v1/health/live`：进程能响应 HTTP。
+- `GET /api/v1/health/ready`：进程初始化完成且未进入停止状态；不代表外部提供商或数据库持续健康。
+- `/api-doc`、`/reference`：当前后端的 Swagger / Scalar。
+- `/api-doc-json`：当前运行实例的 OpenAPI 规范。
 
-- **[快速上手](docs/00-getting-started/quick-start.md)** — 5 分钟将项目跑起来
-- **[项目简介](docs/00-getting-started/introduction.md)** — 了解架构设计和核心特性
-- **[环境搭建](docs/01-guides/environment-setup.md)** — 完整的本地开发环境配置
+后端启动后导出并构建静态文档：
 
-## License
+```sh
+pnpm --filter @talos-ark/backend docs:gen-openapi
+pnpm --filter @talos-ark/docsite build
+pnpm --filter @talos-ark/docsite preview
+```
 
-本项目为社区维护的开源模板，**与 NestJS 官方团队无关联**。
+非默认地址通过 `BACKEND_URL` 指定。导出与文档构建不再读取或解密后端 env；
+完整链路和容器构建方式见 [docsite README](../docsite/README.md)。
 
-项目基于 [GNU Affero General Public License v3.0](LICENSE) 开源。
+## 交付与验证边界
+
+Docker 镜像不包含解密密钥或 crypto 文件；运行时注入路径见运维说明。
+CD 使用本次镜像的 digest，在一次性 PostgreSQL/KVS 和合成配置下导出规范，不执行业务 DDL。
+探针、规范导出和构建成功均不替代业务验收。
+
+后续整改安排见 [工作计划](docs/design/backend-work-plan-2026-10-11.md)。
+当前快速迭代政策不默认授权新增或维护测试脚本；旧测试存在失配，不能将源码构建通过等同于回归测试通过。

@@ -89,6 +89,12 @@ visibility; they are not an application-wide public surface.
 
 - main.ts calls bootstrap(). bootstrap/bootstrap.ts creates the HTTP runtime,
   installs framework-level behavior, and owns process-startup side effects.
+  bootstrap/lifecycle/shutdown.ts owns the single signal path and finite process
+  deadline. It drains HTTP before invoking Nest close/hooks and flushes Pino last;
+  do not also enable a competing Nest signal handler. KVS owns bounded connection/
+  close teardown; Prisma disconnect runs in onApplicationShutdown after module
+  destruction. Total budget exhaustion is an explicit failed shutdown, not a
+  successful adapter cleanup.
   bootstrap/composition/app.module.ts is the Nest composition root for active
   global capabilities.
 - bootstrap/composition may know the full graph and bind Core ports to Infra
@@ -99,11 +105,16 @@ visibility; they are not an application-wide public surface.
   not a general utility.
 - Do not add a global constants layer. A DI token lives beside the Port or
   adapter it identifies; an HTTP header or decorator metadata key lives beside
-  its owning Platform transport code. The current constants directory is
-  transitional and should disappear as those owners are implemented.
+  its owning Platform transport code. There is no current global constants
+  directory to migrate.
 - Do not build a common taxonomy for errors, results, assertions, and types.
   A pure helper begins beside its first owner and moves to common/utils only
   after genuine cross-domain reuse. common must never become a shared catch-all.
+  Current runtime callers import the lightweight common/utils/crypto.ts
+  directly. Legacy formatter, env/schema and operation utilities remain pending
+  a separate review; their presence does not make them approved runtime entry
+  points. There is no common/utils root barrel. HTTP credentials belong to
+  platform/http/credential.ts; connection timeout support belongs to infra/kvs.
 - platform may depend on NestJS and Fastify. It contains HTTP guards,
   decorators, filters, interceptors, WebSocket/SSE/worker transport adapters,
   ALS runtime context, extension discovery, and inbound telemetry.
@@ -125,9 +136,9 @@ visibility; they are not an application-wide public surface.
 - infra implements external technology boundaries. It never decides a
   business use case. It may explicitly depend on Core contracts, Platform
   runtime helpers, or another Infra adapter when that relationship is real and
-  acyclic. In particular, infra/permission/casbin is a technical
-  Casbin/Casdoor adapter area; modules must depend on PermissionKernel, not
-  Casdoor SDK types.
+  acyclic. Current Casdoor SDK and OIDC adapters live in infra/iam; a future
+  permission engine is not an already implemented infra/permission/casbin area.
+  Modules must consume capability interfaces rather than expose SDK types.
 - modules contains actual TalosArk business domains. Controllers remain here.
   Each module follows api, application, domain, extensions, cache,
   infrastructure, and public; only public is a stable cross-module API.
@@ -149,9 +160,15 @@ visibility; they are not an application-wide public surface.
   platform/error's library-neutral diagnostics and bounded cause serializer.
   The existing nestjs-pino integration remains replaceable without changing
   error factories, catalogs, resolver or business projections. Adapters that rethrow do not also
-  log the same command failure. platform/observability
-  owns inbound request instrumentation; infra/observability is reserved for a
-  real external sink or exporter, not another logger wrapper.
+  log the same command failure. Current inbound performance instrumentation is
+  platform/http/interceptors/performance.interceptor.ts. The composition root
+  registers platform/observability/logger/logger.module.ts, which supplies one
+  Pino root to nestjs-pino for both request and out-of-context logging. Development
+  uses its custom pretty worker transport; other environments retain asynchronous
+  JSON file output. The pretty transport changes presentation only and keeps
+  error/structured-field rendering in pino-pretty. Register forRoot() at composition
+  time so every imported InjectPinoLogger context is available. infra/observability
+  is reserved for a real external sink or exporter, not another logger wrapper.
 
 ## Layout
 
@@ -165,31 +182,30 @@ visibility; they are not an application-wide public surface.
     |   |   |   `-- error.provider.ts          # explicit error catalogs and adapters
     |   |   `-- lifecycle/                     # process-wide startup/shutdown only
     |   +-- config/                            # typed runtime configuration
-    |   +-- common/utils/                      # only proven pure cross-domain helpers
+    |   +-- common/utils/                      # lightweight crypto + retained legacy tools
     |   +-- platform/
     |   |   +-- error/                         # factory, reframe/catch helpers, resolver, diagnostics
     |   |   +-- request/                       # channel-neutral request rejection errors
     |   |   +-- http/                          # HTTP guards, filters, pipes, decorators
     |   |   +-- realtime/                      # websocket and SSE adapters
-    |   |   +-- worker/
     |   |   +-- context/                       # ALS runtime adapter
     |   |   +-- extensions/                    # Nest Discovery bridge
-    |   |   +-- lifecycle/                     # only a real Nest -> Core bridge
-    |   |   `-- observability/                 # Pino integration and inbound telemetry
+    |   |   +-- observability/logger/          # Nest Pino wiring and pretty worker transport
+    |   |   `-- lifecycle/                     # only a real Nest -> Core bridge
     |   +-- core/
-    |   |   +-- context/ identity/ auth/ tenant/ workspace/
+    |   |   +-- context/ identity/ access/ tenant/ workspace/
     |   |   +-- resource/ permission/ transaction/ cache/ lock/ idempotency/
     |   |   +-- event/ task/ file/ quota/ risk/ audit/ notification/
     |   |   +-- realtime/ background/ clock/
     |   +-- infra/
     |   |   +-- database/prisma/               # retained Prisma adapter + future ports
-    |   |   +-- valkey/                        # TODO cache/lock/pubsub/idempotency adapters
-    |   |   +-- iam/casdoor/                   # retained platform-level OIDC adapter
-    |   |   +-- permission/casbin/             # retained control-plane client + TODO engine
-    |   |   +-- queue/bullmq/
-    |   |   +-- storage/s3 and storage/rustfs/
+    |   |   +-- http/                          # factory-managed outbound HTTP clients
+    |   |   +-- kvs/                           # Redis/Valkey client, keys and Lua support
+    |   |   +-- iam/                           # retained Casdoor and OIDC adapters
+    |   |   +-- queue/bullmq/                  # TODO adapters, not a running queue
+    |   |   +-- storage/                       # retained S3-compatible adapter
     |   |   +-- mail/                          # retained generic SMTP adapter
-    |   |   `-- search/ realtime/ external/
+    |   |   `-- search/ realtime/ observability/ # TODO adapters and external exporters
     |   +-- modules/
     |   |   +-- auth/
     |   |   +-- organization/ workspace/ material/ inventory/
@@ -218,10 +234,37 @@ visibility; they are not an application-wide public surface.
   a mapper changes the meaning of a recognized dependency failure.
 - Owner-neutral runtime support remains `platform/error/error.<role>.ts`.
 
-The current Platform/Common implementation inventory and proposed follow-up
-cleanup are recorded in docs/reviews/platform-common-review-2026-10-10.md.
-That review distinguishes implemented behavior from unregistered skeletons;
-its proposed removals and relocations are not implemented by this path-only change.
+The historical Platform/Common inventory is recorded in
+docs/reviews/platform-common-review-2026-10-10.md. W01/W02 follow-up status and
+the narrowed utility-retention scope are recorded in
+docs/design/backend-work-plan-2026-10-11.md. Duplicate authentication/context/
+telemetry skeletons and unused root entries have been removed; other approved
+business skeletons remain unimplemented. HTTP middleware and interceptors now
+have responsibility-specific files without changing their composition order.
+
+W03 lifecycle and health contracts are recorded in
+docs/design/backend-w03-2026-10-11.md. system/health now provides real public,
+unthrottled live/ready routes with ApiRoute validation. Readiness is explicitly
+process-scoped initialization/draining state, not ongoing external dependency
+health. HealthState is marked ready only after successful listening and cannot
+become ready again after stopping. Future provider health checks require their
+own finite-budget design rather than extending this meaning silently.
+
+## Documentation delivery
+
+Published documentation belongs to packages/docsite. The backend export script
+reads /api-doc-json from an already running instance, validates OpenAPI 3 and
+atomically writes packages/docsite/api-reference/openapi.json; export itself
+does not decrypt runtime env. The docsite build publishes Scalar and this same
+specification under /api-reference/. Internal backend designs and reviews are
+not implicitly published.
+
+CD uses the exact built image digest and disposable PostgreSQL/KVS with synthetic
+configuration to collect the document. No business schema synchronization or
+real provider calls are required for export. Casdoor remains mandatory in current
+startup validation; its commented optional branch is not activated by delivery
+changes. Deployment and document verification are recorded in
+docs/design/backend-w04-2026-10-11.md.
 
 ## MVP database vocabulary
 
