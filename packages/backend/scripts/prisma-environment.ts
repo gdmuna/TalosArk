@@ -167,7 +167,7 @@ export function redactDatabaseUrl(value: string): string {
     try {
         const url = new URL(value);
         const credentials = url.username ? `${url.username}${url.password ? ':***' : ''}@` : '';
-        return `${url.protocol}//${credentials}${url.host}${url.pathname}${url.search}`;
+        return `${url.protocol}//${credentials}${url.host}${url.pathname}`;
     } catch {
         return '<invalid URL; value redacted>';
     }

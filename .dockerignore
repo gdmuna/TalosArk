@@ -3,9 +3,10 @@
 **/.vitepress/cache/
 **/*.log
 **/coverage/
-**/.env.keys
+**/.env.keys*
 **/.env.example
 
+packages/backend/secrets/crypto/
 packages/backend/prisma/generated/
 
 packages/frontend/src-tauri/

@@ -78,7 +78,7 @@ services:
         bind:
           create_host_path: false
     ports:
-      - '${CASDOOR_PORT:-8000}:8001'
+      - '${CASDOOR_PORT:-8000}:8000'
     healthcheck:
       test: ['CMD-SHELL', 'curl --fail http://localhost:8000/']
       interval: 10s
@@ -103,6 +103,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      PORT: '3000'
       DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env.}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env.}?schema=public
       SHADOW_DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env.}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.}@postgres:5432/${POSTGRES_SHADOW_DB:?Set POSTGRES_SHADOW_DB in .env.}?schema=public
       KVS_URL: redis://valkey:6379
@@ -120,13 +121,22 @@ services:
         source: ../../../../secrets/env/.env.keys
         target: /talos-ark/.env.keys
         read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../../../../secrets/crypto
+        target: /talos-ark/secrets/crypto
+        read_only: true
+        bind:
+          create_host_path: false
       - type: bind
         source: ../../../../data
         target: /talos-ark/data
     ports:
       - '${BACKEND_PORT:-3000}:3000'
+    stop_grace_period: 15s
     healthcheck:
-      test: ['CMD-SHELL', 'curl --fail http://localhost:3000/api/v1/health']
+      test: ['CMD-SHELL', 'curl --fail http://localhost:3000/api/v1/health/ready']
       interval: 10s
       timeout: 5s
       retries: 10

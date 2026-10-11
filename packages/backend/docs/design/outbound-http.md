@@ -139,7 +139,7 @@ but observations never include URL/query, headers, tokens, bodies or vendor erro
 The existing terminal boundary remains responsible for error logging. Unknown
 configuration/programming failures are not silently reclassified as availability.
 
-Existing `common/utils` SHA-256/random helpers are reused. The generic
+The lightweight `common/utils/crypto.ts` SHA-256/random helpers are reused. The generic
 `sleep/retry/limit` utilities remain unchanged: they do not provide cancellation,
 HTTP replay safety or bounded fair queueing. Cancellable delay uses Node's
 `timers/promises`, rather than adding another timer abstraction to `common`.
