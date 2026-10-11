@@ -10,8 +10,8 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
+    "dev": "node script/prepare-api-reference.mjs && vitepress dev",
+    "build": "node script/prepare-api-reference.mjs && vitepress build",
     "serve": "vitepress preview",
     "preview": "vitepress preview"
   },

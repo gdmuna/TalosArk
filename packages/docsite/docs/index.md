@@ -1,44 +1,21 @@
----
-layout: home
+# TalosArk 文档
 
-hero:
-  name: NestJS Scaffold
-  text: 后端开发基线模板
-  tagline: 认证系统、分层架构、CI 流水线、容器化部署、结构化日志，开箱即用
+璇玑云库的软件 MVP 正在开发。本网站发布当前后端运行与文档交付说明，以及从实际运行实例导出的 API 规范。
 
-  actions:
-    - theme: brand
-      text: 什么是 NestJS Scaffold？
-      link: /guide/introduction
-    - theme: alt
-      text: 快速开始
-      link: /guide/quick-start
-    - theme: alt
-      text: Github
-      link: https://github.com/gdmuna/NestJS-Scaffold
-      target: _blank
-      rel: "noopener noreferrer"
-  image:
-    src: /img/logo-shadowed-cut.png
-    alt: NestJS
+## 当前实现
 
-features:
-  - icon: 🔐
-    title: JWT ES256 双令牌认证
-    details: Access Token（短期）+ Refresh Token（HttpOnly Cookie），支持令牌静默轮换，密钥基于椭圆曲线算法生成。
-  - icon: 🏗️
-    title: 严格分层架构
-    details: Controller → Service → Repository (Prisma)，IoC 容器依赖注入，横切关注点通过 AOP 装饰器机制统一实现。
-  - icon: 🔎
-    title: 结构化可观测性
-    details: Pino JSON 日志 + AsyncLocalStorage 链路追踪，请求 ID 贯穿完整调用链；慢请求与慢查询自动分级告警。
-  - icon: 🛡️
-    title: 类型安全的异常体系
-    details: '由各模块定义原生 Error 与 cause，显式组合公开错误映射，Zod 校验安全详情，HTTP 与 WebSocket 分别构造响应。'
-  - icon: 📦
-    title: 完整 CI/CD 流水线
-    details: 10 个 GitHub Actions 工作流，覆盖特性开发、集成测试、版本发布、Docker 镜像构建与自动打 Tag。
-  - icon: 📖
-    title: OpenAPI 自动富化
-    details: '@ApiRoute 装饰器自动生成认证策略声明、成功响应包络、错误码示例，Scalar 交互式文档内嵌镜像。'
----
+后端已有启动与有限关闭、进程级健康探针、ApiRoute 契约校验、错误工厂与 HTTP/WS 错误适配，
+以及 Prisma、KVS、IAM/OIDC、出站 HTTP 和 Pino 日志实现。
+
+OIDC 登录与会话创建已有接口；公开会话刷新和退出仍是未实现接口。
+组织、工作区、材料、库存、审批和工作台等业务按软件闭环切片推进，
+不应从已有目录、Schema 或 OpenAPI 中的占位接口推断业务已经可用。
+
+## 文档入口
+
+- [运行与交付](./guide/quick-start.md)：运行前提、健康语义、规范导出与静态文档构建。
+- [English](./en/index.md)
+- [项目源码](https://github.com/gdmuna/TalosArk)
+
+导航中的“API 参考文档”在默认部署下使用本次构建的静态规范；开发镜像可以配置为外部文档链接。
+静态规范是导出时点的快照，并不保证部署中的服务与其版本始终一致。

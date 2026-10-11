@@ -1,2 +1,3 @@
 .vitepress/cache/
 api-reference/openapi.json
+docs/public/api-reference/

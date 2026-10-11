@@ -1,5 +1,6 @@
 ﻿import { defineConfig } from 'vitepress';
 import { tasklist } from '@mdit/plugin-tasklist';
+import { existsSync } from 'node:fs';
 
 // const localeToOgLocaleMap: Record<string, string> = {
 //     root: 'zh_CN',
@@ -11,9 +12,9 @@ export default defineConfig({
     description: '生物样本储存管理系统',
     lang: 'zh-Hans',
 
-    // 内容来源指向 service 的 docs/ 文件夹
+    // Published documentation belongs to this package, not backend's internal docs.
     srcDir: './docs',
-    // 构建输出到 website/dist
+    // Build output: packages/docsite/dist.
     outDir: './dist',
     // 缓存目录
     cacheDir: './.vitepress/cache',
@@ -26,112 +27,25 @@ export default defineConfig({
 
     base: process.env.VITE_BASE_PATH ?? '/',
 
-    lastUpdated: true,
+    lastUpdated: existsSync(new URL('../../../.git', import.meta.url)),
     cleanUrls: true,
     metaChunk: true,
 
-    head: [
-        ['link', { rel: 'icon', type: 'image/svg+xml', href: '/img/gdmuna-logo_gradient-cut.png' }],
-    ],
-
-    rewrites: {
-        '00-getting-started/:page': 'guide/:page',
-        '01-guides/:page': 'guide/:page',
-        '02-harness/:page': 'reference/:page',
-        '03-architecture/:page': 'reference/:page',
-        '04-appendix/:page': 'guide/:page',
-        '05-releases/:page': 'guide/:page',
-    },
-
     themeConfig: {
-        logo: '/img/gdmuna-logo_gradient-cut.png',
         nav: [
             { text: '首页', link: '/' },
-            { text: '上手', link: '/guide/introduction', activeMatch: '/guide/' },
-            {
-                text: '深入',
-                link: '/reference/overview',
-                activeMatch: '/reference/',
-            },
+            { text: '运行与交付', link: '/guide/quick-start', activeMatch: '/guide/' },
             {
                 text: 'API 参考文档',
-                // 本地开发默认指向 backend dev server；Dockerfile 构建时通过 ARG VITE_API_REFERENCE_URL 覆盖
-                link: process.env.VITE_API_REFERENCE_URL ?? 'http://localhost:3000/reference',
+                link: process.env.VITE_API_REFERENCE_URL ?? '/api-reference/',
                 target: '_blank',
             },
         ],
 
-        sidebar: {
-            '/guide/': [
-                {
-                    text: '概览',
-                    items: [
-                        { text: '项目简介', link: '/guide/introduction' },
-                        { text: '核心理念', link: '/guide/philosophy' },
-                        { text: '快速开始', link: '/guide/quick-start' },
-                    ],
-                },
-                {
-                    text: '指南',
-                    items: [
-                        { text: '环境搭建', link: '/guide/environment-setup' },
-                        { text: '开发工作流', link: '/guide/development-workflow' },
-                        { text: '测试指南', link: '/guide/testing' },
-                        { text: 'Docker 与部署', link: '/guide/docker-deployment' },
-                        { text: '贡献指南', link: '/guide/contributing' },
-                    ],
-                },
-                {
-                    text: '附录',
-                    items: [
-                        { text: '参考资源', link: '/guide/external-resources' },
-                        { text: '错误码参考', link: '/guide/error-reference' },
-                        { text: '更新日志', link: '/guide/CHANGELOG' },
-                        { text: '关于本项目', link: '/guide/about' },
-                        { text: '深入 →', link: '/reference/overview' },
-                    ],
-                },
-                {
-                    text: '发布说明',
-                    collapsed: true,
-                    items: [
-                        { text: 'v0.7.4', link: '/guide/pr-0.7.4' },
-                        { text: 'v0.7.3', link: '/guide/pr-0.7.3' },
-                        { text: 'v0.7.2', link: '/guide/pr-0.7.2' },
-                        { text: 'v0.7.1', link: '/guide/pr-0.7.1' },
-                        { text: 'v0.7.0', link: '/guide/pr-0.7.0' },
-                    ],
-                },
-            ],
-            '/reference/': [
-                {
-                    text: 'Harness Engineering',
-                    items: [
-                        { text: '什么是 Harness Engineering', link: '/reference/overview' },
-                        { text: '前置控制：引导层', link: '/reference/feedforward' },
-                        { text: '反馈控制：感知层', link: '/reference/feedback' },
-                    ],
-                },
-                {
-                    text: '架构设计',
-                    items: [
-                        {
-                            text: '项目架构全览',
-                            link: '/reference/project-architecture-overview',
-                        },
-                        { text: '认证模块', link: '/reference/auth-module' },
-                        { text: '请求生命周期', link: '/reference/request-pipeline' },
-                        { text: '数据库', link: '/reference/database' },
-                        { text: '异常系统', link: '/reference/exception-system' },
-                        { text: '可观测性', link: '/reference/observability' },
-                        { text: 'OpenAPI 增强', link: '/reference/openapi-enrichment' },
-                        { text: '路由装饰器', link: '/reference/route-decorator' },
-                        { text: 'CI/CD 部署', link: '/reference/cicd-deployment' },
-                    ],
-                },
-                { text: '← 上手', link: '/guide/introduction' },
-            ],
-        },
+        sidebar: [
+            { text: '项目状态', link: '/' },
+            { text: '运行与交付', link: '/guide/quick-start' },
+        ],
         // 内置本地全文搜索
         search: {
             provider: 'local',
@@ -178,7 +92,7 @@ export default defineConfig({
         },
 
         editLink: {
-            pattern: 'https://github.com/gdmuna/TalosArk/edit/dev/docs/:path',
+            pattern: 'https://github.com/gdmuna/TalosArk/edit/dev/packages/docsite/docs/:path',
             text: '在 GitHub 上编辑此页',
         },
 
