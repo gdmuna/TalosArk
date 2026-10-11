@@ -23,8 +23,8 @@
                     </Button>
                 </div>
                 <ScrollSurface
-                    :edge-size="32"
-                    edgeEffect="line"
+                    :edges="['top']"
+                    edge-effect="line"
                     class="max-h-[calc(75svh-3rem)] [--edge-surface:var(--card)]"
                 >
                     <CommandList class="min-h-36 max-h-none overflow-visible p-2 pt-0" aria-label="搜索结果">
