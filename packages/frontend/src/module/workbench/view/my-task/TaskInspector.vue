@@ -19,6 +19,7 @@
         </header>
         <ScrollArea class="min-h-0 flex-1 [--edge-surface:var(--card)]">
             <div class="space-y-5 py-5 pr-2">
+                <WorkbenchSyncNotice />
                 <dl class="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-4">
                     <dt class="text-muted-foreground">申请人</dt>
                     <dd>{{ task.applicant }}</dd>
@@ -92,7 +93,7 @@
             <Button
                 v-else
                 class="flex-1"
-                :disabled="task.status === '已完成' || busy"
+                :disabled="task.status === '已完成' || busy || !!workbench.syncError"
                 @click="$emit('complete', task.id)"
             >
                 <Check aria-hidden="true" />
@@ -110,6 +111,7 @@ import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
 import { formatDateTime } from '@/shared/util/date-time';
 import { type Resource, type Task } from '../../model/workbench';
 import { useWorkbenchStore } from '../../model/store';
+import WorkbenchSyncNotice from '../../ui/WorkbenchSyncNotice.vue';
 import { StateBadge } from '@/component/state-badge';
 import { CopyableId } from '@/component/inspector';
 const props = defineProps<{ task: Task; resource?: Resource; busy?: boolean }>();

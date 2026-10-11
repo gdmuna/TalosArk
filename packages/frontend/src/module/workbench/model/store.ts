@@ -35,6 +35,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     };
     const busy = ref(false);
     const error = ref('');
+    const syncError = ref('');
     const now = useWorkbenchClock();
     let source: WorkbenchDataSource;
     const currentResources = computed(() =>
@@ -116,17 +117,35 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     }
     async function mutate(operation: () => Promise<unknown>) {
         if (busy.value) return '数据正在更新，请稍后重试';
+        if (syncError.value) return (error.value = '请先重新同步工作台数据');
         busy.value = true;
         error.value = '';
         try {
             await operation();
-            apply(await source.load());
+            await synchronize();
         } catch (cause) {
             error.value = cause instanceof Error ? cause.message : '更新失败，请重试';
         } finally {
             busy.value = false;
         }
         return error.value;
+    }
+    async function synchronize() {
+        try {
+            apply(await source.load());
+            syncError.value = '';
+        } catch (cause) {
+            syncError.value = cause instanceof Error ? cause.message : '工作台数据同步失败';
+        }
+    }
+    async function retrySync() {
+        if (busy.value || !syncError.value) return;
+        busy.value = true;
+        try {
+            await synchronize();
+        } finally {
+            busy.value = false;
+        }
     }
     const completeTasks = (ids: string[]) => mutate(() => source.completeTasks(ids));
     const decideApprovals = (ids: string[], status: '已批准' | '已退回', note: string) =>
@@ -159,7 +178,9 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         displayTime,
         busy,
         error,
+        syncError,
         initialize,
+        retrySync,
         completeTasks,
         decideApprovals,
         updateException,

@@ -127,7 +127,7 @@ const actions: DataTableAction<ExceptionItem>[] = [
         id: 'handle',
         label: '标记已处理',
         icon: Check,
-        disabled: (item) => item.status !== '未处理',
+        disabled: (item) => !!workbench.syncError || item.status !== '未处理',
         run: async (item) => {
             error.value = await workbench.updateException(item.id, '已处理');
         },
@@ -136,7 +136,7 @@ const actions: DataTableAction<ExceptionItem>[] = [
         id: 'ignore',
         label: '忽略提醒',
         icon: EyeOff,
-        disabled: (item) => item.status !== '未处理',
+        disabled: (item) => !!workbench.syncError || item.status !== '未处理',
         run: async (item) => {
             error.value = await workbench.updateException(item.id, '已忽略');
         },
@@ -147,16 +147,20 @@ const bulkActions: DataTableBulkAction<ExceptionItem>[] = [
         id: 'handle',
         label: '标记已处理',
         icon: Check,
-        disabled: (items) => items.some((item) => item.status !== '未处理'),
-        disabledReason: '仅支持未处理的异常与提醒',
+        disabled: (items) => !!workbench.syncError || items.some((item) => item.status !== '未处理'),
+        get disabledReason() {
+            return workbench.syncError ? '请先重新同步工作台数据' : '仅支持未处理的异常与提醒';
+        },
         run: (items) => updateBatch(items, '已处理'),
     },
     {
         id: 'ignore',
         label: '忽略提醒',
         icon: EyeOff,
-        disabled: (items) => items.some((item) => item.status !== '未处理'),
-        disabledReason: '仅支持未处理的异常与提醒',
+        disabled: (items) => !!workbench.syncError || items.some((item) => item.status !== '未处理'),
+        get disabledReason() {
+            return workbench.syncError ? '请先重新同步工作台数据' : '仅支持未处理的异常与提醒';
+        },
         run: (items) => updateBatch(items, '已忽略'),
     },
 ];

@@ -156,7 +156,7 @@ const actions: DataTableAction<Task>[] = [
         id: 'complete',
         label: '完成任务',
         icon: Check,
-        disabled: (item) => item.kind !== '任务' || item.status !== '待处理',
+        disabled: (item) => !!workbench.syncError || item.kind !== '任务' || item.status !== '待处理',
         run: (item) => complete([item.id]),
     },
 ];
@@ -165,8 +165,11 @@ const bulkActions: DataTableBulkAction<Task>[] = [
         id: 'complete',
         label: '完成任务',
         icon: Check,
-        disabled: (items) => items.some((item) => item.kind !== '任务' || item.status !== '待处理'),
-        disabledReason: '仅支持待处理的普通任务；审批申请请进入审批流程',
+        disabled: (items) =>
+            !!workbench.syncError || items.some((item) => item.kind !== '任务' || item.status !== '待处理'),
+        get disabledReason() {
+            return workbench.syncError ? '请先重新同步工作台数据' : '仅支持待处理的普通任务；审批申请请进入审批流程';
+        },
         run: (items) => complete(items.map((item) => item.id)),
     },
 ];

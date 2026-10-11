@@ -14,6 +14,24 @@
 
 Only `main.ts` selects mock data sources through the modules' explicit `data/mock.ts` entries. Each adapter alone imports its `data/fixture.ts`. Bootstrap creates one instance per data source and initializes account, workspace and workbench in the existing order. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
 
+Account, workspace and workbench distinguish a confirmed write from its subsequent
+snapshot load. Existing string/null operation results still report only write
+failure; `syncError` reports a committed write whose snapshot is not yet synchronized.
+Each owner exposes `retrySync`, which runs only while synchronization is pending,
+loads without replaying the write, and shares its busy guard. Stale snapshots pause
+that owner's further writes, not browsing, navigation or other owners' operations.
+Workspace recovery retains the newly created/joined selection unless the user
+explicitly selects a different known workspace. The shell composes durable notices;
+write dialogs and Inspectors also expose recovery inside their modal context.
+
+Workbench owns one VueUse `useTimestamp` clock with an explicit one-second interval,
+paused while hidden and calibrated immediately on visibility/focus recovery.
+Counts, filters, badges, Inspector and relative-day labels use its time projections.
+Task data identity changes at local-day/overdue boundaries to invalidate table
+caches, not on every clock tick. Existing strict overdue and local-day rules remain.
+Pinia scope disposal releases the clock; `main.ts` disposes Pinia on app unmount/HMR.
+See `docs/design/frontend-f01-f02-2026-10-12.md` for decisions and verification.
+
 ## Singular naming
 
 Use singular names for owned directories and files, describing their responsibility rather than the number of things they contain: `module/`, `component/`, `page/`, `view/`, `control/`, `asset/font/`, `util/`, `script/`, `type.ts`, `variant.ts`, `fixture.ts` and `route.ts`. Name compound files by their role, such as `DataTableFilterMenu.vue` and `DataTableBulkActionMenu.vue`.

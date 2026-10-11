@@ -67,7 +67,7 @@ async function save() {
                         required
                         maxlength="40"
                         autocomplete="nickname"
-                        :disabled="!account.profile || account.busy"
+                        :disabled="!account.profile || account.busy || !!account.syncError"
                     />
                 </div>
                 <div class="space-y-2">
@@ -87,7 +87,9 @@ async function save() {
                 <Button type="button" variant="outline" :disabled="!dirty || account.busy" @click="reset">
                     取消更改
                 </Button>
-                <Button type="submit" :disabled="!dirty || account.busy || !account.profile">保存资料</Button>
+                <Button type="submit" :disabled="!dirty || account.busy || !!account.syncError || !account.profile">
+                    保存资料
+                </Button>
             </div>
         </form>
         <PersonalNotificationSetting v-else />

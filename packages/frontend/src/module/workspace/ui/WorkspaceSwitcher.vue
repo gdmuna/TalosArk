@@ -169,9 +169,17 @@
                     <Input v-model="code" required maxlength="40" autocomplete="off" placeholder="输入邀请码" />
                 </label>
                 <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                <DataSyncNotice
+                    scope="工作区"
+                    :error="workspace.syncError"
+                    :busy="workspace.busy"
+                    @retry="workspace.retrySync()"
+                />
                 <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" @click="formOpen = false">取消</Button>
-                    <Button type="submit" :disabled="workspace.busy">
+                    <Button type="button" variant="outline" @click="formOpen = false">
+                        {{ committed ? '关闭' : '取消' }}
+                    </Button>
+                    <Button type="submit" :disabled="workspace.busy || !!workspace.syncError || committed">
                         {{ mode === 'create' ? '创建工作区' : '加入' }}
                     </Button>
                 </div>
@@ -186,6 +194,7 @@ import { unrefElement, useElementSize } from '@vueuse/core';
 import { Folders, Building2, Check, ChevronDown, Plus, Search, UsersRound } from '@lucide/vue';
 import { useWorkspaceStore } from '../model/store';
 import { SelectField } from '@/component/select-field';
+import { DataSyncNotice } from '@/component/data-sync';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -207,6 +216,7 @@ const interactedOutside = ref(false);
 const query = ref('');
 const collapsed = ref<string[]>([]);
 const formOpen = ref(false);
+const committed = ref(false);
 const mode = ref<'create' | 'join'>('create');
 const name = ref('');
 const code = ref('');
@@ -242,6 +252,7 @@ function openManagement() {
     emit('manage');
 }
 function openForm(value: 'create' | 'join') {
+    committed.value = false;
     mode.value = value;
     name.value = code.value = error.value = '';
     organizationId.value = workspace.organization?.id ?? '';
@@ -253,8 +264,17 @@ async function submit() {
         mode.value === 'create'
             ? await workspace.create(name.value, organizationId.value)
             : await workspace.join(code.value);
-    if (!error.value) formOpen.value = false;
+    if (!error.value) {
+        committed.value = true;
+        if (!workspace.syncError) formOpen.value = false;
+    }
 }
+watch(
+    () => workspace.syncError,
+    (value) => {
+        if (!value && committed.value) formOpen.value = false;
+    }
+);
 function onPopoverClose(event: Event) {
     if (formOpen.value) {
         event.preventDefault();

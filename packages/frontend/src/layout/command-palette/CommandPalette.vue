@@ -41,7 +41,7 @@
                                 :value="result.id"
                                 :keywords="[result.keywords]"
                                 class="group/result min-h-8 gap-3 px-2.5"
-                                :disabled="workbench.busy"
+                                :disabled="workbench.busy || (result.command === 'inspection' && !!workbench.syncError)"
                                 @select="execute(result)"
                             >
                                 <component :is="result.icon" class="size-4 shrink-0" aria-hidden="true" />

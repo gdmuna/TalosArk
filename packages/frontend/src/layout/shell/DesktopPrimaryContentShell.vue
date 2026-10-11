@@ -75,6 +75,7 @@
                 <UserMenu ref="accountMenu" />
             </div>
         </div>
+        <DataSyncStatus />
         <slot />
     </div>
 </template>
@@ -89,6 +90,7 @@ import { useRoute } from 'vue-router';
 
 import { Button } from '@/ui/button';
 import { UserMenu } from '@/layout/user-menu';
+import DataSyncStatus from './DataSyncStatus.vue';
 
 import { MorphIcon } from 'morphicons/vue';
 

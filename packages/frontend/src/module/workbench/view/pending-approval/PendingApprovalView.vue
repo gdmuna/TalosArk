@@ -137,7 +137,7 @@ const actions: DataTableAction<Approval>[] = [
         id: 'approve',
         label: '批准申请',
         icon: Check,
-        disabled: (item) => item.status !== '待审批' || item.quantity > item.available,
+        disabled: (item) => !!workbench.syncError || item.status !== '待审批' || item.quantity > item.available,
         run: (item) => {
             checked.value = [item.id];
             confirmBatch.value = true;
@@ -147,7 +147,7 @@ const actions: DataTableAction<Approval>[] = [
         id: 'return',
         label: '填写退回意见',
         icon: Undo2,
-        disabled: (item) => item.status !== '待审批',
+        disabled: (item) => !!workbench.syncError || item.status !== '待审批',
         run: (item) => {
             selectedId.value = item.id;
         },
@@ -158,8 +158,11 @@ const bulkActions: DataTableBulkAction<Approval>[] = [
         id: 'approve',
         label: '批准申请',
         icon: Check,
-        disabled: (items) => items.some((item) => item.status !== '待审批' || item.quantity > item.available),
-        disabledReason: '仅可批准待审批且可用数量充足的申请',
+        disabled: (items) =>
+            !!workbench.syncError || items.some((item) => item.status !== '待审批' || item.quantity > item.available),
+        get disabledReason() {
+            return workbench.syncError ? '请先重新同步工作台数据' : '仅可批准待审批且可用数量充足的申请';
+        },
         run: () => {
             confirmBatch.value = true;
         },
@@ -285,7 +288,10 @@ watch(
                 </p>
                 <div class="mt-3 flex justify-end gap-3">
                     <Button variant="outline" @click="confirmBatch = false">取消</Button>
-                    <Button :disabled="!!batchError || !checked.length || workbench.busy" @click="approveBatch">
+                    <Button
+                        :disabled="!!batchError || !checked.length || workbench.busy || !!workbench.syncError"
+                        @click="approveBatch"
+                    >
                         <Check aria-hidden="true" />
                         确认批准
                     </Button>

@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '@/module/workspace';
 import { useWorkbenchStore } from '../../model/store';
 import { formatDateTime } from '@/shared/util/date-time';
 import { exceptionTone, stateTone, type ExceptionItem, type Resource } from '../../model/workbench';
+import WorkbenchSyncNotice from '../../ui/WorkbenchSyncNotice.vue';
 
 const props = defineProps<{ exception: ExceptionItem; resource?: Resource }>();
 const emit = defineEmits<{ close: []; resource: [resource: Resource] }>();
@@ -30,6 +31,7 @@ async function handle(status: '已处理' | '已忽略') {
         </header>
         <ScrollArea class="min-h-0 flex-1 [--edge-surface:var(--card)]">
             <div class="space-y-5 p-5">
+                <WorkbenchSyncNotice />
                 <div class="flex items-start gap-3">
                     <TriangleAlert
                         class="mt-0.5 size-6 shrink-0"
@@ -72,11 +74,11 @@ async function handle(status: '已处理' | '已忽略') {
         </ScrollArea>
         <footer class="flex shrink-0 justify-end gap-3 border-t p-5">
             <template v-if="exception.status === '未处理'">
-                <Button variant="outline" :disabled="workbench.busy" @click="handle('已忽略')">
+                <Button variant="outline" :disabled="workbench.busy || !!workbench.syncError" @click="handle('已忽略')">
                     <EyeOff aria-hidden="true" />
                     忽略
                 </Button>
-                <Button :disabled="workbench.busy" @click="handle('已处理')">
+                <Button :disabled="workbench.busy || !!workbench.syncError" @click="handle('已处理')">
                     <Check aria-hidden="true" />
                     标记已处理
                 </Button>
