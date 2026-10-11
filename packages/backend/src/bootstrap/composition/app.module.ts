@@ -13,15 +13,11 @@ import { PlatformLoggerModule } from '@/platform/observability/logger/logger.mod
 import { AuthGuard } from '@/platform/http/guards/auth.guard.js';
 import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
 import { RouteContractInterceptor } from '@/platform/http/route/route.interceptor.js';
-import {
-    PerformanceInterceptor,
-    TimeoutInterceptor,
-} from '@/platform/http/interceptors/app.interceptor.js';
-import {
-    CorsMiddleware,
-    RequestPreprocessingMiddleware,
-    RequestScopeMiddleware,
-} from '@/platform/http/middleware/app.middleware.js';
+import { PerformanceInterceptor } from '@/platform/http/interceptors/performance.interceptor.js';
+import { TimeoutInterceptor } from '@/platform/http/interceptors/timeout.interceptor.js';
+import { CorsMiddleware } from '@/platform/http/middleware/cors.middleware.js';
+import { RequestPreprocessingMiddleware } from '@/platform/http/middleware/request-preprocessing.middleware.js';
+import { RequestScopeMiddleware } from '@/platform/http/middleware/request-scope.middleware.js';
 
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';

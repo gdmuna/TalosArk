@@ -5,7 +5,7 @@ import { KvsListAtomic } from './lua/list.atomic.js';
 import { KvsSetAtomic } from './lua/set.atomic.js';
 import { KvsStringAtomic } from './lua/string.atomic.js';
 
-import { timeout } from '@/common/utils/index.js';
+import { timeout } from '@/common/utils/operations/async.operation.js';
 import { KvsError } from './kvs.error.js';
 import { normalizeKvsError } from './kvs.error.normalize.js';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';

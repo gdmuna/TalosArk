@@ -1,4 +1,4 @@
-import { extractAccessTokenFromRequest } from '@/common/utils/index.js';
+import { extractAccessTokenFromRequest } from '../credential.js';
 
 import { AccessKernel } from '@/core/access/index.js';
 

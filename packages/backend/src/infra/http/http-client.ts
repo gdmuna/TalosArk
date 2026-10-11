@@ -15,7 +15,7 @@ import type {
     HttpResponse,
 } from './type.js';
 
-import { createSecureRandomString, hashSHA256 } from '@/common/utils/helpers/crypto.helper.js';
+import { createSecureRandomString, hashSHA256 } from '@/common/utils/crypto.js';
 
 import { Stream } from 'node:stream';
 

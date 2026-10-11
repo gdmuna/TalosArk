@@ -1,4 +1,4 @@
-import { readFile } from '@/common/utils/index.js';
+import { readFile } from './config-file.reader.js';
 
 import { ConfigType, registerAs } from '@nestjs/config';
 import { z } from 'zod/v4';

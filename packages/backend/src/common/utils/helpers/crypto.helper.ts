@@ -3,6 +3,9 @@
  * 注意：密码哈希建议使用 bcrypt/argon2 等专业库。
  */
 import { generateRandomInt } from '../operations/number.operation.js';
+import { hashSHA256 } from '../crypto.js';
+
+export { createSecureRandomString, hashSHA256 } from '../crypto.js';
 
 import { randomBytes, createHash } from 'crypto';
 import bcrypt from 'bcryptjs';
@@ -31,19 +34,6 @@ export function generateRandomHex(length: number = 16): string {
  */
 export function hashSHA1(value: string): string {
     return createHash('sha1').update(value).digest('hex');
-}
-
-/**
- * 计算字符串的 SHA-256 哈希值。
- *
- * @param value - 待哈希的字符串
- * @returns 十六进制哈希值
- *
- * @example
- * hashSHA256('password123') // 'ef92b778...'
- */
-export function hashSHA256(value: string): string {
-    return createHash('sha256').update(value).digest('hex');
 }
 
 /**
@@ -123,14 +113,6 @@ export function generateRandomString(
  */
 export function generateRandomDigits(length: number = 6): string {
     return generateRandomString(length, '0123456789');
-}
-
-export function createSecureRandomString(byteLength = 32): string {
-    if (!Number.isSafeInteger(byteLength) || byteLength <= 0) {
-        throw new RangeError('byteLength must be a positive safe integer');
-    }
-
-    return randomBytes(byteLength).toString('base64url');
 }
 
 /**

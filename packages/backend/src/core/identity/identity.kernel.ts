@@ -7,7 +7,7 @@ import {
     mapIdentityDatabaseError,
 } from './identity.error.mapper.js';
 
-import { createSecureRandomString } from '@/common/utils/index.js';
+import { createSecureRandomString } from '@/common/utils/crypto.js';
 
 import { PrismaService } from '@/infra/database/prisma/prisma.service.js';
 import { IamClient } from '@/infra/iam/index.js';

@@ -1,4 +1,4 @@
-import { FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 
 // TODO(identity): 刷新令牌 Cookie 的完整策略将在 IdentityKernel 落地后由其配置拥有。
 // 这里保留历史 HTTP helper 的默认 Cookie 名称，避免让通用 token 提取依赖已移除的 auth.config。

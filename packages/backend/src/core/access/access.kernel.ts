@@ -3,10 +3,9 @@ import { AccessError } from './access.error.js';
 import { mapAccessDatabaseError } from './access.error.mapper.js';
 
 import type { AllConfig } from '@/config/index.js';
-import { createSecureRandomString } from '@/common/utils/index.js';
+import { createSecureRandomString } from '@/common/utils/crypto.js';
 
 import { PrismaService } from '@/infra/database/prisma/prisma.service.js';
-import { KvsClient } from '@/infra/kvs/index.js';
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -26,7 +25,6 @@ export class AccessKernel {
 
     constructor(
         private readonly prismaService: PrismaService,
-        private readonly kvsClient: KvsClient,
         private readonly configService: ConfigService<AllConfig, true>
     ) {
         const config = this.configService.get('access', { infer: true });

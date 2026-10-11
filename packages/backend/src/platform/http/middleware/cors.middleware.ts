@@ -1,48 +1,18 @@
-import { AllConfig } from '@/config/index.js';
+import type { AllConfig } from '@/config/index.js';
 
 import { AlsContextAdapter as RequestContextService } from '@/platform/context/als-context.adapter.js';
+import { toApiResponseContext } from '@/platform/context/response-context.js';
+import { RequestError } from '@/platform/request/request.error.js';
+import { HttpErrorPolicy, createHttpErrorResponse } from '../error/http.error.policy.js';
+import { errorResponseSchema } from '../route/route.contract.js';
+import { parseJsonResponse } from '../route/route.response.js';
 
 import { Logger, Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpErrorPolicy, createHttpErrorResponse } from '../error/http.error.policy.js';
-import { RequestError } from '@/platform/request/request.error.js';
-import { toApiResponseContext } from '@/platform/context/response-context.js';
-import { errorResponseSchema } from '../route/route.contract.js';
-import { parseJsonResponse } from '../route/route.response.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 
-// Per NestJS docs (techniques/performance): middleware with Fastify receives raw
-// Node.js objects via middie, not Fastify's wrappers.
 type RawRequest = FastifyRequest['raw'];
 type RawResponse = FastifyReply['raw'];
-
-@Injectable()
-export class RequestPreprocessingMiddleware implements NestMiddleware {
-    constructor(private readonly configService: ConfigService<AllConfig, true>) {}
-
-    use(req: RawRequest, res: RawResponse, next: () => void) {
-        const requestIdHeader = this.configService.get('http.requestIdHeader', { infer: true });
-        res.setHeader(requestIdHeader, String(req.id));
-        req.version = this.configService.get('app.appVersion', { infer: true });
-        next();
-    }
-}
-
-@Injectable()
-export class RequestScopeMiddleware implements NestMiddleware {
-    constructor(private readonly requestContextService: RequestContextService) {}
-    use(req: RawRequest, _: RawResponse, next: () => void) {
-        const requestContext = {
-            requestId: typeof req.id === 'string' ? req.id : String(req.id ?? 'unknown'),
-            time: Date.now(),
-            version: req.version,
-            metadata: {},
-        };
-        this.requestContextService.run(requestContext, () => {
-            next();
-        });
-    }
-}
 
 @Injectable()
 export class CorsMiddleware implements NestMiddleware {
