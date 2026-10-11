@@ -20,7 +20,7 @@ const request =
 
 export default {
     'http.request.completed': request(),
-    'http.request.failed': request('请求失败'),
-    'http.request.slow': request('慢请求'),
-    'http.request.critical': request('严重慢请求'),
+    'http.request.failed': request('Request failed'),
+    'http.request.slow': request('Slow request'),
+    'http.request.critical': request('Critical slow request'),
 } satisfies PrettyAdapterMap;

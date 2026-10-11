@@ -73,7 +73,7 @@ export async function bootstrap() {
 
         await app.listen(port, '0.0.0.0');
         app.get(HealthState).markReady();
-        logger.log(`服务已启动于: http://localhost:${port}`);
+        logger.log(`Server started at: http://localhost:${port}`);
         await printStartupBanner();
     } catch (error) {
         logListenFailure(logger, port, error);
@@ -147,14 +147,14 @@ function logListenFailure(logger: Logger, port: number, error: unknown): void {
 
     if (code === 'EADDRINUSE') {
         logger.fatal(
-            `启动失败：端口 ${port} 已被占用。\n请更改 PORT，或检查占用端口的进程。\nWindows：netstat -ano | findstr :${port}`
+            `Startup failed: port ${port} is already in use.\nChange PORT or check the process using the port.\nWindows: netstat -ano | findstr :${port}`
         );
         return;
     }
 
     if (code === 'EACCES') {
         logger.fatal(
-            `启动失败：没有权限绑定到端口 ${port}。\n请使用 1024 以上端口，或检查系统权限与安全软件。`
+            `Startup failed: permission denied when binding to port ${port}.\nUse a port of 1024 or higher, or check system permissions and security software.`
         );
     }
 }

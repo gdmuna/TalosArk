@@ -9,15 +9,13 @@ const query =
     (record) => {
         const database = logObject(record.database);
         if (typeof database?.duration !== 'number') return undefined;
-        const request =
-            typeof record.requestId === 'string' ? ` · requestId=${record.requestId}` : '';
-        return `${label} · ${database.duration}ms${request}`;
+        return `${label} · ${database.duration}ms`;
     };
 
 export default {
-    'database.connected': () => '数据库已连接',
-    'database.disconnected': () => '数据库已断开',
-    'database.query.completed': query('查询完成'),
-    'database.query.slow': query('慢查询'),
-    'database.query.critical': query('严重慢查询'),
+    'database.connected': () => 'Database connected',
+    'database.disconnected': () => 'Database disconnected',
+    'database.query.completed': query('Query completed'),
+    'database.query.slow': query('Slow query'),
+    'database.query.critical': query('Critical slow query'),
 } satisfies PrettyAdapterMap;

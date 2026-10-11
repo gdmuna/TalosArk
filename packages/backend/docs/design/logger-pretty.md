@@ -7,8 +7,9 @@ pretty console output through one asynchronous worker; other environments retain
 the existing asynchronous JSON file destination. This change does not introduce
 new output modes, sampling, remote sinks, severity policies, or retry behavior.
 
-The same Pino root serves request children and out-of-context logs. Existing
-messages, business fields, slow thresholds and levels are preserved. Emitters add
+The same Pino root serves request children and out-of-context logs. Log messages
+and pretty summaries use English unless Chinese is explicitly requested. Existing
+business fields, slow thresholds and levels are preserved. Emitters add
 a stable `event` discriminator; only the console summary is replaced. In
 particular, outbound HTTP `attempts` remains in the object and never enters its
 summary, including when greater than one.
@@ -56,10 +57,10 @@ layout even when duplicated in the summary. Common header fields and the new
 Example summaries (values are illustrative):
 
 ```text
-WARN ... [PrismaService] 慢查询 · 132ms · requestId=r-123
+WARN ... [PrismaService] Slow query · 132ms
 DEBUG ... [PerformanceInterceptor] GET /api/materials → 200 · 24ms
 DEBUG ... [HttpClientFactory] casdoor · fetch-user → 200 · 86ms
-ERROR ... [KvsClient] Valkey 连接被拒绝
+ERROR ... [KvsClient] Valkey connection refused
 ```
 
 Existing object fields follow these lines without adapter-specific filtering.

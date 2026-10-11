@@ -156,7 +156,8 @@ visibility; they are not an application-wide public surface.
   nor invokes business mappers. Missing protocol defaults safely in each adapter.
   No import-side-effect registry, global business taxonomy or public ALS metadata.
 - nestjs-pino is the configured process logger; the legacy Logger wrapper has
-  been removed. A transport boundary records the terminal failure once, using
+  been removed. Log messages and pretty summaries use English unless the user
+  explicitly requests Chinese. A transport boundary records the terminal failure once, using
   platform/error's library-neutral diagnostics and bounded cause serializer.
   The existing nestjs-pino integration remains replaceable without changing
   error factories, catalogs, resolver or business projections. Adapters that rethrow do not also
