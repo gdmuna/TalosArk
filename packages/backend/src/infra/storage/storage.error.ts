@@ -1,9 +1,11 @@
 import { defineErrorClass, defineInternalErrorCatalog } from '@/platform/error/index.js';
+import type { ObjectLocation } from './storage.contract.js';
 
 export type StorageOperation =
     | 'presign'
     | 'upload'
     | 'download'
+    | 'stat'
     | 'delete'
     | 'copy'
     | 'multipart-init'
@@ -16,17 +18,26 @@ export type StorageFailure = {
         | 'unavailable'
         | 'permission-denied'
         | 'configuration'
+        | 'checksum-mismatch'
+        | 'invalid-request'
         | 'invalid-multipart'
         | 'invalid-response'
         | 'partial-delete'
         | 'request-failed';
     operation: StorageOperation;
+    failedObjects?: ReadonlyArray<{
+        bucket: ObjectLocation['bucket'];
+        key?: ObjectLocation['key'];
+        code?: string;
+    }>;
 };
 const catalog = defineInternalErrorCatalog('storage', [
     'not-found',
     'unavailable',
     'permission-denied',
     'configuration',
+    'checksum-mismatch',
+    'invalid-request',
     'invalid-multipart',
     'invalid-response',
     'partial-delete',

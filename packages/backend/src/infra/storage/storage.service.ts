@@ -1,13 +1,3 @@
-import { StorageError, type StorageOperation } from './storage.error.js';
-import { normalizeStorageError } from './storage.error.normalize.js';
-import { S3_OPTIONS } from './storage.constant.js';
-import type { StorageModuleOptions } from './storage.interface.js';
-
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-
-import { Inject, Injectable } from '@nestjs/common';
-import { Readable } from 'stream';
-
 import {
     S3Client,
     PutObjectCommand,
@@ -17,540 +7,484 @@ import {
     HeadObjectCommand,
     CopyObjectCommand,
     CreateMultipartUploadCommand,
+    UploadPartCommand,
     CompleteMultipartUploadCommand,
     AbortMultipartUploadCommand,
     ListPartsCommand,
-    ChecksumAlgorithm,
-    type CompletedPart,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
+import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { Readable } from 'node:stream';
+import { S3_OPTIONS } from './storage.constant.js';
+import type { StorageModuleOptions } from './storage.options.js';
+import type {
+    ObjectLocation,
+    ObjectWriteOptions,
+    ObjectStat,
+    ObjectStatOptions,
+    ObjectBody,
+    StreamBody,
+    StreamUploadOptions,
+    PresignOptions,
+    PresignedRequest,
+    MultipartUpload,
+    MultipartUploadOptions,
+    MultipartPartPresignOptions,
+    MultipartCompletionPart,
+    UploadedPart,
+} from './storage.contract.js';
+import { StorageError, type StorageOperation } from './storage.error.js';
+import { normalizeStorageError } from './storage.error.normalize.js';
 
-/** 存储桶类型：public（CDN 公开访问）或 private（需鉴权） */
-export type BucketType = 'public' | 'private';
+const DEFAULT_PRESIGN_EXPIRES = 3600;
+const MAX_PRESIGN_EXPIRES = 604800;
+const MAX_PART_NUMBER = 10000;
+const DELETE_BATCH_SIZE = 1000;
+const STREAM_PART_SIZE = 5 * 1024 * 1024;
+type SignRequest = (options: NonNullable<Parameters<typeof getSignedUrl>[2]>) => Promise<string>;
 
-/** 分片信息（CompleteMultipartUpload 时使用） */
-export type UploadPart = CompletedPart;
-
-/** 分片上传初始化结果 */
-export interface MultipartUploadInitResult {
-    uploadId: string;
-    key: string;
-    bucket: string;
+function encodePath(value: string): string {
+    return value
+        .split('/')
+        .map((segment) =>
+            encodeURIComponent(segment).replace(
+                /[!'()*]/g,
+                (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+            )
+        )
+        .join('/');
 }
-
-/** 分片预签名 URL 信息 */
-export interface PartPresignResult {
-    partNumber: number;
-    url: string;
-}
-
-/** 已上传分片信息（用于断点续传） */
-export interface ListedPart {
-    partNumber: number;
-    etag: string;
-    size: number;
-}
-
-const DEFAULT_PRESIGN_EXPIRES = 3600; // 1小时
-const DEFAULT_PART_SIZE = 5 * 1024 * 1024; // 5MB
 
 @Injectable()
-export class StorageService {
+export class StorageService implements OnModuleDestroy {
     constructor(
         private readonly s3Client: S3Client,
         @Inject(S3_OPTIONS) private readonly opts: StorageModuleOptions,
         @InjectPinoLogger(StorageService.name) private readonly logger: PinoLogger
     ) {}
 
-    // ─── 存储桶解析 ────────────────────────────────────────────────────────────
-
-    /**
-     * 根据桶类型解析实际桶名
-     */
-    resolveBucket(type: BucketType): string {
-        return type === 'public' ? this.opts.options.bucketPublic : this.opts.options.bucketPrivate;
+    onModuleDestroy(): void {
+        this.s3Client.destroy();
     }
 
-    /** 内容寻址暂存桶名 */
-    get stagingBucket(): string {
-        return this.opts.options.bucketStaging;
-    }
-
-    /**
-     * 拼接公开文件的直接访问 URL（不带签名，依赖 publicBaseUrl 或 endpoint）
-     */
-    getPublicUrl(key: string): string {
+    /** URL construction only. The caller owns authorization and public-access policy. */
+    getPublicUrl(object: ObjectLocation): string {
         const base = this.opts.options.publicBaseUrl ?? this.opts.options.endpoint;
-        const bucket = this.opts.options.bucketPublic;
-        return `${base.replace(/\/$/, '')}/${bucket}/${key}`;
+        return `${base.replace(/\/$/, '')}/${encodePath(object.bucket)}/${encodePath(object.key)}`;
     }
 
-    // ─── 预签名 URL ────────────────────────────────────────────────────────────
-
-    /**
-     * 生成上传预签名 URL（客户端直传）
-     * @param bucket 桶类型或实际桶名
-     * @param key 对象键
-     * @param contentType 文件 MIME 类型
-     * @param expiresIn 有效期（秒），默认 3600
-     */
-    async getUploadUrl(
-        bucket: BucketType | string,
-        key: string,
-        contentType: string,
-        expiresIn = DEFAULT_PRESIGN_EXPIRES
-    ): Promise<string> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        return this.execute('presign', () =>
-            getSignedUrl(
-                this.s3Client,
-                new PutObjectCommand({ Bucket: bucketName, Key: key, ContentType: contentType }),
-                { expiresIn }
-            )
+    async presignUpload(
+        object: ObjectLocation,
+        options: ObjectWriteOptions & PresignOptions = {}
+    ): Promise<PresignedRequest> {
+        const sha256 = this.checksumBase64(options.sha256, 'presign');
+        const headers: Record<string, string> = {};
+        if (options.contentType) headers['content-type'] = options.contentType;
+        if (sha256) headers['x-amz-checksum-sha256'] = sha256;
+        const command = new PutObjectCommand({
+            Bucket: object.bucket,
+            Key: object.key,
+            ContentType: options.contentType,
+            ChecksumSHA256: sha256,
+        });
+        return this.presign(
+            (signingOptions) => getSignedUrl(this.s3Client, command, signingOptions),
+            'PUT',
+            headers,
+            options
         );
     }
 
-    /**
-     * 生成带 SHA-256 完整性校验的上传预签名 URL（内容寻址存储 CAS）
-     *
-     * 上传目标为 staging 暂存桶，key = sha256Hex。
-     * S3/MinIO 会在收到对象后自动验证 checksum：若内容与声明的 sha256 不符，
-     * 直接返回 400，客户端上传失败，无需服务端二次计算。
-     *
-     * @param sha256Hex  文件内容的 SHA-256 hex 字符串（64位小写十六进制）
-     * @param contentType  MIME 类型
-     * @param expiresIn  有效期（秒），默认 3600
-     */
-    async getUploadUrlCAS(
-        sha256Hex: string,
-        contentType: string,
-        expiresIn = DEFAULT_PRESIGN_EXPIRES
-    ): Promise<string> {
-        // S3 ChecksumSHA256 要求 base64 编码
-        const sha256Base64 = Buffer.from(sha256Hex, 'hex').toString('base64');
-        return this.execute('presign', () =>
-            getSignedUrl(
-                this.s3Client,
-                new PutObjectCommand({
-                    Bucket: this.stagingBucket,
-                    Key: sha256Hex,
-                    ContentType: contentType,
-                    ChecksumAlgorithm: ChecksumAlgorithm.SHA256,
-                    ChecksumSHA256: sha256Base64,
-                }),
-                { expiresIn }
-            )
+    async presignDownload(
+        object: ObjectLocation,
+        options: PresignOptions = {}
+    ): Promise<PresignedRequest> {
+        const command = new GetObjectCommand({ Bucket: object.bucket, Key: object.key });
+        return this.presign(
+            (signingOptions) => getSignedUrl(this.s3Client, command, signingOptions),
+            'GET',
+            {},
+            options
         );
     }
 
-    /**
-     * 将 staging 桶中的 CAS 对象移动到目标桶（copy + delete）
-     * @param sha256Hex  CAS key（即 staging 桶中的对象键）
-     * @param destBucket  目标桶类型或实际桶名
-     * @param destKey  目标对象键
-     */
-    async promoteFromStaging(
-        sha256Hex: string,
-        destBucket: BucketType | string,
-        destKey: string
-    ): Promise<void> {
-        const dstBucket =
-            destBucket === 'public' || destBucket === 'private'
-                ? this.resolveBucket(destBucket)
-                : destBucket;
-        await this.copyObject(this.stagingBucket, sha256Hex, dstBucket, destKey);
-        await this.deleteObject(this.stagingBucket, sha256Hex);
-    }
-
-    /**
-     * 生成下载预签名 URL（私有文件访问/视频流播放）
-     * @param bucket 桶类型或实际桶名
-     * @param key 对象键
-     * @param expiresIn 有效期（秒），默认 3600
-     */
-    async getDownloadUrl(
-        bucket: BucketType | string,
-        key: string,
-        expiresIn = DEFAULT_PRESIGN_EXPIRES
-    ): Promise<string> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        return this.execute('presign', () =>
-            getSignedUrl(this.s3Client, new GetObjectCommand({ Bucket: bucketName, Key: key }), {
-                expiresIn,
-            })
-        );
-    }
-
-    // ─── 服务端直接操作 ────────────────────────────────────────────────────────
-
-    /**
-     * 服务端直接上传文件（小文件，< 5MB）
-     */
     async putObject(
-        bucket: BucketType | string,
-        key: string,
-        body: Buffer | Uint8Array | string,
-        contentType?: string
+        object: ObjectLocation,
+        body: ObjectBody,
+        options: ObjectWriteOptions = {}
     ): Promise<void> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            await this.s3Client.send(
+        const sha256 = this.checksumBase64(options.sha256, 'upload');
+        await this.execute('upload', () =>
+            this.s3Client.send(
                 new PutObjectCommand({
-                    Bucket: bucketName,
-                    Key: key,
+                    Bucket: object.bucket,
+                    Key: object.key,
                     Body: body,
-                    ContentType: contentType,
+                    ContentType: options.contentType,
+                    ChecksumSHA256: sha256,
                 })
-            );
-            this.logger.debug('Object uploaded');
-        } catch (err) {
-            throw normalizeStorageError(err, 'upload') ?? err;
-        }
+            )
+        );
     }
 
-    /**
-     * 服务端流式上传大文件（自动分片，支持进度回调）
-     * @param onProgress 可选进度回调 (loaded, total)
-     */
     async uploadStream(
-        bucket: BucketType | string,
-        key: string,
-        body: Readable | Buffer,
-        contentType?: string,
-        onProgress?: (loaded: number, total?: number) => void
+        object: ObjectLocation,
+        body: StreamBody,
+        options: StreamUploadOptions = {}
     ): Promise<void> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
+        await this.execute('upload', async () => {
             const upload = new Upload({
                 client: this.s3Client,
-                params: { Bucket: bucketName, Key: key, Body: body, ContentType: contentType },
+                params: {
+                    Bucket: object.bucket,
+                    Key: object.key,
+                    Body: body,
+                    ContentType: options.contentType,
+                },
                 queueSize: 4,
-                partSize: DEFAULT_PART_SIZE,
+                partSize: STREAM_PART_SIZE,
                 leavePartsOnError: false,
             });
-
-            if (onProgress) {
-                upload.on('httpUploadProgress', (p) => onProgress(p.loaded ?? 0, p.total));
+            if (options.onProgress) {
+                upload.on('httpUploadProgress', (progress) =>
+                    options.onProgress?.(progress.loaded ?? 0, progress.total)
+                );
             }
-
             await upload.done();
-            this.logger.debug('Stream uploaded');
-        } catch (err) {
-            throw normalizeStorageError(err, 'upload') ?? err;
-        }
+        });
     }
 
-    /**
-     * 下载文件为 Buffer（小文件）
-     */
-    async getObject(bucket: BucketType | string, key: string): Promise<Buffer> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            const resp = await this.s3Client.send(
-                new GetObjectCommand({ Bucket: bucketName, Key: key })
+    /** Buffers the entire object. Use getObjectStream for unbounded payloads. */
+    getObject(object: ObjectLocation): Promise<Buffer> {
+        return this.execute('download', async () => {
+            const response = await this.s3Client.send(
+                new GetObjectCommand({ Bucket: object.bucket, Key: object.key })
             );
-            if (!resp.Body)
+            if (!response.Body) {
                 throw new StorageError({ reason: 'invalid-response', operation: 'download' });
-            const bytes = await resp.Body.transformToByteArray();
-            return Buffer.from(bytes);
-        } catch (err) {
-            throw normalizeStorageError(err, 'download') ?? err;
-        }
+            }
+            return Buffer.from(await response.Body.transformToByteArray());
+        });
     }
 
-    /**
-     * 获取文件可读流（大文件/视频代理场景）
-     *
-     * 注意：AWS SDK v3 的 resp.Body 是 ChecksumStream（非标准 Readable，含循环引用），
-     * 通过异步迭代中继转换为标准 Node.js Readable，同时包装传输中的晚到错误。
-     */
-    async getObjectStream(bucket: BucketType | string, key: string): Promise<Readable> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        let resp;
-        try {
-            resp = await this.s3Client.send(new GetObjectCommand({ Bucket: bucketName, Key: key }));
-        } catch (err) {
-            throw normalizeStorageError(err, 'download') ?? err;
-        }
-        if (!resp.Body) {
+    async getObjectStream(object: ObjectLocation): Promise<Readable> {
+        const response = await this.execute('download', () =>
+            this.s3Client.send(new GetObjectCommand({ Bucket: object.bucket, Key: object.key }))
+        );
+        if (!response.Body) {
             throw new StorageError({ reason: 'invalid-response', operation: 'download' });
         }
-        const body = resp.Body as Readable;
+        const body = response.Body as Readable;
+        // Normalize errors from consuming the body, not just acquiring the response.
         return Readable.from(
             (async function* () {
                 try {
                     for await (const chunk of body) yield chunk;
-                } catch (err) {
-                    throw normalizeStorageError(err, 'download') ?? err;
+                } catch (error) {
+                    throw normalizeStorageError(error, 'download') ?? error;
                 }
             })(),
             { objectMode: false }
         );
     }
 
-    /**
-     * 删除单个文件
-     */
-    async deleteObject(bucket: BucketType | string, key: string): Promise<void> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            await this.s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
-            this.logger.debug('Object deleted');
-        } catch (err) {
-            throw normalizeStorageError(err, 'delete') ?? err;
-        }
-    }
-
-    /**
-     * 批量删除文件（最多 1000 个）
-     */
-    async deleteObjects(bucket: BucketType | string, keys: string[]): Promise<void> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            const result = await this.s3Client.send(
-                new DeleteObjectsCommand({
-                    Bucket: bucketName,
-                    Delete: { Objects: keys.map((Key) => ({ Key })) },
+    statObject(object: ObjectLocation, options: ObjectStatOptions = {}): Promise<ObjectStat> {
+        return this.execute('stat', async () => {
+            const response = await this.s3Client.send(
+                new HeadObjectCommand({
+                    Bucket: object.bucket,
+                    Key: object.key,
+                    ChecksumMode: options.checksum ? 'ENABLED' : undefined,
                 })
             );
-            if (result.Errors?.length) {
-                throw new StorageError({ reason: 'partial-delete', operation: 'delete' });
+            if (
+                response.ContentLength === undefined ||
+                !Number.isSafeInteger(response.ContentLength) ||
+                response.ContentLength < 0
+            ) {
+                throw new StorageError({ reason: 'invalid-response', operation: 'stat' });
             }
-            this.logger.debug({ count: keys.length }, 'Objects deleted');
-        } catch (err) {
-            throw normalizeStorageError(err, 'delete') ?? err;
-        }
-    }
-
-    /**
-     * 检查文件是否存在（HEAD 请求，不传输文件内容）
-     */
-    async objectExists(bucket: BucketType | string, key: string): Promise<boolean> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            await this.s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
-            return true;
-        } catch (err) {
-            const normalized = normalizeStorageError(err, 'download');
-            if (normalized?.failure.reason === 'not-found') {
-                return false;
-            }
-            throw normalized ?? err;
-        }
-    }
-
-    /**
-     * 获取对象大小（字节），通过 HEAD 请求，不传输文件内容。
-     * 若对象不存在则抛出 reason=not-found 的 StorageError。
-     */
-    async getObjectSize(bucket: BucketType | string, key: string): Promise<number> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            const resp = await this.s3Client.send(
-                new HeadObjectCommand({ Bucket: bucketName, Key: key })
-            );
-            return resp.ContentLength ?? 0;
-        } catch (err) {
-            throw normalizeStorageError(err, 'download') ?? err;
-        }
-    }
-
-    /**
-     * 服务端复制文件（桶内或跨桶，不消耗带宽）
-     */
-    async copyObject(
-        sourceBucket: BucketType | string,
-        sourceKey: string,
-        destBucket: BucketType | string,
-        destKey: string
-    ): Promise<void> {
-        const srcBucket =
-            sourceBucket === 'public' || sourceBucket === 'private'
-                ? this.resolveBucket(sourceBucket)
-                : sourceBucket;
-        const dstBucket =
-            destBucket === 'public' || destBucket === 'private'
-                ? this.resolveBucket(destBucket)
-                : destBucket;
-        try {
-            await this.s3Client.send(
-                new CopyObjectCommand({
-                    Bucket: dstBucket,
-                    Key: destKey,
-                    CopySource: `${srcBucket}/${sourceKey}`,
-                })
-            );
-            this.logger.debug('Object copied');
-        } catch (err) {
-            throw normalizeStorageError(err, 'copy') ?? err;
-        }
-    }
-
-    // ─── 分片上传（客户端直传协调） ───────────────────────────────────────────
-
-    /**
-     * 初始化分片上传，返回 uploadId 和各分片预签名 URL
-     * @param partCount 分片总数
-     * @param expiresIn 每个分片 URL 的有效期（秒），默认 3600
-     */
-    async initMultipartUpload(
-        bucket: BucketType | string,
-        key: string,
-        contentType: string,
-        partCount: number,
-        expiresIn = DEFAULT_PRESIGN_EXPIRES
-    ): Promise<{ uploadId: string; partUrls: PartPresignResult[] }> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            const { UploadId } = await this.s3Client.send(
-                new CreateMultipartUploadCommand({
-                    Bucket: bucketName,
-                    Key: key,
-                    ContentType: contentType,
-                })
-            );
-            if (!UploadId)
-                throw new StorageError({ reason: 'invalid-response', operation: 'multipart-init' });
-
-            const partUrls = await Promise.all(
-                Array.from({ length: partCount }, (_, i) =>
-                    getSignedUrl(
-                        this.s3Client,
-                        new PutObjectCommand({
-                            Bucket: bucketName,
-                            Key: key,
-                            UploadId,
-                            PartNumber: i + 1,
-                        } as any),
-                        { expiresIn }
-                    ).then((url) => ({ partNumber: i + 1, url }))
-                )
-            );
-
-            this.logger.debug('Multipart upload initiated');
-            return { uploadId: UploadId, partUrls };
-        } catch (err) {
-            throw normalizeStorageError(err, 'multipart-init') ?? err;
-        }
-    }
-
-    /**
-     * 为未完成的分片重新生成预签名 URL（断点续传场景）
-     * @param completedPartNumbers 已完成的分片编号列表
-     */
-    async getResumablePartUrls(
-        bucket: BucketType | string,
-        key: string,
-        uploadId: string,
-        totalParts: number,
-        completedPartNumbers: number[],
-        expiresIn = DEFAULT_PRESIGN_EXPIRES
-    ): Promise<{ completedParts: ListedPart[]; partUrls: PartPresignResult[] }> {
-        return this.execute('multipart-list', async () => {
-            const bucketName =
-                bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-
-            // 从 S3 查询已完成的分片（权威来源）
-            const { Parts = [] } = await this.s3Client.send(
-                new ListPartsCommand({ Bucket: bucketName, Key: key, UploadId: uploadId })
-            );
-
-            const completedSet = new Set(Parts.map((p) => p.PartNumber ?? 0));
-            const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter(
-                (n) => !completedSet.has(n)
-            );
-
-            const partUrls = await Promise.all(
-                remaining.map((partNumber) =>
-                    getSignedUrl(
-                        this.s3Client,
-                        new PutObjectCommand({
-                            Bucket: bucketName,
-                            Key: key,
-                            UploadId: uploadId,
-                            PartNumber: partNumber,
-                        } as any),
-                        { expiresIn }
-                    ).then((url) => ({ partNumber, url }))
-                )
-            );
-
             return {
-                completedParts: Parts.map((p) => ({
-                    partNumber: p.PartNumber ?? 0,
-                    etag: p.ETag ?? '',
-                    size: p.Size ?? 0,
-                })),
-                partUrls,
+                sizeBytes: response.ContentLength,
+                contentType: response.ContentType,
+                etag: response.ETag,
+                lastModifiedAt: response.LastModified,
+                // prettier-ignore
+                checksum: response.ChecksumSHA256
+                    ? {
+                        algorithm: 'sha256',
+                        value: response.ChecksumSHA256,
+                        type:
+                            response.ChecksumType === 'FULL_OBJECT'
+                                ? 'full-object'
+                                : response.ChecksumType === 'COMPOSITE'
+                                ? 'composite'
+                                : undefined,
+                    }
+                    : undefined,
             };
         });
     }
 
-    /**
-     * 完成分片上传（合并所有分片）
-     */
-    async completeMultipartUpload(
-        bucket: BucketType | string,
-        key: string,
-        uploadId: string,
-        parts: UploadPart[]
-    ): Promise<void> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            await this.s3Client.send(
-                new CompleteMultipartUploadCommand({
-                    Bucket: bucketName,
-                    Key: key,
-                    UploadId: uploadId,
-                    MultipartUpload: { Parts: parts },
-                })
-            );
-            this.logger.debug('Multipart upload completed');
-        } catch (err) {
-            throw normalizeStorageError(err, 'multipart-complete') ?? err;
+    async deleteObject(object: ObjectLocation): Promise<void> {
+        await this.execute('delete', () =>
+            this.s3Client.send(new DeleteObjectCommand({ Bucket: object.bucket, Key: object.key }))
+        );
+    }
+
+    /** Non-atomic: earlier batches may have succeeded when a later batch fails. */
+    async deleteObjects(objects: readonly ObjectLocation[]): Promise<void> {
+        const buckets = new Map<string, string[]>();
+        for (const object of objects) {
+            const keys = buckets.get(object.bucket) ?? [];
+            keys.push(object.key);
+            buckets.set(object.bucket, keys);
+        }
+        for (const [bucket, keys] of buckets) {
+            for (let offset = 0; offset < keys.length; offset += DELETE_BATCH_SIZE) {
+                await this.execute('delete', async () => {
+                    const result = await this.s3Client.send(
+                        new DeleteObjectsCommand({
+                            Bucket: bucket,
+                            Delete: {
+                                Objects: keys
+                                    .slice(offset, offset + DELETE_BATCH_SIZE)
+                                    .map((Key) => ({ Key })),
+                            },
+                        })
+                    );
+                    if (result.Errors?.length) {
+                        throw new StorageError({
+                            reason: 'partial-delete',
+                            operation: 'delete',
+                            failedObjects: result.Errors.map((failure) => ({
+                                bucket,
+                                key: failure.Key,
+                                code: failure.Code,
+                            })),
+                        });
+                    }
+                });
+            }
         }
     }
 
-    /**
-     * 取消分片上传（清理 S3 上的临时分片，避免持续计费）
-     */
-    async abortMultipartUpload(
-        bucket: BucketType | string,
-        key: string,
-        uploadId: string
-    ): Promise<void> {
-        const bucketName =
-            bucket === 'public' || bucket === 'private' ? this.resolveBucket(bucket) : bucket;
-        try {
-            await this.s3Client.send(
-                new AbortMultipartUploadCommand({
-                    Bucket: bucketName,
-                    Key: key,
-                    UploadId: uploadId,
+    /** Copy does not delete its source or advance any File/database state. */
+    async copyObject(source: ObjectLocation, destination: ObjectLocation): Promise<void> {
+        await this.execute('copy', () =>
+            this.s3Client.send(
+                new CopyObjectCommand({
+                    Bucket: destination.bucket,
+                    Key: destination.key,
+                    CopySource: `${encodePath(source.bucket)}/${encodePath(source.key)}`,
+                })
+            )
+        );
+    }
+
+    createMultipartUpload(
+        object: ObjectLocation,
+        options: MultipartUploadOptions = {}
+    ): Promise<MultipartUpload> {
+        return this.execute('multipart-init', async () => {
+            const response = await this.s3Client.send(
+                new CreateMultipartUploadCommand({
+                    Bucket: object.bucket,
+                    Key: object.key,
+                    ContentType: options.contentType,
+                    ChecksumAlgorithm:
+                        options.checksumAlgorithm === 'sha256' ? 'SHA256' : undefined,
                 })
             );
-            this.logger.debug('Multipart upload aborted');
-        } catch (err) {
-            throw normalizeStorageError(err, 'multipart-abort') ?? err;
+            if (!response.UploadId) {
+                throw new StorageError({ reason: 'invalid-response', operation: 'multipart-init' });
+            }
+            return { object: { ...object }, uploadId: response.UploadId };
+        });
+    }
+
+    async presignMultipartPart(
+        upload: MultipartUpload,
+        partNumber: number,
+        options: MultipartPartPresignOptions = {}
+    ): Promise<PresignedRequest> {
+        this.validatePartNumber(partNumber, 'presign', 'invalid-request');
+        const sha256 = this.checksumBase64(options.sha256, 'presign');
+        const command = new UploadPartCommand({
+            Bucket: upload.object.bucket,
+            Key: upload.object.key,
+            UploadId: upload.uploadId,
+            PartNumber: partNumber,
+            ChecksumSHA256: sha256,
+        });
+        return this.presign(
+            (signingOptions) => getSignedUrl(this.s3Client, command, signingOptions),
+            'PUT',
+            sha256 ? { 'x-amz-checksum-sha256': sha256 } : {},
+            options
+        );
+    }
+
+    /** Returns all provider-confirmed parts, not a client-reported completion list. */
+    listMultipartParts(upload: MultipartUpload): Promise<UploadedPart[]> {
+        return this.execute('multipart-list', async () => {
+            const parts = new Map<number, UploadedPart>();
+            let marker: number | undefined;
+            for (;;) {
+                const response = await this.s3Client.send(
+                    new ListPartsCommand({
+                        Bucket: upload.object.bucket,
+                        Key: upload.object.key,
+                        UploadId: upload.uploadId,
+                        PartNumberMarker: marker?.toString(),
+                    })
+                );
+                for (const part of response.Parts ?? []) {
+                    const number = part.PartNumber;
+                    this.validatePartNumber(number, 'multipart-list', 'invalid-response');
+                    if (
+                        parts.has(number) ||
+                        number <= (marker ?? 0) ||
+                        !part.ETag ||
+                        part.Size === undefined ||
+                        !Number.isSafeInteger(part.Size) ||
+                        part.Size < 0
+                    ) {
+                        throw new StorageError({
+                            reason: 'invalid-response',
+                            operation: 'multipart-list',
+                        });
+                    }
+                    parts.set(number, {
+                        partNumber: number,
+                        etag: part.ETag,
+                        sizeBytes: part.Size,
+                        checksumSha256: part.ChecksumSHA256,
+                    });
+                }
+                if (!response.IsTruncated) break;
+                const next = Number(response.NextPartNumberMarker);
+                this.validatePartNumber(next, 'multipart-list', 'invalid-response');
+                if (next <= (marker ?? 0)) {
+                    throw new StorageError({
+                        reason: 'invalid-response',
+                        operation: 'multipart-list',
+                    });
+                }
+                marker = next;
+            }
+            return [...parts.values()].sort((a, b) => a.partNumber - b.partNumber);
+        });
+    }
+
+    /** Validates protocol fields; File must establish ownership and the expected manifest. */
+    async completeMultipartUpload(
+        upload: MultipartUpload,
+        parts: readonly MultipartCompletionPart[]
+    ): Promise<void> {
+        const operation = 'multipart-complete';
+        const numbers = new Set<number>();
+        if (!parts.length) throw new StorageError({ reason: 'invalid-request', operation });
+        const completed = [...parts]
+            .sort((a, b) => a.partNumber - b.partNumber)
+            .map((part) => {
+                this.validatePartNumber(part.partNumber, operation, 'invalid-request');
+                if (!part.etag || numbers.has(part.partNumber)) {
+                    throw new StorageError({ reason: 'invalid-request', operation });
+                }
+                numbers.add(part.partNumber);
+                return {
+                    PartNumber: part.partNumber,
+                    ETag: part.etag,
+                    ChecksumSHA256: this.checksumBase64(part.sha256, operation),
+                };
+            });
+        await this.execute(operation, () =>
+            this.s3Client.send(
+                new CompleteMultipartUploadCommand({
+                    Bucket: upload.object.bucket,
+                    Key: upload.object.key,
+                    UploadId: upload.uploadId,
+                    MultipartUpload: { Parts: completed },
+                })
+            )
+        );
+    }
+
+    async abortMultipartUpload(upload: MultipartUpload): Promise<void> {
+        await this.execute('multipart-abort', () =>
+            this.s3Client.send(
+                new AbortMultipartUploadCommand({
+                    Bucket: upload.object.bucket,
+                    Key: upload.object.key,
+                    UploadId: upload.uploadId,
+                })
+            )
+        );
+    }
+
+    private presign(
+        sign: SignRequest,
+        method: PresignedRequest['method'],
+        headers: Record<string, string>,
+        options: PresignOptions
+    ): Promise<PresignedRequest> {
+        const expiresIn = options.expiresIn ?? DEFAULT_PRESIGN_EXPIRES;
+        if (!Number.isInteger(expiresIn) || expiresIn < 1 || expiresIn > MAX_PRESIGN_EXPIRES) {
+            throw new StorageError({ reason: 'invalid-request', operation: 'presign' });
+        }
+        const signingDate = new Date();
+        signingDate.setMilliseconds(0);
+        return this.execute('presign', async () => {
+            const signingOptions = {
+                expiresIn,
+                signingDate,
+                signableHeaders: new Set(Object.keys(headers)),
+                unhoistableHeaders: new Set(Object.keys(headers)),
+            };
+            const url = await sign(signingOptions);
+            return {
+                url,
+                method,
+                headers,
+                expiresAt: new Date(signingDate.getTime() + expiresIn * 1000),
+            };
+        });
+    }
+
+    private checksumBase64(
+        value: string | undefined,
+        operation: StorageOperation
+    ): string | undefined {
+        if (value === undefined) return undefined;
+        if (!/^[\da-f]{64}$/i.test(value)) {
+            throw new StorageError({ reason: 'invalid-request', operation });
+        }
+        return Buffer.from(value, 'hex').toString('base64');
+    }
+
+    private validatePartNumber(
+        value: number | undefined,
+        operation: StorageOperation,
+        reason: 'invalid-request' | 'invalid-response'
+    ): asserts value is number {
+        if (
+            value === undefined ||
+            !Number.isInteger(value) ||
+            value < 1 ||
+            value > MAX_PART_NUMBER
+        ) {
+            throw new StorageError({ reason, operation });
         }
     }
 
     private async execute<T>(operation: StorageOperation, run: () => PromiseLike<T>): Promise<T> {
         try {
-            return await run();
+            const result = await run();
+            this.logger.debug({ operation }, 'Storage operation completed');
+            return result;
         } catch (error) {
             throw normalizeStorageError(error, operation) ?? error;
         }

@@ -325,6 +325,15 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
 
 ## File-system and authorization decisions
 
+- Storage now exposes SDK-free object contracts through infra/storage. Callers use
+  explicit bucket/raw-key locations, structured presigned requests and independent
+  multipart operations. It does not decide CAS keys, promote staging objects or
+  own File upload sessions. StorageModule requires explicit forRoot/forRootAsync
+  configuration, exports only StorageService and owns SDK-client destruction.
+  Bucket deployment configuration remains available to the future File capability.
+  W06 implementation, breaking internal interfaces and verification limits live in
+  docs/design/storage-2026-10-12.md. File remains unimplemented; copy/delete/upload
+  success is not evidence of an authorized, verified or committed file asset.
 - The file kernel has no IMAGE, DOCUMENT, or VIDEO upload-purpose enumeration.
   Future modules contribute concrete file-purpose definitions through the
   FileKernel extension boundary.

@@ -12,15 +12,17 @@ export function normalizeStorageError(
             error.name
         )
             ? 'configuration'
-            : error.name === 'NoSuchUpload'
-              ? 'invalid-multipart'
-              : status === 404
-                ? 'not-found'
-                : status === 401 || status === 403
-                  ? 'permission-denied'
-                  : (status !== undefined && status >= 500) || status === 429
-                    ? 'unavailable'
-                    : 'request-failed';
+            : error.name === 'BadDigest'
+              ? 'checksum-mismatch'
+              : error.name === 'NoSuchUpload'
+                ? 'invalid-multipart'
+                : status === 404
+                  ? 'not-found'
+                  : status === 401 || status === 403
+                    ? 'permission-denied'
+                    : (status !== undefined && status >= 500) || status === 429
+                      ? 'unavailable'
+                      : 'request-failed';
         return new StorageError({ reason, operation }, { cause: error });
     }
     if (error instanceof Error) {

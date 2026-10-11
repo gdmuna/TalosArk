@@ -20,7 +20,7 @@ const StorageConfigValidateSchema = z
         S3_SECRET_ACCESS_KEY: z.string().min(1),
         S3_BUCKET_PUBLIC: z.string().min(1).default('app-public'), // CDN 公开访问
         S3_BUCKET_PRIVATE: z.string().min(1).default('app-private'), // 鉴权访问
-        S3_BUCKET_STAGING: z.string().min(1).default('app-staging'), // CAS 暂存桶
+        S3_BUCKET_STAGING: z.string().min(1).default('app-staging'), // 暂存桶，生命周期由 File 管理
         S3_FORCE_PATH_STYLE: z
             .enum(['true', 'false'])
             .transform((v) => v === 'true')
