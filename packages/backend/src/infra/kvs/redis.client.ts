@@ -17,6 +17,7 @@ function normalizeKvsUrl(url: string): string {
     return parsedUrl.toString();
 }
 
-export const createRedisClient = (url: string) => createClient({ url: normalizeKvsUrl(url) });
+export const createRedisClient = (url: string, connectTimeoutMs: number) =>
+    createClient({ url: normalizeKvsUrl(url), socket: { connectTimeout: connectTimeoutMs } });
 
 export type RedisClient = ReturnType<typeof createRedisClient>;

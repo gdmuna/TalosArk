@@ -4,6 +4,7 @@ import { casdoorConfig, CasdoorConfig } from './casdoor.config.js';
 import { databaseConfig, DatabaseConfig } from './database.config.js';
 import { httpConfig, HttpConfig } from './http.config.js';
 import { kvsConfig, KvsConfig } from './kvs.config.js';
+import { lifecycleConfig, LifecycleConfig } from './lifecycle.config.js';
 import { mailConfig, MailConfig } from './mail.config.js';
 import { observabilityConfig, ObservabilityConfig } from './observability.config.js';
 import { storageConfig, StorageConfig } from './storage.config.js';
@@ -17,6 +18,7 @@ export type AllConfig = {
     database: DatabaseConfig;
     http: HttpConfig;
     kvs: KvsConfig;
+    lifecycle: LifecycleConfig;
     mail: MailConfig;
     observability: ObservabilityConfig;
     storage: StorageConfig;
@@ -29,6 +31,7 @@ export const allConfig = {
     databaseConfig,
     httpConfig,
     kvsConfig,
+    lifecycleConfig,
     mailConfig,
     observabilityConfig,
     storageConfig,
@@ -45,4 +48,5 @@ export * from './mail.config.js';
 export * from './observability.config.js';
 export * from './storage.config.js';
 export * from './kvs.config.js';
+export * from './lifecycle.config.js';
 export * from './queue.config.js';

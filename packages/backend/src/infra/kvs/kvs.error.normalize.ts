@@ -2,6 +2,7 @@ import {
     ErrorReply,
     ClientClosedError,
     ClientOfflineError,
+    DisconnectsClientError,
     ConnectionTimeoutError,
     SocketClosedUnexpectedlyError,
 } from 'redis';
@@ -12,6 +13,7 @@ export function normalizeKvsError(error: unknown): KvsError | undefined {
     if (
         error instanceof ClientClosedError ||
         error instanceof ClientOfflineError ||
+        error instanceof DisconnectsClientError ||
         error instanceof ConnectionTimeoutError ||
         error instanceof SocketClosedUnexpectedlyError ||
         (error instanceof Error &&

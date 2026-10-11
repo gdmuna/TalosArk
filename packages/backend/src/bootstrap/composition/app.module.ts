@@ -3,6 +3,7 @@ import allConfig, { type AllConfig } from '@/config/index.js';
 import { AccessModule } from '@/core/access/index.js';
 
 import { KvsModule } from '@/infra/kvs/kvs.module.js';
+import { HealthModule } from '@/system/health/health.module.js';
 
 import { AuthModule } from '@/modules/auth/index.js';
 
@@ -57,6 +58,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         KvsModule,
         AuthModule,
         PlatformContextModule,
+        HealthModule,
     ],
     providers: [
         ...errorProviders,

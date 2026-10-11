@@ -11,9 +11,9 @@ const redisClientProvider: Provider = {
     provide: REDIS_CLIENT,
     inject: [ConfigService],
     useFactory: (configService: ConfigService<AllConfig, true>) => {
-        const { kvsUrl } = configService.get('kvs', { infer: true });
+        const { kvsUrl, connectTimeoutMs } = configService.get('kvs', { infer: true });
 
-        return createRedisClient(kvsUrl);
+        return createRedisClient(kvsUrl, connectTimeoutMs);
     },
 };
 

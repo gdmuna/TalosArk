@@ -1,5 +1,2 @@
-/**
- * TODO: 定义系统存活与就绪状态边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { HealthModule } from './health.module.js';
+export { HealthState } from './health.state.js';

@@ -7,7 +7,7 @@ import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 
 import { PrismaClient } from '@root/prisma/generated/client.js';
 
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 
@@ -18,7 +18,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
  * - 只记录耗时与上下文，不记录 SQL 或绑定参数
  */
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleDestroy, OnModuleInit {
+export class PrismaService extends PrismaClient implements OnApplicationShutdown, OnModuleInit {
     constructor(
         private readonly configService: ConfigService<AllConfig, true>,
         private readonly alsContextAdapter: AlsContextAdapter,
@@ -97,7 +97,7 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy, OnMo
         }
     }
 
-    async onModuleDestroy() {
+    async onApplicationShutdown() {
         await this.execute(() => this.$disconnect());
         this.logger.info('Database disconnected');
     }

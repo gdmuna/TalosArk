@@ -46,39 +46,6 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
- * 为Promise设置超时限制。
- * 如果Promise在指定时间内未resolve，将抛出TimeoutError。
- *
- * @param promise - 待执行的Promise
- * @param ms - 超时毫秒数
- * @param message - 超时错误信息
- * @returns 原Promise或超时error
- *
- * @example
- * const result = await timeout(fetchData(), 5000, 'API request timeout');
- */
-export async function timeout<T>(
-    promise: Promise<T>,
-    ms: number,
-    message = `Operation timeout after ${ms}ms`
-): Promise<T> {
-    let timeoutId: NodeJS.Timeout;
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-            () => {
-                reject(new Error(message));
-            },
-            Math.max(0, ms)
-        );
-    });
-
-    return Promise.race([promise, timeoutPromise]).finally(() => {
-        clearTimeout(timeoutId);
-    });
-}
-
-/**
  * 重试失败的异步操作。
  * 在遇到错误时会按指定策略重新尝试，直到成功或重试次数用尽。
  *
