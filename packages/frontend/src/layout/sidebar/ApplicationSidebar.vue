@@ -19,7 +19,7 @@ const route = useRoute();
 const router = useRouter();
 const page = ref<'workspace' | 'management'>('workspace');
 let workspacePath = '/main/workbench/overview';
-let lastManagementPath = `${managementPath}/overview`;
+let lastManagementPath = managementPath;
 watch(
     () => route.fullPath,
     (path) => {

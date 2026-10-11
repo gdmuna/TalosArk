@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, useTemplateRef } from 'vue';
+import { computed, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { managementPath } from '@/router/management';
 import { unrefElement } from '@vueuse/core';
@@ -28,10 +28,13 @@ const trigger = useTemplateRef('trigger');
 const aboutTitle = useTemplateRef('aboutTitle');
 const menuOpen = ref(false);
 const workspaceOpen = ref(false);
-const workspacePending = ref(false);
+let skipMenuFocusRestore = false;
 const aboutOpen = ref(false);
 const returnFocus = shallowRef<HTMLElement | null>(null);
 const initial = computed(() => account.profile?.displayName.slice(0, 1).toUpperCase() ?? '');
+watch(menuOpen, (open) => {
+    if (open) skipMenuFocusRestore = false;
+});
 
 function captureFocus() {
     const target = menuOpen.value ? unrefElement(trigger) : document.activeElement;
@@ -46,17 +49,16 @@ function openAbout() {
 }
 function openWorkspace() {
     captureFocus();
-    workspacePending.value = true;
+    // Keep the focus handoff through menu exit, even if the new panel closes first.
+    skipMenuFocusRestore = true;
+    menuOpen.value = false;
+    workspaceOpen.value = true;
 }
 function onMenuClose(event: Event) {
-    if (workspacePending.value) {
-        // Wait for the menu's focus scope to close before opening another overlay.
-        event.preventDefault();
-        workspacePending.value = false;
-        workspaceOpen.value = true;
-    } else if (aboutOpen.value || workspaceOpen.value) {
+    if (skipMenuFocusRestore || aboutOpen.value || workspaceOpen.value) {
         event.preventDefault();
     }
+    skipMenuFocusRestore = false;
 }
 function restoreFocus(event: Event) {
     event.preventDefault();
@@ -94,7 +96,13 @@ defineExpose({ openSettings });
                 <ChevronDown class="size-3.5 text-muted-foreground" aria-hidden="true" />
             </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-72" aria-label="用户菜单" @close-auto-focus="onMenuClose">
+        <DropdownMenuContent
+            align="end"
+            class="w-72"
+            aria-label="用户菜单"
+            :inert="!menuOpen"
+            @close-auto-focus="onMenuClose"
+        >
             <DropdownMenuLabel class="flex min-w-0 items-center gap-3 p-3">
                 <span
                     class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-base text-primary-soft-foreground"

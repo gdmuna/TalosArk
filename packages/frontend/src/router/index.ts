@@ -60,7 +60,7 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'management',
                 component: Management,
-                redirect: `${managementPath}/overview`,
+                redirect: '/main/management/account-setting',
                 meta: { sectionLabel: '管理中心', sectionPath: managementPath },
                 children: managementRoutes,
             },
