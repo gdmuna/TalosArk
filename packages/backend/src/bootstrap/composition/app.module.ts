@@ -9,7 +9,7 @@ import { AuthModule } from '@/modules/auth/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
 import { errorProviders } from './error.provider.js';
-import { serializeError } from '@/platform/error/error.diagnostic.js';
+import { PlatformLoggerModule } from '@/platform/observability/logger/logger.module.js';
 import { AuthGuard } from '@/platform/http/guards/auth.guard.js';
 import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
 import { RouteContractInterceptor } from '@/platform/http/route/route.interceptor.js';
@@ -27,9 +27,7 @@ import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/c
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR, APP_PIPE, APP_FILTER } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { LoggerModule } from 'nestjs-pino';
 import { ZodValidationPipe } from 'nestjs-zod';
-import pino from 'pino';
 
 /**
  * Nest 运行时的组合根。
@@ -58,45 +56,7 @@ import pino from 'pino';
                 ];
             },
         }),
-        LoggerModule.forRootAsync({
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService<AllConfig, true>) => {
-                const { isDev, isProd, appName } = configService.get('app', { infer: true });
-                const { logLevel } = configService.get('observability', { infer: true });
-
-                return {
-                    forRoutes: [{ path: '*path', method: RequestMethod.ALL }],
-                    pinoHttp: [
-                        {
-                            name: appName,
-                            level: logLevel ?? (!isProd ? 'trace' : 'info'),
-                            transport: isDev
-                                ? {
-                                      target: 'pino-pretty',
-                                      options: {
-                                          sync: true,
-                                          colorize: true,
-                                          translateTime: 'SYS:yyyy-mm-dd HH:MM:ss.l',
-                                      },
-                                  }
-                                : undefined,
-                            serializers: {
-                                err: serializeError,
-                                req: () => undefined,
-                            },
-                            wrapSerializers: false,
-                            // TODO: 第一个平台遥测实现落地后，改由其统一输出访问日志。
-                            autoLogging: false,
-                        },
-                        pino.destination({
-                            dest: './data/logs/app.log',
-                            sync: false,
-                            mkdir: true,
-                        }),
-                    ],
-                };
-            },
-        }),
+        PlatformLoggerModule.forRoot(),
         AccessModule,
         KvsModule,
         AuthModule,
