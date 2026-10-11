@@ -18,6 +18,20 @@ const ACCESS_TOKEN_ISSUER = 'talos-ark';
 const ACCESS_TOKEN_AUDIENCE = 'talos-ark-api';
 const ACCESS_TOKEN_ALGORITHM = 'ES256';
 
+function isTokenPairActive(
+    tokenPair: {
+        revokedAt: Date | null;
+        session: { revokedAt: Date | null; idleExpiresAt: Date };
+    },
+    now: Date
+): boolean {
+    return (
+        tokenPair.revokedAt === null &&
+        tokenPair.session.revokedAt === null &&
+        tokenPair.session.idleExpiresAt > now
+    );
+}
+
 @Injectable()
 export class AccessKernel {
     private readonly signingKey: KeyObject;
@@ -109,122 +123,150 @@ export class AccessKernel {
     async rotateTokenPair(
         input: Access.RotateTokenPairInput
     ): Promise<Access.RotateTokenPairOutput> {
-        const nowDate = new Date();
         const refreshTokenHash = createHash('sha256')
             .update(input.refreshToken)
             .digest('base64url');
 
-        const unionData = await this.execute(() =>
-            this.prismaService.refreshToken.findUnique({
-                where: {
-                    tokenHash: refreshTokenHash,
-                    expiresAt: { gt: nowDate },
-                },
-                select: {
-                    consumedAt: true,
-                    tokenPair: {
-                        select: {
-                            session: true,
-                        },
-                    },
-                },
-            })
-        );
+        return this.execute(
+            () =>
+                this.prismaService.$transaction(
+                    async (transaction) => {
+                        // Session updates (including revocation) serialize with this lock.
+                        const locked = await transaction.$queryRaw<{ id: string }[]>`
+                            SELECT s."id"
+                            FROM "public"."Session" s
+                            JOIN "public"."TokenPair" p ON p."sessionId" = s."id"
+                            JOIN "public"."RefreshToken" r ON r."pairId" = p."id"
+                            WHERE r."tokenHash" = ${refreshTokenHash}
+                            FOR UPDATE OF s
+                        `;
+                        if (locked.length === 0) {
+                            throw new AccessError({ reason: 'session-inactive' });
+                        }
 
-        const session = unionData?.tokenPair.session;
-        if (unionData?.consumedAt) {
-            throw new AccessError({ reason: 'refresh-token-reused' });
-        }
-        if (!session) {
-            throw new AccessError({ reason: 'session-inactive' });
-        }
-
-        if (session.revokedAt) {
-            throw new AccessError({ reason: 'session-inactive' });
-        }
-
-        const now = dayjs(nowDate).utc();
-        const sessionIdleExpiresAt = now.add(30, 'day');
-        const nextVersion = session.version + 1;
-
-        const tokenPair = await this.generateTokenPair({
-            payload: {
-                sid: session.id,
-                sub: session.userId,
-                sv: nextVersion,
-            },
-            sessionIdleExpiresAtUnix: sessionIdleExpiresAt.diff(now, 'second'),
-            timeReference: nowDate,
-        });
-
-        const updatedSessionClient = this.prismaService.session.update({
-            where: {
-                id: session.id,
-                revokedAt: null,
-            },
-            data: {
-                idleExpiresAt: sessionIdleExpiresAt.toDate(),
-                version: nextVersion,
-                updatedAt: now.startOf('second').toDate(),
-                tokenPairs: {
-                    create: {
-                        id: tokenPair.tokenPairId,
-                        generation: nextVersion,
-                        accessToken: {
-                            create: {
-                                id: tokenPair.accessToken.jti,
-                                // Match the persisted issue time to the JWT's rounded-down iat.
-                                createdAt: now.startOf('second').toDate(),
-                                expiresAt: tokenPair.accessToken.expiresAt,
+                        // Re-read after waiting: the previous holder may have consumed this RT.
+                        const refreshToken = await transaction.refreshToken.findUnique({
+                            where: { tokenHash: refreshTokenHash },
+                            select: {
+                                id: true,
+                                consumedAt: true,
+                                expiresAt: true,
+                                tokenPair: {
+                                    select: {
+                                        generation: true,
+                                        revokedAt: true,
+                                        session: {
+                                            select: {
+                                                id: true,
+                                                userId: true,
+                                                version: true,
+                                                idleExpiresAt: true,
+                                                revokedAt: true,
+                                            },
+                                        },
+                                    },
+                                },
                             },
-                        },
-                        refreshToken: {
-                            create: {
-                                tokenHash: tokenPair.refreshToken.hash,
-                                createdAt: now.startOf('second').toDate(),
-                                expiresAt: tokenPair.refreshToken.expiresAt,
+                        });
+                        const nowDate = new Date();
+                        if (!refreshToken || refreshToken.expiresAt <= nowDate) {
+                            throw new AccessError({ reason: 'session-inactive' });
+                        }
+                        if (refreshToken.consumedAt !== null) {
+                            throw new AccessError({ reason: 'refresh-token-reused' });
+                        }
+
+                        const session = refreshToken.tokenPair.session;
+                        if (
+                            !isTokenPairActive(refreshToken.tokenPair, nowDate) ||
+                            refreshToken.tokenPair.generation !== session.version
+                        ) {
+                            throw new AccessError({ reason: 'session-inactive' });
+                        }
+
+                        const now = dayjs(nowDate).utc();
+                        const consumed = await transaction.refreshToken.updateMany({
+                            where: {
+                                id: refreshToken.id,
+                                consumedAt: null,
+                                expiresAt: { gt: nowDate },
                             },
-                        },
+                            data: { consumedAt: now.startOf('second').toDate() },
+                        });
+                        if (consumed.count !== 1) {
+                            throw new AccessError({ reason: 'session-inactive' });
+                        }
+
+                        const sessionIdleExpiresAt = now.add(30, 'day');
+                        const nextVersion = session.version + 1;
+                        const tokenPair = await this.generateTokenPair({
+                            payload: {
+                                sid: session.id,
+                                sub: session.userId,
+                                sv: nextVersion,
+                            },
+                            sessionIdleExpiresAtUnix: sessionIdleExpiresAt.diff(now, 'second'),
+                            timeReference: nowDate,
+                        });
+                        const updatedSession = await transaction.session.update({
+                            where: {
+                                id: session.id,
+                                version: session.version,
+                                revokedAt: null,
+                                idleExpiresAt: { gt: nowDate },
+                            },
+                            data: {
+                                idleExpiresAt: sessionIdleExpiresAt.toDate(),
+                                version: { increment: 1 },
+                                updatedAt: now.startOf('second').toDate(),
+                                tokenPairs: {
+                                    create: {
+                                        id: tokenPair.tokenPairId,
+                                        generation: nextVersion,
+                                        accessToken: {
+                                            create: {
+                                                id: tokenPair.accessToken.jti,
+                                                createdAt: now.startOf('second').toDate(),
+                                                expiresAt: tokenPair.accessToken.expiresAt,
+                                            },
+                                        },
+                                        refreshToken: {
+                                            create: {
+                                                tokenHash: tokenPair.refreshToken.hash,
+                                                createdAt: now.startOf('second').toDate(),
+                                                expiresAt: tokenPair.refreshToken.expiresAt,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            select: {
+                                id: true,
+                                userId: true,
+                                version: true,
+                                idleExpiresAt: true,
+                            },
+                        });
+
+                        return {
+                            session: updatedSession,
+                            tokenPair: {
+                                id: tokenPair.tokenPairId,
+                                accessToken: {
+                                    value: tokenPair.accessToken.value,
+                                    expiresAt: tokenPair.accessToken.expiresAt,
+                                },
+                                refreshToken: {
+                                    value: tokenPair.refreshToken.value,
+                                    expiresAt: tokenPair.refreshToken.expiresAt,
+                                },
+                            },
+                        };
                     },
-                },
-            },
-        });
-
-        const updateRefreshTokenClient = this.prismaService.refreshToken.update({
-            where: {
-                tokenHash: refreshTokenHash,
-                expiresAt: { gt: nowDate },
-                consumedAt: null,
-            },
-            data: {
-                consumedAt: now.startOf('second').toDate(),
-            },
-        });
-
-        const [updatedSession, _updateRefreshToken] = await this.execute(
-            () => this.prismaService.$transaction([updatedSessionClient, updateRefreshTokenClient]),
+                    { isolationLevel: 'ReadCommitted' }
+                ),
             true
         );
-
-        return {
-            session: {
-                id: updatedSession.id,
-                userId: updatedSession.userId,
-                version: updatedSession.version,
-                idleExpiresAt: updatedSession.idleExpiresAt,
-            },
-            tokenPair: {
-                id: tokenPair.tokenPairId,
-                accessToken: {
-                    value: tokenPair.accessToken.value,
-                    expiresAt: tokenPair.accessToken.expiresAt,
-                },
-                refreshToken: {
-                    value: tokenPair.refreshToken.value,
-                    expiresAt: tokenPair.refreshToken.expiresAt,
-                },
-            },
-        };
     }
 
     async verifyAccessToken(
@@ -294,15 +336,14 @@ export class AccessKernel {
         const now = new Date();
         const tokenPair = accessToken.tokenPair;
         const session = tokenPair.session;
+        // Rotation advances the RT generation, not the validity of older, unexpired ATs.
         if (
             accessToken.expiresAt <= now ||
             tokenPair.id !== payload.tpi ||
             tokenPair.generation !== payload.sv ||
-            tokenPair.revokedAt !== null ||
             session.id !== payload.sid ||
             session.userId !== payload.sub ||
-            session.idleExpiresAt <= now ||
-            session.revokedAt !== null
+            !isTokenPairActive(tokenPair, now)
         ) {
             return null;
         }
