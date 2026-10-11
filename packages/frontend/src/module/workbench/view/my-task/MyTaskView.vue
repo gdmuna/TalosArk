@@ -17,8 +17,8 @@ import {
 } from '@lucide/vue';
 import { useWorkspaceStore } from '@/module/workspace';
 import { useWorkbenchStore } from '../../model/store';
-import { formatDateTime, isToday } from '@/shared/util/date-time';
-import { isTaskOverdue, taskDisplayStatus, type Resource, type Task } from '../../model/workbench';
+import { formatDateTime } from '@/shared/util/date-time';
+import { type Resource, type Task } from '../../model/workbench';
 import { DataTable } from '@/component/data-table';
 import type { DataTableAction, DataTableBulkAction, DataTableColumn, DataTableFilter } from '@/component/data-table';
 import { SheetInspector } from '@/component/inspector';
@@ -35,8 +35,9 @@ const checked = ref<string[]>([]);
 const error = ref('');
 const preview = ref<Resource | null>(null);
 const selectedId = ref<string | null>(null);
-const overdue = isTaskOverdue;
-const displayStatus = taskDisplayStatus;
+const overdue = workbench.overdue;
+const displayStatus = workbench.displayStatus;
+const isToday = workbench.today;
 const resourceFor = (item: Task) => workbench.resourceById.get(item.resourceId);
 const currentTasks = computed(() => workbench.currentTasks);
 const summaries = computed(() => [

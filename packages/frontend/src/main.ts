@@ -1,5 +1,5 @@
 import { createApp } from 'vue';
-import { createPinia } from 'pinia';
+import { createPinia, disposePinia } from 'pinia';
 import router from '@/router';
 import App from '@/App.vue';
 import { useAccountStore } from '@/module/account';
@@ -25,12 +25,13 @@ const http = createHttpClient({
     auth: authSession.gate,
 });
 app.provide(authApiKey, createAuthApi(http, authSession));
-function disposeApi() {
+function disposeRuntime() {
     http.dispose();
     authSession.dispose();
+    disposePinia(pinia);
 }
-app.onUnmount(disposeApi);
-import.meta.hot?.dispose(disposeApi);
+app.onUnmount(disposeRuntime);
+import.meta.hot?.dispose(disposeRuntime);
 
 async function bootstrap() {
     const sources = {

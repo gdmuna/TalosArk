@@ -28,7 +28,9 @@ export type Task = {
     dueAt: number;
     status: '待处理' | '已完成';
 };
-export const isTaskOverdue = (task: Task) => task.status === '待处理' && task.dueAt < Date.now();
+export const isTaskOverdueAt = (task: Task, now: number) =>
+    task.status === '待处理' && task.dueAt < now;
+export const isTaskOverdue = (task: Task) => isTaskOverdueAt(task, Date.now());
 export const taskDisplayStatus = (task: Task) => (isTaskOverdue(task) ? '已逾期' : task.status);
 export type Approval = {
     id: string;

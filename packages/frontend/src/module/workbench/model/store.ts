@@ -1,6 +1,9 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { useWorkspaceStore } from '@/module/workspace';
+import { formatTime, isToday } from '@/shared/util/date-time';
+import { useWorkbenchClock } from './clock';
+import { isTaskOverdueAt } from './workbench';
 import type { WorkbenchDataSource } from '../data/source';
 import type {
     Approval,
@@ -32,6 +35,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     };
     const busy = ref(false);
     const error = ref('');
+    const now = useWorkbenchClock();
     let source: WorkbenchDataSource;
     const currentResources = computed(() =>
         resources.value.filter((item) => item.workspaceId === workspace.activeId)
@@ -46,7 +50,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         }
         return index;
     });
-    const currentTasks = computed(() =>
+    const resolvedTasks = computed(() =>
         tasks.value
             .filter((item) => item.workspaceId === workspace.activeId)
             .map((item) => {
@@ -62,6 +66,21 @@ export const useWorkbenchStore = defineStore('workbench', () => {
                 };
             })
     );
+    // Change the table's data identity only at a day/status boundary, invalidating its row cache.
+    const timeKey = computed(() =>
+        JSON.stringify([
+            new Date(now.value).toDateString(),
+            ...resolvedTasks.value.map((task) => isTaskOverdueAt(task, now.value)),
+        ])
+    );
+    const currentTasks = computed(() => {
+        void timeKey.value;
+        return [...resolvedTasks.value];
+    });
+    const overdue = (task: Task) => isTaskOverdueAt(task, now.value);
+    const displayStatus = (task: Task) => (overdue(task) ? '已逾期' : task.status);
+    const today = (value: number) => isToday(value, now.value);
+    const displayTime = (value: number) => formatTime(value, now.value);
     const currentExceptions = computed(() =>
         exceptions.value.filter((item) => item.workspaceId === workspace.activeId)
     );
@@ -134,6 +153,10 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         currentApprovals,
         currentExceptions,
         resourceById,
+        overdue,
+        displayStatus,
+        today,
+        displayTime,
         busy,
         error,
         initialize,

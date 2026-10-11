@@ -3,14 +3,17 @@ import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { ArrowRight, Bell, ClipboardCheck, FileText, FlaskConical, ListTodo, Monitor, Package } from '@lucide/vue';
 import { useWorkbenchStore } from '../../model/store';
-import { exceptionTone, stateTone, isTaskOverdue, taskDisplayStatus, type Resource } from '../../model/workbench';
-import { formatTime, isToday } from '@/shared/util/date-time';
+import { exceptionTone, stateTone, type Resource } from '../../model/workbench';
 import { Button } from '@/ui/button';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/ui/empty';
 import { StateBadge } from '@/component/state-badge';
 import ResourceDialog from '../../ui/ResourceDialog.vue';
 
 const workbench = useWorkbenchStore();
+const isTaskOverdue = workbench.overdue;
+const taskDisplayStatus = workbench.displayStatus;
+const isToday = workbench.today;
+const formatTime = workbench.displayTime;
 const preview = ref<Resource | null>(null);
 const paths = {
     tasks: '/main/workbench/my-task',

@@ -108,11 +108,13 @@ import { useWorkspaceStore } from '@/module/workspace';
 import { Button } from '@/ui/button';
 import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
 import { formatDateTime } from '@/shared/util/date-time';
-import { isTaskOverdue, type Resource, type Task } from '../../model/workbench';
+import { type Resource, type Task } from '../../model/workbench';
+import { useWorkbenchStore } from '../../model/store';
 import { StateBadge } from '@/component/state-badge';
 import { CopyableId } from '@/component/inspector';
 const props = defineProps<{ task: Task; resource?: Resource; busy?: boolean }>();
 defineEmits<{ complete: [id: string]; resource: [resource: Resource]; approval: [id?: string] }>();
 const workspace = useWorkspaceStore();
-const overdue = computed(() => isTaskOverdue(props.task));
+const workbench = useWorkbenchStore();
+const overdue = computed(() => workbench.overdue(props.task));
 </script>
