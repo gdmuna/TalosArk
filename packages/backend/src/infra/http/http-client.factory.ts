@@ -4,20 +4,23 @@ import { createHttpClient } from './http-client.js';
 import type { HttpClientOptions } from './type.js';
 
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { PinoLogger } from 'nestjs-pino';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Injectable()
 export class HttpClientFactory implements OnModuleDestroy {
     private readonly resources = new Set<{ dispose(): void }>();
     private disposed = false;
 
-    constructor(private readonly logger: PinoLogger) {}
+    constructor(@InjectPinoLogger(HttpClientFactory.name) private readonly logger: PinoLogger) {}
 
     create(options: HttpClientOptions) {
         this.assertActive();
         return this.own(
-            createHttpClient(options, (event) =>
-                this.logger.debug(event, 'Outbound HTTP execution')
+            createHttpClient(options, (observation) =>
+                this.logger.debug(
+                    { ...observation, event: 'http.outbound.completed' },
+                    'Outbound HTTP execution'
+                )
             )
         );
     }

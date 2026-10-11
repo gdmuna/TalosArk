@@ -1,55 +1,47 @@
-import { styleText } from 'node:util';
+import { once } from 'node:events';
+import build from 'pino-abstract-transport';
+import pino from 'pino';
 import pretty from 'pino-pretty';
+import type { PrettyAdapter, PrettyAdapterMap } from './pretty/pretty.adapter.js';
+import { createPrettyRenderer } from './pretty/pretty.renderer.js';
 
-export default function prettyTransport(options: pretty.PrettyOptions = {}): pretty.PrettyStream {
-    const colorize = options.colorize ?? pretty.isColorSupported;
-
-    return pretty({
-        sync: false,
-        translateTime: 'SYS:yyyy-mm-dd HH:MM:ss.l',
-        levelFirst: false,
-        ...options,
-        colorize,
-        ignore: options.ignore ?? 'hostname,context',
-        customColors: 'trace:gray,debug:blue,info:green,warn:yellow,error:red,fatal:bgRed',
-        useOnlyCustomProps: false,
-        messageFormat(log, messageKey, _levelLabel, { colors }) {
-            const context = log.context ? `${colors.cyan(`[${terminalText(log.context)}]`)} ` : '';
-            return context + colors.reset(terminalText(log[messageKey] ?? ''));
-        },
-        customPrettifiers: {
-            time(value) {
-                const text = `[${terminalText(value)}]`;
-                // The time hook receives no color helpers, unlike the other prettifiers.
-                return colorize ? styleText('gray', text, { validateStream: false }) : text;
-            },
-            level(value, _key, log, { label, labelColorized, colors }) {
-                const level =
-                    Number(value) === 60
-                        ? colors.bold(colors.bgRed(colors.white(label)))
-                        : labelColorized;
-                const record = log as Record<string, unknown>;
-                let metadata = [record.name, record.pid]
-                    .filter(Boolean)
-                    .map(terminalText)
-                    .join('/');
-                if (record.hostname) {
-                    metadata += `${metadata ? ' on ' : 'on '}${terminalText(record.hostname)}`;
-                }
-
-                // This hook runs on the display copy before pretty assembles its metadata.
-                // Render the whole block here so its delimiters share the field color.
-                delete record.name;
-                delete record.pid;
-                delete record.hostname;
-                return metadata ? `${level} ${colors.gray(`(${metadata})`)}` : level;
-            },
-        },
-    });
+export interface PrettyTransportOptions {
+    colorize?: boolean;
+    destination?: string | number;
+    adapterPaths?: readonly string[];
 }
 
-function terminalText(value: unknown): string {
-    // Function-format hooks bypass pino-pretty's default terminal escaping.
-    // eslint-disable-next-line no-control-regex
-    return String(value).replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, '');
+export default async function prettyTransport(options: PrettyTransportOptions = {}) {
+    const adapters = new Map<string, PrettyAdapter>();
+    for (const path of options.adapterPaths ?? []) {
+        // Paths come only from the trusted composition root, never from a log record.
+        const { default: registered } = (await import(path)) as { default: PrettyAdapterMap };
+        for (const [event, adapter] of Object.entries(registered)) {
+            if (adapters.has(event)) throw new Error(`Duplicate pretty event: ${event}`);
+            adapters.set(event, adapter);
+        }
+    }
+    const render = createPrettyRenderer(adapters, options.colorize ?? pretty.isColorSupported);
+    const destination = pino.destination({ dest: options.destination ?? 1, sync: false });
+    await once(destination, 'ready');
+    const transport = build(
+        async (source) => {
+            for await (const record of source) {
+                if (!destination.write(render(record))) await once(destination, 'drain');
+            }
+        },
+        {
+            async close(error) {
+                if (error) {
+                    destination.destroy();
+                    throw error;
+                }
+                const closed = once(destination, 'close');
+                destination.end();
+                await closed;
+            },
+        }
+    );
+    destination.on('error', (error) => transport.destroy(error));
+    return transport;
 }

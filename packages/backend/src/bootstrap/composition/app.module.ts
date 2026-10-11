@@ -10,6 +10,7 @@ import { AuthModule } from '@/modules/auth/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
 import { errorProviders } from './error.provider.js';
+import { loggerOptions } from './logger.provider.js';
 import { PlatformLoggerModule } from '@/platform/observability/logger/logger.module.js';
 import { AuthGuard } from '@/platform/http/guards/auth.guard.js';
 import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
@@ -53,7 +54,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
                 ];
             },
         }),
-        PlatformLoggerModule.forRoot(),
+        PlatformLoggerModule.forRoot(loggerOptions),
         AccessModule,
         KvsModule,
         AuthModule,

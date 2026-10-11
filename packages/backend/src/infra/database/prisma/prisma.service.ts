@@ -46,7 +46,7 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
     async onModuleInit() {
         // 连接数据库
         await this.execute(() => this.$connect());
-        this.logger.info('Database connected successfully');
+        this.logger.info({ event: 'database.connected' }, 'Database connected successfully');
 
         // 订阅查询事件（用于慢查询监控）
         this.$on('query' as never, (event: any) => {
@@ -71,6 +71,7 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
 
         // 构造日志上下文
         const logContext = {
+            event: 'database.query.completed',
             requestId: requestContext?.requestId || 'unknown',
             version: requestContext?.version || 'unknown',
             database: {
@@ -86,9 +87,11 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
 
         // 根据查询耗时选择日志级别
         if (duration >= slowQueryThreshold.error) {
+            logContext.event = 'database.query.critical';
             // 超过 500ms：error 级别
             this.logger.error(logContext, `Critical slow query (${duration}ms)`);
         } else if (duration >= slowQueryThreshold.warn) {
+            logContext.event = 'database.query.slow';
             // 超过 100ms：warn 级别
             this.logger.warn(logContext, `Slow query (${duration}ms)`);
         } else {
@@ -99,6 +102,6 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
 
     async onApplicationShutdown() {
         await this.execute(() => this.$disconnect());
-        this.logger.info('Database disconnected');
+        this.logger.info({ event: 'database.disconnected' }, 'Database disconnected');
     }
 }

@@ -63,6 +63,7 @@ export class PerformanceInterceptor implements NestInterceptor {
         logContext.http.duration = duration;
         logContext.http.durationUnit = 'ms';
         logContext.http.hasError = hasError;
+        logContext.event = hasError ? 'http.request.failed' : 'http.request.completed';
 
         const SLOW_REQUEST_THRESHOLDS = this.configService.get(
             'observability.slowRequestThreshold',
@@ -71,10 +72,12 @@ export class PerformanceInterceptor implements NestInterceptor {
 
         // 根据耗时和状态码选择日志级别
         if (duration >= SLOW_REQUEST_THRESHOLDS.error) {
+            logContext.event = 'http.request.critical';
             // 超过 3 秒：error 级别
             // prettier-ignore
             this.logger.error(logContext, `[${method}](${url}) Critical slow request (${duration}ms)`);
         } else if (duration >= SLOW_REQUEST_THRESHOLDS.warn) {
+            logContext.event = 'http.request.slow';
             // 超过 1 秒：warn 级别
             this.logger.warn(logContext, `[${method}](${url}) Slow request (${duration}ms)`);
         } else if (hasError) {

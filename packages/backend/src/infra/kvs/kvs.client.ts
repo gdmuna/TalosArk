@@ -39,7 +39,11 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
 
         this.redisClient.on('error', (error) => {
             this.logger.error(
-                { err: normalizeKvsError(error) ?? error },
+                {
+                    event: 'kvs.connection.error',
+                    operation: 'connection',
+                    err: normalizeKvsError(error) ?? error,
+                },
                 'Valkey connection error'
             );
         });
@@ -62,7 +66,7 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
                 throw cause;
             }
         }
-        this.logger.debug('KVS connected');
+        this.logger.debug({ event: 'kvs.connected' }, 'KVS connected');
     }
 
     /** Pending commands drain within a budget; destroy rejects them on timeout. */
@@ -84,11 +88,14 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
                     () => this.redisClient.destroy()
                 )
             );
-            this.logger.debug('KVS closed');
+            this.logger.debug({ event: 'kvs.closed' }, 'KVS closed');
         } catch (error) {
             this.redisClient.destroy();
             if (!KvsError.is(error, 'close-timeout')) throw error;
-            this.logger.warn({ err: error }, 'KVS close timed out; pending commands aborted');
+            this.logger.warn(
+                { event: 'kvs.close.timeout', err: error },
+                'KVS close timed out; pending commands aborted'
+            );
         }
     }
 

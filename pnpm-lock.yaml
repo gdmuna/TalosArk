@@ -319,6 +319,9 @@ importers:
       pino:
         specifier: ^10.4.0
         version: 10.4.0
+      pino-abstract-transport:
+        specifier: 3.0.0
+        version: 3.0.0
       pino-http:
         specifier: ^11.0.0
         version: 11.0.0

@@ -1,15 +1,23 @@
 import { fileURLToPath } from 'node:url';
 import type { AllConfig } from '@/config/index.js';
-import { serializeError } from '@/platform/error/error.diagnostic.js';
+import {
+    serializeError,
+    type ErrorDiagnosticProjector,
+} from '@/platform/error/error.diagnostic.js';
 import { Module, RequestMethod, type DynamicModule } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import pino, { type LoggerOptions } from 'pino';
 
+export interface PlatformLoggerOptions {
+    prettyAdapterPaths?: readonly string[];
+    errorProject?: ErrorDiagnosticProjector;
+}
+
 @Module({})
 export class PlatformLoggerModule {
     // Register after application imports have declared their InjectPinoLogger contexts.
-    static forRoot(): DynamicModule {
+    static forRoot(loggerOptions: PlatformLoggerOptions = {}): DynamicModule {
         return {
             module: PlatformLoggerModule,
             imports: [
@@ -21,7 +29,8 @@ export class PlatformLoggerModule {
                         });
                         const { logLevel } = configService.get('observability', { infer: true });
                         const serializers = {
-                            err: serializeError,
+                            err: (error: unknown) =>
+                                serializeError(error, loggerOptions.errorProject),
                             req: () => undefined,
                         };
                         const options: LoggerOptions = {
@@ -37,7 +46,10 @@ export class PlatformLoggerModule {
                                     target: fileURLToPath(
                                         new URL('./pretty.transport.js', import.meta.url)
                                     ),
-                                    options: { colorize: true },
+                                    options: {
+                                        colorize: true,
+                                        adapterPaths: loggerOptions.prettyAdapterPaths,
+                                    },
                                 },
                             })
                             : pino(
