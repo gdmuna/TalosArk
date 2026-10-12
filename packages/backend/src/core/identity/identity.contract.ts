@@ -1,31 +1,85 @@
-import type * as Prisma from '@root/prisma/generated/models.js';
-
-import { Simplify } from '@/common/types/index.js';
-
-import { VerifiedIamToken } from '@/infra/iam/iam-token.adapter.js';
-
-export type GetInternalUserInput = Simplify<GetInternalUserIdTokenInput | GetInternalUserIdInput>;
-
-export type GetInternalUserOutput = Simplify<
-    (Omit<Prisma.UserModel, 'passwordHash'> & { profile: Prisma.UserProfileModel | null }) | null
->;
-
-export interface GetInternalUserIdTokenInput {
-    type: 'externalIdentity';
-    verifiedIdToken: VerifiedIamToken;
+export interface ExternalIdentityReference {
+    issuer: string;
+    subject: string;
 }
 
-export interface GetInternalUserIdInput {
-    type: 'normal';
+export interface CreateOidcTransactionOutput {
+    transactionId: string;
+    url: string;
+}
+
+export interface ResolveOidcLoginCallbackInput {
+    code: string;
+    state: string;
+    id: string;
+}
+
+export interface ResolveOidcLoginCallbackOutput {
+    externalIdentity: ExternalIdentityReference;
+    registration: {
+        username?: string;
+        email?: string;
+        nickname?: string | null;
+    };
+}
+
+export type UserProfileSex = 'MALE' | 'FEMALE' | 'OTHER';
+
+export interface CreateUserProfileInput {
+    nickname?: string | null;
+    avatarId?: string | null;
+    bio?: string | null;
+    sex?: UserProfileSex | null;
+    sexVisible?: boolean;
+    birthday?: Date | null;
+}
+
+export interface UserProfileSnapshot {
+    userId: string;
+    nickname: string | null;
+    avatarId: string | null;
+    bio: string | null;
+    sex: UserProfileSex | null;
+    sexVisible: boolean;
+    birthday: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface InternalUserSnapshot {
+    id: string;
+    username: string;
+    email: string;
+    createdAt: Date;
+    updatedAt: Date;
+    profile: UserProfileSnapshot | null;
+}
+
+/** Lookup only; an identity reference is not evidence of authentication. */
+export type GetInternalUserInput =
+    | { type: 'externalIdentity'; externalIdentity: ExternalIdentityReference }
+    | { type: 'normal'; userId: string };
+
+export type GetInternalUserOutput = InternalUserSnapshot | null;
+
+/** Owned nested writes are atomic and join an ambient database transaction. */
+export interface CreateInternalUserInput {
+    username: string;
+    email: string;
+    passwordHash?: string | null;
+    profile?: CreateUserProfileInput;
+    externalIdentities?: readonly ExternalIdentityReference[];
+}
+
+export type CreateInternalUserOutput = InternalUserSnapshot;
+
+export interface CreateExternalIdentityInput extends ExternalIdentityReference {
     userId: string;
 }
 
-export type CreateInternalUserInput = Simplify<Omit<Prisma.UserCreateInput, 'sessions'>>;
-
-export type CreateInternalUserOutput = Simplify<
-    Omit<Prisma.UserModel, 'passwordHash'> & { profile: Prisma.UserProfileModel | null }
->;
-
-export type CreateExternalIdentityInput = Simplify<Prisma.ExternalIdentityCreateInput>;
-
-export type CreateExternalIdentityOutput = Simplify<Prisma.ExternalIdentityModel>;
+export interface CreateExternalIdentityOutput extends ExternalIdentityReference {
+    id: string;
+    userId: string;
+    createdAt: Date;
+    updatedAt: Date;
+}

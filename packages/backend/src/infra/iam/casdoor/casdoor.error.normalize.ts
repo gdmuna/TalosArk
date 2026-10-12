@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { HttpError } from '@/infra/http/http.error.js';
-import { IamError } from './iam.error.js';
+import { IamError } from '../iam.error.js';
 
 export function normalizeIamSdkError(error: unknown): IamError | undefined {
     if (error instanceof IamError) return error;

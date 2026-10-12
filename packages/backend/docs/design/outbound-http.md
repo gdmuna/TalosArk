@@ -116,7 +116,7 @@ responses only; legacy `CancelToken` is rejected in favor of native `AbortSignal
 Standard OIDC PKCE exchange uses the ordinary HTTP client with its existing
 10-second budget. Authorization-code exchange explicitly disables retry,
 singleflight and replay. Status/body interpretation and existing `IamError`
-meaning remain in `IamOidcAdapter`. This change does not introduce refresh-token
+meaning remain in `CasdoorOidcClient`. This change does not introduce refresh-token
 storage or replace the current authentication business flow.
 
 AWS S3 keeps its SDK transport/retry mechanisms. Do not wrap it with a second

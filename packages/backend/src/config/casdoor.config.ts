@@ -34,17 +34,8 @@ const ConfiguredCasdoorEnvironmentSchema = z.object({
 
 const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
 
-/**
- * 解析 Casdoor 的可选平台配置。
- *
- * 未配置任何 `CASDOOR_*` 环境变量时，其 `sdkConfig` 字段为 `undefined`，以便尚未启用
- * Casdoor 的环境正常启动；一旦开始配置，所有字段和证书都必须完整有效。
- */
+/** Required Casdoor configuration; application and explicit issuer remain optional. */
 const CasdoorConfigValidateSchema = CasdoorEnvironmentSchema.transform((environment) => {
-    // if (Object.values(environment).every((value) => value === undefined)) {
-    //     return { sdkConfig: undefined };
-    // }
-
     const configuredEnvironment = ConfiguredCasdoorEnvironmentSchema.parse(environment);
     const certificate = readFile(configuredEnvironment.CASDOOR_CERTIFICATE_PATH).replace(
         /\\n/g,
@@ -80,7 +71,7 @@ const CasdoorConfigValidateSchema = CasdoorEnvironmentSchema.transform((environm
     };
 });
 
-/** Casdoor 的平台级连接配置；`sdk` 在未启用时为 `undefined`。 */
+/** Casdoor connection configuration; incomplete configuration prevents startup. */
 export const casdoorConfig = registerAs('casdoor', () =>
     CasdoorConfigValidateSchema.parse(process.env)
 );

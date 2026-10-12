@@ -1,11 +1,20 @@
-import type * as Prisma from '@root/prisma/generated/models.js';
-
 import { Simplify } from '@/common/types/index.js';
+
+export interface SessionSnapshot {
+    id: string;
+    userId: string;
+    version: number;
+    idleExpiresAt: Date;
+    revokedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
 
 export type CreateUserSessionInput = {
     userId: string;
 };
 
+/** In an ambient transaction, credentials are provisional until its owner confirms commit. */
 export type CreateUserSessionOutput = {
     session: {
         id: string;
@@ -30,25 +39,8 @@ export type RotateTokenPairInput = {
     refreshToken: string;
 };
 
-export type RotateTokenPairOutput = {
-    session: {
-        id: string;
-        userId: string;
-        version: number;
-        idleExpiresAt: Date;
-    };
-    tokenPair: {
-        id: string;
-        accessToken: {
-            value: string;
-            expiresAt: Date;
-        };
-        refreshToken: {
-            value: string;
-            expiresAt: Date;
-        };
-    };
-};
+/** Joins only an outer transaction explicitly declared as ReadCommitted. */
+export type RotateTokenPairOutput = CreateUserSessionOutput;
 
 export type VerifyAccessTokenInput = {
     accessToken: string;
@@ -102,7 +94,7 @@ export type ListUserSessionOutput = ListUserSessionOffsetOutput | ListUserSessio
 
 export type ListUserSessionOffsetOutput = {
     type: 'offset';
-    items: Prisma.SessionModel[];
+    items: SessionSnapshot[];
     page: number;
     total: number;
     totalPages: number;
@@ -112,33 +104,9 @@ export type ListUserSessionOffsetOutput = {
 
 export type ListUserSessionCursorOutput = {
     type: 'cursor';
-    items: Prisma.SessionModel[];
+    items: SessionSnapshot[];
     hasPrevPage: boolean;
     hasNextPage: boolean;
     prevCursor: string | null;
     nextCursor: string | null;
-};
-
-export type GenerateTokenPairInput = {
-    payload: {
-        sub: string;
-        sid: string;
-        sv: number;
-    };
-    sessionIdleExpiresAtUnix: number;
-    timeReference: Date;
-};
-
-export type GenerateTokenPairOutput = {
-    accessToken: {
-        value: string;
-        expiresAt: Date;
-        jti: string;
-    };
-    refreshToken: {
-        value: string;
-        expiresAt: Date;
-        hash: string;
-    };
-    tokenPairId: string;
 };

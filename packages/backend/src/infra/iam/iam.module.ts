@@ -1,39 +1,44 @@
-import { createCasdoorClient } from './casdoor.client.js';
-import { IamOidcAdapter } from './iam-oidc.adapter.js';
-import { IamTokenAdapter } from './iam-token.adapter.js';
-import { IamClient } from './iam.client.js';
-import { CASDOOR_SDK } from './iam.constants.js';
-
-import { AllConfig } from '@/config/index.js';
 import { HttpModule } from '@/infra/http/http.module.js';
 import { HttpClientFactory } from '@/infra/http/http-client.factory.js';
+import { Module, type DynamicModule, type Provider } from '@nestjs/common';
+import { CasdoorOidcClient } from './casdoor/casdoor.oidc-client.js';
+import type { IamModuleOptions, IamModuleAsyncOptions } from './iam.options.js';
 
-import { Module, Provider } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+const IAM_OPTIONS = Symbol('IAM_OPTIONS');
 
-const casdoorSdkProvider: Provider = {
-    provide: CASDOOR_SDK,
-    inject: [ConfigService, HttpClientFactory],
-    useFactory: (configService: ConfigService<AllConfig, true>, http: HttpClientFactory) => {
-        const { sdkConfig } = configService.get('casdoor', { infer: true });
+@Module({})
+export class IamModule {
+    static forRoot(options: IamModuleOptions): DynamicModule {
+        return {
+            module: IamModule,
+            imports: [HttpModule, ...(options.imports ?? [])],
+            providers: this.createProviders({ provide: IAM_OPTIONS, useValue: options }),
+            exports: [CasdoorOidcClient],
+        };
+    }
 
-        return sdkConfig
-            ? createCasdoorClient(sdkConfig, {
-                  timeout: 60_000,
-                  adapter: http.createAxiosAdapter({
-                      name: 'casdoor-sdk',
-                      baseUrl: `${sdkConfig.endpoint}/api`,
-                      timeoutMs: 60_000,
-                      retry: false,
-                  }),
-              })
-            : undefined;
-    },
-};
+    static forRootAsync(options: IamModuleAsyncOptions): DynamicModule {
+        return {
+            module: IamModule,
+            imports: [HttpModule, ...(options.imports ?? [])],
+            providers: this.createProviders({
+                provide: IAM_OPTIONS,
+                useFactory: options.useFactory,
+                inject: options.inject ?? [],
+            }),
+            exports: [CasdoorOidcClient],
+        };
+    }
 
-@Module({
-    imports: [HttpModule],
-    providers: [casdoorSdkProvider, IamOidcAdapter, IamTokenAdapter, IamClient],
-    exports: [IamClient],
-})
-export class IamModule {}
+    private static createProviders(optionsProvider: Provider): Provider[] {
+        return [
+            optionsProvider,
+            {
+                provide: CasdoorOidcClient,
+                inject: [IAM_OPTIONS, HttpClientFactory],
+                useFactory: ({ options }: IamModuleOptions, http: HttpClientFactory) =>
+                    new CasdoorOidcClient(options, http),
+            },
+        ];
+    }
+}

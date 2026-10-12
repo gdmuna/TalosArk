@@ -1,4 +1,5 @@
 import type * as Identity from './identity.contract.js';
+import type { Prisma } from '@root/prisma/generated/client.js';
 import { identityOidcTransactionKey } from './identity.key.js';
 import { IdentityError } from './identity.error.js';
 import { identityErrors } from './identity.error.mapper.js';
@@ -6,21 +7,51 @@ import { identityErrors } from './identity.error.mapper.js';
 import { createSecureRandomString } from '@/common/utils/crypto.js';
 
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { IamClient } from '@/infra/iam/index.js';
+import { CasdoorOidcClient } from '@/infra/iam/index.js';
 import { KvsClient } from '@/infra/kvs/index.js';
 
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 
+const userSelect = {
+    id: true,
+    username: true,
+    email: true,
+    createdAt: true,
+    updatedAt: true,
+    profile: {
+        select: {
+            userId: true,
+            nickname: true,
+            avatarId: true,
+            bio: true,
+            sex: true,
+            sexVisible: true,
+            birthday: true,
+            createdAt: true,
+            updatedAt: true,
+        },
+    },
+} satisfies Prisma.UserSelect;
+
+const externalIdentitySelect = {
+    id: true,
+    issuer: true,
+    subject: true,
+    userId: true,
+    createdAt: true,
+    updatedAt: true,
+} satisfies Prisma.ExternalIdentitySelect;
+
 @Injectable()
 export class IdentityKernel {
     constructor(
         private readonly database: DatabaseRuntime,
-        private readonly iamClient: IamClient,
+        private readonly oidc: CasdoorOidcClient,
         private readonly kvsClient: KvsClient
     ) {}
 
-    async createOidcTransaction() {
+    async createOidcTransaction(): Promise<Identity.CreateOidcTransactionOutput> {
         return identityErrors.run(async () => {
             const transactionId = createSecureRandomString();
             const codeVerifier = createSecureRandomString();
@@ -31,7 +62,7 @@ export class IdentityKernel {
                 .update(codeVerifier, 'ascii')
                 .digest('base64url');
 
-            const url = this.iamClient.iamOidcAdapter.createAuthorizationUrl({
+            const url = this.oidc.createAuthorizationUrl({
                 state,
                 nonce,
                 codeChallenge,
@@ -69,7 +100,9 @@ export class IdentityKernel {
         });
     }
 
-    async resolveOidcLoginCallback(dto: { code: string; state: string; id: string }) {
+    async resolveOidcLoginCallback(
+        dto: Identity.ResolveOidcLoginCallbackInput
+    ): Promise<Identity.ResolveOidcLoginCallbackOutput> {
         return identityErrors.run(async () => {
             const key = identityOidcTransactionKey.buildCanonical({
                 id: dto.id,
@@ -83,27 +116,18 @@ export class IdentityKernel {
                 throw new IdentityError({ reason: 'transaction-invalid' });
             }
 
-            const iamRes = await this.iamClient.iamOidcAdapter.exchangeAuthorizationCode({
+            const verified = await this.oidc.resolveIdentity({
                 code: dto.code,
                 codeVerifier,
-            });
-
-            const verifiedAccessToken = this.iamClient.iamTokenAdapter.verifyAccessToken(
-                iamRes.accessToken
-            );
-
-            const verifiedIdToken = this.iamClient.iamTokenAdapter.verifyIdToken(iamRes.idToken, {
                 expectedNonce: nonce,
             });
-
-            if (!verifiedAccessToken || !verifiedIdToken) {
-                throw new IdentityError({ reason: 'provider-response-invalid' });
-            }
-
             return {
-                ...iamRes,
-                verifiedAccessToken,
-                verifiedIdToken,
+                externalIdentity: { issuer: verified.issuer, subject: verified.subject },
+                registration: {
+                    username: verified.profile.username,
+                    email: verified.profile.email,
+                    nickname: verified.profile.nickname,
+                },
             };
         });
     }
@@ -120,18 +144,13 @@ export class IdentityKernel {
                     await this.database.queryClient.externalIdentity.findUnique({
                         where: {
                             issuer_subject: {
-                                issuer: input.verifiedIdToken.issuer,
-                                subject: input.verifiedIdToken.subject,
+                                issuer: input.externalIdentity.issuer,
+                                subject: input.externalIdentity.subject,
                             },
                         },
-                        include: {
+                        select: {
                             user: {
-                                include: {
-                                    profile: true,
-                                },
-                                omit: {
-                                    passwordHash: true,
-                                },
+                                select: userSelect,
                             },
                         },
                     });
@@ -144,12 +163,7 @@ export class IdentityKernel {
                     where: {
                         id: input.userId,
                     },
-                    include: {
-                        profile: true,
-                    },
-                    omit: {
-                        passwordHash: true,
-                    },
+                    select: userSelect,
                 });
             }
 
@@ -162,13 +176,32 @@ export class IdentityKernel {
     ): Promise<Identity.CreateInternalUserOutput> {
         return identityErrors.run(() =>
             this.database.queryClient.user.create({
-                data: input,
-                include: {
-                    profile: true,
+                data: {
+                    username: input.username,
+                    email: input.email,
+                    passwordHash: input.passwordHash,
+                    profile: input.profile
+                        ? {
+                              create: {
+                                  nickname: input.profile.nickname,
+                                  avatarId: input.profile.avatarId,
+                                  bio: input.profile.bio,
+                                  sex: input.profile.sex,
+                                  sexVisible: input.profile.sexVisible,
+                                  birthday: input.profile.birthday,
+                              },
+                          }
+                        : undefined,
+                    externalIdentities: input.externalIdentities
+                        ? {
+                              create: input.externalIdentities.map(({ issuer, subject }) => ({
+                                  issuer,
+                                  subject,
+                              })),
+                          }
+                        : undefined,
                 },
-                omit: {
-                    passwordHash: true,
-                },
+                select: userSelect,
             })
         );
     }
@@ -178,7 +211,12 @@ export class IdentityKernel {
     ): Promise<Identity.CreateExternalIdentityOutput> {
         return identityErrors.run(() =>
             this.database.queryClient.externalIdentity.create({
-                data: input,
+                data: {
+                    issuer: input.issuer,
+                    subject: input.subject,
+                    user: { connect: { id: input.userId } },
+                },
+                select: externalIdentitySelect,
             })
         );
     }

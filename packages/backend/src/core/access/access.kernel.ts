@@ -1,4 +1,5 @@
 import type * as Access from './access.contract.js';
+import type { Prisma } from '@root/prisma/generated/client.js';
 import { AccessError } from './access.error.js';
 import { mapAccessDatabaseError } from './access.error.mapper.js';
 
@@ -17,6 +18,16 @@ import { validate as isUuid, v7 as uuidv7 } from 'uuid';
 const ACCESS_TOKEN_ISSUER = 'talos-ark';
 const ACCESS_TOKEN_AUDIENCE = 'talos-ark-api';
 const ACCESS_TOKEN_ALGORITHM = 'ES256';
+
+const sessionSelect = {
+    id: true,
+    userId: true,
+    version: true,
+    idleExpiresAt: true,
+    revokedAt: true,
+    createdAt: true,
+    updatedAt: true,
+} satisfies Prisma.SessionSelect;
 
 function isTokenPairActive(
     tokenPair: {
@@ -424,6 +435,7 @@ export class AccessKernel {
             const rows = await this.execute(() =>
                 this.database.queryClient.session.findMany({
                     where: { userId },
+                    select: sessionSelect,
                     orderBy: { id: queryOrder },
                     ...(cursor ? { cursor: { id: cursor, userId }, skip: 1 } : {}),
                     take: pageSize + 1,
@@ -457,6 +469,7 @@ export class AccessKernel {
             this.database.transaction.run(async () => {
                 const items = await this.database.queryClient.session.findMany({
                     where,
+                    select: sessionSelect,
                     orderBy: { id: order },
                     skip,
                     take: pageSize,
@@ -493,9 +506,11 @@ export class AccessKernel {
         }
     }
 
-    private async generateTokenPair(
-        input: Access.GenerateTokenPairInput
-    ): Promise<Access.GenerateTokenPairOutput> {
+    private async generateTokenPair(input: {
+        payload: { sub: string; sid: string; sv: number };
+        sessionIdleExpiresAtUnix: number;
+        timeReference: Date;
+    }) {
         const config = this.configService.get('access', { infer: true });
 
         // Base all lifetimes on one UTC instant so their boundaries are consistent.

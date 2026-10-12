@@ -3,6 +3,7 @@ import type * as Auth from './auth.contract.js';
 import { AccessKernel } from '@/core/access/index.js';
 import type * as Access from '@/core/access/access.contract.js';
 import { IdentityKernel } from '@/core/identity/index.js';
+import { IdentityError } from '@/core/identity/identity.error.js';
 
 import { Injectable } from '@nestjs/common';
 
@@ -32,7 +33,7 @@ export class AuthService {
 
         let user = await this.identityKernel.getInternalUser({
             type: 'externalIdentity',
-            verifiedIdToken: oidcRes.verifiedIdToken,
+            externalIdentity: oidcRes.externalIdentity,
         });
 
         if (user) {
@@ -44,29 +45,26 @@ export class AuthService {
             };
         }
 
-        const casdoorUser = oidcRes.verifiedIdToken.claims;
+        const { registration } = oidcRes;
 
-        if (!casdoorUser.email) {
+        if (!registration.email) {
             return {
                 type: 'block',
                 data: {},
             };
         }
 
+        if (registration.username === undefined) {
+            throw new IdentityError({ reason: 'provider-response-invalid' });
+        }
+
         user = await this.identityKernel.createInternalUser({
-            username: casdoorUser.name,
-            email: casdoorUser.email,
+            username: registration.username,
+            email: registration.email,
             profile: {
-                create: {
-                    nickname: casdoorUser.displayName,
-                },
+                nickname: registration.nickname,
             },
-            externalIdentities: {
-                create: {
-                    issuer: oidcRes.verifiedIdToken.issuer,
-                    subject: oidcRes.verifiedIdToken.subject,
-                },
-            },
+            externalIdentities: [oidcRes.externalIdentity],
         });
 
         return {

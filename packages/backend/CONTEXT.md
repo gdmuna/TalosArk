@@ -90,7 +90,23 @@ Identity retains domain-level dependency mappers, composed explicitly with
 platform/error's composeErrorMappers. Its database mapper recognizes owned
 constraints without an operation/conflict argument. Unknown errors retain identity;
 composition neither recursively walks causes nor registers global rules. Existing
-nested user/external-identity creation remains atomic and its input shape is unchanged.
+nested user/external-identity creation remains atomic. W07 replaces raw Prisma
+creation inputs with owned account/profile/binding commands and explicit snapshot
+selects; it does not add an encompassing registration/session transaction.
+
+## IAM runtime
+
+Casdoor remains required; application and explicit issuer retain their existing
+optionality. IdentityModule explicitly supplies IamModule.forRootAsync configuration.
+IAM adapters do not read global configuration. The module exports only
+CasdoorOidcClient, which returns whitelisted verified identity/profile fields rather
+than supplier tokens, raw claims or SDK models. Options are snapshotted and the RSA
+key is validated once during construction. Internal SDK helpers remain supplier-local
+and unregistered until an approved use requires them; there is no raw SDK escape hatch.
+HTTP resources retain HttpClientFactory ownership. Normal login preserves the existing
+AT fallback and registration branches; W05 and public HTTP contracts are unchanged.
+W07 interfaces, transaction participation and verification limits are recorded in
+docs/design/iam-identity-access-2026-10-13.md.
 
 ## Dependency direction
 

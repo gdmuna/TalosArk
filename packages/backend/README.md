@@ -31,7 +31,7 @@ Prisma 生成命令的 env 文件路径相对于 backend；它只生成客户端
 具体依赖启动、密钥注入与端口说明见 [Docker operations](ops/docker/README.md)；
 数据库 CLI 的选择方式与 DDL 限制见 [Prisma operations](ops/prisma/README.md)。
 
-当前 Casdoor 的未配置禁用分支仍被注释，**属于启动必配项**。不得仅依据旧注释或目标规划将其当作可选。
+Casdoor **属于启动必配项**；应用名与显式 issuer 保留现有可选规则。W07 的显式 IAM 配置不提供未配置禁用分支。
 
 ## 健康与 API 文档
 
