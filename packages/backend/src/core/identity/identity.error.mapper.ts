@@ -1,5 +1,5 @@
-import { defineErrorMapper } from '@/platform/error/index.js';
-import { DatabaseError } from '@/infra/database/prisma/prisma.error.js';
+import { composeErrorMappers, defineErrorMapper } from '@/platform/error/index.js';
+import { DatabaseError } from '@/infra/database/database.error.js';
 import { IamError } from '@/infra/iam/iam.error.js';
 import { KvsError } from '@/infra/kvs/kvs.error.js';
 import { IdentityError, type IdentityFailure } from './identity.error.js';
@@ -30,24 +30,32 @@ export const mapIdentityKvsError = defineErrorMapper(
 export const mapIdentityDatabaseError = defineErrorMapper(
     DatabaseError,
     IdentityError,
-    (failure, conflict?: 'user' | 'identity'): IdentityFailure | undefined => {
+    (failure): IdentityFailure | undefined => {
         if (failure.reason === 'unavailable') return { reason: 'login-unavailable' };
         if (failure.reason !== 'unique-constraint') return undefined;
-        const { model, fields, constraint } = failure;
+        const { model, table, fields, constraint } = failure;
+        const owner = table ?? model;
         const userConflict =
-            constraint === 'User_email_key' ||
-            constraint === 'User_username_key' ||
-            (model === 'User' &&
+            ((owner === undefined || owner === 'User') &&
+                (constraint === 'User_email_key' || constraint === 'User_username_key')) ||
+            (owner === 'User' &&
                 fields.length === 1 &&
                 fields.some((field) => field === 'email' || field === 'username'));
-        if (conflict === 'user' && userConflict) return { reason: 'user-conflict' };
+        if (userConflict) return { reason: 'user-conflict' };
         const identityConflict =
-            constraint === 'ExternalIdentity_issuer_subject_key' ||
-            (model === 'ExternalIdentity' &&
+            ((owner === undefined || owner === 'ExternalIdentity') &&
+                constraint === 'ExternalIdentity_issuer_subject_key') ||
+            (owner === 'ExternalIdentity' &&
                 fields.length === 2 &&
                 fields.includes('issuer') &&
                 fields.includes('subject'));
-        if (conflict && identityConflict) return { reason: 'identity-conflict' };
+        if (identityConflict) return { reason: 'identity-conflict' };
         return undefined;
     }
 );
+
+export const identityErrors = composeErrorMappers([
+    mapIdentityIamError,
+    mapIdentityKvsError,
+    mapIdentityDatabaseError,
+]);

@@ -4,7 +4,7 @@ import type { PlatformLoggerOptions } from '@/platform/observability/logger/logg
 export const loggerOptions: PlatformLoggerOptions = {
     errorProject: projectKvsError,
     prettyAdapterPaths: [
-        new URL('../../infra/database/prisma/prisma.log.pretty.js', import.meta.url).href,
+        new URL('../../infra/database/database.log.pretty.js', import.meta.url).href,
         new URL('../../infra/kvs/kvs.log.pretty.js', import.meta.url).href,
         new URL('../../infra/http/http.log.pretty.js', import.meta.url).href,
         new URL('../../platform/http/interceptors/performance.log.pretty.js', import.meta.url).href,

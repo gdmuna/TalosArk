@@ -57,6 +57,41 @@ separate ungated client, never the blocked client's admission queue. No outbound
 Core Kernel, global Axios mutation or additional S3 retry layer is introduced.
 Usage, limits and lifecycle semantics live in docs/design/outbound-http.md.
 
+## Database runtime
+
+`infra/database` owns the Prisma-backed DatabaseRuntime. Its native `client` is
+an explicit context-bypassing escape hatch; ordinary callers use `queryClient`.
+The query view is derived from the managed Prisma query extension and hides
+transaction control. Model/raw queries normalize recognized Prisma/driver failures
+automatically; there is no public execute wrapper. DatabaseClient owns a native
+client and its managed extension rather than subclassing PrismaClient. Startup
+performs SELECT 1 because PrismaPg pool initialization alone is not a connection
+check. Driver-adapter-utils is an explicit SDK dependency of the normalizer.
+
+`transaction.run` supports required (create or join), mandatory (join only), and
+requiresNew (a separate native transaction and ALS scope). The database-owned
+context is independent of request ALS. Physical scope IDs use one monotonic ULID
+generator per manager. Joined failures and recognized managed-query execution
+failures mark rollback-only, even when business code catches/maps them;
+Prisma input validation and missing-record control flow do not by themselves do so.
+closed/unbound contexts never fall back to the ordinary client. Joined options
+must match declared outer options, and unspecified isolation remains the database
+default rather than being silently assumed. Transactions are never retried
+automatically. `current` returns a frozen diagnostic snapshot, not a raw scope.
+
+`afterCommit` callbacks belong to the physical transaction that accepted them.
+They execute sequentially without a database transaction context only after a
+confirmed commit; failures are logged without changing the committed result.
+They are best-effort hooks, not durable messages. No savepoint, workflow engine,
+extra Core transaction Port or backward-compatibility facade is introduced.
+The actual contract and runtime verification live in docs/design/database-runtime.md.
+
+Identity retains domain-level dependency mappers, composed explicitly with
+platform/error's composeErrorMappers. Its database mapper recognizes owned
+constraints without an operation/conflict argument. Unknown errors retain identity;
+composition neither recursively walks causes nor registers global rules. Existing
+nested user/external-identity creation remains atomic and its input shape is unchanged.
+
 ## Dependency direction
 
     bootstrap / composition / app.module.ts
@@ -199,11 +234,11 @@ visibility; they are not an application-wide public surface.
     |   |   `-- lifecycle/                     # only a real Nest -> Core bridge
     |   +-- core/
     |   |   +-- context/ identity/ access/ tenant/ workspace/
-    |   |   +-- resource/ permission/ transaction/ cache/ lock/ idempotency/
+    |   |   +-- resource/ permission/ cache/ lock/ idempotency/
     |   |   +-- event/ task/ file/ quota/ risk/ audit/ notification/
     |   |   +-- realtime/ background/ clock/
     |   +-- infra/
-    |   |   +-- database/prisma/               # retained Prisma adapter + future ports
+    |   |   +-- database/                      # database runtime, query view and transaction context
     |   |   +-- http/                          # factory-managed outbound HTTP clients
     |   |   +-- kvs/                           # Redis/Valkey client, keys and Lua support
     |   |   +-- iam/                           # retained Casdoor and OIDC adapters
@@ -234,7 +269,7 @@ visibility; they are not an application-wide public surface.
 
 - Owner-local error definitions use `<owner>.error.ts`.
 - Error support uses `<owner>.error.<role>.ts`: `normalize`, `mapper`, `policy`,
-  `filter`, or `adapter`. For example, `prisma.error.normalize.ts` and
+  `filter`, or `adapter`. For example, `database.error.normalize.ts` and
   `identity.error.mapper.ts`. A normalizer classifies SDK/framework failures;
   a mapper changes the meaning of a recognized dependency failure.
 - Owner-neutral runtime support remains `platform/error/error.<role>.ts`.

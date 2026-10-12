@@ -5,7 +5,7 @@ import { mapAccessDatabaseError } from './access.error.mapper.js';
 import type { AllConfig } from '@/config/index.js';
 import { createSecureRandomString } from '@/common/utils/crypto.js';
 
-import { PrismaService } from '@/infra/database/prisma/prisma.service.js';
+import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -38,7 +38,7 @@ export class AccessKernel {
     private readonly verificationKey: KeyObject;
 
     constructor(
-        private readonly prismaService: PrismaService,
+        private readonly database: DatabaseRuntime,
         private readonly configService: ConfigService<AllConfig, true>
     ) {
         const config = this.configService.get('access', { infer: true });
@@ -69,7 +69,7 @@ export class AccessKernel {
         });
 
         const session = await this.execute(() =>
-            this.prismaService.session.create({
+            this.database.queryClient.session.create({
                 data: {
                     id: sessionId,
                     version: sessionVersion,
@@ -129,10 +129,10 @@ export class AccessKernel {
 
         return this.execute(
             () =>
-                this.prismaService.$transaction(
-                    async (transaction) => {
+                this.database.transaction.run(
+                    async () => {
                         // Session updates (including revocation) serialize with this lock.
-                        const locked = await transaction.$queryRaw<{ id: string }[]>`
+                        const locked = await this.database.queryClient.$queryRaw<{ id: string }[]>`
                             SELECT s."id"
                             FROM "public"."Session" s
                             JOIN "public"."TokenPair" p ON p."sessionId" = s."id"
@@ -145,29 +145,30 @@ export class AccessKernel {
                         }
 
                         // Re-read after waiting: the previous holder may have consumed this RT.
-                        const refreshToken = await transaction.refreshToken.findUnique({
-                            where: { tokenHash: refreshTokenHash },
-                            select: {
-                                id: true,
-                                consumedAt: true,
-                                expiresAt: true,
-                                tokenPair: {
-                                    select: {
-                                        generation: true,
-                                        revokedAt: true,
-                                        session: {
-                                            select: {
-                                                id: true,
-                                                userId: true,
-                                                version: true,
-                                                idleExpiresAt: true,
-                                                revokedAt: true,
+                        const refreshToken =
+                            await this.database.queryClient.refreshToken.findUnique({
+                                where: { tokenHash: refreshTokenHash },
+                                select: {
+                                    id: true,
+                                    consumedAt: true,
+                                    expiresAt: true,
+                                    tokenPair: {
+                                        select: {
+                                            generation: true,
+                                            revokedAt: true,
+                                            session: {
+                                                select: {
+                                                    id: true,
+                                                    userId: true,
+                                                    version: true,
+                                                    idleExpiresAt: true,
+                                                    revokedAt: true,
+                                                },
                                             },
                                         },
                                     },
                                 },
-                            },
-                        });
+                            });
                         const nowDate = new Date();
                         if (!refreshToken || refreshToken.expiresAt <= nowDate) {
                             throw new AccessError({ reason: 'session-inactive' });
@@ -185,7 +186,7 @@ export class AccessKernel {
                         }
 
                         const now = dayjs(nowDate).utc();
-                        const consumed = await transaction.refreshToken.updateMany({
+                        const consumed = await this.database.queryClient.refreshToken.updateMany({
                             where: {
                                 id: refreshToken.id,
                                 consumedAt: null,
@@ -208,7 +209,7 @@ export class AccessKernel {
                             sessionIdleExpiresAtUnix: sessionIdleExpiresAt.diff(now, 'second'),
                             timeReference: nowDate,
                         });
-                        const updatedSession = await transaction.session.update({
+                        const updatedSession = await this.database.queryClient.session.update({
                             where: {
                                 id: session.id,
                                 version: session.version,
@@ -308,7 +309,7 @@ export class AccessKernel {
         }
 
         const accessToken = await this.execute(() =>
-            this.prismaService.accessToken.findUnique({
+            this.database.queryClient.accessToken.findUnique({
                 where: { id: payload.jti },
                 select: {
                     expiresAt: true,
@@ -364,7 +365,7 @@ export class AccessKernel {
     ): Promise<Access.RevokeUserSessionOutput> {
         const session = await this.execute(
             () =>
-                this.prismaService.session.update({
+                this.database.queryClient.session.update({
                     where: {
                         id: input.sessionId,
                     },
@@ -385,7 +386,7 @@ export class AccessKernel {
         input: Access.RevokeUserSessionAllInput
     ): Promise<Access.RevokeUserSessionAllOutput> {
         const session = await this.execute(() =>
-            this.prismaService.session.updateManyAndReturn({
+            this.database.queryClient.session.updateManyAndReturn({
                 where: {
                     userId: input.userId,
                 },
@@ -421,7 +422,7 @@ export class AccessKernel {
             const queryOrder =
                 direction === 'backward' ? (order === 'asc' ? 'desc' : 'asc') : order;
             const rows = await this.execute(() =>
-                this.prismaService.session.findMany({
+                this.database.queryClient.session.findMany({
                     where: { userId },
                     orderBy: { id: queryOrder },
                     ...(cursor ? { cursor: { id: cursor, userId }, skip: 1 } : {}),
@@ -453,15 +454,16 @@ export class AccessKernel {
         const where = { userId };
         const skip = Math.max((page - 1) * pageSize, 0);
         const [items, total] = await this.execute(() =>
-            this.prismaService.$transaction([
-                this.prismaService.session.findMany({
+            this.database.transaction.run(async () => {
+                const items = await this.database.queryClient.session.findMany({
                     where,
                     orderBy: { id: order },
                     skip,
                     take: pageSize,
-                }),
-                this.prismaService.session.count({ where }),
-            ])
+                });
+                const total = await this.database.queryClient.session.count({ where });
+                return [items, total] as const;
+            })
         );
 
         const totalPages = Math.ceil(total / pageSize);
@@ -485,7 +487,7 @@ export class AccessKernel {
         inactiveOnMissing = false
     ): Promise<T> {
         try {
-            return await this.prismaService.execute(operation);
+            return await operation();
         } catch (cause) {
             throw mapAccessDatabaseError(cause, inactiveOnMissing) ?? cause;
         }

@@ -1,11 +1,13 @@
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import { normalizeDatabaseError } from './prisma.error.normalize.js';
+import { normalizeDatabaseError } from './database.error.normalize.js';
+import { createDatabaseQueryClient } from './database.query.js';
+import { DatabaseTransactionContext } from './transaction/transaction.context.js';
 
 import { AllConfig } from '@/config/index.js';
 
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 
-import { PrismaClient } from '@root/prisma/generated/client.js';
+import { PrismaClient, type Prisma } from '@root/prisma/generated/client.js';
 
 import { Injectable, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,11 +20,15 @@ import { PrismaPg } from '@prisma/adapter-pg';
  * - 只记录耗时与上下文，不记录 SQL 或绑定参数
  */
 @Injectable()
-export class PrismaService extends PrismaClient implements OnApplicationShutdown, OnModuleInit {
+export class DatabaseClient implements OnApplicationShutdown, OnModuleInit {
+    readonly client: PrismaClient<'query'>;
+    readonly managed: ReturnType<typeof createDatabaseQueryClient>;
+
     constructor(
         private readonly configService: ConfigService<AllConfig, true>,
         private readonly alsContextAdapter: AlsContextAdapter,
-        @InjectPinoLogger(PrismaService.name) private readonly logger: PinoLogger
+        context: DatabaseTransactionContext,
+        @InjectPinoLogger(DatabaseClient.name) private readonly logger: PinoLogger
     ) {
         const DATABASE_URL = configService.get('database.databaseUrl', { infer: true });
         if (!DATABASE_URL) {
@@ -36,35 +42,31 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
             connectionTimeoutMillis: 2000, // 2秒连接超时
         });
 
-        // 开发环境启用查询日志
-        super({
+        this.client = new PrismaClient({
             adapter,
             log: [{ emit: 'event', level: 'query' }],
         });
+        this.managed = createDatabaseQueryClient(this.client, context);
     }
 
     async onModuleInit() {
-        // 连接数据库
-        await this.execute(() => this.$connect());
+        try {
+            await this.client.$connect();
+            // PrismaPg creates its pool lazily; $connect alone does not prove reachability.
+            await this.managed.$queryRaw`SELECT 1`;
+        } catch (error) {
+            throw normalizeDatabaseError(error);
+        }
         this.logger.info({ event: 'database.connected' }, 'Database connected successfully');
 
         // 订阅查询事件（用于慢查询监控）
-        this.$on('query' as never, (event: any) => {
+        this.client.$on('query', (event) => {
             this.handleQueryEvent(event);
         });
     }
 
-    // Wrap the awaited operation, not individual PrismaPromises inside a transaction array.
-    async execute<T>(operation: () => PromiseLike<T>): Promise<T> {
-        try {
-            return await operation();
-        } catch (error) {
-            throw normalizeDatabaseError(error) ?? error;
-        }
-    }
-
     // 处理查询事件，检测慢查询并记录日志
-    private handleQueryEvent(event: { timestamp: Date; query: string; duration: number }) {
+    private handleQueryEvent(event: Prisma.QueryEvent) {
         const requestContext = this.alsContextAdapter.get();
         const { timestamp } = event;
         const duration = Math.round(event.duration);
@@ -101,7 +103,11 @@ export class PrismaService extends PrismaClient implements OnApplicationShutdown
     }
 
     async onApplicationShutdown() {
-        await this.execute(() => this.$disconnect());
+        try {
+            await this.client.$disconnect();
+        } catch (error) {
+            throw normalizeDatabaseError(error);
+        }
         this.logger.info({ event: 'database.disconnected' }, 'Database disconnected');
     }
 }

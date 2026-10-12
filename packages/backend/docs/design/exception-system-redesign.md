@@ -46,8 +46,8 @@ packages/backend/src/
   bootstrap/composition/error.provider.ts
   core/{identity,access}/*.error.ts
   core/{identity,access}/*.error.mapper.ts
-  infra/{database/prisma,iam,kvs,storage}/*.error.ts
-  infra/{database/prisma,iam,kvs,storage}/*.error.normalize.ts
+  infra/{database,iam,kvs,storage}/*.error.ts
+  infra/{database,iam,kvs,storage}/*.error.normalize.ts
   infra/http/http.error.ts
 ```
 

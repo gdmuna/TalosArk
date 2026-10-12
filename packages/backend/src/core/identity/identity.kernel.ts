@@ -1,15 +1,11 @@
 import type * as Identity from './identity.contract.js';
 import { identityOidcTransactionKey } from './identity.key.js';
 import { IdentityError } from './identity.error.js';
-import {
-    mapIdentityIamError,
-    mapIdentityKvsError,
-    mapIdentityDatabaseError,
-} from './identity.error.mapper.js';
+import { identityErrors } from './identity.error.mapper.js';
 
 import { createSecureRandomString } from '@/common/utils/crypto.js';
 
-import { PrismaService } from '@/infra/database/prisma/prisma.service.js';
+import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { IamClient } from '@/infra/iam/index.js';
 import { KvsClient } from '@/infra/kvs/index.js';
 
@@ -19,13 +15,13 @@ import { createHash } from 'crypto';
 @Injectable()
 export class IdentityKernel {
     constructor(
-        private readonly prismaService: PrismaService,
+        private readonly database: DatabaseRuntime,
         private readonly iamClient: IamClient,
         private readonly kvsClient: KvsClient
     ) {}
 
     async createOidcTransaction() {
-        return this.execute(async () => {
+        return identityErrors.run(async () => {
             const transactionId = createSecureRandomString();
             const codeVerifier = createSecureRandomString();
             const nonce = createSecureRandomString();
@@ -74,7 +70,7 @@ export class IdentityKernel {
     }
 
     async resolveOidcLoginCallback(dto: { code: string; state: string; id: string }) {
-        return this.execute(async () => {
+        return identityErrors.run(async () => {
             const key = identityOidcTransactionKey.buildCanonical({
                 id: dto.id,
             }).serialized;
@@ -115,13 +111,13 @@ export class IdentityKernel {
     async getInternalUser(
         input: Identity.GetInternalUserInput
     ): Promise<Identity.GetInternalUserOutput> {
-        return this.execute(async () => {
+        return identityErrors.run(async () => {
             const { type } = input;
             let user: Identity.GetInternalUserOutput = null;
 
             if (type === 'externalIdentity') {
-                const externalIdentity = await this.prismaService.execute(() =>
-                    this.prismaService.externalIdentity.findUnique({
+                const externalIdentity =
+                    await this.database.queryClient.externalIdentity.findUnique({
                         where: {
                             issuer_subject: {
                                 issuer: input.verifiedIdToken.issuer,
@@ -138,26 +134,23 @@ export class IdentityKernel {
                                 },
                             },
                         },
-                    })
-                );
+                    });
                 if (!externalIdentity?.user) return user;
                 user = externalIdentity.user;
             }
 
             if (type === 'normal') {
-                user = await this.prismaService.execute(() =>
-                    this.prismaService.user.findUnique({
-                        where: {
-                            id: input.userId,
-                        },
-                        include: {
-                            profile: true,
-                        },
-                        omit: {
-                            passwordHash: true,
-                        },
-                    })
-                );
+                user = await this.database.queryClient.user.findUnique({
+                    where: {
+                        id: input.userId,
+                    },
+                    include: {
+                        profile: true,
+                    },
+                    omit: {
+                        passwordHash: true,
+                    },
+                });
             }
 
             return user;
@@ -167,50 +160,26 @@ export class IdentityKernel {
     async createInternalUser(
         input: Identity.CreateInternalUserInput
     ): Promise<Identity.CreateInternalUserOutput> {
-        return this.execute(
-            () =>
-                this.prismaService.execute(() =>
-                    this.prismaService.user.create({
-                        data: input,
-                        include: {
-                            profile: true,
-                        },
-                        omit: {
-                            passwordHash: true,
-                        },
-                    })
-                ),
-            'user'
+        return identityErrors.run(() =>
+            this.database.queryClient.user.create({
+                data: input,
+                include: {
+                    profile: true,
+                },
+                omit: {
+                    passwordHash: true,
+                },
+            })
         );
     }
 
     async createExternalIdentity(
         input: Identity.CreateExternalIdentityInput
     ): Promise<Identity.CreateExternalIdentityOutput> {
-        return this.execute(
-            () =>
-                this.prismaService.execute(() =>
-                    this.prismaService.externalIdentity.create({
-                        data: input,
-                    })
-                ),
-            'identity'
+        return identityErrors.run(() =>
+            this.database.queryClient.externalIdentity.create({
+                data: input,
+            })
         );
-    }
-
-    private async execute<T>(
-        operation: () => PromiseLike<T>,
-        conflict?: 'user' | 'identity'
-    ): Promise<T> {
-        try {
-            return await operation();
-        } catch (cause) {
-            throw (
-                mapIdentityIamError(cause) ??
-                mapIdentityKvsError(cause) ??
-                mapIdentityDatabaseError(cause, conflict) ??
-                cause
-            );
-        }
     }
 }

@@ -49,7 +49,7 @@ layout even when duplicated in the summary. Common header fields and the new
 
 | Owner | Events |
 | --- | --- |
-| Prisma | `database.connected`, `database.disconnected`, `database.query.completed`, `database.query.slow`, `database.query.critical` |
+| DatabaseClient | `database.connected`, `database.disconnected`, `database.query.completed`, `database.query.slow`, `database.query.critical` |
 | KVS | `kvs.connected`, `kvs.closed`, `kvs.close.timeout`, `kvs.connection.error` |
 | Inbound HTTP performance | `http.request.completed`, `http.request.failed`, `http.request.slow`, `http.request.critical` |
 | Outbound HTTP | `http.outbound.completed` |
@@ -57,7 +57,7 @@ layout even when duplicated in the summary. Common header fields and the new
 Example summaries (values are illustrative):
 
 ```text
-WARN ... [PrismaService] Slow query · 132ms
+WARN ... [DatabaseClient] Slow query · 132ms
 DEBUG ... [PerformanceInterceptor] GET /api/materials → 200 · 24ms
 DEBUG ... [HttpClientFactory] casdoor · fetch-user → 200 · 86ms
 ERROR ... [KvsClient] Valkey connection refused

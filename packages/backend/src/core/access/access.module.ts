@@ -1,11 +1,11 @@
 import { AccessKernel } from './access.kernel.js';
 
-import { PrismaModule } from '@/infra/database/prisma/prisma.module.js';
+import { DatabaseModule } from '@/infra/database/database.module.js';
 
 import { Module } from '@nestjs/common';
 
 @Module({
-    imports: [PrismaModule],
+    imports: [DatabaseModule],
     providers: [AccessKernel],
     exports: [AccessKernel],
 })

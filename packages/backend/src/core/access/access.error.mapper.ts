@@ -1,5 +1,5 @@
 import { defineErrorMapper } from '@/platform/error/index.js';
-import { DatabaseError } from '@/infra/database/prisma/prisma.error.js';
+import { DatabaseError } from '@/infra/database/database.error.js';
 import { AccessError, type AccessFailure } from './access.error.js';
 
 export const mapAccessDatabaseError = defineErrorMapper(
