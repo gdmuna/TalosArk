@@ -1,11 +1,5 @@
-import type {
-    ColumnSizingState,
-    ColumnOrderState,
-    ColumnVisibilityState,
-    PaginationState,
-    SortingState,
-} from '@tanstack/vue-table';
-import type { Component } from 'vue';
+import type { Component, ShallowUnwrapRef } from 'vue';
+import type { useTableModel } from './model/useTableModel';
 
 export type DataTableColumn<T> = {
     id: string;
@@ -46,28 +40,6 @@ export type DataTableFilter<T> = {
     value: (row: T) => string;
     matches?: (row: T, value: string) => boolean;
 };
-export type DataTableApi<T> = {
-    rows: T[];
-    filteredRows: T[];
-    selectedRows: T[];
-    query: string;
-    filters: Record<string, string[]>;
-    selected: string[];
-    sorting: SortingState;
-    pagination: PaginationState;
-    paginationMode: 'offset' | 'cursor';
-    cursor: { id: string; direction: 'after' | 'before' } | null;
-    canPrevious: boolean;
-    canNext: boolean;
-    jumpToPage: (page: number) => boolean;
-    previousPage: () => void;
-    nextPage: () => void;
-    setFilter: (id: string, value: string[]) => void;
-    columnSizing: ColumnSizingState;
-    columnOrder: ColumnOrderState;
-    columnVisibility: ColumnVisibilityState;
-    columnWrapping: Record<string, boolean>;
-    resizeColumn: (id: string, size: number) => void;
-    clearSelection: () => void;
-    resetFilters: () => void;
-};
+export type DataTableApi<T extends { id: string }> = ShallowUnwrapRef<
+    ReturnType<typeof useTableModel<T>>['api']
+>;

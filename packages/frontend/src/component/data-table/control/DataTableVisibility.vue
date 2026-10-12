@@ -9,16 +9,12 @@ import type { DataTableColumn } from '../type';
 
 const props = defineProps<{
     columns: Pick<DataTableColumn<unknown>, 'id' | 'label' | 'icon'>[];
-    hasActions: boolean;
+    visibility: Record<string, boolean>;
+    canHide: (id: string) => boolean;
 }>();
 const order = defineModel<string[]>('order', { required: true });
-const visibility = defineModel<Record<string, boolean>>('visibility', { required: true });
+const emit = defineEmits<{ toggle: [id: string]; 'show-all': [] }>();
 const columnById = computed(() => new Map(props.columns.map((column) => [column.id, column])));
-const shown = computed(() => props.columns.filter((column) => visibility.value[column.id] !== false));
-const canHide = (id: string) => visibility.value[id] === false || props.hasActions || shown.value.length > 1;
-function toggle(id: string) {
-    if (canHide(id)) visibility.value = { ...visibility.value, [id]: visibility.value[id] === false };
-}
 </script>
 
 <template>
@@ -34,7 +30,7 @@ function toggle(id: string) {
                     列可见性
                     <TableViewHelp />
                 </PopoverTitle>
-                <Button variant="ghost" size="sm" class="h-7 px-1 text-xs text-primary" @click="visibility = {}">
+                <Button variant="ghost" size="sm" class="h-7 px-1 text-xs text-primary" @click="emit('show-all')">
                     全部显示
                 </Button>
             </div>
@@ -57,7 +53,7 @@ function toggle(id: string) {
                         :disabled="!canHide(id)"
                         :aria-label="`${visibility[id] === false ? '显示' : '隐藏'}${columnById.get(id)?.label}列`"
                         :title="visibility[id] === false ? '显示此列' : '隐藏此列'"
-                        @click="toggle(id)"
+                        @click="emit('toggle', id)"
                     >
                         <component :is="visibility[id] === false ? EyeOff : Eye" class="size-3.5" aria-hidden="true" />
                     </Button>

@@ -9,6 +9,13 @@ type ReorderOptions = {
     container: () => HTMLElement | null | undefined;
     destinationHost?: () => HTMLElement | null | undefined;
     destinationClip?: () => Rect | undefined;
+    // Visual frame only; hit-testing keeps the original source border box.
+    destinationInsets?: (element: HTMLElement) => {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+    };
     elements?: (root: HTMLElement) => Map<string, HTMLElement[]>;
     sourceContent?: (source: HTMLElement) => HTMLElement[];
     keepSourceVisible?: boolean;
@@ -43,6 +50,7 @@ export function useDragReorder(
     let revision = 0;
     let pointerOffset = { x: 0, y: 0 };
     let previewSize = { width: 0, height: 0 };
+    let destinationInsets = { top: 0, right: 0, bottom: 0, left: 0 };
     let lastHitPoints: { pointer: number; center: number } | null = null;
     const duration = () => (matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 0.16);
 
@@ -102,6 +110,14 @@ export function useDragReorder(
         const dimension = axis === 'x' ? 'width' : 'height';
         scale = bounds[dimension] / parseFloat(getComputedStyle(root)[dimension]) || 1;
         const elements = [...root.querySelectorAll<HTMLElement>('[data-reorder-id]')];
+        const source = elements.find((element) => element.dataset.reorderId === dragging.value);
+        if (source)
+            destinationInsets = options.destinationInsets?.(source) ?? {
+                top: 0,
+                right: 0,
+                bottom: 0,
+                left: 0,
+            };
         // Logical anchors exclude animated offsets, so items cannot move their own hit targets.
         anchors = elements.map((element) => {
             const id = element.dataset.reorderId as string;
@@ -206,10 +222,21 @@ export function useDragReorder(
             height: region.height / scaleY + 'px',
         });
         Object.assign(marker.style, {
-            width: rect.width / scaleX + 'px',
-            height: rect.height / scaleY + 'px',
+            width:
+                Math.max(
+                    0,
+                    rect.width / scaleX - destinationInsets.left - destinationInsets.right
+                ) + 'px',
+            height:
+                Math.max(
+                    0,
+                    rect.height / scaleY - destinationInsets.top - destinationInsets.bottom
+                ) + 'px',
         });
-        const position = { x: (rect.x - region.x) / scaleX, y: (rect.y - region.y) / scaleY };
+        const position = {
+            x: (rect.x - region.x) / scaleX + destinationInsets.left,
+            y: (rect.y - region.y) / scaleY + destinationInsets.top,
+        };
         if (destination.hidden) gsap.set(marker, position);
         destination.hidden = false;
         gsap.to(marker, { ...position, duration: duration(), ease: 'power2.out', overwrite: true });
@@ -285,7 +312,10 @@ export function useDragReorder(
         Object.assign(marker.style, {
             position: 'absolute',
             opacity: '0.32',
-            border: '1px dashed var(--muted-foreground)',
+            border: '1px solid transparent',
+            // Inset the visual stroke so coincident cell grid lines cannot cover it.
+            outline: '1px dashed var(--muted-foreground)',
+            outlineOffset: '-2px',
         });
         (options.destinationHost?.() ?? root).append(destination);
         sourceContent = options.sourceContent?.(source) ?? [];

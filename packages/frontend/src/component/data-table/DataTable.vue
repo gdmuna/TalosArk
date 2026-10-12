@@ -1,31 +1,5 @@
 <script setup lang="ts" generic="T extends { id: string }">
-import { computed, ref, watch, useTemplateRef, type CSSProperties } from 'vue';
-import {
-    columnFilteringFeature,
-    globalFilteringFeature,
-    rowSortingFeature,
-    rowPaginationFeature,
-    rowSelectionFeature,
-    columnVisibilityFeature,
-    columnSizingFeature,
-    columnResizingFeature,
-    columnOrderingFeature,
-    createFilteredRowModel,
-    createSortedRowModel,
-    createPaginatedRowModel,
-    filterFn_includesString,
-    filterFn_equalsString,
-    sortFn_basic,
-    tableFeatures,
-    useTable,
-    type ColumnDef,
-    type SortingState,
-    type PaginationState,
-    type RowSelectionState,
-    type ColumnSizingState,
-    type ColumnOrderState,
-    type ColumnVisibilityState,
-} from '@tanstack/vue-table';
+import { computed, ref, useTemplateRef, type CSSProperties } from 'vue';
 import {
     ArrowDown,
     ArrowUp,
@@ -75,7 +49,8 @@ import { useDragReorder } from './interaction/useDragReorder';
 import { useTableLayout } from './layout/useTableLayout';
 import { useColumnResize } from './interaction/useColumnResize';
 import RecordPreview from './RecordPreview.vue';
-import { resolveFilterFields } from './model/filter-field';
+import { useTableModel } from './model/useTableModel';
+import type { SortingState } from '@tanstack/vue-table';
 import type { DataTableAction, DataTableBulkAction, DataTableColumn, DataTableFilter } from './type';
 
 const props = withDefaults(
@@ -113,14 +88,46 @@ const props = withDefaults(
 const query = defineModel<string>('query', { default: '' });
 const filters = defineModel<Record<string, string[]>>('filters', { default: () => ({}) });
 const selected = defineModel<string[]>('selected', { default: () => [] });
-const sorting = ref<SortingState>(props.initialSorting);
-const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
-const cursor = ref<{ id: string; direction: 'after' | 'before' } | null>(null);
-const pageInput = ref('1');
-const pageError = ref('');
-const columnSizing = ref<ColumnSizingState>({});
-const columnOrder = ref<ColumnOrderState>(props.columns.map((column) => column.id));
-const columnVisibility = ref<ColumnVisibilityState>({});
+const model = useTableModel(props, { query, filters, selected });
+const {
+    api,
+    pageInput,
+    pageError,
+    pageCount,
+    pageRows,
+    pageSize,
+    pageSelection,
+    selectPage,
+    resolvedFilterFields,
+    filterById,
+    primaryActions,
+    sortableColumns,
+    visibleColumns,
+    columnById,
+    widths,
+    contentWidth,
+    canHideColumn,
+    setColumnVisibility,
+    showAllColumns,
+    selectableRows,
+} = model;
+const {
+    filteredRows,
+    selectedRows,
+    sorting,
+    paginationMode,
+    canPrevious,
+    canNext,
+    jumpToPage,
+    previousPage,
+    nextPage,
+    setFilter,
+    clearSelection,
+    columnOrder,
+    columnVisibility,
+    columnWrapping,
+    resizeColumn,
+} = api;
 const previewId = ref<string | null>(null);
 const previewRow = computed(() => props.data.find((row) => row.id === previewId.value));
 const previewOpen = computed({
@@ -146,6 +153,7 @@ const headerReorder = useDragReorder(
         root: () => frame.value?.querySelector<HTMLElement>('thead tr'),
         container: () => horizontalViewport.value,
         destinationHost: () => headerOverlay.value,
+        destinationInsets: columnDestinationInsets,
         destinationClip: () => {
             const viewport = horizontalViewport.value?.getBoundingClientRect();
             const actions = frame.value?.querySelector('thead [data-pinned="end"]')?.getBoundingClientRect();
@@ -163,9 +171,6 @@ const headerReorder = useDragReorder(
     }
 );
 const { dragging: headerDragging, phase: headerPhase } = headerReorder;
-const columnWrapping = ref<Record<string, boolean>>(
-    Object.fromEntries(props.columns.map((column) => [column.id, column.wrap ?? true]))
-);
 const horizontalViewport = useTemplateRef<HTMLElement>('horizontalViewport');
 const frame = useTemplateRef<HTMLElement>('frame');
 const headerOverlay = useTemplateRef<HTMLElement>('headerOverlay');
@@ -173,6 +178,17 @@ const headerViewport = useTemplateRef<HTMLElement>('headerViewport');
 const footer = useTemplateRef<HTMLElement>('footer');
 const recordBody = useTemplateRef<InstanceType<typeof TableBody>>('recordBody');
 const verticalViewport = useTemplateRef<InstanceType<typeof ScrollArea>>('verticalViewport');
+function columnDestinationInsets(element: HTMLElement) {
+    const cell = getComputedStyle(element);
+    const border = getComputedStyle(element, '::before');
+    // The grid is positioned from the padding box; map its inner edges to the border box.
+    return {
+        top: parseFloat(cell.borderTopWidth) + parseFloat(border.top) + parseFloat(border.borderTopWidth),
+        right: parseFloat(cell.borderRightWidth) + parseFloat(border.right) + parseFloat(border.borderRightWidth),
+        bottom: parseFloat(cell.borderBottomWidth) + parseFloat(border.bottom) + parseFloat(border.borderBottomWidth),
+        left: parseFloat(cell.borderLeftWidth) + parseFloat(border.left) + parseFloat(border.borderLeftWidth),
+    };
+}
 function columnMotionElements(root: HTMLElement) {
     const groups = new Map(
         [...root.querySelectorAll<HTMLElement>('[data-reorder-id]')].map((element) => [
@@ -187,46 +203,6 @@ function columnMotionElements(root: HTMLElement) {
     }
     return groups;
 }
-const primaryActions = computed(() => props.actions.filter((action) => action.primary));
-const resolvedFilterFields = computed(() => resolveFilterFields(props.columns, props.filterFields));
-const filterById = computed(() => new Map(resolvedFilterFields.value.map((field) => [field.id, field])));
-const features = tableFeatures({
-    columnFilteringFeature,
-    globalFilteringFeature,
-    filteredRowModel: createFilteredRowModel(),
-    filterFns: { includesString: filterFn_includesString, equalsString: filterFn_equalsString },
-    rowSortingFeature,
-    sortedRowModel: createSortedRowModel(),
-    sortFns: { basic: sortFn_basic },
-    rowPaginationFeature,
-    paginatedRowModel: createPaginatedRowModel(),
-    rowSelectionFeature,
-    columnVisibilityFeature,
-    columnSizingFeature,
-    columnResizingFeature,
-    columnOrderingFeature,
-});
-const columnWidths = computed(() =>
-    Object.fromEntries(
-        props.columns.map((column) => [
-            column.id,
-            Math.min(
-                column.maxSize ?? 600,
-                Math.max(column.minSize ?? 100, columnSizing.value[column.id] ?? column.size ?? 160)
-            ),
-        ])
-    )
-);
-const contentWidth = computed(
-    () =>
-        (props.selectable ? 44 : 0) +
-        (props.actions.length ? 144 : 0) +
-        props.columns.reduce(
-            (sum, column) =>
-                sum + (columnVisibility.value[column.id] === false ? 0 : (columnWidths.value[column.id] ?? 0)),
-            0
-        )
-);
 const { frameStyle, stickyRight, verticalStyle, emptyHeight } = useTableLayout(
     frame,
     horizontalViewport,
@@ -241,120 +217,6 @@ const { frameStyle, stickyRight, verticalStyle, emptyHeight } = useTableLayout(
 );
 const actionsOverlap = computed(() => !!props.actions.length && stickyRight.value > 1);
 const actionsFadeStyle: CSSProperties = { right: 'calc(100%)' };
-const definitions = computed<ColumnDef<typeof features, T>[]>(() => [
-    ...(props.selectable
-        ? [
-              {
-                  id: '__select',
-                  size: 44,
-                  minSize: 44,
-                  maxSize: 44,
-                  enableResizing: false,
-                  enableSorting: false,
-                  enableGlobalFilter: false,
-              },
-          ]
-        : []),
-    ...props.columns.map((column) => ({
-        id: column.id,
-        accessorFn: column.value,
-        enableSorting: column.sortable !== false,
-        enableGlobalFilter: false,
-        sortFn: 'basic' as const,
-        size: column.size ?? 160,
-        minSize: column.minSize ?? 100,
-        maxSize: column.maxSize ?? 600,
-    })),
-    ...(props.actions.length
-        ? [
-              {
-                  id: '__actions',
-                  size: 144,
-                  minSize: 144,
-                  maxSize: 144,
-                  enableSorting: false,
-                  enableGlobalFilter: false,
-                  enableResizing: false,
-                  enableHiding: false,
-              },
-          ]
-        : []),
-    ...resolvedFilterFields.value.map<ColumnDef<typeof features, T>>((filter) => ({
-        id: `filter:${filter.id}`,
-        accessorFn: filter.value,
-        filterFn: (row, _columnId, values: string[]) =>
-            values.some((value) =>
-                filter.matches ? filter.matches(row.original, value) : filter.value(row.original) === value
-            ),
-        enableSorting: false,
-        enableGlobalFilter: false,
-    })),
-    {
-        id: '__search',
-        accessorFn: (row: T) => props.searchText?.(row) ?? props.columns.map((column) => column.value(row)).join(' '),
-        enableGlobalFilter: true,
-        enableSorting: false,
-    },
-]);
-const rowSelection = computed<RowSelectionState>(() => Object.fromEntries(selected.value.map((id) => [id, true])));
-const columnFilters = computed(() =>
-    resolvedFilterFields.value.flatMap((field) => {
-        const value = filters.value[field.id];
-        return value?.length ? [{ id: `filter:${field.id}`, value }] : [];
-    })
-);
-const state = computed(() => ({
-    sorting: sorting.value,
-    pagination: pagination.value,
-    rowSelection: rowSelection.value,
-    globalFilter: query.value.trim(),
-    columnFilters: columnFilters.value,
-    columnSizing: columnSizing.value,
-    columnOrder: ['__select', ...columnOrder.value, '__actions'],
-    columnVisibility: {
-        ...columnVisibility.value,
-        __actions: true,
-        ...Object.fromEntries([
-            ...resolvedFilterFields.value.map((field) => [`filter:${field.id}`, false]),
-            ['__search', false],
-        ]),
-    },
-}));
-const table = useTable<typeof features, T>({
-    features,
-    data: computed(() => props.data),
-    columns: definitions,
-    state,
-    autoResetPageIndex: false,
-    sortDescFirst: false,
-    getRowId: (row: T) => row.id,
-    globalFilterFn: 'includesString',
-    enableRowSelection: (row) => !!props.selectable?.(row.original),
-    columnResizeMode: 'onChange',
-    onColumnSizingChange: (next) => {
-        columnSizing.value = typeof next === 'function' ? next(columnSizing.value) : next;
-    },
-    onColumnOrderChange: (next) => {
-        columnOrder.value = typeof next === 'function' ? next(columnOrder.value) : next;
-    },
-    onColumnVisibilityChange: (next) => {
-        columnVisibility.value = typeof next === 'function' ? next(columnVisibility.value) : next;
-    },
-    onSortingChange: (next) => {
-        sorting.value = typeof next === 'function' ? next(sorting.value) : next;
-    },
-    onPaginationChange: (next) => {
-        pagination.value = typeof next === 'function' ? next(pagination.value) : next;
-    },
-    onRowSelectionChange: (next) => {
-        const value = typeof next === 'function' ? next(rowSelection.value) : next;
-        selected.value = Object.keys(value).filter((id) => value[id]);
-    },
-});
-const visibleColumns = computed(() => table.getVisibleLeafColumns());
-const columnById = computed(() => new Map(props.columns.map((column) => [column.id, column])));
-const sortableColumns = computed(() => props.columns.filter((column) => column.sortable !== false));
-const widths = computed(() => Object.fromEntries(visibleColumns.value.map((column) => [column.id, column.getSize()])));
 const resizeHandleLimit = computed(() => contentWidth.value - stickyRight.value - (widths.value.__actions ?? 0));
 function cellStyle(id: string, header = false): CSSProperties {
     return {
@@ -367,155 +229,13 @@ function cellStyle(id: string, header = false): CSSProperties {
             : {}),
     };
 }
-function canHideColumn(id: string) {
-    return (
-        columnById.value.has(id) &&
-        (props.actions.length > 0 ||
-            visibleColumns.value.filter((column) => columnById.value.has(column.id)).length > 1)
-    );
-}
-function resizeColumn(id: string, size: number) {
-    const column = table.getColumn(id);
-    if (!column?.getCanResize()) return;
-    table.setColumnSizing((current) => ({
-        ...current,
-        [id]: Math.min(column.columnDef.maxSize ?? 600, Math.max(column.columnDef.minSize ?? 100, size)),
-    }));
-}
-const pageCount = computed(() => Math.max(1, table.getPageCount()));
-const paginationMode = computed(() => (pageCount.value > 1000 ? 'cursor' : 'offset'));
-const orderedRows = computed(() => table.getSortedRowModel().rows);
-// In-memory keyset navigation; a remote source must supply its own opaque cursors.
-const cursorWindow = computed(() => {
-    const items = orderedRows.value;
-    const anchor = cursor.value ? items.findIndex((row) => row.id === cursor.value?.id) : -1;
-    const start =
-        anchor < 0
-            ? 0
-            : cursor.value?.direction === 'after'
-              ? anchor + 1
-              : Math.max(0, anchor - pagination.value.pageSize);
-    const end = cursor.value?.direction === 'before' && anchor >= 0 ? anchor : start + pagination.value.pageSize;
-    return { start, rows: items.slice(start, end) };
-});
-const pageRows = computed(() =>
-    paginationMode.value === 'cursor' ? cursorWindow.value.rows : table.getRowModel().rows
-);
-const rows = computed(() => pageRows.value.map((row) => row.original));
-const filteredRows = computed(() => table.getFilteredRowModel().rows.map((row) => row.original));
-const selectedRows = computed(() => table.getFilteredSelectedRowModel().rows.map((row) => row.original));
-const canPrevious = computed(() =>
-    paginationMode.value === 'cursor' ? cursorWindow.value.start > 0 : table.getCanPreviousPage()
-);
-const canNext = computed(() =>
-    paginationMode.value === 'cursor'
-        ? cursorWindow.value.start + pageRows.value.length < orderedRows.value.length
-        : table.getCanNextPage()
-);
-const selectableRows = computed(() => pageRows.value.filter((row) => row.getCanSelect()));
-const pageSelection = computed(() => {
-    const count = selectableRows.value.filter((row) => row.getIsSelected()).length;
-    return count && count === selectableRows.value.length ? true : count ? ('indeterminate' as const) : false;
-});
-const pageSize = computed({
-    get: () => String(pagination.value.pageSize),
-    set: (value: string) => table.setPageSize(Number(value)),
-});
-function previousPage() {
-    const first = pageRows.value[0];
-    if (!canPrevious.value || !first) return;
-    if (paginationMode.value === 'cursor') cursor.value = { id: first.id, direction: 'before' };
-    else table.previousPage();
-}
-function nextPage() {
-    const last = pageRows.value.at(-1);
-    if (!canNext.value || !last) return;
-    if (paginationMode.value === 'cursor') cursor.value = { id: last.id, direction: 'after' };
-    else table.nextPage();
-}
-function jumpToPage(page: number) {
-    if (paginationMode.value !== 'offset') return false;
-    if (!Number.isInteger(page) || page < 1 || page > Math.min(1000, pageCount.value)) {
-        pageError.value = `请输入 1 到 ${Math.min(1000, pageCount.value)} 之间的整数页码`;
-        pageInput.value = String(pagination.value.pageIndex + 1);
-        return false;
-    }
-    pageError.value = '';
-    table.setPageIndex(page - 1);
-    pageInput.value = String(page);
-    return true;
-}
-function selectPage(value: boolean) {
-    const ids = new Set(selected.value);
-    for (const row of selectableRows.value) {
-        if (value) ids.add(row.id);
-        else ids.delete(row.id);
-    }
-    selected.value = [...ids];
-}
 const { resizing, startResize } = useColumnResize({
     frame,
     canStart: () => headerPhase.value === 'idle',
     getSize: (id) => widths.value[id] ?? 160,
     resize: resizeColumn,
 });
-function setFilter(id: string, value: string[]) {
-    filters.value = { ...filters.value, [id]: value };
-}
-function resetFilters() {
-    filters.value = {};
-    query.value = '';
-}
-function clearSelection() {
-    selected.value = [];
-}
-function resetPagination() {
-    table.setPageIndex(0);
-    cursor.value = null;
-    pageInput.value = '1';
-    pageError.value = '';
-}
-watch([query, filters, sorting], resetPagination, { deep: true });
-watch([() => pagination.value.pageSize, () => props.data, paginationMode], resetPagination);
-watch(
-    () => pagination.value.pageIndex,
-    (index) => {
-        pageInput.value = String(index + 1);
-        pageError.value = '';
-    }
-);
-watch(filteredRows, (items) => {
-    const valid = new Set(items.filter((item) => props.selectable?.(item)).map((item) => item.id));
-    const next = selected.value.filter((id) => valid.has(id));
-    if (next.length !== selected.value.length) selected.value = next;
-    if (pagination.value.pageIndex >= pageCount.value) table.setPageIndex(pageCount.value - 1);
-});
-defineExpose({
-    table,
-    rows,
-    filteredRows,
-    selectedRows,
-    query,
-    filters,
-    selected,
-    sorting,
-    pagination,
-    paginationMode,
-    cursor,
-    canPrevious,
-    canNext,
-    jumpToPage,
-    previousPage,
-    nextPage,
-    setFilter,
-    clearSelection,
-    resetFilters,
-    columnSizing,
-    columnOrder,
-    columnVisibility,
-    columnWrapping,
-    resizeColumn,
-});
+defineExpose(api);
 </script>
 
 <template>
@@ -534,9 +254,11 @@ defineExpose({
                         <DataTableVisibility
                             v-if="!actions.length"
                             v-model:order="columnOrder"
-                            v-model:visibility="columnVisibility"
+                            :visibility="columnVisibility"
                             :columns="columns"
-                            :has-actions="!!actions.length"
+                            :can-hide="canHideColumn"
+                            @toggle="setColumnVisibility($event, columnVisibility[$event] === false)"
+                            @show-all="showAllColumns"
                         />
                         <DataTableBulkActions
                             v-if="bulkActions.length"
@@ -669,9 +391,13 @@ defineExpose({
                                         >
                                             <DataTableVisibility
                                                 v-model:order="columnOrder"
-                                                v-model:visibility="columnVisibility"
+                                                :visibility="columnVisibility"
                                                 :columns="columns"
-                                                :has-actions="true"
+                                                :can-hide="canHideColumn"
+                                                @toggle="
+                                                    setColumnVisibility($event, columnVisibility[$event] === false)
+                                                "
+                                                @show-all="showAllColumns"
                                             />
                                         </div>
                                         <div v-else class="min-w-0">
@@ -779,7 +505,7 @@ defineExpose({
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem
                                                         :disabled="!canHideColumn(column.id)"
-                                                        @select="column.toggleVisibility(false)"
+                                                        @select="setColumnVisibility(column.id, false)"
                                                     >
                                                         <EyeOff aria-hidden="true" />
                                                         隐藏列

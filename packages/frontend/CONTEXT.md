@@ -132,6 +132,22 @@ from the first visible record and retained for the empty state. An explicit
 `minHeight` is rounded up to complete rows after reserving header/footer/scrollbar
 space. Empty content fills the entire record viewport. Header and footer remain
 outside the vertical scroll owner.
+`component/data-table/model/useTableModel.ts` owns TanStack controlled state,
+filter definitions, pagination resets, selection pruning, column visibility/order
+and width constraints. Controls request changes through this owner instead of
+repeating column rules. Without actions, at least one business column remains
+visible; with actions, all business columns may be hidden. Selection and action
+columns stay visible when present; search/filter helper columns stay hidden.
+Order excludes unknown, duplicate and technical IDs, and sizing uses the same
+defaults and bounds as TanStack. The model also reconciles action-column removal
+and changed width bounds. DOM geometry, mixed scrolling, drag motion and pointer
+resize remain in their existing private owners.
+`DataTableApi` is derived from the exposed model API, including the raw `table`
+and existing mutable state. Column IDs must be unique and stable for a mounted
+table; changing its schema identity requires remounting rather than silently
+migrating filters, sorting and wrapping. This iteration does not introduce a
+general dynamic-schema migration protocol.
+See `docs/design/frontend-f05-f06-2026-10-13.md` for implementation and verification.
 Only already-known
 active-workspace resource summaries are displayed. Other fields stay unloaded and
 write actions disabled. Professional culture/Bank/Batch skeletons do not expand
