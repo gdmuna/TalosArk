@@ -144,6 +144,15 @@ projection. Unknown QC, activity and stock-balance fields remain unloaded. See
 The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
 
+`ui/command` owns one provider-scoped item index for registration, text/keyword
+updates and removal; group visibility is derived from those entries. Dynamic
+CommandItem labels supply `textValue`, including in the command palette and
+resource breadcrumb picker, so filtered-out items remain searchable after updates.
+DOM-text fallback preserves static callers and visible slot updates; it cannot
+observe slot changes while the item DOM is absent. Explicit text avoids a native
+MutationObserver. Reka continues to own keyboard navigation, selection and IME.
+See `docs/design/frontend-f03-f04-2026-10-12.md` for implementation and verification.
+
 ## Design SSOT
 
 - `docs/design/design-foundation.md`: token semantics, state language, typography, and visual constraints.

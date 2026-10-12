@@ -2,22 +2,25 @@
 import type { ListboxItemEmits, ListboxItemProps } from 'reka-ui';
 
 import type { HTMLAttributes } from 'vue';
-import { reactiveOmit, useCurrentElement } from '@vueuse/core';
+import { reactiveOmit, useCurrentElement, useMutationObserver } from '@vueuse/core';
 import { ListboxItem, useForwardPropsEmits, useId } from 'reka-ui';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onUnmounted, ref, watch, watchEffect } from 'vue';
 import { cn } from '@/shared/util/cn';
 import { useCommand, useCommandGroup } from './context';
 
-const props = defineProps<ListboxItemProps & { class?: HTMLAttributes['class']; keywords?: string[] }>();
+// Dynamic labels use textValue so their index can update while the item DOM is filtered out.
+const props = defineProps<
+    ListboxItemProps & { class?: HTMLAttributes['class']; textValue?: string; keywords?: string[] }
+>();
 const emits = defineEmits<ListboxItemEmits>();
 
-const delegatedProps = reactiveOmit(props, 'class', 'keywords');
+const delegatedProps = reactiveOmit(props, 'class', 'textValue', 'keywords');
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits);
 
 const id = useId();
-const { filterState, allItems, allGroups } = useCommand();
-const groupContext = useCommandGroup();
+const { filterState, updateItem, removeItem } = useCommand();
+const groupContext = useCommandGroup(null);
 
 const isRender = computed(() => {
     if (!filterState.search) {
@@ -37,29 +40,28 @@ const isRender = computed(() => {
 
 const itemRef = ref();
 const currentElement = useCurrentElement(itemRef);
-onMounted(() => {
-    if (!(currentElement.value instanceof HTMLElement)) return;
-
-    // textValue to perform filter
-    allItems.value.set(
-        id,
-        [currentElement.value.textContent ?? String(props.value), ...(props.keywords ?? [])].join(' ')
-    );
-
-    const groupId = groupContext?.id;
-    if (groupId) {
-        if (!allGroups.value.has(groupId)) {
-            allGroups.value.set(groupId, new Set([id]));
-        } else {
-            allGroups.value.get(groupId)?.add(id);
-        }
-    }
+const fallbackText = ref<string>();
+function readText() {
+    if (currentElement.value instanceof HTMLElement) fallbackText.value = currentElement.value.textContent ?? '';
+}
+watch(currentElement, readText, { flush: 'post' });
+useMutationObserver(() => (props.textValue === undefined ? currentElement.value : undefined), readText, {
+    childList: true,
+    characterData: true,
+    subtree: true,
 });
-onUnmounted(() => {
-    allItems.value.delete(id);
-    const groupId = groupContext?.id;
-    if (groupId) allGroups.value.get(groupId)?.delete(id);
-});
+// Explicit text stays reactive even when filtering unmounts the ListboxItem DOM.
+watchEffect(
+    () => {
+        updateItem(
+            id,
+            [props.textValue ?? fallbackText.value ?? String(props.value), ...(props.keywords ?? [])].join(' '),
+            groupContext?.id
+        );
+    },
+    { flush: 'post' }
+);
+onUnmounted(() => removeItem(id));
 </script>
 
 <template>

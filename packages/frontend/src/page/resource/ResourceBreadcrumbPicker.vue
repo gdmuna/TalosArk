@@ -39,6 +39,7 @@ function select(resource: Resource) {
                             v-for="resource in resources"
                             :key="resource.id"
                             :value="resource.id"
+                            :text-value="resource.name"
                             :keywords="[resource.name, resource.id]"
                             class="gap-3 px-2 py-2"
                             @select="select(resource)"
