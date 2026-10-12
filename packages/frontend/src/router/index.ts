@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { workbenchRoutes } from '@/module/workbench/route';
-import { managementPath, managementRoutes } from './management';
+import { managementRoutes } from './management';
+import { managementPath } from './management-navigation';
+import { workbenchPath, workbenchPage } from '@/module/workbench/navigation';
 import { materialRoutes, inventoryRoutes, equipmentRoutes } from './resource';
 import DesktopAuthShell from '@/layout/shell/DesktopAuthShell.vue';
 import DesktopPrimarySidebarShell from '@/layout/shell/DesktopPrimarySidebarShell.vue';
@@ -55,7 +57,7 @@ const routes: RouteRecordRaw[] = [
         children: [
             {
                 path: '',
-                redirect: '/main/workbench',
+                redirect: workbenchPath,
             },
             {
                 path: 'management',
@@ -67,7 +69,7 @@ const routes: RouteRecordRaw[] = [
             {
                 path: 'workbench',
                 component: Workbench,
-                redirect: '/main/workbench/overview',
+                redirect: workbenchPage.overview.path,
                 meta: {
                     defaultTitle: 'workbench',
                 },

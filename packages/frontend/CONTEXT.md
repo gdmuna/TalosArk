@@ -3,7 +3,7 @@
 ## Source layout
 
 - `layout/`: application shells and cross-business composition, including the command palette, user menu and custom paged sidebar. Sidebar expansion belongs to the primary shell and is passed by props/events; sidebar-page selection belongs to `layout/sidebar/`. Business layouts do not depend on shadcn SidebarProvider or useSidebar.
-- `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the administration skeletons and current-account settings, with private presentation helpers; it does not establish a catch-all management business module. Their navigation, static routes and breadcrumb labels share `router/management.ts`.
+- `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the administration skeletons and current-account settings, with private presentation helpers; it does not establish a catch-all management business module. `router/management-navigation.ts` owns their navigation descriptions and labels; `router/management.ts` assembles the statically imported pages.
 - `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account, workspace and workbench use Pinia and mock adapters; auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
 - `component/`: reusable functional component modules without business semantics: DataTable, Inspector, ScrollSurface, SelectField, StateBadge, breadcrumb, route-tab, view-host and view-context. Each component owns its private interaction, state and context, not just Vue files. DataTable internals are organized under `control/`, `interaction/`, `layout/` and `model/`.
 - `platform/`: environment mechanisms: navigation, HTTP execution and task scheduling. HTTP owns retry, cancellation, validated response decoding and an authentication barrier; `module/auth` owns session credentials and the actual refresh adapter. Platform code never imports a business module.
@@ -53,9 +53,17 @@ Update imports, generator alias values and architecture rules together when movi
 - `module` may use component, platform, shared and ui. The approved cross-business dependency is `workbench -> workspace`, through the workspace public entry.
 - `component` may use ui, shared and platform. Approved cross-component dependencies are `data-table -> inspector/scroll-surface/select-field`, `breadcrumb -> view-context`, `route-tab -> scroll-surface/view-context` and `view-host -> scroll-surface/view-context`. `view-context` does not depend on its consumers.
 - `platform` may use shared. `ui` may use shared. `shared` must not depend on higher layers.
-- Within a module, component or platform owner, use relative implementation imports, not its own public barrel. Consumers use explicit `index.ts` entries; module `ui/index.ts` and `route.ts` are separate public entries. The approved cross-platform dependency is `http -> task`. Do not aggregate views or mocks into the non-visual module index.
+- Within a module, component or platform owner, use relative implementation imports, not its own public barrel. Consumers use explicit `index.ts` entries; module `ui/index.ts`, `route.ts` and `navigation.ts` are separate public entries. A module's own `navigation.ts` is a description implementation and may be imported relatively inside that owner. The approved cross-platform dependency is `http -> task`. Do not aggregate views or mocks into the non-visual module index.
 - Module models depend on `data/source.ts`, not concrete adapters. `data/api.ts` owns endpoint paths, transport policies, response decoding and wire mappings, never local session/store writes. Where needed, a small module `factory.ts` composes an adapter with its model without taking over business rules. A private credential runtime belongs in `model/`; Pinia is used when a module owns shared observable view state, not just to make directory trees identical.
 - All route components use static imports, including the workbench public `module/workbench/route.ts` entry. Do not reintroduce route lazy loading. Store IDs, provider keys, scope disposal, component APIs and business state transitions are not changed by directory migrations.
+
+Navigation descriptions do not import Vue pages or route assembly. Management
+and resource descriptions live in `router/management-navigation.ts` and
+`router/resource-navigation.ts`; their neighboring route files alone import
+pages. `module/workbench/navigation.ts` supplies the existing workbench paths,
+labels, tab IDs and command metadata to route assembly and navigation consumers.
+The sidebar and command palette consume descriptions, not route assembly.
+Architecture lint guards these imports, including same-owner module descriptors.
 
 `script/eslint-architecture.mjs`, registered in the root ESLint configuration, enforces these boundaries for resolved alias/relative imports, re-exports, type imports and dynamic imports. Missing modules remain TypeScript errors, not lint exemptions. UI generators use `shared/util/cn` and `shared/browser`, not the retired shared composables or lib trees.
 
@@ -82,8 +90,8 @@ The user approved removal of the unused legacy `shared/api` adapters. Their miss
 Resource skeletons live in `page/material`, `page/inventory` and `page/equipment`,
 with object workspaces in each owner's `detail/`. `page/resource/` shares only
 application-level presentation and scoped resource-summary composition; it is not
-a business module or an API contract. `router/resource.ts` owns domain navigation
-and static routes. Domain tabs stay outside the body scroll owner. Object routes
+a business module or an API contract. `router/resource-navigation.ts` owns domain
+descriptions; `router/resource.ts` assembles static routes. Domain tabs stay outside the body scroll owner. Object routes
 use `ResourceDetailPage`: the object header and local query-backed navigation share
 a full-width top region outside the body scroll owner. Each body composition sets
 its intrinsic width and is centered with margins, without moving the top region.

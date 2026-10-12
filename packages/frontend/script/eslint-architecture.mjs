@@ -21,7 +21,7 @@ const componentDependencies = {
 };
 const platformDependencies = { http: new Set(['task']) };
 const publicEntries = {
-    module: new Set(['index.ts', 'ui/index.ts', 'route.ts']),
+    module: new Set(['index.ts', 'ui/index.ts', 'route.ts', 'navigation.ts']),
     component: new Set(['index.ts']),
     platform: new Set(['index.ts']),
 };
@@ -66,6 +66,8 @@ export const frontendImportBoundaries = {
                 'Use a relative implementation import inside {{owner}}, not its own public barrel or alias.',
             mock: 'Only main.ts selects mock adapters; only each adapter imports its fixtures.',
             modelData: 'Module models depend on data/source.ts, not concrete data adapters.',
+            navigation:
+                'Navigation descriptions must not depend on page implementations or route assembly.',
         },
     },
     create(context) {
@@ -78,6 +80,20 @@ export const frontendImportBoundaries = {
             const to = target && classify(target);
             if (!to) return;
             const report = (messageId, data) => context.report({ node, messageId, data });
+            if (
+                (from.relative === 'layout/sidebar/navigation.ts' ||
+                    from.relative === 'router/management-navigation.ts' ||
+                    from.relative === 'router/resource-navigation.ts' ||
+                    (from.layer === 'module' && from.entry === 'navigation.ts')) &&
+                (to.relative.endsWith('.vue') ||
+                    to.relative === 'router/index.ts' ||
+                    to.relative === 'router/management.ts' ||
+                    to.relative === 'router/resource.ts' ||
+                    (to.layer === 'module' && to.entry === 'route.ts'))
+            ) {
+                report('navigation');
+                return;
+            }
             if (!allowedLayers[from.layer].has(to.layer)) {
                 report('layer', { from: from.layer, to: to.layer });
                 return;
@@ -102,7 +118,10 @@ export const frontendImportBoundaries = {
                     to.entry !== 'data/source.ts'
                 )
                     report('modelData');
-                if (node.value.startsWith('@/') || publicEntries[to.layer].has(to.entry))
+                if (
+                    node.value.startsWith('@/') ||
+                    (publicEntries[to.layer].has(to.entry) && to.entry !== 'navigation.ts')
+                )
                     report('internal', { owner: to.owner });
                 return;
             }

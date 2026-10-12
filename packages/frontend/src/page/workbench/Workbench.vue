@@ -1,6 +1,6 @@
 <template>
     <RouterTabBar>
-        <template v-if="route.path === '/main/workbench/overview'" #actions>
+        <template v-if="route.path === workbenchPage.overview.path" #actions>
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button type="button" class="h-10 gap-3 px-4 text-base shadow-none">
@@ -46,44 +46,17 @@ import {
 import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
 import { ChevronDown, FlaskConical, ListTodo, Plus, Wrench } from '@lucide/vue';
 import { useRoute } from 'vue-router';
+import { workbenchPage } from '@/module/workbench/navigation';
 
 const route = useRoute();
 const { setEntity } = useRouteTab();
 
-setEntity([
-    {
-        id: 'overview',
-        value: {
-            disabled: false,
-            label: '概览',
-            path: '/main/workbench/overview',
-        },
-    },
-    {
-        id: 'my-tasks',
-        value: {
-            disabled: false,
-            label: '我的待办',
-            path: '/main/workbench/my-task',
-        },
-    },
-    {
-        id: 'pending-approvals',
-        value: {
-            disabled: false,
-            label: '待审批',
-            path: '/main/workbench/pending-approval',
-        },
-    },
-    {
-        id: 'exceptions-alerts',
-        value: {
-            disabled: false,
-            label: '异常与提醒',
-            path: '/main/workbench/exception-alert',
-        },
-    },
-]);
+setEntity(
+    Object.values(workbenchPage).map((page) => ({
+        id: page.id,
+        value: { disabled: false, label: page.label, path: page.path },
+    }))
+);
 </script>
 
 <style scoped></style>

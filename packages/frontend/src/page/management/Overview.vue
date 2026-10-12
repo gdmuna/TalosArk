@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router';
 import { ArrowRight, Folders, UsersRound, Mail, ShieldCheck } from '@lucide/vue';
 import { useWorkspaceStore } from '@/module/workspace';
 import { DataTable } from '@/component/data-table';
-import { managementPath } from '@/router/management';
+import { managementPath } from '@/router/management-navigation';
 import ManagementPage from './component/ManagementPage.vue';
 import ManagementSection from './component/ManagementSection.vue';
 import ManagementEmpty from './component/ManagementEmpty.vue';

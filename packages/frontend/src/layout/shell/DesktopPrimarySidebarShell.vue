@@ -9,7 +9,7 @@
         <DesktopPrimaryContentShell
             class="flex-1 h-full"
             :section-label="route.meta.sectionLabel ?? activeNavigation?.label ?? '工作台'"
-            :section-path="route.meta.sectionPath ?? activeNavigation?.to ?? '/main/workbench'"
+            :section-path="route.meta.sectionPath ?? activeNavigation?.to ?? workbenchPath"
             :sidebar-expanded="sidebarExpanded"
             @toggle-sidebar="sidebarExpanded = !sidebarExpanded"
         >
@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { useWorkbenchStore, type Resource } from '@/module/workbench';
+import { workbenchPath } from '@/module/workbench/navigation';
 import { ResourceDialog } from '@/module/workbench/ui';
 import { matchesRoutePath } from '@/shared/util';
 import DesktopPrimaryContentShell from './DesktopPrimaryContentShell.vue';

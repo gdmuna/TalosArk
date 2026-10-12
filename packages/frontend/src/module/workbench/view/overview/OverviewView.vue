@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { ArrowRight, Bell, ClipboardCheck, FileText, FlaskConical, ListTodo, Monitor, Package } from '@lucide/vue';
 import { useWorkbenchStore } from '../../model/store';
+import { workbenchPage } from '../../navigation';
 import { exceptionTone, stateTone, type Resource } from '../../model/workbench';
 import { Button } from '@/ui/button';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/ui/empty';
@@ -16,9 +17,9 @@ const isToday = workbench.today;
 const formatTime = workbench.displayTime;
 const preview = ref<Resource | null>(null);
 const paths = {
-    tasks: '/main/workbench/my-task',
-    approvals: '/main/workbench/pending-approval',
-    exceptions: '/main/workbench/exception-alert',
+    tasks: workbenchPage.task.path,
+    approvals: workbenchPage.approval.path,
+    exceptions: workbenchPage.exception.path,
 };
 const pendingTasks = computed(() =>
     workbench.currentTasks.filter((item) => item.status === '待处理').sort((a, b) => a.dueAt - b.dueAt)

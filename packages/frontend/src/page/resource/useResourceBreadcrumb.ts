@@ -3,7 +3,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { provideBreadcrumbs, type BreadcrumbEntry } from '@/component/breadcrumb';
 import { useNavigationStore } from '@/platform/navigation';
 import { useWorkbenchStore, type Resource } from '@/module/workbench';
-import type { ResourceDomain } from '@/router/resource';
+import type { ResourceDomain } from '@/router/resource-navigation';
 import ResourceBreadcrumbPicker from './ResourceBreadcrumbPicker.vue';
 
 export function useResourceBreadcrumb(options: {

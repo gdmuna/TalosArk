@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterTabBar, useRouteTab } from '@/component/route-tab';
 import { ScrollSurface } from '@/component/scroll-surface';
-import { resourceNavigation, type ResourceDomain } from '@/router/resource';
+import { resourceNavigation, type ResourceDomain } from '@/router/resource-navigation';
 import ResourceRouteContext from './ResourceRouteContext.vue';
 
 const props = defineProps<{ domain: ResourceDomain }>();

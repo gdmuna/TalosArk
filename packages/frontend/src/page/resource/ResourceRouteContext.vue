@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
-import type { ResourceDomain } from '@/router/resource';
+import type { ResourceDomain } from '@/router/resource-navigation';
 
 const props = defineProps<{ domain: ResourceDomain }>();
 const route = useRoute();

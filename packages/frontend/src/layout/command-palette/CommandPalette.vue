@@ -69,18 +69,14 @@
 import { computed, ref, shallowRef, watch, type Component } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    ClipboardCheck,
     Building2,
     CornerDownLeft,
     FileText,
     FlaskConical,
-    LayoutDashboard,
-    ListTodo,
     Monitor,
     PackageSearch,
     Package,
     Plus,
-    TriangleAlert,
     X,
 } from '@lucide/vue';
 import { Button } from '@/ui/button';
@@ -91,8 +87,9 @@ import { useWorkbenchStore } from '@/module/workbench';
 import { StateBadge } from '@/component/state-badge';
 import { ResourceDialog } from '@/module/workbench/ui';
 import { ScrollSurface } from '@/component/scroll-surface';
-import { managementNavigation, managementPath } from '@/router/management';
-import { resourceNavigation, type ResourceDomain } from '@/router/resource';
+import { managementNavigation, managementPath } from '@/router/management-navigation';
+import { resourceNavigation, type ResourceDomain } from '@/router/resource-navigation';
+import { workbenchPage } from '@/module/workbench/navigation';
 import { stateTone, type Resource } from '@/module/workbench';
 
 type Result = {
@@ -125,42 +122,15 @@ const pages: Result[] = [
             path: `${managementPath}/${item.path}`,
         }))
     ),
-    {
-        id: 'overview',
+    ...Object.values(workbenchPage).map((page) => ({
+        id: page.commandId,
         group: '页面',
-        label: '工作台总览',
-        description: '工作台 / 总览',
-        keywords: '首页 工作台 总览',
-        icon: LayoutDashboard,
-        path: '/main/workbench/overview',
-    },
-    {
-        id: 'tasks',
-        group: '页面',
-        label: '我的待办',
-        description: '工作台 / 我的待办',
-        keywords: '任务 待办 我的',
-        icon: ListTodo,
-        path: '/main/workbench/my-task',
-    },
-    {
-        id: 'approvals',
-        group: '页面',
-        label: '待审批',
-        description: '工作台 / 待审批',
-        keywords: '审批 申请',
-        icon: ClipboardCheck,
-        path: '/main/workbench/pending-approval',
-    },
-    {
-        id: 'alerts',
-        group: '页面',
-        label: '异常与提醒',
-        description: '工作台 / 异常与提醒',
-        keywords: '告警 异常 提醒',
-        icon: TriangleAlert,
-        path: '/main/workbench/exception-alert',
-    },
+        label: page.commandLabel,
+        description: `工作台 / ${page.label === '概览' ? '总览' : page.label}`,
+        keywords: page.keywords,
+        icon: page.icon,
+        path: page.path,
+    })),
     ...(['material', 'inventory', 'equipment'] as ResourceDomain[]).flatMap((domain) => {
         const context = {
             material: { label: '材料', icon: FlaskConical, keywords: '耗材 化学试剂 生物材料 培养基 细胞' },
@@ -231,7 +201,7 @@ async function execute(item: Result) {
             return;
         }
         open.value = false;
-        router.push({ path: '/main/workbench/my-task', query: { task: id } });
+        router.push({ path: workbenchPage.task.path, query: { task: id } });
     } else if (item.path) {
         open.value = false;
         router.push(item.path);

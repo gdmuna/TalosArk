@@ -17,6 +17,7 @@ import {
 } from '@lucide/vue';
 import { useWorkspaceStore } from '@/module/workspace';
 import { useWorkbenchStore } from '../../model/store';
+import { workbenchPage } from '../../navigation';
 import { formatDateTime } from '@/shared/util/date-time';
 import { type Resource, type Task } from '../../model/workbench';
 import { DataTable } from '@/component/data-table';
@@ -124,7 +125,7 @@ const filterFields = computed<DataTableFilter<Task>[]>(() => [
     },
 ]);
 function openApproval(id?: string) {
-    if (id) router.push({ path: '/main/workbench/pending-approval', query: { approval: id } });
+    if (id) router.push({ path: workbenchPage.approval.path, query: { approval: id } });
 }
 const actions: DataTableAction<Task>[] = [
     {

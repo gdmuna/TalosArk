@@ -8,7 +8,8 @@ import type { Resource } from '@/module/workbench';
 import { WorkspaceSwitcher } from '@/module/workspace/ui';
 import { ScrollSurface } from '@/component/scroll-surface';
 import { Button } from '@/ui/button';
-import { managementPath } from '@/router/management';
+import { managementPath } from '@/router/management-navigation';
+import { workbenchPage } from '@/module/workbench/navigation';
 import { managementNavigation, workspaceNavigation } from './navigation';
 import SidebarButton from './SidebarButton.vue';
 import SidebarCollapsible from './SidebarCollapsible.vue';
@@ -18,7 +19,7 @@ const emit = defineEmits<{ search: []; preview: [resource: Resource] }>();
 const route = useRoute();
 const router = useRouter();
 const page = ref<'workspace' | 'management'>('workspace');
-let workspacePath = '/main/workbench/overview';
+let workspacePath: string = workbenchPage.overview.path;
 let lastManagementPath = managementPath;
 watch(
     () => route.fullPath,

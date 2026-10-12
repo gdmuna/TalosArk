@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { managementPath } from '@/router/management';
+import { managementPath } from '@/router/management-navigation';
+import { workbenchPage } from '@/module/workbench/navigation';
 import { unrefElement } from '@vueuse/core';
 import { Box, ChevronDown, ChevronRight, Info, ListTodo, LogOut, UserRound, UsersRound } from '@lucide/vue';
 import { WorkspaceSwitcher } from '@/module/workspace/ui';
@@ -138,7 +139,7 @@ defineExpose({ openSettings });
                 <UserRound aria-hidden="true" />
                 账户设置
             </DropdownMenuItem>
-            <DropdownMenuItem class="min-h-9 gap-3 px-3" @select="router.push('/main/workbench/my-task')">
+            <DropdownMenuItem class="min-h-9 gap-3 px-3" @select="router.push(workbenchPage.task.path)">
                 <ListTodo aria-hidden="true" />
                 我的待办
             </DropdownMenuItem>
