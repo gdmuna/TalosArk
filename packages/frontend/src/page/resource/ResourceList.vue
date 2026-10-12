@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch, type Component } from 'vue';
+import { computed, ref, type Component } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQueryCommand } from '@/platform/navigation';
 import { Eye, Plus, Tag } from '@lucide/vue';
-import { useWorkbenchStore, stateTone, type Resource } from '@/module/workbench';
-import { useWorkspaceStore } from '@/module/workspace';
+import { useWorkbenchStore, useResourcePreview, stateTone, type Resource } from '@/module/workbench';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
 import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
@@ -21,16 +20,9 @@ const props = defineProps<{
     createLabel: string;
 }>();
 const workbench = useWorkbenchStore();
-const workspace = useWorkspaceStore();
 const router = useRouter();
 const rows = computed(() => workbench.currentResources.filter((item) => item.kind === props.kind));
-const selectedId = ref<string | null>(null);
-const selected = computed({
-    get: () => rows.value.find((item) => item.id === selectedId.value) ?? null,
-    set: (value) => {
-        selectedId.value = value?.id ?? null;
-    },
-});
+const { resource: selected, selectedId } = useResourcePreview(ref<Resource | null>(null), rows);
 const query = useResourceQuery();
 const columns = computed<DataTableColumn<Resource>[]>(() => [
     { id: 'name', label: props.title, size: 300, icon: props.icon, value: (row) => row.name },
@@ -38,12 +30,6 @@ const columns = computed<DataTableColumn<Resource>[]>(() => [
     ...props.fields.map(([id, label, size]) => ({ id, label, size, value: () => '—' })),
     { id: 'status', label: '状态', size: 120, value: (row) => row.status },
 ]);
-watch(
-    () => workspace.activeId,
-    () => {
-        selectedId.value = null;
-    }
-);
 useQueryCommand('resource', (id) => {
     selectedId.value = id;
 });

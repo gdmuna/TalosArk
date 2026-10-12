@@ -24,7 +24,7 @@
     </Dialog>
 </template>
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowUpRight } from '@lucide/vue';
 import { useWorkspaceStore } from '@/module/workspace';
@@ -33,27 +33,19 @@ import { CopyableId } from '@/component/inspector';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import { stateTone, type Resource } from '../model/workbench';
+import { useWorkbenchStore } from '../model/store';
+import { useResourcePreview } from '../model/resource-preview';
 
-const resource = defineModel<Resource | null>({ default: null });
+const selection = defineModel<Resource | null>({ default: null });
 const props = defineProps<{ returnFocus?: HTMLElement | null }>();
 const workspace = useWorkspaceStore();
+const workbench = useWorkbenchStore();
+const { resource, open } = useResourcePreview(selection, () => workbench.currentResources);
 const router = useRouter();
 let previousFocus: HTMLElement | null = null;
-const open = computed({
-    get: () => !!resource.value,
-    set: (value) => {
-        if (!value) resource.value = null;
-    },
-});
 watch(open, (value) => {
     if (value) previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 });
-watch(
-    () => workspace.activeId,
-    () => {
-        resource.value = null;
-    }
-);
 function restoreFocus(event: Event) {
     const target = props.returnFocus ?? previousFocus;
     if (target?.isConnected) {

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { FlaskConical, Plus, Pencil, ZoomIn, ZoomOut, Scan, Eye } from '@lucide/vue';
-import { useWorkbenchStore, stateTone, type Resource } from '@/module/workbench';
+import { useWorkbenchStore, useResourcePreview, stateTone, type Resource } from '@/module/workbench';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
 import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
@@ -23,7 +23,6 @@ import { materialBranch } from '../useMaterialSummary';
 const { resource, resourceId, workspace } = useResource('材料定义');
 const router = useRouter();
 const workbench = useWorkbenchStore();
-const selectedInstance = ref<Resource | null>(null);
 const { returnTo } = useResourceBreadcrumb({
     domain: 'material',
     kind: '材料定义',
@@ -53,6 +52,7 @@ const instances = computed(() =>
         ? workbench.currentResources.filter((item) => item.kind === '库存实例' && item.materialId === resourceId.value)
         : []
 );
+const { resource: selectedInstance } = useResourcePreview(ref<Resource | null>(null), instances, resourceId);
 const instanceColumns: DataTableColumn<Resource>[] = [
     { id: 'name', label: '库存实例', size: 280, value: (row) => row.name },
     { id: 'id', label: '实例 ID', size: 180, value: (row) => row.id },

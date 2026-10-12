@@ -102,6 +102,13 @@ resource outlets replace record content and breadcrumb providers together, witho
 retaining an outgoing page. Sidebar, overlay and drag-reorder motion remain local
 to those components.
 Resource list search uses `q`, preserving other query parameters on updates.
+Resource preview selection uses workbench's `useResourcePreview`: it resolves the
+latest summary from the caller's resource collection in the active workspace,
+clears selection on workspace/parent-context changes, resource disappearance and
+caller scope disposal, and does not reopen when a removed resource returns.
+ResourceDialog and ResourcePreview retain their existing Resource/null models;
+material/resource lists and material-detail instance previews share the same
+selection lifecycle. Preview invalidation does not mutate URL query state.
 `platform/navigation` distinguishes persistent query state from one-shot commands.
 Resource, task, approval, exception and storage-selection entry commands use
 `useQueryCommand`: replace the current URL before executing, remove only the

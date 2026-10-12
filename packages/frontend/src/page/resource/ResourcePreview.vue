@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useRouter, type RouteLocationRaw } from 'vue-router';
 import { ArrowUpRight } from '@lucide/vue';
 import type { Resource } from '@/module/workbench';
-import { stateTone } from '@/module/workbench';
+import { stateTone, useWorkbenchStore, useResourcePreview } from '@/module/workbench';
 import { useWorkspaceStore } from '@/module/workspace';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { ScrollSurface } from '@/component/scroll-surface';
@@ -11,16 +10,12 @@ import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
 import ResourceFactList from './ResourceFactList.vue';
 
-const resource = defineModel<Resource | null>({ default: null });
+const selection = defineModel<Resource | null>({ default: null });
 const props = defineProps<{ detailTo?: RouteLocationRaw }>();
 const router = useRouter();
 const workspace = useWorkspaceStore();
-const open = computed({
-    get: () => !!resource.value,
-    set: (value) => {
-        if (!value) resource.value = null;
-    },
-});
+const workbench = useWorkbenchStore();
+const { resource, open } = useResourcePreview(selection, () => workbench.currentResources);
 function detail() {
     if (!props.detailTo) return;
     router.push(props.detailTo);

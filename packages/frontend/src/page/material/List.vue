@@ -14,7 +14,7 @@ import {
     Tag,
 } from '@lucide/vue';
 import { useWorkspaceStore } from '@/module/workspace';
-import { stateTone, type Resource } from '@/module/workbench';
+import { stateTone, useResourcePreview, type Resource } from '@/module/workbench';
 import { DataTable, type DataTableColumn, type DataTableFilter } from '@/component/data-table';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { StateBadge } from '@/component/state-badge';
@@ -32,15 +32,8 @@ const workspace = useWorkspaceStore();
 const { workbench, materials, instancesByMaterial, distribution, unclassified } = useMaterialSummary();
 const filters = ref<Record<string, string[]>>({});
 const query = useResourceQuery();
-const selectedId = ref<string | null>(null);
-const selected = computed(() => materials.value.find((item) => item.id === selectedId.value));
+const { resource: selected, selectedId, open } = useResourcePreview(ref<Resource | null>(null), materials);
 const selectedInstances = computed(() => instancesByMaterial.value.get(selectedId.value ?? '') ?? []);
-const open = computed({
-    get: () => !!selected.value,
-    set: (value) => {
-        if (!value) selectedId.value = null;
-    },
-});
 const columns: DataTableColumn<Resource>[] = [
     { id: 'name', label: '材料', icon: FlaskConical, size: 280, value: (row) => row.name },
     {
@@ -103,12 +96,6 @@ watch(
         };
     },
     { immediate: true }
-);
-watch(
-    () => workspace.activeId,
-    () => {
-        selectedId.value = null;
-    }
 );
 useQueryCommand('resource', (id) => {
     selectedId.value = id;
