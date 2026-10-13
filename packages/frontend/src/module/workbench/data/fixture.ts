@@ -463,34 +463,11 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
     resources.push(...inventory);
 
     const overview: OverviewData = {
-        stats: [
-            { label: '低库存预警', value: 23, delta: 3 },
-            { label: '活跃培养物', value: 48, delta: 5 },
-            { label: '待审批', value: 6, delta: -1 },
-            { label: '设备告警', value: 5, delta: 2 },
-        ],
-        inventoryAlerts: [
-            { label: '严重短缺', value: 5 },
-            { label: '库存不足', value: 11 },
-            { label: '即将用尽', value: 7 },
-        ],
-        equipmentStatus: [
-            { label: '运行中', value: 32 },
-            { label: '空闲', value: 10 },
-            { label: '维护中', value: 4 },
-            { label: '故障', value: 2 },
-        ],
         recentItems: [
             { resourceId: 'MAT-000057', visitedAt: date(0, 8, 45) },
             { resourceId: 'EQ-000028', visitedAt: date(-1, 16, 20) },
             { resourceId: 'S-20250919-001', visitedAt: date(-1, 14, 11) },
         ],
-        expiringItems: [
-            { name: '胰酶（0.25%）', description: 'CAS: 9002-07-7', days: 3 },
-            { name: '胎牛血清（FBS）', description: 'CAS: 16000-44-5', days: 7 },
-            { name: '双抗（青链霉素）', description: 'CAS: 541-05-6', days: 15 },
-        ],
-        inventoryTrend: 2,
     };
     return {
         resources,
@@ -500,16 +477,7 @@ export function createWorkbenchFixtures(): WorkbenchSnapshot {
         overviews: {
             wang: overview,
             li: {
-                stats: overview.stats.map((item) => ({
-                    ...item,
-                    value: item.label === '待审批' ? 1 : 0,
-                    delta: 0,
-                })),
-                inventoryAlerts: [],
-                equipmentStatus: [],
                 recentItems: [{ resourceId: 'MAT-000015', visitedAt: date(0, 9, 32) }],
-                expiringItems: [],
-                inventoryTrend: 0,
             },
         },
     };

@@ -22,16 +22,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     const workspace = useWorkspaceStore();
     const overviews = ref<Record<string, OverviewData>>({});
     const emptyOverview: OverviewData = {
-        stats: ['低库存预警', '活跃培养物', '待审批', '设备告警'].map((label) => ({
-            label,
-            value: 0,
-            delta: 0,
-        })),
-        inventoryAlerts: [],
-        equipmentStatus: [],
         recentItems: [],
-        expiringItems: [],
-        inventoryTrend: 0,
     };
     const busy = ref(false);
     const error = ref('');
@@ -85,22 +76,9 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     const currentExceptions = computed(() =>
         exceptions.value.filter((item) => item.workspaceId === workspace.activeId)
     );
-    const overview = computed(() => {
-        const data = overviews.value[workspace.activeId] ?? emptyOverview;
-        return {
-            ...data,
-            stats: data.stats.map((item) =>
-                item.label === '待审批'
-                    ? {
-                          ...item,
-                          value: currentApprovals.value.filter(
-                              (approval) => approval.status === '待审批'
-                          ).length,
-                      }
-                    : item
-            ),
-        };
-    });
+    const overview = computed(() => ({
+        recentItems: (overviews.value[workspace.activeId] ?? emptyOverview).recentItems,
+    }));
     const resourceById = computed(
         () => new Map(currentResources.value.map((item) => [item.id, item]))
     );

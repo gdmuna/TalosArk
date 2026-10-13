@@ -71,12 +71,7 @@ export const exceptionTone = (item: ExceptionItem): StateTone =>
     item.severity === '严重' ? 'destructive' : item.severity === '一般' ? 'caution' : 'primary';
 
 export type OverviewData = {
-    stats: { label: string; value: number; delta: number }[];
-    inventoryAlerts: { label: string; value: number }[];
-    equipmentStatus: { label: string; value: number }[];
     recentItems: { resourceId: string; visitedAt: number }[];
-    expiringItems: { name: string; description: string; days: number }[];
-    inventoryTrend: number;
 };
 export type WorkbenchSnapshot = {
     resources: Resource[];
