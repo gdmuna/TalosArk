@@ -7,7 +7,7 @@ import { HttpErrorPolicy, createHttpErrorResponse } from '../error/http.error.po
 import { errorResponseSchema } from '../route/route.contract.js';
 import { parseJsonResponse } from '../route/route.response.js';
 import { isAllowedBrowserOrigin } from '../browser-origin.policy.js';
-import type { BrowserOriginPolicy } from '@/config/browser-origin.policy.js';
+import type { BrowserOriginPolicy } from '@/config/http.config.js';
 
 import { Logger, Injectable, NestMiddleware } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';

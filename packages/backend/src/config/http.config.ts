@@ -1,6 +1,5 @@
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod/v4';
-import { BrowserOriginPolicySchema, BrowserOriginSchema } from './browser-origin.policy.js';
 
 // http
 
@@ -30,6 +29,26 @@ export const CORS_ALLOWED_METHODS = process.env.CORS_ALLOWED_METHODS?.split(',')
 export const CORS_ALLOWED_HEADERS = process.env.CORS_ALLOWED_HEADERS?.split(',')
     .map((h) => h.trim())
     .filter(Boolean) || ['Content-Type', 'Authorization', 'X-TalosArk-Client'];
+
+const BrowserOriginSchema = z.url().refine((value) => {
+    if (!URL.canParse(value)) return false;
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && url.origin === value;
+}, 'Expected a canonical HTTP(S) origin without a path');
+
+const BrowserOriginPolicySchema = z
+    .discriminatedUnion('mode', [
+        z.object({ mode: z.literal('deny') }),
+        z.object({
+            mode: z.literal('allowlist'),
+            origins: z.array(BrowserOriginSchema).min(1).readonly(),
+        }),
+        z.object({ mode: z.literal('development-loopback') }),
+        z.object({ mode: z.literal('development-any') }),
+    ])
+    .readonly();
+
+export type BrowserOriginPolicy = z.infer<typeof BrowserOriginPolicySchema>;
 
 export const httpConfigValidateSchema = z
     .object({

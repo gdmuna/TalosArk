@@ -119,15 +119,15 @@ export class AuthController {
         @Res({ passthrough: true }) reply: FastifyReply
     ): Promise<PasswordLoginResponse> {
         this.httpSession.assertClient(request);
-        const claim = request.jwtClaim;
-        if (!claim) throw new RequestError({ reason: 'authentication' });
-        await this.limiter.check('password-set', claim.sub, request.ip);
+        const authentication = request.authentication;
+        if (!authentication) throw new RequestError({ reason: 'authentication' });
+        await this.limiter.check('password-set', authentication.userId, request.ip);
         return this.httpSession.deliver(
             reply,
             await this.authService.setFirstPassword({
                 ...body,
-                userId: claim.sub,
-                sessionId: claim.sid,
+                userId: authentication.userId,
+                sessionId: authentication.sessionId,
             })
         );
     }

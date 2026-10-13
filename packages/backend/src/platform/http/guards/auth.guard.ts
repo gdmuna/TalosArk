@@ -19,6 +19,7 @@ export class AuthGuard implements CanActivate {
 
     async canActivate(context: ExecutionContext) {
         const request = context.switchToHttp().getRequest<FastifyRequest>();
+        request.authentication = null;
 
         const authStrategy = this.reflector.getAllAndOverride<AUTH_STRATEGY_TYPE>(
             AUTH_STRATEGY_KEY,
@@ -29,26 +30,21 @@ export class AuthGuard implements CanActivate {
 
         if (authStrategy === 'public') return true;
 
-        if (authStrategy === 'optional') {
-            if (!accessToken) return true;
-
-            const claim = await this.accessKernel.verifyAccessToken({ accessToken });
-            if (!claim) return true;
-
-            request.jwtClaim = claim;
-            return true;
-        }
-
         if (!accessToken) {
+            if (authStrategy === 'optional') return true;
             throw new RequestError({ reason: 'authentication' });
         }
 
         const claim = await this.accessKernel.verifyAccessToken({ accessToken });
         if (!claim) {
+            if (authStrategy === 'optional') return true;
             throw new RequestError({ reason: 'authentication' });
         }
 
-        request.jwtClaim = claim;
+        request.authentication = Object.freeze({
+            userId: claim.sub,
+            sessionId: claim.sid,
+        });
         return true;
     }
 }

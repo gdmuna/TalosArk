@@ -45,6 +45,14 @@ upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.m
 The backend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
 
+## HTTP request identity
+
+HTTP request authentication uses the Platform-owned RequestAuthentication snapshot
+(`request.authentication`: userId/sessionId), not raw JWT claims or Identity SDK types.
+Bootstrap decorates each request with null; AuthGuard binds a frozen snapshot only
+after successful Access verification. Public/optional authentication behavior and
+wire contracts are unchanged. This does not yet bind an actor into request ALS.
+
 ## Cookie binding
 
 `platform/http/decorators/Cookie` selects one name, multiple names, or the complete

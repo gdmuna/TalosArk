@@ -1,4 +1,4 @@
-import type { BrowserOriginPolicy } from '@/config/browser-origin.policy.js';
+import type { BrowserOriginPolicy } from '@/config/http.config.js';
 
 export function isAllowedBrowserOrigin(origin: unknown, policy: BrowserOriginPolicy): boolean {
     if (typeof origin !== 'string') return false;

@@ -30,6 +30,7 @@ export async function bootstrap() {
         logger: false,
         forceCloseConnections: 'idle',
     });
+    adapter.getInstance().decorateRequest('authentication', null);
     const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
         bufferLogs: true,
     });
