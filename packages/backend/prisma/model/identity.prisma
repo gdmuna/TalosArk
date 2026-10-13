@@ -10,6 +10,7 @@ model User {
   externalIdentities      ExternalIdentity[]
   sessions                Session[]
   passwordResetTokens     PasswordResetToken[]
+  activationTokens        UserActivationToken[]
   ownedOrganizations      Organization[]             @relation("OrganizationOwner")
   organizationMemberships OrganizationMember[]
   sentInvitations         OrganizationInvitation[]   @relation("InvitationSender")
@@ -74,6 +75,23 @@ model ExternalIdentity {
 
 /// High-entropy email reset credentials are hashed, expiring and consumed once.
 model PasswordResetToken {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @db.Uuid
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+/// Account activation is separate from password recovery; only a hash is persisted.
+model UserActivationToken {
   id         String    @id @default(uuid(7)) @db.Uuid
   userId     String    @db.Uuid
   email      String

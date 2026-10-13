@@ -393,6 +393,79 @@ export class AccessKernel {
         return session ? session.id : null;
     }
 
+    async revokeSessionByRefreshToken(input: Access.RotateTokenPairInput): Promise<void> {
+        const hash = createHash('sha256').update(input.refreshToken).digest('base64url');
+        await this.execute(() =>
+            this.database.transaction.run(
+                async () => {
+                    const rows = await this.database.queryClient.$queryRaw<{ id: string }[]>`
+                SELECT s."id" FROM public."Session" s
+                JOIN public."TokenPair" p ON p."sessionId" = s."id"
+                JOIN public."RefreshToken" r ON r."pairId" = p."id"
+                WHERE r."tokenHash" = ${hash} FOR UPDATE OF s
+            `;
+                    if (rows.length === 0) return;
+                    const token = await this.database.queryClient.refreshToken.findUnique({
+                        where: { tokenHash: hash },
+                        select: {
+                            expiresAt: true,
+                            tokenPair: {
+                                select: {
+                                    revokedAt: true,
+                                    session: {
+                                        select: { id: true, revokedAt: true, idleExpiresAt: true },
+                                    },
+                                },
+                            },
+                        },
+                    });
+                    if (
+                        token &&
+                        token.expiresAt > new Date() &&
+                        isTokenPairActive(token.tokenPair, new Date())
+                    ) {
+                        // A consumed but unexpired RT may revoke its session; it cannot rotate it.
+                        await this.database.queryClient.session.update({
+                            where: { id: token.tokenPair.session.id },
+                            data: { revokedAt: new Date() },
+                        });
+                    }
+                },
+                { isolationLevel: 'ReadCommitted' }
+            )
+        );
+    }
+
+    async isFreshUserSession(input: {
+        sessionId: string;
+        userId: string;
+        maxAgeSeconds: number;
+    }): Promise<boolean> {
+        return this.execute(() =>
+            this.database.transaction.run(
+                async () => {
+                    const locked = await this.database.queryClient.$queryRaw<{ id: string }[]>`
+                    SELECT "id" FROM public."Session" WHERE "id" = ${input.sessionId}::uuid FOR UPDATE
+                `;
+                    if (locked.length === 0) return false;
+                    const session = await this.database.queryClient.session.findUnique({
+                        where: { id: input.sessionId },
+                        select: sessionSelect,
+                    });
+                    const now = new Date();
+                    return (
+                        !!session &&
+                        session.userId === input.userId &&
+                        session.revokedAt === null &&
+                        session.idleExpiresAt > now &&
+                        session.createdAt.getTime() >= now.getTime() - input.maxAgeSeconds * 1000
+                    );
+                },
+                { propagation: 'mandatory' }
+            )
+        );
+    }
+
     async revokeUserSessionAll(
         input: Access.RevokeUserSessionAllInput
     ): Promise<Access.RevokeUserSessionAllOutput> {
@@ -400,6 +473,7 @@ export class AccessKernel {
             this.database.queryClient.session.updateManyAndReturn({
                 where: {
                     userId: input.userId,
+                    revokedAt: null,
                 },
                 data: {
                     revokedAt: new Date(),

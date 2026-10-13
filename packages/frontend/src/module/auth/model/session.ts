@@ -19,7 +19,6 @@ export function createAuthSession(options: AuthSessionOptions = {}) {
                 const current = credentials;
                 if (
                     !current ||
-                    Date.parse(current.tokenPair.refreshToken.expiresAt) <= Date.now() ||
                     Date.parse(current.session.idleExpiresAt) <= Date.now()
                 ) {
                     throw new Error('Session cannot be refreshed');

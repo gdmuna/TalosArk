@@ -2,6 +2,26 @@ import { AuthErrorContract } from '../auth/error.js';
 import { defineErrorCatalog } from '../protocol/error.js';
 
 export const IdentityErrorDefinition = defineErrorCatalog('identity', {
+    'credentials-invalid': {
+        public: AuthErrorContract.credentialsInvalid,
+        protocol: { http: { status: 401 } },
+        internal: { logLevel: 'info' },
+    },
+    'activation-invalid': {
+        public: AuthErrorContract.activationInvalid,
+        protocol: { http: { status: 400 } },
+        internal: { logLevel: 'info' },
+    },
+    'password-present': {
+        public: AuthErrorContract.passwordPresent,
+        protocol: { http: { status: 409 } },
+        internal: { logLevel: 'info' },
+    },
+    'password-rejected': {
+        public: AuthErrorContract.passwordRejected,
+        protocol: { http: { status: 400 } },
+        internal: { logLevel: 'info' },
+    },
     'transaction-invalid': {
         public: AuthErrorContract.transactionInvalid,
         protocol: { http: { status: 400 } },
@@ -36,6 +56,24 @@ export const IdentityErrorDefinition = defineErrorCatalog('identity', {
         public: AuthErrorContract.identityConflict,
         protocol: { http: { status: 409 } },
         internal: { logLevel: 'info' },
+    },
+});
+
+export const AuthErrorDefinition = defineErrorCatalog('auth', {
+    'attempts-limited': {
+        public: AuthErrorContract.attemptsLimited,
+        protocol: { http: { status: 429 } },
+        internal: { logLevel: 'info' },
+    },
+    'reauthentication-required': {
+        public: AuthErrorContract.reauthenticationRequired,
+        protocol: { http: { status: 403 } },
+        internal: { logLevel: 'info' },
+    },
+    unavailable: {
+        public: AuthErrorContract.authenticationUnavailable,
+        protocol: { http: { status: 503 } },
+        internal: { logLevel: 'error' },
     },
 });
 

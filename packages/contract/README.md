@@ -10,8 +10,11 @@ wire schemas and their inferred TypeScript types. The directory name remains
 src/
   auth/
     oidc.http.ts     OIDC request bodies and unwrapped responses
-    session.ts       Login session credentials in their existing wire shape
-    session.http.ts  Session refresh body and unwrapped response; logout uses HTTP 204
+    session.ts       Public session/access-token projection; no refresh token
+    session.http.ts  Optional empty refresh/logout body; logout uses HTTP 204
+    password.ts      Transport-neutral local-password input bounds/schema
+    password.http.ts Provisioning inputs, login, activation and first password
+    account.http.ts  Authenticated current-account projection
     error.ts         Auth public code/message/details schemas
     index.ts
   protocol/
@@ -39,6 +42,11 @@ those in the backend. Access tokens remain opaque to clients; do not turn the
 internal JWT claims into a client contract unless a client genuinely needs them.
 Pagination and user projections should be added when their HTTP interfaces are
 implemented, rather than exporting the current internal Prisma-backed types.
+
+`@talos-ark/contracts/auth/password` exports only the shared local-password input
+schema and code-point bounds. Core and HTTP reuse it without importing each other's
+transport types. The backend still owns password admissibility rules, hashing,
+capacity, credentials and configuration; none is part of this public entry.
 
 ## Usage
 
@@ -76,6 +84,11 @@ library is required here.
 - Endpoint response schemas describe unwrapped `data`. The backend response
   interceptor wraps them once; frontend endpoint adapters receive unwrapped
   data from the shared API client.
+- Browser Auth mutations require a configured allowed Origin and
+  `X-TalosArk-Client: browser`. Login/OIDC/refresh deliver RT only through an
+  HttpOnly Cookie, never JSON. Refresh/logout reject body RTs and session IDs;
+  their optional strict empty body allows no body or `{}`. Logout uses the
+  cookie session without requiring a usable AT and succeeds without content.
 - `ApiResponse` is discriminated by `success`. Error responses have `code`,
   `message`, `type`, and `details`, not a success `data` member. Error details
   remain endpoint-specific instead of forcing a global business-error taxonomy.
@@ -119,9 +132,12 @@ async callback(@Body() body: OidcLoginCallbackBody) {
 }
 ```
 
-`request.body`, `request.query` and `request.params` supply both OpenAPI input
+`request.body`, `request.query`, `request.params` and `request.headers` supply both OpenAPI input
 documentation and validation before Nest extracts parameter values. Inferred
 aliases may reflect as `Object`; this does not affect route-level validation.
+Header projection preserves undeclared transport headers. Optional `security`
+overrides only OpenAPI requirements (for example an RT Cookie); actual execution
+still follows the declared `auth` guard and owner-local credential checks.
 
 `responses` supports multiple statuses and schemas. Its first entry sets the
 default HTTP status; `@Res({ passthrough: true })` may select another declared

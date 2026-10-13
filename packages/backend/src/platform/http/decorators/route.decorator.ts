@@ -34,8 +34,12 @@ export function ApiRoute(options: ApiRouteOptions): MethodDecorator {
         ...(contract.request.body
             ? [ApiConsumes(...(options.consumes ?? ['application/json']))]
             : []),
-        ...(contract.auth === 'public' ? [] : [ApiSecurity({ accessToken: [] })]),
-        ...(contract.auth !== 'required' ? [ApiSecurity({})] : [])
+        ...(options.security
+            ? options.security.map((security) => ApiSecurity(security))
+            : [
+                  ...(contract.auth === 'public' ? [] : [ApiSecurity({ accessToken: [] })]),
+                  ...(contract.auth !== 'required' ? [ApiSecurity({})] : []),
+              ])
     );
     return (target, key, descriptor) => {
         const args = Reflect.getMetadata(ROUTE_ARGS_METADATA, target.constructor, key) as

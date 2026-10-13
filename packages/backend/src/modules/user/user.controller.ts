@@ -2,26 +2,32 @@ import { UserService } from './user.service.js';
 
 import { ApiRoute } from '@/platform/http/decorators/route.decorator.js';
 
-import { Controller, Get, Query } from '@nestjs/common';
-import { z } from 'zod';
+import { Controller, Get, Req, Res } from '@nestjs/common';
+import {
+    CurrentAccountResponseSchema,
+    type CurrentAccountResponse,
+} from '@talos-ark/contracts/auth';
+import { IdentityErrorDefinition } from '@talos-ark/contracts/backend';
+import { RequestError } from '@/platform/request/request.error.js';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 
 @Controller('user')
 export class UserController {
     constructor(private readonly userService: UserService) {}
 
-    @Get()
-    @ApiRoute({
-        auth: 'required',
-        summary: 'get user',
-        responses: [{ status: 200, schema: z.null() }],
-    })
-    async getUser(@Query('id') id: string) {}
-
     @Get('me')
     @ApiRoute({
         auth: 'required',
-        summary: 'get me',
-        responses: [{ status: 200, schema: z.null() }],
+        summary: 'Read the authenticated current account',
+        responses: [{ status: 200, schema: CurrentAccountResponseSchema }],
+        errors: [IdentityErrorDefinition['login-unavailable']],
     })
-    async getMe() {}
+    async getMe(
+        @Req() request: FastifyRequest,
+        @Res({ passthrough: true }) reply: FastifyReply
+    ): Promise<CurrentAccountResponse> {
+        if (!request.jwtClaim) throw new RequestError({ reason: 'authentication' });
+        reply.header('Cache-Control', 'no-store');
+        return this.userService.getMe(request.jwtClaim.sub);
+    }
 }

@@ -25,17 +25,21 @@ ddl/
 - `upgrade/` contains explicit upgrades for a particular existing data state;
   these scripts are not part of new-database initialization.
 
-| File | Execution point | Ownership |
-| --- | --- | --- |
-| [init/extension.sql](init/extension.sql) | Before schema synchronization | Native database prerequisites; currently only `ltree` |
-| [schema/storage-node.sql](schema/storage-node.sql) | After schema synchronization | Storage-node write invariants and subtree moves |
-| [upgrade/storage-node-path.sql](upgrade/storage-node-path.sql) | Existing adjacency-list tables only, before synchronization | Explicit, exclusive-lock path backfill |
+| File                                                           | Execution point                                             | Ownership                                             |
+| -------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
+| [init/extension.sql](init/extension.sql)                       | Before schema synchronization                               | Native database prerequisites; currently only `ltree` |
+| [schema/storage-node.sql](schema/storage-node.sql)             | After schema synchronization                                | Storage-node write invariants and subtree moves       |
+| [schema/identity.sql](schema/identity.sql)                     | After synchronization, before account writes                | Normalized case-insensitive email uniqueness          |
+| [upgrade/storage-node-path.sql](upgrade/storage-node-path.sql) | Existing adjacency-list tables only, before synchronization | Explicit, exclusive-lock path backfill                |
 
 Do not execute all DDL stages recursively or alphabetically. Prisma schema
 synchronization belongs between `init/` and `schema/`. `db:init` executes regular
 `.sql` files directly in `init/`, in filename order; `db:prepare` is its
 compatibility alias. `db:apply-ddl` still targets only `schema/storage-node.sql`.
 No initialization command includes files from `schema/` or `upgrade/`.
+P01 adds `db:apply-identity-ddl` for identity.sql; it is not included in the
+storage-only `db:apply-ddl`. Its expression index supplements Prisma's ordinary
+email unique constraint and refuses pre-existing normalized collisions.
 
 Without an explicit environment selector, database commands prompt in an
 interactive terminal. CI/non-interactive calls require `--env` or `--env-file`.
@@ -55,6 +59,7 @@ Run from the repository root:
 ```powershell
 pnpm --filter @talos-ark/backend db:init --env dev.local
 pnpm --filter @talos-ark/backend db:push --env dev.local
+pnpm --filter @talos-ark/backend db:apply-identity-ddl --env dev.local
 pnpm --filter @talos-ark/backend db:apply-ddl --env dev.local
 pnpm --filter @talos-ark/backend db:gen-client --env dev.local
 ```
