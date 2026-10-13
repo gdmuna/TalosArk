@@ -6,6 +6,8 @@ import {
     watchEffect,
     onUnmounted,
     markRaw,
+    reactive,
+    ref,
     type Ref,
     type MaybeRef,
     type Reactive,
@@ -15,9 +17,9 @@ import {
 
 import { provideLocal, injectLocal, toRef } from '@vueuse/core';
 import { useUiContextStore } from '@/component/view-context';
-import type { TabComponentContextEntity, TabComponentContextState } from '@/component/view-context';
+import type { TabComponentContextEntity, TabComponentContextState } from '../type';
 
-export type { TabComponentContextEntity, TabComponentContextState } from '@/component/view-context';
+export type { TabComponentContextEntity, TabComponentContextState } from '../type';
 
 type TabId = string;
 
@@ -43,7 +45,11 @@ export const TabComponentContextKey: InjectionKey<TabComponentContext> =
     Symbol('TabComponentContext');
 
 export function useTabComponentProvider(opts?: MaybeRef<TabComponentProviderConf>) {
-    const scope = useUiContextStore().createTabComponents();
+    const scope = useUiContextStore().register({
+        store: reactive(new Map<string, Map<string, TabComponentContextEntity>>()),
+        state: ref<TabComponentContextState>('idle'),
+        createTabRule: reactive(new Set<RegExp>()),
+    });
     const { store, state: _state, createTabRule: _createTabRule } = scope.state;
     const state = readonly(_state);
     const setState = (state: TabComponentContextState) => {

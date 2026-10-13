@@ -2,6 +2,8 @@ import {
     readonly,
     computed,
     onUnmounted,
+    reactive,
+    ref,
     type InjectionKey,
     type Ref,
     type ComputedRef,
@@ -14,9 +16,9 @@ import { provideLocal, injectLocal } from '@vueuse/core';
 
 import { eventBus } from './eventBus';
 import { useUiContextStore } from '@/component/view-context';
-import type { TabContextEntity, TabContextCreateOpts } from '@/component/view-context';
+import type { TabContextEntity, TabContextCreateOpts } from '../type';
 
-export type { TabContextEntity, TabContextCreateOpts } from '@/component/view-context';
+export type { TabContextEntity, TabContextCreateOpts } from '../type';
 
 export type TabContext = {
     store: Reactive<Map<string, TabContextEntity>>;
@@ -29,7 +31,11 @@ export type TabContext = {
 export const TabContextKey: InjectionKey<TabContext> = Symbol('TabContext');
 
 export function useTabProvider() {
-    const scope = useUiContextStore().createWorkspaceTabs();
+    const scope = useUiContextStore().register({
+        store: reactive(new Map<string, TabContextEntity>()),
+        tabOrder: reactive<string[]>([]),
+        activeTabId: ref('__NULL__'),
+    });
     const { store, tabOrder, activeTabId: _activeTabId } = scope.state;
     const activeTabId = readonly(_activeTabId);
     const setActiveTabId = (tabId?: string | null) => {

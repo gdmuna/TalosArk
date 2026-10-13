@@ -1,12 +1,12 @@
 // TODO: 考虑废弃
 
-import { readonly, onUnmounted, type InjectionKey } from 'vue';
+import { readonly, onUnmounted, reactive, type InjectionKey } from 'vue';
 import { useUiContextStore } from '@/component/view-context';
 import type {
     TabCustomContextNamespace,
     TabCustomContextStore,
     TabCustomContextNamespaceKey,
-} from '@/component/view-context';
+} from '../type';
 
 import { provideLocal, injectLocal } from '@vueuse/core';
 
@@ -16,12 +16,12 @@ export type {
     TabCustomContextNamespace,
     TabCustomContextStore,
     TabCustomContextNamespaceKey,
-} from '@/component/view-context';
+} from '../type';
 
 export const TabCustomContextKey: InjectionKey<TabCustomContextStore> = Symbol('TabCustomContext');
 
 export function useTabCustomContextProvider() {
-    const scope = useUiContextStore().createTabContext();
+    const scope = useUiContextStore().register(reactive<TabCustomContextStore>(new Map()));
     const store = scope.state;
     provideLocal(TabCustomContextKey, store);
 

@@ -1,14 +1,5 @@
-import { reactive, ref, shallowReactive } from 'vue';
+import { shallowReactive } from 'vue';
 import { defineStore } from 'pinia';
-import type {
-    RouteTabContextEntity,
-    TabContextEntity,
-    TabComponentContextEntity,
-    TabComponentContextState,
-    TabCustomContextStore,
-    ViewHistoryEntity,
-    SlotContextEntity,
-} from './type';
 
 export const useUiContextStore = defineStore('ui-contexts', () => {
     // Each provider owns a scope; nested shells never share an accidental singleton.
@@ -18,39 +9,8 @@ export const useUiContextStore = defineStore('ui-contexts', () => {
         scopes.set(id, state);
         return { state, dispose: () => scopes.delete(id) };
     }
-    function createRouteTabs<T>() {
-        return register({
-            store: reactive(new Map<string, RouteTabContextEntity<T>>()),
-            tabOrder: reactive<string[]>([]),
-        });
-    }
-    function createWorkspaceTabs() {
-        return register({
-            store: reactive(new Map<string, TabContextEntity>()),
-            tabOrder: reactive<string[]>([]),
-            activeTabId: ref('__NULL__'),
-        });
-    }
-    function createTabComponents() {
-        return register({
-            store: reactive(new Map<string, Map<string, TabComponentContextEntity>>()),
-            state: ref<TabComponentContextState>('idle'),
-            createTabRule: reactive(new Set<RegExp>()),
-        });
-    }
-    const createTabContext = () => register(reactive<TabCustomContextStore>(new Map()));
-    const createViewHistory = () => register(reactive(new Map<string, ViewHistoryEntity>()));
-    const createSlots = () => register(reactive(new Map<string, SlotContextEntity[]>()));
-    const createBreadcrumbLayers = <T>() =>
-        register({ layers: shallowReactive(new Map<symbol, T>()) });
     return {
         scopes,
-        createRouteTabs,
-        createWorkspaceTabs,
-        createTabComponents,
-        createTabContext,
-        createViewHistory,
-        createSlots,
-        createBreadcrumbLayers,
+        register,
     };
 });
