@@ -1,4 +1,12 @@
-import { unref, readonly, computed, onUnmounted, type InjectionKey, type MaybeRef } from 'vue';
+import {
+    unref,
+    readonly,
+    computed,
+    onUnmounted,
+    reactive,
+    type InjectionKey,
+    type MaybeRef,
+} from 'vue';
 
 import { provideLocal, injectLocal } from '@vueuse/core';
 
@@ -6,13 +14,9 @@ import { useRouter, useRoute, type RouteLocationRaw } from 'vue-router';
 
 import { resolveDefaultTitle } from '@/shared/util';
 import { useUiContextStore } from '@/component/view-context';
-import type { ViewHistoryEntryOpts, ViewHistoryEntity } from '@/component/view-context';
+import type { ViewHistoryEntryOpts, ViewHistoryEntity } from '../type';
 
-export type {
-    ViewHistoryEntry,
-    ViewHistoryEntryOpts,
-    ViewHistoryEntity,
-} from '@/component/view-context';
+export type { ViewHistoryEntry, ViewHistoryEntryOpts, ViewHistoryEntity } from '../type';
 
 export type ViewHistorySyncOpts = {
     force?: boolean;
@@ -23,7 +27,7 @@ export type ViewHistoryContext = Map<string, ViewHistoryEntity>;
 export const ViewHistoryContextKey: InjectionKey<ViewHistoryContext> = Symbol('ViewHistoryContext');
 
 export function useViewHistoryProvider() {
-    const scope = useUiContextStore().createViewHistory();
+    const scope = useUiContextStore().register(reactive(new Map<string, ViewHistoryEntity>()));
     const store = scope.state;
     provideLocal(ViewHistoryContextKey, store);
 

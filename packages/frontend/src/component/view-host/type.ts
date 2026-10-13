@@ -1,11 +1,6 @@
 import type { Component } from 'vue';
 import type { LocationQuery, RouteParamsGeneric } from 'vue-router';
 
-export type RouteTabContextEntity<T = unknown> = {
-    id: string;
-    value: T;
-};
-
 export type TabContextEntity = {
     id: string;
     // title: string;

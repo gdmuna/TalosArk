@@ -4,6 +4,7 @@ import {
     computed,
     markRaw,
     onUnmounted,
+    reactive,
     type Reactive,
     type InjectionKey,
     type Component,
@@ -13,9 +14,9 @@ import { v7 as uuidv7 } from 'uuid';
 
 import { useTab } from '../tab/useTab';
 import { useUiContextStore } from '@/component/view-context';
-import type { SlotContextEntity } from '@/component/view-context';
+import type { SlotContextEntity } from '../type';
 
-export type { SlotContextEntity } from '@/component/view-context';
+export type { SlotContextEntity } from '../type';
 
 export type SlotContext = Reactive<Map<string, SlotContextEntity[]>>;
 
@@ -23,7 +24,7 @@ export const SlotContextKey: InjectionKey<SlotContext> = Symbol('SlotContext');
 export const SlotNamespaceKey: InjectionKey<string> = Symbol('SlotNamespace');
 
 export function useSlotProvider() {
-    const scope = useUiContextStore().createSlots();
+    const scope = useUiContextStore().register(reactive(new Map<string, SlotContextEntity[]>()));
     const store = scope.state;
     provide(SlotContextKey, store);
 

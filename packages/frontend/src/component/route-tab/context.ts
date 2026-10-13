@@ -1,12 +1,14 @@
 import { MaybeArray, asArray } from '@/shared/util';
 
-import { computed, onUnmounted, type Reactive, type InjectionKey, UnwrapRef } from 'vue';
+import { computed, onUnmounted, reactive, type Reactive, type InjectionKey, UnwrapRef } from 'vue';
 import { useUiContextStore } from '@/component/view-context';
-import type { RouteTabContextEntity } from '@/component/view-context';
 
 import { provideLocal, injectLocal } from '@vueuse/core';
 
-export type { RouteTabContextEntity } from '@/component/view-context';
+export type RouteTabContextEntity<T = unknown> = {
+    id: string;
+    value: T;
+};
 
 export type RouteTabContext<T = unknown> = {
     store: Reactive<Map<string, RouteTabContextEntity<T>>>;
@@ -19,7 +21,10 @@ export function createRouteTabContext<T = unknown>() {
     const RouteTabContextKey: InjectionKey<RouteTabContext<T>> = Symbol('RouteTabContext');
 
     const provideRouteTabContext = () => {
-        const scope = useUiContextStore().createRouteTabs<T>();
+        const scope = useUiContextStore().register({
+            store: reactive(new Map<string, RouteTabContextEntity<T>>()),
+            tabOrder: reactive<string[]>([]),
+        });
         const { store, tabOrder } = scope.state;
 
         const ctx = {
