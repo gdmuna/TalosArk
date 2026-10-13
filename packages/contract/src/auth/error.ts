@@ -12,6 +12,11 @@ export const AuthErrorContract = {
         'Activation link is invalid or expired',
         z.null()
     ),
+    passwordRecoveryInvalid: defineErrorContract(
+        'AUTH_PASSWORD_RECOVERY_INVALID',
+        'Password recovery link is invalid or expired',
+        z.null()
+    ),
     passwordPresent: defineErrorContract(
         'AUTH_PASSWORD_PRESENT',
         'A local password is already configured',

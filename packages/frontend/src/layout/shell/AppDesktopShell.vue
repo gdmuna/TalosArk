@@ -1,5 +1,5 @@
 <template>
-    <div class="desktop-shell flex flex-col h-svh min-w-4xl bg-muted">
+    <div class="desktop-shell flex flex-col h-svh bg-muted" :class="route.meta.fluidLayout ? 'min-w-0' : 'min-w-4xl'">
         <header
             ref="titlebar"
             data-slot="window-titlebar"
@@ -52,12 +52,14 @@
 import { Button } from '@/ui/button';
 
 import { ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { useElementBounding } from '@vueuse/core';
 import { provideOverlayContainer } from '@/shared/browser/overlay-container';
 
 import { X, Square, Minus, Box, Copy } from '@lucide/vue';
 
 const windowState = ref<'minimize' | 'maximize' | 'normal'>('maximize');
+const route = useRoute();
 const titlebar = ref<HTMLElement | null>(null);
 const overlayContainer = ref<HTMLElement | null>(null);
 const { height: titlebarHeight } = useElementBounding(titlebar);

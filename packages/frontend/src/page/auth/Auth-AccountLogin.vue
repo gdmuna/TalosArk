@@ -14,8 +14,9 @@
                         variant="link"
                         size="sm"
                         class="h-auto px-0 text-xs font-normal cursor-pointer"
+                        as-child
                     >
-                        忘记密码？
+                        <RouterLink to="/auth/recovery">忘记密码？</RouterLink>
                     </Button>
                 </div>
                 <Input

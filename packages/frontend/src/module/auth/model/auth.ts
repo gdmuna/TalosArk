@@ -2,6 +2,10 @@ import {
     OidcLoginCallbackBodySchema,
     type OidcLoginCallbackBody,
     type OidcLoginCallbackResponse,
+    PasswordRecoveryRequestBodySchema,
+    PasswordRecoveryConfirmBodySchema,
+    type PasswordRecoveryRequestBody,
+    type PasswordRecoveryConfirmBody,
 } from '@talos-ark/contracts/auth';
 import { AuthenticationError, type RequestOptions } from '@/platform/http';
 import type { AuthDataSource } from '../data/source';
@@ -28,10 +32,26 @@ export function createAuthActions(source: AuthDataSource, session: AuthSession) 
         session.clear();
     }
 
+    async function confirmPasswordRecovery(
+        body: PasswordRecoveryConfirmBody,
+        options: RequestOptions = {}
+    ) {
+        const revision = loginRevision;
+        const response = await source.confirmPasswordRecovery(
+            PasswordRecoveryConfirmBodySchema.parse(body),
+            options
+        );
+        if (revision === loginRevision) clearLocalSession();
+        return response;
+    }
+
     return {
         startOidcLogin: (options?: RequestOptions) => source.startOidcLogin(options),
         completeOidcLogin,
         clearLocalSession,
+        requestPasswordRecovery: (body: PasswordRecoveryRequestBody, options?: RequestOptions) =>
+            source.requestPasswordRecovery(PasswordRecoveryRequestBodySchema.parse(body), options),
+        confirmPasswordRecovery,
     };
 }
 

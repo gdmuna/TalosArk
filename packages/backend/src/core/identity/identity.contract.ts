@@ -41,6 +41,25 @@ export interface SetFirstPasswordInput {
     preparedPassword: PreparedPassword;
 }
 
+export interface IssuePasswordRecoveryInput {
+    email: string;
+    expiresAt: Date;
+}
+/** Internal mail delivery only; never return this credential over HTTP or log it. */
+export interface IssuedPasswordRecovery {
+    id: string;
+    email: string;
+    token: string;
+    expiresAt: Date;
+}
+export interface ConfirmPasswordRecoveryInput {
+    token: string;
+    preparedPassword: PreparedPassword;
+}
+export interface ConfirmPasswordRecoveryOutput {
+    userId: string;
+}
+
 export interface CreateOidcTransactionOutput {
     transactionId: string;
     url: string;
