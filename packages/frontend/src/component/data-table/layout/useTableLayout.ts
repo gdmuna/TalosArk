@@ -1,5 +1,6 @@
 import { computed, ref, type Ref } from 'vue';
 import { useElementSize, useResizeObserver, useScroll } from '@vueuse/core';
+import { findHeightConstraint } from './geometry';
 
 export function useTableLayout(
     frame: Ref<HTMLElement | null>,
@@ -16,24 +17,9 @@ export function useTableLayout(
     const { x: scrollLeft } = useScroll(horizontalViewport);
     const { width: viewportWidth } = useElementSize(horizontalViewport);
     const { height: recordViewportHeight } = useElementSize(parts.viewport);
-    const heightParent = computed(() => {
-        let parent = frame.value?.parentElement;
-        while (parent && parent !== document.body) {
-            const styles = parent.computedStyleMap?.();
-            const height = styles?.get('height')?.toString() ?? parent.style.height;
-            const maxHeight = styles?.get('max-height')?.toString() ?? parent.style.maxHeight;
-            if (
-                parent.dataset.slot === 'scroll-area-viewport' ||
-                (parent.clientHeight &&
-                    ((height && height !== 'auto') ||
-                        (maxHeight && maxHeight !== 'none') ||
-                        /auto|scroll|hidden/.test(getComputedStyle(parent).overflowY)))
-            )
-                return parent;
-            parent = parent.parentElement;
-        }
-        return undefined;
-    });
+    const heightParent = computed(() =>
+        frame.value ? findHeightConstraint(frame.value) : undefined
+    );
     const chromeHeight = ref(0);
     const rowHeight = ref(57); // Default single-line row with 32px actions, 24px padding and a border.
     const minimumRecordHeight = computed(
