@@ -10,6 +10,7 @@ network=""
 backend=""
 postgres=""
 valkey=""
+smtp=""
 
 cleanup() {
     status=$?
@@ -18,11 +19,11 @@ cleanup() {
         docker stop --time 15 "$backend" >/dev/null 2>&1 || true
         docker rm -fv "$backend" >/dev/null 2>&1 || true
     fi
-    for container in "$postgres" "$valkey"; do
+    for container in "$postgres" "$valkey" "$smtp"; do
         if [ -n "$container" ]; then docker rm -fv "$container" >/dev/null 2>&1 || true; fi
     done
     if [ -n "$network" ]; then docker network rm "$network" >/dev/null 2>&1 || true; fi
-    rm -f "$work/access-private.pem" "$work/access-public.pem" "$work/certificate.pem" "$work/backend.env"
+    rm -f "$work/access-private.pem" "$work/access-public.pem" "$work/casdoor-private.pem" "$work/certificate.pem" "$work/backend.env"
     rmdir "$work"
     exit "$status"
 }
@@ -33,20 +34,24 @@ trap 'exit 143' TERM
 umask 077
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$work/access-private.pem"
 openssl pkey -in "$work/access-private.pem" -pubout -out "$work/access-public.pem"
-cp "$work/access-public.pem" "$work/certificate.pem"
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$work/casdoor-private.pem"
+openssl pkey -in "$work/casdoor-private.pem" -pubout -out "$work/certificate.pem"
 chmod 444 "$work/certificate.pem"
 
 network="$(docker network create "$prefix")"
 postgres="$(docker run -d --name "$prefix-postgres" --network "$prefix" --network-alias postgres \
     -e POSTGRES_USER=openapi -e POSTGRES_PASSWORD=openapi -e POSTGRES_DB=openapi postgres:18.6-trixie)"
 valkey="$(docker run -d --name "$prefix-valkey" --network "$prefix" --network-alias valkey valkey/valkey:9.1-trixie)"
+smtp="$(docker run -d --name "$prefix-smtp" --network "$prefix" --network-alias smtp axllent/mailpit:v1.27.4)"
 for attempt in $(seq 1 30); do
     if docker exec "$postgres" pg_isready -U openapi -d openapi >/dev/null 2>&1 \
-        && docker exec "$valkey" valkey-cli ping >/dev/null 2>&1; then break; fi
+        && docker exec "$valkey" valkey-cli ping >/dev/null 2>&1 \
+        && docker exec "$smtp" /mailpit readyz >/dev/null 2>&1; then break; fi
     sleep 1
 done
 docker exec "$postgres" pg_isready -U openapi -d openapi
 docker exec "$valkey" valkey-cli ping
+docker exec "$smtp" /mailpit readyz
 
 cat > "$work/backend.env" <<EOF
 NODE_ENV=test
@@ -66,6 +71,11 @@ CASDOOR_OIDC_REDIRECT_URI=http://localhost:3000/api/v1/auth/oidc/login-callback
 S3_ENDPOINT=http://storage.invalid:9000
 S3_ACCESS_KEY_ID=openapi
 S3_SECRET_ACCESS_KEY=openapi
+SMTP_HOST=smtp
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=false
+SMTP_FROM=sender@example.test
 LOG_LEVEL=warn
 EOF
 backend="$(docker create --name "$prefix-backend" --network "$prefix" --env-file "$work/backend.env" \

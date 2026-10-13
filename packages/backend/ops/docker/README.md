@@ -119,19 +119,25 @@ From the repository root, use
 `bash packages/backend/ops/docker/ci/export-openapi.sh <backend-image>` to export
 OpenAPI from an image. Linux, Docker CLI/daemon and OpenSSL are required.
 The CD workflows pass the digest of the image built in that run, not a moving
-latest tag. The helper starts uniquely named disposable PostgreSQL and Valkey
+latest tag. The helper starts uniquely named disposable PostgreSQL, Valkey and
+Mailpit (pinned to v1.27.4) SMTP receiver
 containers on a private network, generates temporary access-token keys and a
-certificate, and starts backend with an explicit synthetic env file. It invokes
+RSA provider verification key, and starts backend with an explicit synthetic env file. It invokes
 the normal entrypoint and compiled application, but intentionally does not load
 the packaged runtime profiles or real decryption keys.
 
 No ports are published, no existing data volume is used, and no business DDL is
 executed. Provider/storage addresses are non-routable fixtures; this verifies
-startup and document export, not real OIDC or storage operations. Cleanup stops
+startup and document export, not real OIDC, storage or mail delivery. SMTP verifies
+against the private receiver with no authentication, TLS requirement or outbound
+relay; no SMTP/Web UI ports are published. This cleartext exception belongs only
+to the disposable internal export network, never a production credentialed server.
+The receiver follows the [official Mailpit image layout](https://mailpit.axllent.org/docs/install/docker/).
+Cleanup stops
 the owned backend with the existing 15-second grace and removes its containers,
 anonymous volumes, network and temporary keys even when export fails.
 
 The artifact is written to packages/docsite/api-reference/openapi.json. Docsite
 publishing, Scalar and nginx consume that file; see
-[docsite README](../../../../docsite/README.md). GitHub Actions execution, registry
+[docsite README](../../../docsite/README.md). GitHub Actions execution, registry
 pushes and production rollout remain separate from local delivery verification.
