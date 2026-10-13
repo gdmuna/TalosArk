@@ -57,6 +57,21 @@ separate ungated client, never the blocked client's admission queue. No outbound
 Core Kernel, global Axios mutation or additional S3 retry layer is introduced.
 Usage, limits and lifecycle semantics live in docs/design/outbound-http.md.
 
+## Outbound mail
+
+`infra/mail` requires explicit MailModule.forRoot/forRootAsync configuration and
+exports only MailService as a Nest provider. It does not read global ConfigService
+or register in AppModule by default. Activation snapshots and validates SMTP
+configuration; Nest initialization verifies connection/TLS/auth without sending.
+Send returns SMTP accepted/partial recipient results, never an inbox-delivery promise.
+The adapter owns Nodemailer SMTPConnection/MIME operations, bounded concurrency,
+phase/whole-operation deadlines, cancellation and drain/forced socket teardown.
+There is no automatic retry, pooled requeue, Outbox or business recovery flow.
+Known failures use MailError with phase/outcome; unknown programming errors retain
+identity. Safe English observations and diagnostics exclude recipients, content,
+credentials and raw server replies. Usage, internal breaking changes and isolated
+verification limits live in docs/design/mvp-i01-mail-2026-10-13.md.
+
 ## Database runtime
 
 `infra/database` owns the Prisma-backed DatabaseRuntime. Its native `client` is

@@ -1,49 +1,77 @@
-import { AllConfig } from '@/config/index.js';
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { z } from 'zod';
+import type { MailMessage, MailSendOptions, MailSendResult } from './mail.contract.js';
+import { MailError } from './mail.error.js';
+import { MAIL_OPTIONS, resolveSmtpOptions, type MailModuleOptions } from './mail.options.js';
+import { MailTransport } from './mail.transport.js';
+import { mailboxSchema } from './mail.address.js';
 
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import nodemailer, { type Transporter } from 'nodemailer';
+const messageSchema = z
+    .strictObject({
+        to: z.union([mailboxSchema, z.array(mailboxSchema).min(1).max(50)]),
+        subject: z
+            .string()
+            .min(1)
+            .max(998)
+            .regex(/^[^\r\n]+$/),
+        text: z.string().optional(),
+        html: z.string().optional(),
+    })
+    .refine((message) => !!message.text || !!message.html);
 
 @Injectable()
-export class MailService implements OnModuleInit {
-    private transporter!: Transporter;
+export class MailService implements OnModuleInit, OnModuleDestroy {
+    private readonly transport: MailTransport;
 
-    constructor(private readonly configService: ConfigService<AllConfig, true>) {}
-
-    onModuleInit() {
-        const cfg = this.configService.get('mail', { infer: true });
-        this.transporter = nodemailer.createTransport({
-            host: cfg.host,
-            port: cfg.port,
-            secure: cfg.secure,
-            auth: {
-                user: cfg.user,
-                pass: cfg.pass,
-            },
-        });
+    constructor(
+        @Inject(MAIL_OPTIONS) options: MailModuleOptions,
+        @InjectPinoLogger(MailService.name) private readonly logger: PinoLogger
+    ) {
+        this.transport = new MailTransport(resolveSmtpOptions(options.options));
     }
 
-    /**
-     * 发送纯文本/HTML 邮件。
-     *
-     * @param to 收件人地址。
-     * @param subject 主题。
-     * @param text 纯文本正文（可选，html 优先）。
-     * @param html HTML 正文（可选）。
-     */
-    async sendMail(params: {
-        to: string;
-        subject: string;
-        text?: string;
-        html?: string;
-    }): Promise<void> {
-        const cfg = this.configService.get('mail', { infer: true });
-        await this.transporter.sendMail({
-            from: cfg.from,
-            to: params.to,
-            subject: params.subject,
-            text: params.text,
-            html: params.html,
-        });
+    async onModuleInit(): Promise<void> {
+        await this.verify();
+    }
+
+    async onModuleDestroy(): Promise<void> {
+        await this.transport.close();
+        this.logger.debug({ event: 'mail.smtp.closed' }, 'SMTP resources closed');
+    }
+
+    /** Connects and authenticates without sending a message; does not prove sender acceptance. */
+    async verify(): Promise<void> {
+        const started = performance.now();
+        await this.transport.verify();
+        this.logger.info(
+            { event: 'mail.smtp.verified', durationMs: performance.now() - started },
+            'SMTP connection verified'
+        );
+    }
+
+    async sendMail(message: MailMessage, options: MailSendOptions = {}): Promise<MailSendResult> {
+        const input = messageSchema.safeParse(message);
+        if (!input.success) {
+            throw new MailError({
+                reason: 'invalid-request',
+                operation: 'send',
+                phase: 'configuration',
+                outcome: 'not-sent',
+            });
+        }
+        const started = performance.now();
+        const result = await this.transport.send(input.data, options);
+        this.logger.debug(
+            {
+                event: 'mail.smtp.accepted',
+                status: result.status,
+                acceptedCount: result.accepted.length,
+                rejectedCount: result.rejected.length,
+                durationMs: performance.now() - started,
+            },
+            'SMTP message accepted'
+        );
+        return result;
     }
 }
