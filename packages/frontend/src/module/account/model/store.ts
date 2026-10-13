@@ -1,5 +1,6 @@
-import { ref } from 'vue';
+import { onScopeDispose, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { createTaskScope, waitFor } from '@/platform/task';
 import type { AccountDataSource } from '../data/source';
 import type { AccountProfile } from './account';
 
@@ -9,10 +10,28 @@ export const useAccountStore = defineStore('account-profile', () => {
     const error = ref('');
     const syncError = ref('');
     let source: AccountDataSource;
+    let sourceScope = createTaskScope([]);
+    onScopeDispose(() => sourceScope.dispose());
 
-    async function initialize(dataSource: AccountDataSource) {
+    function connect(dataSource: AccountDataSource) {
+        sourceScope.dispose();
+        sourceScope = createTaskScope([]);
         source = dataSource;
-        profile.value = await source.load();
+    }
+    async function load(signal?: AbortSignal) {
+        const task = createTaskScope([sourceScope.signal, signal]);
+        try {
+            task.signal.throwIfAborted();
+            const snapshot = await waitFor(source.load(task.signal), task.signal);
+            task.signal.throwIfAborted();
+            profile.value = snapshot;
+        } finally {
+            task.dispose();
+        }
+    }
+    async function initialize(dataSource: AccountDataSource) {
+        connect(dataSource);
+        await load();
     }
     async function updateDisplayName(name: string) {
         if (busy.value) return '账户资料正在更新';
@@ -46,5 +65,15 @@ export const useAccountStore = defineStore('account-profile', () => {
             busy.value = false;
         }
     }
-    return { profile, busy, error, syncError, initialize, updateDisplayName, retrySync };
+    return {
+        profile,
+        busy,
+        error,
+        syncError,
+        connect,
+        load,
+        initialize,
+        updateDisplayName,
+        retrySync,
+    };
 });

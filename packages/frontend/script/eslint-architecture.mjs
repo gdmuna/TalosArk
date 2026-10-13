@@ -64,7 +64,7 @@ export const frontendImportBoundaries = {
             entry: 'Import {{owner}} through its public entry, not {{entry}}.',
             internal:
                 'Use a relative implementation import inside {{owner}}, not its own public barrel or alias.',
-            mock: 'Only main.ts selects mock adapters; only each adapter imports its fixtures.',
+            mock: 'Only bootstrap.ts selects mock adapters; only each adapter imports its fixtures.',
             modelData: 'Module models depend on data/source.ts, not concrete data adapters.',
             navigation:
                 'Navigation descriptions must not depend on page implementations or route assembly.',
@@ -100,7 +100,7 @@ export const frontendImportBoundaries = {
             }
             if (to.layer === 'module') {
                 if (to.entry === 'data/mock.ts') {
-                    if (from.relative !== 'main.ts') report('mock');
+                    if (from.relative !== 'bootstrap.ts') report('mock');
                     return;
                 }
                 if (to.entry === 'data/fixture.ts') {

@@ -26,6 +26,7 @@ declare module 'vue-router' {
         resourceDetail?: boolean;
         /** Public forms may use the available width instead of the desktop minimum. */
         fluidLayout?: boolean;
+        requiresApplicationData?: boolean;
     }
 }
 
@@ -69,6 +70,7 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/main',
         component: DesktopPrimarySidebarShell,
+        meta: { requiresApplicationData: true },
         children: [
             {
                 path: '',
