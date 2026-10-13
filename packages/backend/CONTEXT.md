@@ -45,6 +45,16 @@ upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.m
 The backend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
 
+## Cookie binding
+
+`platform/http/decorators/Cookie` selects one name, multiple names, or the complete
+parsed Cookie map. `schema` controls optionality/defaults and async validation;
+without it, selected names are required. `onFailure` defaults to throwing the
+existing request validation error or may return whole-parameter undefined.
+Programming/configuration errors and downstream pipes are never softened. Schema
+parameters use output type aliases rather than DTO classes to avoid global-pipe
+revalidation. Usage and verification limits live in docs/design/cookie-binding.md.
+
 ## Outbound HTTP
 
 `infra/http` provides independent, factory-managed Axios clients, total deadlines,
