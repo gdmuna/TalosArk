@@ -14,10 +14,6 @@ export const SessionCredentialsSchema = z.object({
             value: z.string().min(1),
             expiresAt: UtcDateTimeSchema,
         }),
-        refreshToken: z.object({
-            value: z.string().min(1),
-            expiresAt: UtcDateTimeSchema,
-        }),
     }),
 });
 

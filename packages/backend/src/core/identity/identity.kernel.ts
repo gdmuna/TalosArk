@@ -3,6 +3,7 @@ import type { Prisma } from '@root/prisma/generated/client.js';
 import { identityOidcTransactionKey } from './identity.key.js';
 import { IdentityError } from './identity.error.js';
 import { identityErrors } from './identity.error.mapper.js';
+import { IdentityCredential } from './internal/identity.credential.js';
 
 import { createSecureRandomString } from '@/common/utils/crypto.js';
 
@@ -48,8 +49,35 @@ export class IdentityKernel {
     constructor(
         private readonly database: DatabaseRuntime,
         private readonly oidc: CasdoorOidcClient,
-        private readonly kvsClient: KvsClient
+        private readonly kvsClient: KvsClient,
+        private readonly credentials: IdentityCredential
     ) {}
+
+    provisionAccount(input: Identity.ProvisionAccountInput) {
+        return this.credentials.provision(input);
+    }
+    preparePassword(password: string) {
+        return this.credentials.preparePassword(password);
+    }
+    reissueAccountActivation(input: Identity.ProvisionAccountInput) {
+        return this.credentials.reissueActivation(input);
+    }
+    /** Coordinate User -> Session locking inside an existing credential-update transaction. */
+    lockAccountForCredentialUpdate(userId: string) {
+        return this.credentials.lockForCredentialUpdate(userId);
+    }
+    authenticateAccount(input: Identity.AuthenticateAccountInput) {
+        return this.credentials.authenticate(input);
+    }
+    confirmAuthentication(input: Identity.AuthenticatedAccount) {
+        return this.credentials.confirmAuthentication(input);
+    }
+    activateAccount(input: Identity.ActivateAccountInput) {
+        return this.credentials.activate(input);
+    }
+    setFirstPassword(input: Identity.SetFirstPasswordInput) {
+        return this.credentials.setFirstPassword(input);
+    }
 
     async createOidcTransaction(): Promise<Identity.CreateOidcTransactionOutput> {
         return identityErrors.run(async () => {
@@ -108,12 +136,26 @@ export class IdentityKernel {
                 id: dto.id,
             }).serialized;
             const kvsRes = await this.kvsClient.execute(() =>
-                this.kvsClient.hAtomic.getAllAndDelete(key)
+                this.kvsClient.hAtomic.getAllAndDeleteIfFieldEquals(key, 'state', dto.state)
             );
             const { codeVerifier, nonce, state } = kvsRes;
 
-            if (!codeVerifier || !nonce || !state || dto.state !== state) {
-                throw new IdentityError({ reason: 'transaction-invalid' });
+            if (!codeVerifier || !nonce || !state) {
+                throw new IdentityError({
+                    reason: 'transaction-invalid',
+                    operation:
+                        Object.keys(kvsRes).length === 0
+                            ? 'oidc.transaction.missing'
+                            : 'oidc.transaction.incomplete',
+                });
+            }
+            if (dto.state !== state) {
+                throw new IdentityError({
+                    reason: 'transaction-invalid',
+                    operation: /^[A-Za-z0-9_-]{43}$/.test(dto.state)
+                        ? 'oidc.transaction.state-mismatch'
+                        : 'oidc.transaction.state-format-invalid',
+                });
             }
 
             const verified = await this.oidc.resolveIdentity({
@@ -175,30 +217,31 @@ export class IdentityKernel {
         input: Identity.CreateInternalUserInput
     ): Promise<Identity.CreateInternalUserOutput> {
         return identityErrors.run(() =>
+            // prettier-ignore
             this.database.queryClient.user.create({
                 data: {
-                    username: input.username,
-                    email: input.email,
+                    username: input.username.trim(),
+                    email: input.email.trim().toLowerCase(),
                     passwordHash: input.passwordHash,
                     profile: input.profile
                         ? {
-                              create: {
-                                  nickname: input.profile.nickname,
-                                  avatarId: input.profile.avatarId,
-                                  bio: input.profile.bio,
-                                  sex: input.profile.sex,
-                                  sexVisible: input.profile.sexVisible,
-                                  birthday: input.profile.birthday,
-                              },
-                          }
+                            create: {
+                                nickname: input.profile.nickname,
+                                avatarId: input.profile.avatarId,
+                                bio: input.profile.bio,
+                                sex: input.profile.sex,
+                                sexVisible: input.profile.sexVisible,
+                                birthday: input.profile.birthday,
+                            },
+                        }
                         : undefined,
                     externalIdentities: input.externalIdentities
                         ? {
-                              create: input.externalIdentities.map(({ issuer, subject }) => ({
-                                  issuer,
-                                  subject,
-                              })),
-                          }
+                            create: input.externalIdentities.map(({ issuer, subject }) => ({
+                                issuer,
+                                subject,
+                            })),
+                        }
                         : undefined,
                 },
                 select: userSelect,

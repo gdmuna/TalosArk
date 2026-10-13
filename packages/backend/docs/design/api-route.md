@@ -1,6 +1,6 @@
 # API Route Contract
 
-Status: implemented, updated 2026-10-09. Replaces the old `responseType` / `successStatus`
+Status: implemented, updated 2026-10-13. Replaces the old `responseType` / `successStatus`
 options and independent body/serializer decorators, without a compatibility layer.
 
 ## Design
@@ -65,8 +65,7 @@ the OIDC callback already does. A union parses the first matching alternative;
 prefer disjoint schemas when alternatives project different fields.
 
 `{ status: 204 }` and `{ status: 205 }` have no schema/envelope and require a
-null/undefined handler result. `responses: []` is explicitly error-only, used by
-the current unimplemented refresh/logout handlers. A successful result from
+null/undefined handler result. `responses: []` is explicitly error-only. A successful result from
 such a handler is a contract violation rather than an invented success schema.
 
 ## Requests
@@ -74,6 +73,9 @@ such a handler is a contract violation rather than an invented success schema.
 - `request.body` accepts a Zod schema; body presence follows schema optionality.
 - `request.query` / `request.params` accept Zod objects. Properties supply query
   and path parameter documentation; the whole object is validated at runtime.
+- `request.headers` accepts a Zod object and documents header properties.
+  Parsed fields merge into the original headers; unrelated Authorization,
+  Cookie and transport headers are preserved rather than stripped.
 - Validation runs before Nest extracts `@Body()`, `@Query('field')` or
   `@Param('field')`. Coercion, defaults, stripping and strict rejection follow
   the declared schema. Input failures produce sanitized, source-prefixed paths.
@@ -85,16 +87,20 @@ such a handler is a contract violation rather than an invented success schema.
 
 ## Authentication and Errors
 
+Optional `security` overrides OpenAPI security requirements, for example the
+refresh-cookie scheme in [P01](mvp-p01-2026-10-13.md). It does not implement
+authentication or bypass `auth`, guards, source checks or domain validation.
+
 All routes include the real shared HTTP rejection possibilities: validation /
 invalid request `400`, forbidden/CORS `403`, rate limiting `429`, payload too
 large `413`, unsupported content `415`, processing timeout `504`, and internal
 failure `500`.
 
-| Authentication | Guard behavior | Additional default errors | OpenAPI security |
-| --- | --- | --- | --- |
-| public | Does not verify the token | None | No bearer requirement |
-| optional | Missing/invalid token is anonymous; valid token supplies identity | `AUTH_SESSION_UNAVAILABLE` / 503 | Anonymous or bearer |
-| required | Missing/invalid token is rejected | `AUTHENTICATION_REQUIRED` / 401 and `AUTH_SESSION_UNAVAILABLE` / 503 | Bearer required |
+| Authentication | Guard behavior                                                    | Additional default errors                                            | OpenAPI security      |
+| -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------- |
+| public         | Does not verify the token                                         | None                                                                 | No bearer requirement |
+| optional       | Missing/invalid token is anonymous; valid token supplies identity | `AUTH_SESSION_UNAVAILABLE` / 503                                     | Anonymous or bearer   |
+| required       | Missing/invalid token is rejected                                 | `AUTHENTICATION_REQUIRED` / 401 and `AUTH_SESSION_UNAVAILABLE` / 503 | Bearer required       |
 
 Business errors remain explicit. Public login endpoints can declare Auth/Access
 errors even though they bypass guard authentication. Permission/resource errors

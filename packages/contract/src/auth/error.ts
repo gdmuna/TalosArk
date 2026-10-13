@@ -2,6 +2,41 @@ import { z } from 'zod';
 import { defineErrorContract } from '../protocol/error.js';
 
 export const AuthErrorContract = {
+    credentialsInvalid: defineErrorContract(
+        'AUTH_CREDENTIALS_INVALID',
+        'Account or password is incorrect',
+        z.null()
+    ),
+    activationInvalid: defineErrorContract(
+        'AUTH_ACTIVATION_INVALID',
+        'Activation link is invalid or expired',
+        z.null()
+    ),
+    passwordPresent: defineErrorContract(
+        'AUTH_PASSWORD_PRESENT',
+        'A local password is already configured',
+        z.null()
+    ),
+    passwordRejected: defineErrorContract(
+        'AUTH_PASSWORD_REJECTED',
+        'Choose a less predictable password',
+        z.null()
+    ),
+    attemptsLimited: defineErrorContract(
+        'AUTH_ATTEMPTS_LIMITED',
+        'Too many authentication attempts',
+        z.null()
+    ),
+    reauthenticationRequired: defineErrorContract(
+        'AUTH_REAUTHENTICATION_REQUIRED',
+        'Sign in again before setting a password',
+        z.null()
+    ),
+    authenticationUnavailable: defineErrorContract(
+        'AUTH_AUTHENTICATION_UNAVAILABLE',
+        'Authentication is currently unavailable',
+        z.null()
+    ),
     transactionInvalid: defineErrorContract(
         'AUTH_OIDC_TRANSACTION_INVALID',
         'Login transaction is invalid or expired',

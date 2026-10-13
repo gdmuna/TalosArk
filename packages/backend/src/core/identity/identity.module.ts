@@ -1,4 +1,6 @@
 import { IdentityKernel } from './identity.kernel.js';
+import { IdentityCredential } from './internal/identity.credential.js';
+import { IdentityPasswordHasher } from './internal/password.hasher.js';
 import type { AllConfig } from '@/config/index.js';
 
 import { DatabaseModule } from '@/infra/database/database.module.js';
@@ -26,7 +28,7 @@ import { ConfigService } from '@nestjs/config';
             },
         }),
     ],
-    providers: [IdentityKernel],
+    providers: [IdentityKernel, IdentityCredential, IdentityPasswordHasher],
     exports: [IdentityKernel],
 })
 export class IdentityModule {}

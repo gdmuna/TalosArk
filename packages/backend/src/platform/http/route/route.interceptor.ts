@@ -32,11 +32,13 @@ export class RouteContractInterceptor implements NestInterceptor {
         const reply = http.getResponse<FastifyReply>();
 
         // Run before Nest extracts @Body/@Query/@Param values, including projected fields.
-        for (const source of ['body', 'query', 'params'] as const) {
+        for (const source of ['body', 'query', 'params', 'headers'] as const) {
             const schema = contract.request[source];
             if (!schema) continue;
             try {
-                request[source] = await schema.parseAsync(request[source]);
+                const parsed = await schema.parseAsync(request[source]);
+                if (source === 'headers') Object.assign(request.headers, parsed);
+                else request[source] = parsed;
             } catch (cause) {
                 if (!(cause instanceof z.ZodError)) throw cause;
                 throw new RequestError(

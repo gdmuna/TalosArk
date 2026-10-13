@@ -3,6 +3,44 @@ export interface ExternalIdentityReference {
     subject: string;
 }
 
+export interface ProvisionAccountInput {
+    username: string;
+    email: string;
+    expiresAt: Date;
+}
+export interface ProvisionAccountOutput {
+    userId: string;
+    token: string;
+    expiresAt: Date;
+}
+export interface AuthenticateAccountInput {
+    identifier: string;
+    password: string;
+}
+/** Internal proof for an immediate, transaction-bound recheck; never publish or log it. */
+export interface AuthenticatedAccount {
+    userId: string;
+    credentialVersion: string;
+}
+declare const preparedPassword: unique symbol;
+/** Process-local opaque password preparation; never publish, persist or log it. */
+export interface PreparedPassword {
+    readonly [preparedPassword]: true;
+}
+
+/** Credential writes join Auth's transaction, which also owns session revocation. */
+export interface ActivateAccountInput {
+    token: string;
+    preparedPassword: PreparedPassword;
+}
+export interface ActivateAccountOutput {
+    userId: string;
+}
+export interface SetFirstPasswordInput {
+    userId: string;
+    preparedPassword: PreparedPassword;
+}
+
 export interface CreateOidcTransactionOutput {
     transactionId: string;
     url: string;

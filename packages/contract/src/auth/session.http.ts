@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import { SessionCredentialsSchema } from './session.js';
 
-export const SessionRefreshBodySchema = z.strictObject({
-    refreshToken: z.string().min(1),
-});
+export const SessionRefreshBodySchema = z.strictObject({}).optional();
 
 export const SessionRefreshResponseSchema = SessionCredentialsSchema;
 

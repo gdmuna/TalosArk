@@ -45,6 +45,16 @@ upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.m
 The backend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
 
+## Cookie binding
+
+`platform/http/decorators/Cookie` selects one name, multiple names, or the complete
+parsed Cookie map. `schema` controls optionality/defaults and async validation;
+without it, selected names are required. `onFailure` defaults to throwing the
+existing request validation error or may return whole-parameter undefined.
+Programming/configuration errors and downstream pipes are never softened. Schema
+parameters use output type aliases rather than DTO classes to avoid global-pipe
+revalidation. Usage and verification limits live in docs/design/cookie-binding.md.
+
 ## Outbound HTTP
 
 `infra/http` provides independent, factory-managed Axios clients, total deadlines,
@@ -337,15 +347,49 @@ TokenPair generation, not the Session's latest version. Actual PostgreSQL concur
 schema assumptions and uncertain-commit limits live in
 docs/design/backend-w05-2026-10-11.md. No generic lifecycle or retry layer was added.
 
-Auth exposes POST /api/v1/auth/session/refresh with a strict JSON refreshToken body
-and no AT requirement; a valid RT is still required. It returns the existing
-SessionCredentials wire shape in a 200 envelope with Cache-Control: no-store.
-POST /api/v1/auth/session/logout requires a verified Bearer AT, revokes only its
-claim.sid Session and returns 204 without content. Neither route trusts a caller's
-sessionId or session Cookie. The shared contract lives in auth/session.http.ts;
-transport evidence and client/uncertain-commit limits are recorded in
-docs/design/auth-session-http-2026-10-11.md. Frontend automatic refresh and provider
-single logout are not implemented by these routes.
+P01 replaces browser HTTP delivery, not W05's token lifecycle. Refresh reads the
+HttpOnly RT cookie, requires no AT, rejects body RTs, and returns public session/AT
+data with no-store. Logout authenticates that cookie's session even without a
+usable AT, revokes it, then clears the cookie and returns 204. Missing/inactive
+cookies are idempotent logout. Both require an explicitly allowed Origin and
+X-TalosArk-Client: browser; callers cannot supply sessionId. Login/OIDC success use
+the same policy. The shared auth entry no longer publishes RT values. Historical
+HTTP evidence in auth-session-http-2026-10-11.md does not describe this delivery;
+current contracts/verification live in docs/design/mvp-p01-fix-2026-10-13.md.
+Automatic frontend restoration and provider single logout remain pending.
+
+HTTP CORS and Auth share http.browserOriginPolicy: deny, nonempty exact allowlist,
+development-loopback, or development-any. The development modes require
+NODE_ENV=development; production allowlists require HTTPS. CORS_ENABLED controls
+only protocol delivery, not Auth Origin/client-header enforcement. Development
+profiles allow canonical HTTP(S) loopback origins on any port; test/prod use explicit
+allowlists. Redirect/activation URLs remain independently configured.
+
+## First-party accounts
+
+P01 provides controlled operator provisioning and activation reissue, not public
+registration. Separate hashed UserActivationToken credentials activate accounts
+once. Username matching is case-sensitive; email matching is case-insensitive,
+backed by identity.sql's native index after Prisma synchronization. Identity owns
+bounded Argon2id/PHC and private credential persistence under identity/internal;
+passwords are not trimmed/case-folded. The neutral contracts/auth/password subpath
+shares input bounds without importing transport DTOs. Auth prepares an opaque
+password reference before the transaction, then orchestrates Identity writes and
+Access-owned Session revocation/creation in one transaction. Identity never writes
+Session directly. User -> Session locking and mandatory ambient writes prevent
+partial credential/session results. Recent login uses Session.createdAt, never
+the refreshed AT issue time. auth.firstPasswordSessionMaxAgeSeconds only limits
+the first-password request; expiry does not revoke the session. Legacy scrypt hashes
+are deliberately unsupported; no password/data migration is performed by this fix.
+
+UserModule exposes only the authenticated current account with an explicit wire
+projection; no arbitrary user query, organization membership, recovery or admin
+GUI is activated. The compiled provision-account CLI requires database confirmation
+and explicit consent to controlled secret-link stdout. It is not a seed and does
+not send mail. HTTP_BROWSER_*, IDENTITY_PASSWORD_HASH_CONCURRENCY and AUTH_* defaults
+are present in all runtime envs; production URL values
+must match actual deployment. Frontend received only necessary OIDC-header/public
+credential adaptation; full P03 integration remains pending.
 
 ## Documentation delivery
 
@@ -406,7 +450,7 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
   FileKernel extension boundary.
 - Platform-level Casdoor OIDC remains the current identity-provider model.
   TalosArk-owned identity and session behavior belongs to core/identity and
-  core/auth, not Casdoor SDK code.
+  core/access, not Casdoor SDK code.
 - Casdoor/Casbin administration is an Infra control-plane concern. Runtime
   authorization will enter through core/permission.
 

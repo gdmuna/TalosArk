@@ -1,4 +1,11 @@
-import { ApiBody, ApiParam, ApiQuery, ApiResponse, type SchemaObject } from '@nestjs/swagger';
+import {
+    ApiBody,
+    ApiParam,
+    ApiQuery,
+    ApiHeader,
+    ApiResponse,
+    type SchemaObject,
+} from '@nestjs/swagger';
 import { z } from 'zod';
 import type { ApiRouteRequest, RouteContract } from './route.contract.js';
 
@@ -15,7 +22,7 @@ export function routeRequestDocumentation(request: ApiRouteRequest) {
                 required: !request.body.isOptional(),
             })
         );
-    for (const source of ['query', 'params'] as const) {
+    for (const source of ['query', 'params', 'headers'] as const) {
         const schema = request[source];
         if (!schema) continue;
         const json = openApiSchema(schema, 'input');
@@ -25,7 +32,13 @@ export function routeRequestDocumentation(request: ApiRouteRequest) {
                 schema: property,
                 required: source === 'params' || (json.required?.includes(name) ?? false),
             };
-            decorators.push(source === 'params' ? ApiParam(options) : ApiQuery(options));
+            decorators.push(
+                source === 'params'
+                    ? ApiParam(options)
+                    : source === 'headers'
+                      ? ApiHeader(options)
+                      : ApiQuery(options)
+            );
         }
     }
     return decorators;

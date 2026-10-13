@@ -1,5 +1,6 @@
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod/v4';
+import { BrowserOriginPolicySchema, BrowserOriginSchema } from './browser-origin.policy.js';
 
 // http
 
@@ -28,16 +29,28 @@ export const CORS_ALLOWED_METHODS = process.env.CORS_ALLOWED_METHODS?.split(',')
 /** 允许的 CORS 请求头 */
 export const CORS_ALLOWED_HEADERS = process.env.CORS_ALLOWED_HEADERS?.split(',')
     .map((h) => h.trim())
-    .filter(Boolean) || ['Content-Type', 'Authorization'];
-
-/** 允许的 CORS 请求源列表，空数组表示不限制 */
-export const CORS_ALLOWED_ORIGIN =
-    process.env.CORS_ALLOWED_ORIGIN?.split(',')
-        .map((o) => o.trim())
-        .filter(Boolean) || [];
+    .filter(Boolean) || ['Content-Type', 'Authorization', 'X-TalosArk-Client'];
 
 export const httpConfigValidateSchema = z
     .object({
+        NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+        CORS_ENABLED: z
+            .enum(['true', 'false'])
+            .default('true')
+            .transform((value) => value === 'true'),
+        HTTP_BROWSER_ORIGIN_MODE: z
+            .enum(['deny', 'allowlist', 'development-loopback', 'development-any'])
+            .default('deny'),
+        HTTP_BROWSER_ALLOWED_ORIGINS: z
+            .string()
+            .default('')
+            .transform((value) =>
+                value
+                    .split(',')
+                    .map((origin) => origin.trim())
+                    .filter(Boolean)
+            )
+            .pipe(z.array(BrowserOriginSchema)),
         THROTTLE_TTL_MS: z.coerce.number().int().min(1000).default(300000),
         THROTTLE_LIMIT: z
             .union([z.literal('Infinity'), z.coerce.number().int().min(1)])
@@ -68,30 +81,56 @@ export const httpConfigValidateSchema = z
                         .split(',')
                         .map((h) => h.trim())
                         .filter(Boolean);
-                } else return ['Content-Type', 'Authorization'];
+                } else return ['Content-Type', 'Authorization', 'X-TalosArk-Client'];
             })
-            .default(['Content-Type', 'Authorization']),
-        CORS_ALLOWED_ORIGIN: z
-            .string()
-            .transform((s) => {
-                if (s) {
-                    return s
-                        .split(',')
-                        .map((o) => o.trim())
-                        .filter(Boolean);
-                } else return [];
-            })
-            .default([]),
+            .default(['Content-Type', 'Authorization', 'X-TalosArk-Client']),
+    })
+    .superRefine((env, context) => {
+        if (
+            env.HTTP_BROWSER_ORIGIN_MODE === 'allowlist' &&
+            env.HTTP_BROWSER_ALLOWED_ORIGINS.length === 0
+        )
+            context.addIssue({
+                code: 'custom',
+                path: ['HTTP_BROWSER_ALLOWED_ORIGINS'],
+                message: 'Allowlist mode requires at least one origin',
+            });
+        if (
+            env.NODE_ENV !== 'development' &&
+            env.HTTP_BROWSER_ORIGIN_MODE.startsWith('development-')
+        )
+            context.addIssue({
+                code: 'custom',
+                path: ['HTTP_BROWSER_ORIGIN_MODE'],
+                message: 'Development origin modes require NODE_ENV=development',
+            });
+        if (
+            env.NODE_ENV === 'production' &&
+            env.HTTP_BROWSER_ORIGIN_MODE === 'allowlist' &&
+            env.HTTP_BROWSER_ALLOWED_ORIGINS.some((origin) => !origin.startsWith('https://'))
+        )
+            context.addIssue({
+                code: 'custom',
+                path: ['HTTP_BROWSER_ALLOWED_ORIGINS'],
+                message: 'Production browser origins must use HTTPS',
+            });
     })
     .transform((env) => ({
+        browserOriginPolicy: BrowserOriginPolicySchema.parse(
+            env.HTTP_BROWSER_ORIGIN_MODE === 'allowlist'
+                ? { mode: env.HTTP_BROWSER_ORIGIN_MODE, origins: env.HTTP_BROWSER_ALLOWED_ORIGINS }
+                : { mode: env.HTTP_BROWSER_ORIGIN_MODE }
+        ),
+        cors: {
+            enabled: env.CORS_ENABLED,
+            allowedMethods: env.CORS_ALLOWED_METHODS,
+            allowedHeaders: env.CORS_ALLOWED_HEADERS,
+            preflightMaxAgeSeconds: env.CORS_PREFLIGHT_MAX_AGE_SECONDS,
+        },
         throttleTtlMs: env.THROTTLE_TTL_MS,
         throttleLimit: env.THROTTLE_LIMIT,
         requestTimeoutMs: env.REQUEST_TIMEOUT_MS,
         requestIdHeader: env.REQUEST_ID_HEADER,
-        corsPreflightMaxAgeSeconds: env.CORS_PREFLIGHT_MAX_AGE_SECONDS,
-        corsAllowedMethods: env.CORS_ALLOWED_METHODS,
-        corsAllowedHeaders: env.CORS_ALLOWED_HEADERS,
-        corsAllowedOrigin: env.CORS_ALLOWED_ORIGIN,
     }));
 
 export const httpConfig = registerAs('http', () => httpConfigValidateSchema.parse(process.env));

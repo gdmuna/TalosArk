@@ -2,6 +2,7 @@ import type { Provider } from '@nestjs/common';
 import { ErrorResolver } from '@/platform/error/error.resolver.js';
 import {
     IdentityErrorDefinition,
+    AuthErrorDefinition,
     AccessErrorDefinition,
     RequestErrorDefinition,
     SystemErrorDefinition,
@@ -17,6 +18,7 @@ export const errorProviders: Provider[] = [
                 RequestErrorDefinition,
                 AccessErrorDefinition,
                 IdentityErrorDefinition,
+                AuthErrorDefinition,
                 SystemErrorDefinition,
             ]),
     },

@@ -20,6 +20,7 @@ export interface ApiRouteRequest {
     body?: z.ZodType;
     query?: z.ZodObject;
     params?: z.ZodObject;
+    headers?: z.ZodObject;
 }
 
 export type ApiRouteResponse =
@@ -36,6 +37,8 @@ export interface ApiRouteOptions {
     errors?: readonly ErrorDefinition[];
     consumes?: readonly string[];
     deprecated?: boolean;
+    /** Documentation only; execution still follows auth and owner-local credential checks. */
+    security?: readonly Record<string, string[]>[];
 }
 
 export interface RouteResponseContract {

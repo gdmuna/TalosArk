@@ -1,8 +1,10 @@
 import { accessConfig, AccessConfig } from './access.config.js';
+import { authConfig, type AuthConfig } from './auth.config.js';
 import { appConfig, AppConfig } from './app.config.js';
 import { casdoorConfig, CasdoorConfig } from './casdoor.config.js';
 import { databaseConfig, DatabaseConfig } from './database.config.js';
 import { httpConfig, HttpConfig } from './http.config.js';
+import { identityConfig, type IdentityConfig } from './identity.config.js';
 import { kvsConfig, KvsConfig } from './kvs.config.js';
 import { lifecycleConfig, LifecycleConfig } from './lifecycle.config.js';
 import { mailConfig, MailConfig } from './mail.config.js';
@@ -13,10 +15,12 @@ import { storageConfig, StorageConfig } from './storage.config.js';
 
 export type AllConfig = {
     access: AccessConfig;
+    auth: AuthConfig;
     app: AppConfig;
     casdoor: CasdoorConfig;
     database: DatabaseConfig;
     http: HttpConfig;
+    identity: IdentityConfig;
     kvs: KvsConfig;
     lifecycle: LifecycleConfig;
     mail: MailConfig;
@@ -26,10 +30,12 @@ export type AllConfig = {
 
 export const allConfig = {
     accessConfig,
+    authConfig,
     appConfig,
     casdoorConfig,
     databaseConfig,
     httpConfig,
+    identityConfig,
     kvsConfig,
     lifecycleConfig,
     mailConfig,

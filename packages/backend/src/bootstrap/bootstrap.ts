@@ -100,6 +100,13 @@ TalosArk 后端 API。
         .setDescription(apiDescription)
         .setVersion(APP_VERSION)
         .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'accessToken')
+        .addCookieAuth(
+            app.get(ConfigService<AllConfig, true>).get('auth.cookieSecure', { infer: true })
+                ? '__Host-talosark_rt'
+                : 'talosark_rt',
+            { type: 'apiKey', in: 'cookie' },
+            'refreshToken'
+        )
         .build();
     const document = SwaggerModule.createDocument(app, documentConfig);
     const processedDocument = cleanupOpenApiDoc(document);

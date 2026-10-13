@@ -8,6 +8,7 @@ allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': true
   '@scarf/scarf': true
+  argon2: true
   esbuild: true
   prisma: true
   vue-demi: true
