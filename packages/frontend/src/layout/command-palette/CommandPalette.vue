@@ -7,7 +7,11 @@
         >
             <DialogTitle class="sr-only">搜索工作区或执行命令</DialogTitle>
             <DialogDescription class="sr-only">搜索材料定义、库存实例、设施、设备、页面与命令</DialogDescription>
-            <Command>
+            <Command
+                @keydown.capture="prepareKeyboardScroll"
+                @keyup.capture="finishKeyboardScroll"
+                @focusout.capture="restoreKeyboardScroll"
+            >
                 <div class="relative shrink-0">
                     <CommandInput class="pr-9" placeholder="搜索工作区或执行命令" aria-label="搜索资源、页面或命令" />
                     <Button
@@ -23,8 +27,10 @@
                     </Button>
                 </div>
                 <ScrollSurface
+                    ref="scrollSurface"
                     :edges="['top']"
                     edge-effect="line"
+                    :focus-inset="focusInset"
                     class="max-h-[calc(75svh-3rem)] [--edge-surface:var(--card)]"
                 >
                     <CommandList class="min-h-36 max-h-none overflow-visible p-2 pt-0" aria-label="搜索结果">
@@ -66,7 +72,8 @@
     <ResourceDialog v-model="preview" :return-focus="returnFocus" />
 </template>
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch, type Component } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, useTemplateRef, watch, type Component } from 'vue';
+import { useEventListener } from '@vueuse/core';
 import { useRouter } from 'vue-router';
 import {
     Building2,
@@ -110,6 +117,33 @@ const returnFocus = shallowRef<HTMLElement | null>(null);
 const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
 const router = useRouter();
+const focusInset = { top: 36, bottom: 36 };
+const scrollSurface = useTemplateRef<InstanceType<typeof ScrollSurface>>('scrollSurface');
+const navigationKeys = ['ArrowUp', 'ArrowDown', 'Home', 'End'];
+let restoreViewportScroll: (() => void) | undefined;
+function restoreKeyboardScroll() {
+    restoreViewportScroll?.();
+    restoreViewportScroll = undefined;
+}
+function prepareKeyboardScroll(event: KeyboardEvent) {
+    if (event.isComposing || !navigationKeys.includes(event.key)) return;
+    if (!event.repeat) return restoreKeyboardScroll();
+    const viewport = scrollSurface.value?.viewportElement;
+    if (!viewport || restoreViewportScroll) return;
+    const previous = viewport.style.getPropertyValue('scroll-behavior');
+    const priority = viewport.style.getPropertyPriority('scroll-behavior');
+    // Apply before Reka's bubbling handler; a queued Vue update would miss this event.
+    viewport.style.setProperty('scroll-behavior', 'auto', priority);
+    restoreViewportScroll = () => {
+        if (previous) viewport.style.setProperty('scroll-behavior', previous, priority);
+        else viewport.style.removeProperty('scroll-behavior');
+    };
+}
+function finishKeyboardScroll(event: KeyboardEvent) {
+    if (navigationKeys.includes(event.key)) restoreKeyboardScroll();
+}
+useEventListener('blur', restoreKeyboardScroll);
+onScopeDispose(restoreKeyboardScroll);
 const pages: Result[] = [
     ...managementNavigation.flatMap((group) =>
         group.items.map((item) => ({
@@ -178,6 +212,7 @@ const groups = computed(() =>
         .filter((group) => group.items.length)
 );
 watch(open, (value) => {
+    restoreKeyboardScroll();
     if (value) {
         returnFocus.value = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         commandError.value = '';
