@@ -13,12 +13,13 @@ const props = withDefaults(
             edgeEffect?: 'fade' | 'line' | 'none';
             edges?: 'vertical' | 'horizontal' | 'both' | readonly EdgeSide[];
             edgeSize?: number;
+            focusInset?: number | Partial<Record<EdgeSide, number>>;
         }
     >(),
-    { type: 'auto', edgeEffect: 'fade', edges: 'vertical' }
+    { type: 'auto', edgeEffect: 'fade', edges: 'vertical', focusInset: 0 }
 );
 const emit = defineEmits<{ scroll: [event: Event] }>();
-const delegated = reactiveOmit(props, 'edgeEffect', 'edges', 'edgeSize');
+const delegated = reactiveOmit(props, 'edgeEffect', 'edges', 'edgeSize', 'focusInset');
 const area = useTemplateRef<InstanceType<typeof ScrollArea>>('area');
 const viewportElement = computed(() => area.value?.viewportElement);
 const content = computed(() => viewportElement.value?.firstElementChild as HTMLElement | undefined);
@@ -34,8 +35,15 @@ const edgeInset = computed(() =>
 );
 
 function scrollPadding(side: EdgeSide) {
-    return (enabledEdges.value.includes(side) ? edgeInset.value + 36 : 0) + 'px';
+    const focusInset = typeof props.focusInset === 'number' ? props.focusInset : (props.focusInset[side] ?? 0);
+    return (enabledEdges.value.includes(side) ? edgeInset.value : 0) + focusInset + 'px';
 }
+const viewportStyle = computed(() => ({
+    scrollPaddingTop: scrollPadding('top'),
+    scrollPaddingBottom: scrollPadding('bottom'),
+    scrollPaddingLeft: scrollPadding('left'),
+    scrollPaddingRight: scrollPadding('right'),
+}));
 
 function refresh() {
     measure();
@@ -45,17 +53,14 @@ defineExpose({ viewportElement, refresh });
 </script>
 
 <template>
-    <div
-        class="relative flex min-h-0 min-w-0 flex-col"
-        data-slot="scroll-surface"
-        :style="{
-            '--scroll-surface-padding-top': scrollPadding('top'),
-            '--scroll-surface-padding-bottom': scrollPadding('bottom'),
-            '--scroll-surface-padding-left': scrollPadding('left'),
-            '--scroll-surface-padding-right': scrollPadding('right'),
-        }"
-    >
-        <ScrollArea ref="area" v-bind="delegated" class="min-h-0 flex-1" @scroll="emit('scroll', $event)">
+    <div class="relative flex min-h-0 min-w-0 flex-col" data-slot="scroll-surface">
+        <ScrollArea
+            ref="area"
+            v-bind="delegated"
+            :viewport-style="viewportStyle"
+            class="min-h-0 flex-1"
+            @scroll="emit('scroll', $event)"
+        >
             <slot />
             <template #overlay>
                 <template v-if="edgeEffect !== 'none'">
@@ -73,12 +78,3 @@ defineExpose({ viewportElement, refresh });
         </ScrollArea>
     </div>
 </template>
-
-<style scoped>
-:deep([data-slot='scroll-area-viewport']) {
-    scroll-padding-top: var(--scroll-surface-padding-top);
-    scroll-padding-bottom: var(--scroll-surface-padding-bottom);
-    scroll-padding-left: var(--scroll-surface-padding-left);
-    scroll-padding-right: var(--scroll-surface-padding-right);
-}
-</style>
