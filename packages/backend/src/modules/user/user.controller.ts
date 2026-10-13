@@ -26,8 +26,9 @@ export class UserController {
         @Req() request: FastifyRequest,
         @Res({ passthrough: true }) reply: FastifyReply
     ): Promise<CurrentAccountResponse> {
-        if (!request.jwtClaim) throw new RequestError({ reason: 'authentication' });
+        const authentication = request.authentication;
+        if (!authentication) throw new RequestError({ reason: 'authentication' });
         reply.header('Cache-Control', 'no-store');
-        return this.userService.getMe(request.jwtClaim.sub);
+        return this.userService.getMe(authentication.userId);
     }
 }
