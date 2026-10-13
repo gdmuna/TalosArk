@@ -47,6 +47,7 @@ import DataTableFilterOptions from './control/DataTableFilterInput.vue';
 import DataTableBulkActions from './control/DataTableBulkActionMenu.vue';
 import { useDragReorder } from './interaction/useDragReorder';
 import { useTableLayout } from './layout/useTableLayout';
+import { measureGridInsets } from './layout/geometry';
 import { useColumnResize } from './interaction/useColumnResize';
 import RecordPreview from './RecordPreview.vue';
 import { useTableModel } from './model/useTableModel';
@@ -153,7 +154,7 @@ const headerReorder = useDragReorder(
         root: () => frame.value?.querySelector<HTMLElement>('thead tr'),
         container: () => horizontalViewport.value,
         destinationHost: () => headerOverlay.value,
-        destinationInsets: columnDestinationInsets,
+        destinationInsets: measureGridInsets,
         destinationClip: () => {
             const viewport = horizontalViewport.value?.getBoundingClientRect();
             const actions = frame.value?.querySelector('thead [data-pinned="end"]')?.getBoundingClientRect();
@@ -178,17 +179,6 @@ const headerViewport = useTemplateRef<HTMLElement>('headerViewport');
 const footer = useTemplateRef<HTMLElement>('footer');
 const recordBody = useTemplateRef<InstanceType<typeof TableBody>>('recordBody');
 const verticalViewport = useTemplateRef<InstanceType<typeof ScrollArea>>('verticalViewport');
-function columnDestinationInsets(element: HTMLElement) {
-    const cell = getComputedStyle(element);
-    const border = getComputedStyle(element, '::before');
-    // The grid is positioned from the padding box; map its inner edges to the border box.
-    return {
-        top: parseFloat(cell.borderTopWidth) + parseFloat(border.top) + parseFloat(border.borderTopWidth),
-        right: parseFloat(cell.borderRightWidth) + parseFloat(border.right) + parseFloat(border.borderRightWidth),
-        bottom: parseFloat(cell.borderBottomWidth) + parseFloat(border.bottom) + parseFloat(border.borderBottomWidth),
-        left: parseFloat(cell.borderLeftWidth) + parseFloat(border.left) + parseFloat(border.borderLeftWidth),
-    };
-}
 function columnMotionElements(root: HTMLElement) {
     const groups = new Map(
         [...root.querySelectorAll<HTMLElement>('[data-reorder-id]')].map((element) => [
