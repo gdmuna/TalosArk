@@ -37,7 +37,10 @@
             </Button>
         </div>
         <div class="flex min-h-0 min-w-0 flex-1">
-            <RouterView />
+            <RouterView v-slot="{ Component, route: pageRoute }">
+                <ApplicationStartup v-if="pageRoute.meta.requiresApplicationData && state.status !== 'ready'" />
+                <component :is="Component" v-else />
+            </RouterView>
         </div>
         <div
             ref="overlayContainer"
@@ -51,15 +54,25 @@
 <script setup lang="ts">
 import { Button } from '@/ui/button';
 
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useElementBounding } from '@vueuse/core';
 import { provideOverlayContainer } from '@/shared/browser/overlay-container';
+import ApplicationStartup from '../startup/ApplicationStartup.vue';
+import { useApplicationBootstrap } from '../startup/context';
 
 import { X, Square, Minus, Box, Copy } from '@lucide/vue';
 
 const windowState = ref<'minimize' | 'maximize' | 'normal'>('maximize');
+const { state, start } = useApplicationBootstrap();
 const route = useRoute();
+watch(
+    () => route.meta.requiresApplicationData,
+    (required) => {
+        if (required) void start();
+    },
+    { immediate: true }
+);
 const titlebar = ref<HTMLElement | null>(null);
 const overlayContainer = ref<HTMLElement | null>(null);
 const { height: titlebarHeight } = useElementBounding(titlebar);

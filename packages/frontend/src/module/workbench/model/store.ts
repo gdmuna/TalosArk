@@ -1,5 +1,6 @@
-import { computed, ref } from 'vue';
+import { computed, onScopeDispose, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { createTaskScope, waitFor } from '@/platform/task';
 import { useWorkspaceStore } from '@/module/workspace';
 import { formatTime, isToday } from '@/shared/util/date-time';
 import { useWorkbenchClock } from './clock';
@@ -29,6 +30,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     const syncError = ref('');
     const now = useWorkbenchClock();
     let source: WorkbenchDataSource;
+    let sourceScope = createTaskScope([]);
+    onScopeDispose(() => sourceScope.dispose());
     const currentResources = computed(() =>
         resources.value.filter((item) => item.workspaceId === workspace.activeId)
     );
@@ -89,9 +92,25 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         exceptions.value = snapshot.exceptions;
         overviews.value = snapshot.overviews;
     }
-    async function initialize(dataSource: WorkbenchDataSource) {
+    function connect(dataSource: WorkbenchDataSource) {
+        sourceScope.dispose();
+        sourceScope = createTaskScope([]);
         source = dataSource;
-        apply(await source.load());
+    }
+    async function load(signal?: AbortSignal) {
+        const task = createTaskScope([sourceScope.signal, signal]);
+        try {
+            task.signal.throwIfAborted();
+            const snapshot = await waitFor(source.load(task.signal), task.signal);
+            task.signal.throwIfAborted();
+            apply(snapshot);
+        } finally {
+            task.dispose();
+        }
+    }
+    async function initialize(dataSource: WorkbenchDataSource) {
+        connect(dataSource);
+        await load();
     }
     async function mutate(operation: () => Promise<unknown>) {
         if (busy.value) return '数据正在更新，请稍后重试';
@@ -157,6 +176,8 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         busy,
         error,
         syncError,
+        connect,
+        load,
         initialize,
         retrySync,
         completeTasks,

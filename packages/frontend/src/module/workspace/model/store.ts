@@ -1,5 +1,6 @@
-import { computed, ref } from 'vue';
+import { computed, onScopeDispose, ref } from 'vue';
 import { defineStore } from 'pinia';
+import { createTaskScope, waitFor } from '@/platform/task';
 import type { WorkspaceDataSource } from '../data/source';
 import type { Organization, Workspace } from './workspace';
 
@@ -12,17 +13,34 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
     const syncError = ref('');
     let pendingSelection: string | undefined;
     let source: WorkspaceDataSource;
+    let sourceScope = createTaskScope([]);
+    onScopeDispose(() => sourceScope.dispose());
     const current = computed(() => workspaces.value.find((item) => item.id === activeId.value));
     const organization = computed(() =>
         organizations.value.find((item) => item.id === current.value?.organizationId)
     );
 
-    async function initialize(dataSource: WorkspaceDataSource) {
+    function connect(dataSource: WorkspaceDataSource) {
+        sourceScope.dispose();
+        sourceScope = createTaskScope([]);
         source = dataSource;
-        const snapshot = await source.load();
-        organizations.value = snapshot.organizations;
-        workspaces.value = snapshot.workspaces;
-        select(snapshot.activeId);
+    }
+    async function load(signal?: AbortSignal) {
+        const task = createTaskScope([sourceScope.signal, signal]);
+        try {
+            task.signal.throwIfAborted();
+            const snapshot = await waitFor(source.load(task.signal), task.signal);
+            task.signal.throwIfAborted();
+            organizations.value = snapshot.organizations;
+            workspaces.value = snapshot.workspaces;
+            select(snapshot.activeId);
+        } finally {
+            task.dispose();
+        }
+    }
+    async function initialize(dataSource: WorkspaceDataSource) {
+        connect(dataSource);
+        await load();
     }
     function select(id: string) {
         if (workspaces.value.some((item) => item.id === id)) {
@@ -83,6 +101,8 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         busy,
         error,
         syncError,
+        connect,
+        load,
         initialize,
         retrySync,
         select,

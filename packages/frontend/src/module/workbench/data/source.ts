@@ -1,7 +1,7 @@
 import type { Approval, ExceptionItem, WorkbenchSnapshot } from '../model/workbench';
 
 export interface WorkbenchDataSource {
-    load(): Promise<WorkbenchSnapshot>;
+    load(signal?: AbortSignal): Promise<WorkbenchSnapshot>;
     completeTasks(ids: string[]): Promise<void>;
     decideApprovals(
         ids: string[],
