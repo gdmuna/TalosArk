@@ -12,7 +12,33 @@
 
 `App.vue`, `router/`, `main.ts`, and `style.css` remain conventional Vite entry files. Do not recreate broad top-level `app/`, `composable/`, `event/`, `lib/`, or `util/` directories. Generic functional components belong in `component/`; business UI belongs in its module.
 
-Only `main.ts` selects mock data sources through the modules' explicit `data/mock.ts` entries. Each adapter alone imports its `data/fixture.ts`. Bootstrap creates one instance per data source and initializes account, workspace and workbench in the existing order. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
+Only the application composition in `bootstrap.ts` selects mock data sources through the modules' explicit `data/mock.ts` entries. Each adapter alone imports its `data/fixture.ts`. Composition creates and binds one instance per data source without fetching. Each store owns `connect(source)` and cancellable `load(signal?)`; the existing `initialize(source)` remains a convenience for connect + load. Reconnection and Pinia scope disposal invalidate pending loads, including adapters that ignore cancellation. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
+
+`main.ts` owns Vue/plugin installation and HTTP/auth/Pinia disposal. The small
+application-owned `bootstrap.ts` coordinates required reads, not business rules or
+a generic module registry. `layout/startup` owns its injected presentation context.
+The desktop shell mounts before data loading; routes marked
+`requiresApplicationData` show startup progress or stage-specific failure until
+account -> workspace -> workbench succeeds. Public auth routes bypass this data
+gate and do not initiate these reads. This route flag is not an authorization guard.
+Workbench remains a main-workspace prerequisite because sidebar, command palette
+and resource skeletons consume its shared snapshot; no resource HTTP contracts or
+per-page data sources are invented. Future page-specific remote reads belong to
+their module and actual consuming context, not this startup list.
+Concurrent starts/retries share one promise, retain successful stages and reuse
+sources. Recovery retries only the first unfinished stage and its successors,
+never a business write or navigation registration. Navigation installs once in
+main, independently of data retry. Bootstrap disposal aborts pending reads and
+prevents late ready/error publication; Pinia disposal releases module resources.
+See `docs/design/frontend-f12-2026-10-13.md` for scope and verification. Real
+authentication/session restoration and session-change invalidation remain F13/P03,
+not something implied by a ready business-data gate.
+
+`component/view-context` owns only the generic scope registry (`register` and
+its returned `dispose`). Each provider creates its own reactive state in its
+actual owner: route-tab, breadcrumb or view-host. Route-tab types belong to
+route-tab; the retained view-host types belong to view-host. Store ID, injection
+keys and provider cleanup remain unchanged. This does not activate view-host.
 
 Account, workspace and workbench distinguish a confirmed write from its subsequent
 snapshot load. Existing string/null operation results still report only write
@@ -31,6 +57,12 @@ Task data identity changes at local-day/overdue boundaries to invalidate table
 caches, not on every clock tick. Existing strict overdue and local-day rules remain.
 Pinia scope disposal releases the clock; `main.ts` disposes Pinia on app unmount/HMR.
 See `docs/design/frontend-f01-f02-2026-10-12.md` for decisions and verification.
+
+Workbench's `OverviewData` and snapshot `overviews` contain only `recentItems`.
+Current overview counts and queues derive from tasks, approvals and exceptions,
+not historical dashboard fields. The unused stats, inventory-alert, equipment,
+expiry and trend fields are removed from types, defaults and mock fixtures; this
+does not establish a remote overview contract.
 
 ## Singular naming
 
@@ -73,7 +105,18 @@ Architecture lint guards these imports, including same-owner module descriptors.
 
 Auth follows the same responsibility layout as other modules: `data/api.ts` is a pure HTTP data source, `model/auth.ts` owns login-result ordering and local sign-out, and `model/session.ts` owns credentials and refresh validation. `model/context.ts` provides the business-operation interface to Vue. The existing `createAuthApi`, `createAuthSession`, `authApiKey` and `useAuthApi` exports are preserved; the API name denotes the public business facade, not a transport adapter with permission to mutate state.
 
-Only the OIDC start/callback endpoints have a complete backend contract today. Session refresh/logout still return 501; bootstrap therefore supplies no refresh adapter, and local sign-out does not claim server-side revocation. Account/workspace/workbench remain on their existing mock data sources. Do not invent resource endpoints or pagination wire contracts before the corresponding backend slice exists.
+P01 backend implements password login/activation/first-password setup, current account and Cookie refresh/logout. Public SessionCredentials contains only session/AT data, never a readable RT. Existing OIDC adapters send X-TalosArk-Client; the session model no longer reads RT expiry. Bootstrap still supplies no refresh adapter, and local sign-out does not claim server revocation. Account/workspace/workbench remain on mock sources. P03 must add real account/login/activation, startup restoration, Cookie-aware concurrency and 204/logout handling; browser/Tauri persistence is not claimed by this minimal adaptation. Do not invent resource endpoints or pagination contracts before the backend slice exists.
+
+P02 adds real request/confirm recovery adapters and `/auth/recovery` /
+`/auth/reset-password` forms. The reset form consumes the secret fragment with
+router.replace before requests, keeps it only in page memory, and clears it/passwords
+on completion, invalidity or unmount. Request acknowledgement never claims inbox
+delivery; recovery confirms without automatic login. A successful confirm clears
+local credentials only if no newer login revision has superseded it. Public auth
+routes set fluidLayout for narrow screens; desktop business routes retain their
+existing minimum width and application-data startup boundary. P03's broader session
+and account integration is not completed by this slice. Backend design and isolated
+browser/SMTP evidence live in ../backend/docs/design/mvp-p02-2026-10-13.md.
 
 Administration skeletons use the current workspace store only for known organization/workspace identity. Other records and settings remain unloaded; counters and fields do not invent values. Write actions are disabled. Existing workspace-switcher create/join behavior is unchanged. Design-backed local views use the private `page/management/useManagementView.ts` helper and `ManagementViewNav`, with query-backed history rather than new primary routes. Personal notification preferences retain current-account context, separate from organization policy. `ManagementPage` keeps page-level navigation outside the body scroll owner, matching the workbench bar's stable height and insets. Only the body content group uses centered table, form or wide layouts; responsive inner grids use container width. Integration detail navigation stays local to its detail region. Administration navigation is not a permission boundary; authorization and real configuration loading belong to later backend-connected business slices. See `docs/design/management-skeleton.md` for scope and design references.
 
@@ -105,6 +148,13 @@ history state. Object-header quick returns use that origin, including after loca
 view changes and refresh; direct URL entries fall back to their declared parent.
 List breadcrumbs remain catalog links rather than adopting the quick-return target.
 Record-picker switches preserve the original entry context.
+Management and resource local-view helpers use `platform/navigation`'s
+`useQuerySelection`: valid switches push history, canonical duplicate selections
+do nothing, and selecting the default omits its key. Invalid URL values fall back
+without automatic navigation; explicitly selecting the current fallback/default
+normalizes that URL with replace. Unsupported setter values are ignored. Other
+query values and hash are retained. Labels and capability-dependent visibility
+remain with the page, separate from one-shot entry commands.
 Route pages switch immediately without whole-page fade or translation. Keyed
 resource outlets replace record content and breadcrumb providers together, without
 retaining an outgoing page. Sidebar, overlay and drag-reorder motion remain local
@@ -142,6 +192,12 @@ Order excludes unknown, duplicate and technical IDs, and sizing uses the same
 defaults and bounds as TanStack. The model also reconciles action-column removal
 and changed width bounds. DOM geometry, mixed scrolling, drag motion and pointer
 resize remain in their existing private owners.
+Private `component/data-table/layout/geometry.ts` owns ancestor-height detection,
+centered-container detection and cell-grid insets. It retains Typed OM's authored
+`auto` values with inline-style fallback; resolved pixel styles are used for real
+edge feedback, not to infer authored auto margins. Pointer resize retains its
+bounded correction passes and centered compensation. This is not a public layout
+framework or a non-Chromium compatibility guarantee.
 `DataTableApi` is derived from the exposed model API, including the raw `table`
 and existing mutable state. Column IDs must be unique and stable for a mounted
 table; changing its schema identity requires remounting rather than silently
@@ -176,6 +232,25 @@ DOM-text fallback preserves static callers and visible slot updates; it cannot
 observe slot changes while the item DOM is absent. Explicit text avoids a native
 MutationObserver. Reka continues to own keyboard navigation, selection and IME.
 See `docs/design/frontend-f03-f04-2026-10-12.md` for implementation and verification.
+
+`component/scroll-surface` owns edge decoration and keyboard-scroll clearance,
+not a second scrolling engine. `edges` selects decorated sides; clearance equals
+the enabled effect extent (fade `edgeSize`, line 1px, none 0) plus independent
+caller-supplied `focusInset` (default 0). A number applies to all four sides; an
+object selects individual sides, including undecorated ones. The command palette
+sets top/bottom insets to 36 without adding matching layout padding; only its top
+edge has a line decoration. Focus alignment at the list's ends is clamped by the
+native scroll range, not extended with blank content space.
+The command palette preserves the original scroll behavior for single navigation
+keys and synchronously switches its own viewport to auto for repeated keys, before
+Reka handles the event. Key release, focus loss, window blur, closing and scope
+disposal restore the prior inline value and priority. Reka still owns navigation,
+selection and IME; there is no input throttle or replacement scrolling engine.
+`ui/scroll-area` accepts `viewportStyle`, applied only to its
+own viewport; nested areas do not inherit a parent's clearance through deep CSS.
+Horizontal callers still supply a horizontal ScrollBar. DataTable retains its
+native-X / ScrollArea-Y composition, without ScrollSurface decoration.
+See `docs/design/frontend-f07-f11-2026-10-13.md` for implementation and verification.
 
 ## Design SSOT
 
