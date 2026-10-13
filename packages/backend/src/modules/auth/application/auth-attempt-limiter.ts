@@ -32,25 +32,65 @@ export class AuthAttemptLimiter {
             ['account', identifier, settings.accountAttemptLimit],
         ] as const) {
             const digest = createHash('sha256').update(`${scope}:${bucket}:${value}`).digest('hex');
-            const key = attempts.buildCanonical({ bucket: digest }).serialized;
-            let result: unknown;
-            try {
-                result = await this.kvs.execute(() =>
-                    this.kvs.redisClient.eval(increment, {
-                        keys: [key],
-                        arguments: [String(settings.attemptWindowSeconds)],
-                    })
-                );
-            } catch (error) {
-                throw mapKvsError(error) ?? error;
-            }
-            if (!Array.isArray(result) || result.length !== 2)
-                throw new AuthError({ reason: 'unavailable' });
-            if (Number(result[0]) > limit)
+            const [count, ttl] = await this.increment(digest, settings.attemptWindowSeconds);
+            if (count > limit)
                 throw new AuthError(
                     { reason: 'attempts-limited' },
-                    { retryAfterSeconds: Math.max(1, Number(result[1])) }
+                    { retryAfterSeconds: Math.max(1, ttl) }
                 );
         }
+    }
+
+    /** All syntactically valid emails use the same counters, including unknown accounts. */
+    async checkRecoveryRequest(email: string, ip: string): Promise<boolean> {
+        const settings = this.config.get('auth.recovery', { infer: true });
+        const digest = (bucket: string, value: string) =>
+            createHash('sha256').update(`recovery-request:${bucket}:${value}`).digest('hex');
+        const [ipCount, ttl] = await this.increment(digest('ip', ip), settings.windowSeconds);
+        if (ipCount > settings.ipLimit)
+            throw new AuthError(
+                { reason: 'attempts-limited' },
+                { retryAfterSeconds: Math.max(1, ttl) }
+            );
+        const [emailCount] = await this.increment(digest('email', email), settings.windowSeconds);
+        if (emailCount > settings.emailLimit) return false;
+        const key = attempts.buildCanonical({ bucket: digest('cooldown', email) }).serialized;
+        try {
+            return (
+                (await this.kvs.execute(() =>
+                    this.kvs.redisClient.set(key, '1', {
+                        NX: true,
+                        EX: settings.cooldownSeconds,
+                    })
+                )) === 'OK'
+            );
+        } catch (error) {
+            throw mapKvsError(error) ?? error;
+        }
+    }
+
+    private async increment(
+        digest: string,
+        windowSeconds: number
+    ): Promise<readonly [number, number]> {
+        const key = attempts.buildCanonical({ bucket: digest }).serialized;
+        let result: unknown;
+        try {
+            result = await this.kvs.execute(() =>
+                this.kvs.redisClient.eval(increment, {
+                    keys: [key],
+                    arguments: [String(windowSeconds)],
+                })
+            );
+        } catch (error) {
+            throw mapKvsError(error) ?? error;
+        }
+        if (!Array.isArray(result) || result.length !== 2)
+            throw new AuthError({ reason: 'unavailable' });
+        const count = Number(result[0]);
+        const ttl = Number(result[1]);
+        if (!Number.isSafeInteger(count) || count < 1 || !Number.isSafeInteger(ttl) || ttl < 0)
+            throw new AuthError({ reason: 'unavailable' });
+        return [count, ttl];
     }
 }

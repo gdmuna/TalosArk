@@ -78,6 +78,15 @@ export class IdentityKernel {
     setFirstPassword(input: Identity.SetFirstPasswordInput) {
         return this.credentials.setFirstPassword(input);
     }
+    issuePasswordRecovery(input: Identity.IssuePasswordRecoveryInput) {
+        return this.credentials.issuePasswordRecovery(input);
+    }
+    revokePasswordRecovery(id: string) {
+        return this.credentials.revokePasswordRecovery(id);
+    }
+    confirmPasswordRecovery(input: Identity.ConfirmPasswordRecoveryInput) {
+        return this.credentials.confirmPasswordRecovery(input);
+    }
 
     async createOidcTransaction(): Promise<Identity.CreateOidcTransactionOutput> {
         return identityErrors.run(async () => {

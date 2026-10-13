@@ -90,6 +90,11 @@ identity. Safe English observations and diagnostics exclude recipients, content,
 credentials and raw server replies. Usage, internal breaking changes and isolated
 verification limits live in docs/design/mvp-i01-mail-2026-10-13.md.
 
+The Web composition now imports AuthRecoveryModule, which explicitly registers
+MailModule for P02 password recovery. The provisioning CLI still imports only
+AuthModule and never initializes SMTP. Mail itself does not own recovery tokens
+or account rules; the business delivery policy lives in Auth.
+
 ## Database runtime
 
 `infra/database` owns the Prisma-backed DatabaseRuntime. Its native `client` is
@@ -391,13 +396,25 @@ the first-password request; expiry does not revoke the session. Legacy scrypt ha
 are deliberately unsupported; no password/data migration is performed by this fix.
 
 UserModule exposes only the authenticated current account with an explicit wire
-projection; no arbitrary user query, organization membership, recovery or admin
+projection; no arbitrary user query, organization membership or admin
 GUI is activated. The compiled provision-account CLI requires database confirmation
 and explicit consent to controlled secret-link stdout. It is not a seed and does
 not send mail. HTTP_BROWSER_*, IDENTITY_PASSWORD_HASH_CONCURRENCY and AUTH_* defaults
 are present in all runtime envs; production URL values
 must match actual deployment. Frontend received only necessary OIDC-header/public
 credential adaptation; full P03 integration remains pending.
+
+P02 supplies public password-recovery request/confirm routes and real recovery
+pages. Requests acknowledge before account lookup and use a bounded process-local
+queue, not reliable jobs. Identity issues hashed reset credentials only for accounts
+with a local password; OIDC-only cannot create one through recovery. Confirming uses
+the same User lock, mandatory credential transaction and Access-owned revocation;
+password update, consumption and old-session revocation roll back together.
+Request defaults are 30-minute credentials, 60-second email cooldown, five email
+requests and twenty IP requests per one-hour window, explicit in all six envs.
+No automatic login, hidden retry, Schema change or real mail-provider verification
+is claimed. Ownership, failure behavior and evidence live in
+docs/design/mvp-p02-2026-10-13.md.
 
 ## Documentation delivery
 
@@ -408,11 +425,12 @@ does not decrypt runtime env. The docsite build publishes Scalar and this same
 specification under /api-reference/. Internal backend designs and reviews are
 not implicitly published.
 
-CD uses the exact built image digest and disposable PostgreSQL/KVS with synthetic
+CD uses the exact built image digest and disposable PostgreSQL/KVS/SMTP with synthetic
 configuration to collect the document. No business schema synchronization or
 real provider calls are required for export. Casdoor remains mandatory in current
 startup validation; its commented optional branch is not activated by delivery
-changes. Deployment and document verification are recorded in
+changes. P02 adds a pinned Mailpit receiver and an independent RSA provider key to
+the export fixture; it never uses real SMTP or publishes receiver ports. Deployment and document verification are recorded in
 docs/design/backend-w04-2026-10-11.md.
 
 ## MVP database vocabulary

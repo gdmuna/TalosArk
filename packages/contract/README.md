@@ -14,6 +14,7 @@ src/
     session.http.ts  Optional empty refresh/logout body; logout uses HTTP 204
     password.ts      Transport-neutral local-password input bounds/schema
     password.http.ts Provisioning inputs, login, activation and first password
+    recovery.http.ts Recovery request/confirmation, accepted/completed projections
     account.http.ts  Authenticated current-account projection
     error.ts         Auth public code/message/details schemas
     index.ts
@@ -89,6 +90,11 @@ library is required here.
   HttpOnly Cookie, never JSON. Refresh/logout reject body RTs and session IDs;
   their optional strict empty body allows no body or `{}`. Logout uses the
   cookie session without requiring a usable AT and succeeds without content.
+- Password recovery request uses a uniform 202 accepted projection without
+  disclosing eligibility or delivery. Confirm returns a 200 completed projection,
+  not session credentials. Reset secrets belong only in the confirm body; they
+  are never returned by an HTTP response. The backend still owns expiry,
+  one-time consumption, mail behavior and session revocation.
 - `ApiResponse` is discriminated by `success`. Error responses have `code`,
   `message`, `type`, and `details`, not a success `data` member. Error details
   remain endpoint-specific instead of forcing a global business-error taxonomy.

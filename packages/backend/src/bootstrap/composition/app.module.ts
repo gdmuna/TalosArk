@@ -6,6 +6,7 @@ import { KvsModule } from '@/infra/kvs/kvs.module.js';
 import { HealthModule } from '@/system/health/health.module.js';
 
 import { AuthModule } from '@/modules/auth/index.js';
+import { AuthRecoveryModule } from '@/modules/auth/auth-recovery.module.js';
 import { UserModule } from '@/modules/user/user.module.js';
 
 import { PlatformContextModule } from '@/platform/context/context.module.js';
@@ -59,6 +60,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         AccessModule,
         KvsModule,
         AuthModule,
+        AuthRecoveryModule,
         UserModule,
         PlatformContextModule,
         HealthModule,

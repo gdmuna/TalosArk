@@ -12,6 +12,11 @@ export const IdentityErrorDefinition = defineErrorCatalog('identity', {
         protocol: { http: { status: 400 } },
         internal: { logLevel: 'info' },
     },
+    'password-recovery-invalid': {
+        public: AuthErrorContract.passwordRecoveryInvalid,
+        protocol: { http: { status: 400 } },
+        internal: { logLevel: 'info' },
+    },
     'password-present': {
         public: AuthErrorContract.passwordPresent,
         protocol: { http: { status: 409 } },

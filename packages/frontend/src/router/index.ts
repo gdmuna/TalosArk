@@ -8,6 +8,8 @@ import DesktopAuthShell from '@/layout/shell/DesktopAuthShell.vue';
 import DesktopPrimarySidebarShell from '@/layout/shell/DesktopPrimarySidebarShell.vue';
 import Auth from '@/page/auth/Auth.vue';
 import AuthCallback from '@/page/auth/Auth-Callback.vue';
+import AuthRecovery from '@/page/auth/Auth-Recovery.vue';
+import AuthResetPassword from '@/page/auth/Auth-ResetPassword.vue';
 import Management from '@/page/management/Management.vue';
 import Workbench from '@/page/workbench/Workbench.vue';
 import Material from '@/page/material/Material.vue';
@@ -22,6 +24,8 @@ declare module 'vue-router' {
         sectionLabel?: string;
         sectionPath?: string;
         resourceDetail?: boolean;
+        /** Public forms may use the available width instead of the desktop minimum. */
+        fluidLayout?: boolean;
     }
 }
 
@@ -34,6 +38,7 @@ const routes: RouteRecordRaw[] = [
         path: '/auth',
         component: DesktopAuthShell,
         redirect: '/auth/login',
+        meta: { fluidLayout: true },
         children: [
             {
                 path: 'login',
@@ -48,6 +53,16 @@ const routes: RouteRecordRaw[] = [
                 meta: {
                     defaultTitle: 'callback',
                 },
+            },
+            {
+                path: 'recovery',
+                component: AuthRecovery,
+                meta: { defaultTitle: '找回密码' },
+            },
+            {
+                path: 'reset-password',
+                component: AuthResetPassword,
+                meta: { defaultTitle: '重设密码' },
             },
         ],
     },

@@ -220,6 +220,117 @@ export class IdentityCredential {
         );
     }
 
+    issuePasswordRecovery(
+        input: Identity.IssuePasswordRecoveryInput
+    ): Promise<Identity.IssuedPasswordRecovery | null> {
+        return identityErrors.run(() =>
+            this.database.transaction.run(
+                async () => {
+                    const email = input.email.trim().toLowerCase();
+                    const matches = await this.database.queryClient.user.findMany({
+                        where: { email: { equals: email, mode: 'insensitive' } },
+                        select: { id: true },
+                        take: 2,
+                    });
+                    if (matches.length !== 1) return null;
+                    const userId = matches[0].id;
+                    await this.lockUser(userId);
+                    const user = await this.database.queryClient.user.findUnique({
+                        where: { id: userId },
+                        select: { email: true, passwordHash: true },
+                    });
+                    if (!user?.passwordHash || user.email.trim().toLowerCase() !== email)
+                        return null;
+                    const token = randomBytes(32).toString('base64url');
+                    await this.database.queryClient.passwordResetToken.updateMany({
+                        where: { userId, consumedAt: null, revokedAt: null },
+                        data: { revokedAt: new Date() },
+                    });
+                    const reset = await this.database.queryClient.passwordResetToken.create({
+                        data: {
+                            userId,
+                            email,
+                            tokenHash: tokenHash(token),
+                            expiresAt: input.expiresAt,
+                        },
+                        select: { id: true },
+                    });
+                    return { id: reset.id, email, token, expiresAt: input.expiresAt };
+                },
+                { isolationLevel: 'ReadCommitted' }
+            )
+        );
+    }
+
+    revokePasswordRecovery(id: string): Promise<void> {
+        return identityErrors.run(() =>
+            this.database.transaction.run(
+                async () => {
+                    const reset = await this.database.queryClient.passwordResetToken.findUnique({
+                        where: { id },
+                        select: { userId: true },
+                    });
+                    if (!reset) return;
+                    await this.lockUser(reset.userId);
+                    await this.database.queryClient.passwordResetToken.updateMany({
+                        where: { id, consumedAt: null, revokedAt: null },
+                        data: { revokedAt: new Date() },
+                    });
+                },
+                { isolationLevel: 'ReadCommitted' }
+            )
+        );
+    }
+
+    confirmPasswordRecovery(
+        input: Identity.ConfirmPasswordRecoveryInput
+    ): Promise<Identity.ConfirmPasswordRecoveryOutput> {
+        const hash = this.readPreparedPassword(input.preparedPassword);
+        return identityErrors.run(() =>
+            this.database.transaction.run(
+                async () => {
+                    const reset = await this.database.queryClient.passwordResetToken.findUnique({
+                        where: { tokenHash: tokenHash(input.token) },
+                        select: { id: true, userId: true },
+                    });
+                    if (!reset) throw new IdentityError({ reason: 'password-recovery-invalid' });
+                    await this.lockUser(reset.userId);
+                    const current = await this.database.queryClient.passwordResetToken.findUnique({
+                        where: { id: reset.id },
+                        select: {
+                            consumedAt: true,
+                            revokedAt: true,
+                            expiresAt: true,
+                            email: true,
+                            user: { select: { email: true, passwordHash: true } },
+                        },
+                    });
+                    const now = new Date();
+                    if (
+                        !current ||
+                        current.consumedAt ||
+                        current.revokedAt ||
+                        current.expiresAt <= now ||
+                        !current.user.passwordHash ||
+                        current.email !== current.user.email.trim().toLowerCase()
+                    )
+                        throw new IdentityError({ reason: 'password-recovery-invalid' });
+                    await this.database.queryClient.passwordResetToken.update({
+                        where: { id: reset.id },
+                        data: { consumedAt: now },
+                    });
+                    await this.database.queryClient.user.update({
+                        where: { id: reset.userId },
+                        data: { passwordHash: hash },
+                    });
+                    await this.revokePendingCredentials(reset.userId, now);
+                    return { userId: reset.userId };
+                },
+                { isolationLevel: 'ReadCommitted', propagation: 'mandatory' }
+            )
+        );
+    }
+
     private async lockUser(userId: string): Promise<void> {
         await this.database.queryClient
             .$queryRaw`SELECT "id" FROM public."User" WHERE "id" = ${userId}::uuid FOR UPDATE`;
@@ -238,6 +349,10 @@ export class IdentityCredential {
             data: { passwordHash: hash },
         });
         if (updated.count !== 1) throw new IdentityError({ reason: 'password-present' });
+        await this.revokePendingCredentials(userId, now);
+    }
+
+    private async revokePendingCredentials(userId: string, now: Date): Promise<void> {
         await this.database.queryClient.userActivationToken.updateMany({
             where: { userId, consumedAt: null, revokedAt: null },
             data: { revokedAt: now },
