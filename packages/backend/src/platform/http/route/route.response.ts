@@ -12,6 +12,12 @@ const catalog = defineInternalErrorCatalog('route-response', [
 ]);
 export const RouteResponseError = defineErrorClass<typeof catalog, RouteResponseFailure>(catalog, {
     name: 'RouteResponseError',
+    diagnosticMessage: (failure) =>
+        ({
+            'undeclared-status': 'Response status is not declared by the route contract',
+            'body-not-allowed': 'This response status does not allow a response body',
+            'invalid-body': 'Response body does not match the route contract',
+        })[failure.reason],
 });
 
 function jsonResponse(value: unknown): unknown {

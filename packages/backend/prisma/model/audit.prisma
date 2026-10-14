@@ -15,7 +15,8 @@ model AuditEvent {
   resources    AuditResourceReference[]
 
   @@unique([organizationId, id])
-  @@index([organizationId, workspaceId, occurredAt])
+  @@index([organizationId, occurredAt, id])
+  @@index([organizationId, workspaceId, occurredAt, id])
   @@index([actorUserId, occurredAt])
   @@index([requestId])
 }

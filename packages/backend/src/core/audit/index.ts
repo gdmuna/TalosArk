@@ -1,5 +1,4 @@
-/**
- * TODO: 定义审计内核导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export * from './audit.kernel.js';
+export * from './audit.module.js';
+export * from './audit.error.js';
+export type * from './audit.contract.js';
