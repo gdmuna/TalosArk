@@ -25,10 +25,15 @@ src/
     http.ts          HTTP success/error envelopes
     websocket.ts     WebSocket error message and optional correlation ID
     index.ts
+  team/
+    team.http.ts    Organization/workspace creation, accessible context and projections
+    error.ts        Public team access rejection
+    index.ts
   backend/          Backend-only error catalogs: public + optional protocol + internal policy
     auth.error.ts
     request.error.ts
     system.error.ts
+    team.error.ts
     index.ts
   index.ts
 ```
@@ -43,6 +48,14 @@ those in the backend. Access tokens remain opaque to clients; do not turn the
 internal JWT claims into a client contract unless a client genuinely needs them.
 Pagination and user projections should be added when their HTTP interfaces are
 implemented, rather than exporting the current internal Prisma-backed types.
+
+`@talos-ark/contracts/team` describes P04's organization/workspace HTTP boundary.
+The accessible snapshot does not contain a server-side active workspace or grant
+database entities. `canCreateWorkspace` is a current UI capability projection,
+not an authorization credential; every actual request rechecks membership and
+grants. Creation bodies reject undeclared actor fields, and path UUIDs normalize
+case before application comparisons. P05/P06 invitation and role contracts are
+not introduced by this entry.
 
 `@talos-ark/contracts/auth/password` exports only the shared local-password input
 schema and code-point bounds. Core and HTTP reuse it without importing each other's

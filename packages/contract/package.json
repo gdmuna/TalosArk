@@ -25,6 +25,10 @@
       "types": "./dist/auth/password.d.ts",
       "import": "./dist/auth/password.js"
     },
+    "./team": {
+      "types": "./dist/team/index.d.ts",
+      "import": "./dist/team/index.js"
+    },
     "./backend": {
       "types": "./dist/backend/index.d.ts",
       "import": "./dist/backend/index.js"
