@@ -3,8 +3,8 @@ import type { WorkspaceSnapshot } from '../model/workspace';
 export function createWorkspaceFixtures(): WorkspaceSnapshot {
     return {
         organizations: [
-            { id: 'sjtu', name: '上海交通大学' },
-            { id: 'suzhou', name: '苏州研究所' },
+            { id: 'sjtu', name: '上海交通大学', canCreateWorkspace: true },
+            { id: 'suzhou', name: '苏州研究所', canCreateWorkspace: true },
         ],
         workspaces: [
             {

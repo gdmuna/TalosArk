@@ -9,7 +9,6 @@
                 :class="compact ? 'gap-0 p-0' : 'gap-3 p-2'"
                 :data-compact="compact"
                 aria-label="切换组织或工作区"
-                :disabled="!workspace.organizations.length && !workspace.workspaces.length"
                 use-tooltip
                 :tooltip-disabled="!compact"
                 tooltip="切换组织或工作区"
@@ -119,6 +118,7 @@
                                     class="h-8 w-full justify-start px-2 font-normal data-[selected=true]:bg-primary-soft data-[selected=true]:text-primary"
                                     :data-selected="item.id === workspace.activeId"
                                     :aria-pressed="item.id === workspace.activeId"
+                                    :disabled="workspace.switching"
                                     @click="selectWorkspace(item.id)"
                                 >
                                     <UsersRound class="size-4 shrink-0" aria-hidden="true" />
@@ -131,63 +131,35 @@
                     <p v-if="!groups.length" class="py-8 text-center text-sm text-muted-foreground">未找到工作区</p>
                 </div>
             </ScrollArea>
-            <div class="grid shrink-0 grid-cols-2 gap-1 border-t p-1">
-                <Button variant="ghost" class="h-8 text-primary" @click="openForm('join')">
+            <p v-if="workspace.error" role="alert" class="px-3 py-2 text-sm text-destructive">{{ workspace.error }}</p>
+            <div class="flex shrink-0 flex-wrap gap-1 border-t p-1">
+                <Button v-if="workspace.canJoin" variant="ghost" class="h-8 text-primary" @click="openForm('join')">
                     <Plus aria-hidden="true" />
                     加入工作区
                 </Button>
-                <Button variant="ghost" class="h-8 text-primary" @click="openForm('create')">
+                <Button
+                    variant="ghost"
+                    class="h-8 text-primary"
+                    :disabled="!workspace.organizations.some((item) => item.canCreateWorkspace)"
+                    @click="openForm('workspace')"
+                >
                     <Plus aria-hidden="true" />
                     新建工作区
+                </Button>
+                <Button
+                    v-if="workspace.canCreateOrganization"
+                    variant="ghost"
+                    class="h-8 text-primary"
+                    @click="openForm('organization')"
+                >
+                    <Plus aria-hidden="true" />
+                    新建组织
                 </Button>
             </div>
         </PopoverContent>
     </Popover>
 
-    <Dialog v-model:open="formOpen">
-        <DialogContent @close-auto-focus="restoreFocus">
-            <DialogTitle>{{ mode === 'create' ? '新建工作区' : '加入工作区' }}</DialogTitle>
-            <DialogDescription class="sr-only">
-                {{ mode === 'create' ? '填写工作区名称与所属组织' : '输入工作区邀请码' }}
-            </DialogDescription>
-            <form class="space-y-4" @submit.prevent="submit">
-                <template v-if="mode === 'create'">
-                    <label class="block space-y-2">
-                        <span>所属组织</span>
-                        <SelectField
-                            v-model="organizationId"
-                            label="所属组织"
-                            class="w-full"
-                            :options="workspace.organizations.map((item) => ({ value: item.id, label: item.name }))"
-                        />
-                    </label>
-                    <label class="block space-y-2">
-                        <span>工作区名称</span>
-                        <Input v-model="name" maxlength="40" required placeholder="例如：细胞成像课题组" />
-                    </label>
-                </template>
-                <label v-else class="block space-y-2">
-                    <span>邀请码</span>
-                    <Input v-model="code" required maxlength="40" autocomplete="off" placeholder="输入邀请码" />
-                </label>
-                <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
-                <DataSyncNotice
-                    scope="工作区"
-                    :error="workspace.syncError"
-                    :busy="workspace.busy"
-                    @retry="workspace.retrySync()"
-                />
-                <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" @click="formOpen = false">
-                        {{ committed ? '关闭' : '取消' }}
-                    </Button>
-                    <Button type="submit" :disabled="workspace.busy || !!workspace.syncError || committed">
-                        {{ mode === 'create' ? '创建工作区' : '加入' }}
-                    </Button>
-                </div>
-            </form>
-        </DialogContent>
-    </Dialog>
+    <WorkspaceCreateDialog v-model:open="formOpen" :mode="mode" @close-auto-focus="restoreFocus" />
 </template>
 
 <script setup lang="ts">
@@ -195,14 +167,12 @@ import { computed, ref, useTemplateRef, watch } from 'vue';
 import { unrefElement, useElementSize } from '@vueuse/core';
 import { Folders, Building2, Check, ChevronDown, Plus, Search, UsersRound } from '@lucide/vue';
 import { useWorkspaceStore } from '../model/store';
-import { SelectField } from '@/component/select-field';
-import { DataSyncNotice } from '@/component/data-sync';
+import WorkspaceCreateDialog from './WorkspaceCreateDialog.vue';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/ui/collapsible';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Popover, PopoverAnchor, PopoverContent, PopoverTitle, PopoverTrigger } from '@/ui/popover';
 import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 
 // External anchors keep this panel independent from its caller's menu positioning root.
 const props = withDefaults(defineProps<{ anchor?: HTMLElement | SVGElement | null; compact?: boolean }>(), {
@@ -218,12 +188,7 @@ const interactedOutside = ref(false);
 const query = ref('');
 const collapsed = ref<string[]>([]);
 const formOpen = ref(false);
-const committed = ref(false);
-const mode = ref<'create' | 'join'>('create');
-const name = ref('');
-const code = ref('');
-const error = ref('');
-const organizationId = ref(workspace.organization?.id ?? '');
+const mode = ref<'organization' | 'workspace' | 'join'>('workspace');
 const groups = computed(() =>
     workspace.organizations
         .map((organization) => ({
@@ -245,38 +210,18 @@ function toggleGroup(id: string) {
         ? collapsed.value.filter((item) => item !== id)
         : [...collapsed.value, id];
 }
-function selectWorkspace(id: string) {
-    workspace.select(id);
-    popoverOpen.value = false;
+async function selectWorkspace(id: string) {
+    if (!(await workspace.select(id))) popoverOpen.value = false;
 }
 function openManagement() {
     popoverOpen.value = false;
     emit('manage');
 }
-function openForm(value: 'create' | 'join') {
-    committed.value = false;
+function openForm(value: 'organization' | 'workspace' | 'join') {
     mode.value = value;
-    name.value = code.value = error.value = '';
-    organizationId.value = workspace.organization?.id ?? '';
     popoverOpen.value = false;
     formOpen.value = true;
 }
-async function submit() {
-    error.value =
-        mode.value === 'create'
-            ? await workspace.create(name.value, organizationId.value)
-            : await workspace.join(code.value);
-    if (!error.value) {
-        committed.value = true;
-        if (!workspace.syncError) formOpen.value = false;
-    }
-}
-watch(
-    () => workspace.syncError,
-    (value) => {
-        if (!value && committed.value) formOpen.value = false;
-    }
-);
 function onPopoverClose(event: Event) {
     if (formOpen.value) {
         event.preventDefault();
@@ -292,9 +237,6 @@ function restoreFocus(event: Event) {
     }
     emit('close-auto-focus', event);
 }
-watch([name, code, organizationId], () => {
-    error.value = '';
-});
 watch(popoverOpen, (value) => {
     if (value) {
         query.value = '';

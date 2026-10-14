@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, ref } from 'vue';
+import { computed, onScopeDispose, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { createTaskScope, waitFor } from '@/platform/task';
 import { useWorkspaceStore } from '@/module/workspace';
@@ -17,6 +17,7 @@ import type {
 
 export const useWorkbenchStore = defineStore('workbench', () => {
     const resources = ref<Resource[]>([]);
+    const loaded = ref(false);
     const tasks = ref<Task[]>([]);
     const approvals = ref<Approval[]>([]);
     const exceptions = ref<ExceptionItem[]>([]);
@@ -32,6 +33,16 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     let source: WorkbenchDataSource;
     let sourceScope = createTaskScope([]);
     onScopeDispose(() => sourceScope.dispose());
+    watch(
+        () => workspace.activeId,
+        () => {
+            sourceScope.dispose();
+            sourceScope = createTaskScope([]);
+            busy.value = false;
+            error.value = syncError.value = '';
+        },
+        { flush: 'sync' }
+    );
     const currentResources = computed(() =>
         resources.value.filter((item) => item.workspaceId === workspace.activeId)
     );
@@ -86,6 +97,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         () => new Map(currentResources.value.map((item) => [item.id, item]))
     );
     function apply(snapshot: WorkbenchSnapshot) {
+        loaded.value = true;
         resources.value = snapshot.resources;
         tasks.value = snapshot.tasks;
         approvals.value = snapshot.approvals;
@@ -101,6 +113,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         sourceScope.dispose();
         sourceScope = createTaskScope([]);
         apply({ resources: [], tasks: [], approvals: [], exceptions: [], overviews: {} });
+        loaded.value = false;
         busy.value = false;
         error.value = syncError.value = '';
     }
@@ -174,6 +187,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         return error ? null : id;
     }
     return {
+        loaded,
         resources,
         tasks,
         approvals,

@@ -1,7 +1,9 @@
-import type { WorkspaceSnapshot } from '../model/workspace';
+import type { Workspace, WorkspaceSnapshot } from '../model/workspace';
 
 export interface WorkspaceDataSource {
     load(signal?: AbortSignal): Promise<WorkspaceSnapshot>;
-    create(name: string, organizationId: string): Promise<string>;
-    join(code: string): Promise<string>;
+    create(name: string, organizationId: string, signal?: AbortSignal): Promise<string>;
+    createOrganization?(name: string, workspaceName: string, signal?: AbortSignal): Promise<string>;
+    select?(workspace: Workspace, signal?: AbortSignal): Promise<void>;
+    join?(code: string, signal?: AbortSignal): Promise<string>;
 }
