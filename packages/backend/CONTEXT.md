@@ -51,7 +51,31 @@ HTTP request authentication uses the Platform-owned RequestAuthentication snapsh
 (`request.authentication`: userId/sessionId), not raw JWT claims or Identity SDK types.
 Bootstrap decorates each request with null; AuthGuard binds a frozen snapshot only
 after successful Access verification. Public/optional authentication behavior and
-wire contracts are unchanged. This does not yet bind an actor into request ALS.
+wire shapes are unchanged. AuthGuard also binds the verified user into request ALS;
+AlsContextAdapter.requireActor returns a frozen userId-only snapshot and rejects
+missing identity. Metadata cannot supply an actor. The existing allowlisted
+response context.userId is now populated for authenticated requests; session IDs
+and raw claims are not projected there.
+
+## Business audit
+
+core/audit exports AuditModule, AuditKernel, SDK-free contracts and AuditError.
+Business modules import AuditModule explicitly when their approved use case needs
+it; no management routes are activated by I02. record requires an ambient managed
+database transaction and puts validation plus append inside mandatory propagation.
+Caught audit failures therefore mark that business transaction rollback-only.
+Receipts are provisional until the outer commit. The private concrete repository
+uses existing AuditEvent/AuditResourceReference models with composite-FK organization
+checks and event-time label snapshots; it is not a separate Infra Port.
+
+The application chooses safe detail fields and supplies a verified actor plus an
+authorized organization/workspace. Core does not inspect request ALS or infer
+authorization. Details are bounded plain JSON snapshots, never automatic request
+or entity capture. list requires an explicit organization or workspace scope and
+uses filter-bound (occurredAt DESC, id DESC) cursors, not authorization tokens or
+cross-page snapshots. The append/query interface is not database tamper protection.
+Limits, P04's direct-input example, isolated verification and pending integration
+live in docs/design/mvp-i02-audit-2026-10-14.md.
 
 ## Cookie binding
 
@@ -77,10 +101,14 @@ Usage, limits and lifecycle semantics live in docs/design/outbound-http.md.
 
 ## Outbound mail
 
-`infra/mail` requires explicit MailModule.forRoot/forRootAsync configuration and
-exports only MailService as a Nest provider. It does not read global ConfigService
-or register in AppModule by default. Activation snapshots and validates SMTP
-configuration; Nest initialization verifies connection/TLS/auth without sending.
+`infra/mail` requires explicit MailModule.forRootAsync configuration at composition
+and exports only MailService as an application-wide Nest provider. It does not read
+global ConfigService. AppModule registers the default instance once. Activation
+snapshots and validates SMTP configuration; Nest initialization verifies
+connection/TLS/auth without sending. Known MailError probe failures are logged at
+error level without rejecting initialization; invalid configuration structure and
+unknown programming errors still fail. Explicit verify/send calls keep rejecting
+failures, and a failed startup probe does not permanently disable the transport.
 Send returns SMTP accepted/partial recipient results, never an inbox-delivery promise.
 The adapter owns Nodemailer SMTPConnection/MIME operations, bounded concurrency,
 phase/whole-operation deadlines, cancellation and drain/forced socket teardown.
@@ -90,10 +118,11 @@ identity. Safe English observations and diagnostics exclude recipients, content,
 credentials and raw server replies. Usage, internal breaking changes and isolated
 verification limits live in docs/design/mvp-i01-mail-2026-10-13.md.
 
-The Web composition now imports AuthRecoveryModule, which explicitly registers
-MailModule for P02 password recovery. The provisioning CLI still imports only
-AuthModule and never initializes SMTP. Mail itself does not own recovery tokens
-or account rules; the business delivery policy lives in Auth.
+The Web composition imports AuthRecoveryModule, which injects the shared MailService
+for P02 password recovery without registering MailModule. The provisioning CLI
+registers IAM but neither Mail nor Storage and never initializes SMTP. Mail itself
+does not own recovery tokens or account rules; the business delivery policy lives
+in Auth.
 
 ## Database runtime
 
@@ -135,7 +164,8 @@ selects; it does not add an encompassing registration/session transaction.
 ## IAM runtime
 
 Casdoor remains required; application and explicit issuer retain their existing
-optionality. IdentityModule explicitly supplies IamModule.forRootAsync configuration.
+optionality. Web and provisioning composition each register
+IamModule.forRootAsync once.
 IAM adapters do not read global configuration. The module exports only
 CasdoorOidcClient, which returns whitelisted verified identity/profile fields rather
 than supplier tokens, raw claims or SDK models. Options are snapshotted and the RSA
@@ -145,6 +175,17 @@ HTTP resources retain HttpClientFactory ownership. Normal login preserves the ex
 AT fallback and registration branches; W05 and public HTTP contracts are unchanged.
 W07 interfaces, transaction participation and verification limits are recorded in
 docs/design/iam-identity-access-2026-10-13.md.
+
+## Shared Infra composition
+
+StorageModule, IamModule and MailModule expose only forRootAsync and register their
+declared public providers globally within one Nest application context. Configuration
+mapping lives in bootstrap/composition/infra.composition.ts; business modules inject
+the provider class token and never register another instance. AppModule activates all
+three; AccountProvisionModule activates only IAM. SDK clients and options tokens stay
+private. Singleton ownership comes from one registration per composition root, not
+from the method name or a process-static cache. Details and the future Casdoor
+authorization placement live in docs/design/infra-root-composition-2026-10-14.md.
 
 ## Dependency direction
 
@@ -185,13 +226,14 @@ visibility; they are not an application-wide public surface.
   destruction. Total budget exhaustion is an explicit failed shutdown, not a
   successful adapter cleanup.
   bootstrap/composition/app.module.ts is the Nest composition root for active
-  global capabilities.
+  global capabilities, including the explicitly configured default IAM/Mail/Storage
+  providers. Other Infra dependencies retain their existing explicit imports.
 - bootstrap/composition may know the full graph and bind Core ports to Infra
   adapters; it contains no business behavior. Do not use a root infra/index.ts
   barrel as an alternative composition mechanism.
 - config owns typed runtime configuration. Code outside it should not read
-  process.env directly. config-file.reader.ts is configuration-local support,
-  not a general utility.
+  process.env directly. config/internal owns config.validation.ts and
+  config-file.reader.ts as private support, not general utilities or public exports.
 - Do not add a global constants layer. A DI token lives beside the Port or
   adapter it identifies; an HTTP header or decorator metadata key lives beside
   its owning Platform transport code. There is no current global constants
@@ -276,6 +318,7 @@ visibility; they are not an application-wide public surface.
     |   |   |   `-- error.provider.ts          # explicit error catalogs and adapters
     |   |   `-- lifecycle/                     # process-wide startup/shutdown only
     |   +-- config/                            # typed runtime configuration
+    |   |   `-- internal/                      # private environment validation and file reading
     |   +-- common/utils/                      # lightweight crypto + retained legacy tools
     |   +-- platform/
     |   |   +-- error/                         # factory, reframe/catch helpers, resolver, diagnostics
@@ -311,7 +354,7 @@ visibility; they are not an application-wide public surface.
     |   `-- ddl/                              # controlled native SQL, not Prisma migration history
     |       +-- init/                         # database prerequisites before schema synchronization
     |       +-- schema/                       # native objects after schema synchronization
-    |       `-- upgrade/                      # explicit upgrades for existing data only
+    |       `-- upgrade/                      # reserved for future reviewed upgrade policy
     +-- ops/
     |   +-- prisma/                            # Prisma CLI-only environment profiles
     |   +-- docker/                            # Dockerfile and dev/full Compose
@@ -383,7 +426,9 @@ allowlists. Redirect/activation URLs remain independently configured.
 P01 provides controlled operator provisioning and activation reissue, not public
 registration. Separate hashed UserActivationToken credentials activate accounts
 once. Username matching is case-sensitive; email matching is case-insensitive,
-backed by identity.sql's native index after Prisma synchronization. Identity owns
+backed by canonical email writes, Prisma's ordinary unique index and identity.sql's
+native CHECK after synchronization. CHECK failures remain technical DatabaseError
+failures, not account conflicts or user-facing input validation. Identity owns
 bounded Argon2id/PHC and private credential persistence under identity/internal;
 passwords are not trimmed/case-folded. The neutral contracts/auth/password subpath
 shares input bounds without importing transport DTOs. Auth prepares an opaque
@@ -401,8 +446,11 @@ GUI is activated. The compiled provision-account CLI requires database confirmat
 and explicit consent to controlled secret-link stdout. It is not a seed and does
 not send mail. HTTP_BROWSER_*, IDENTITY_PASSWORD_HASH_CONCURRENCY and AUTH_* defaults
 are present in all runtime envs; production URL values
-must match actual deployment. Frontend received only necessary OIDC-header/public
-credential adaptation; full P03 integration remains pending.
+must match actual deployment. P03 now connects real Web password/OIDC login,
+activation/first-password setup, current-account reads and Cookie restoration/logout.
+The backend wire contracts were not changed by that frontend slice. Web evidence,
+synthetic-provider limits and deferred Tauri verification live in
+../frontend/docs/design/mvp-p03-2026-10-14.md.
 
 P02 supplies public password-recovery request/confirm routes and real recovery
 pages. Requests acknowledge before account lookup and use a bounded process-local
@@ -465,8 +513,9 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
 - Storage now exposes SDK-free object contracts through infra/storage. Callers use
   explicit bucket/raw-key locations, structured presigned requests and independent
   multipart operations. It does not decide CAS keys, promote staging objects or
-  own File upload sessions. StorageModule requires explicit forRoot/forRootAsync
-  configuration, exports only StorageService and owns SDK-client destruction.
+  own File upload sessions. StorageModule requires explicit forRootAsync configuration
+  once in Web composition, globally exports only StorageService and owns SDK-client
+  destruction.
   Bucket deployment configuration remains available to the future File capability.
   W06 implementation, breaking internal interfaces and verification limits live in
   docs/design/storage-2026-10-12.md. File remains unimplemented; copy/delete/upload
@@ -477,8 +526,10 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
 - Platform-level Casdoor OIDC remains the current identity-provider model.
   TalosArk-owned identity and session behavior belongs to core/identity and
   core/access, not Casdoor SDK code.
-- Casdoor/Casbin administration is an Infra control-plane concern. Runtime
-  authorization will enter through core/permission.
+- Casdoor/Casbin administration and remote enforcement are Casdoor Infra concerns.
+  A future Casdoor authorization client belongs beside the OIDC client in infra/iam,
+  registered by the same IamModule; authorization business decisions enter through
+  core/permission. This does not activate any permission implementation today.
 
 ## Verification expectation
 
