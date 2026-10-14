@@ -15,9 +15,11 @@ IAM startup mode, provider registry or second provider has been introduced.
 
 ## IAM ownership and composition
 
-- `IamModule.forRoot/forRootAsync` requires explicit `CasdoorIamOptions`. The caller
+- `IamModule.forRootAsync` requires explicit `CasdoorIamOptions`. Composition
   owns reading application configuration; adapters do not inject ConfigService or
-  read environment variables. IdentityModule supplies the configured dependency.
+  read environment variables. Web and provisioning roots each register the shared
+  dependency once; IdentityModule no longer registers IAM itself. The 2026-10-14
+  composition update is recorded in [shared Infra composition](infra-root-composition-2026-10-14.md).
 - The module exports only `CasdoorOidcClient`. It replaces the property-only
   IamClient aggregate and separate public token/SDK adapters.
 - The client exposes authorization URL generation and authorization-code resolution
@@ -48,7 +50,7 @@ IAM startup mode, provider registry or second provider has been introduced.
 | Previous interface                                  | Replacement                                                         |
 | --------------------------------------------------- | ------------------------------------------------------------------- |
 | IamClient plus SDK/OIDC/token properties            | Explicit CasdoorOidcClient dependency                               |
-| Static IamModule with implicit global configuration | Explicit forRoot/forRootAsync options                               |
+| Static IamModule with implicit global configuration | Explicit forRootAsync options in composition                        |
 | VerifiedIamToken and raw claims                     | VerifiedExternalIdentity with an owned profile                      |
 | Identity callback returning supplier token set      | External identity reference and registration fields                 |
 | Lookup by a complete provider token                 | Lookup by issuer/subject; this is not authentication evidence       |

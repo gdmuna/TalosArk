@@ -6,6 +6,7 @@ import { MailError } from './mail.error.js';
 import { MAIL_OPTIONS, resolveSmtpOptions, type MailModuleOptions } from './mail.options.js';
 import { MailTransport } from './mail.transport.js';
 import { mailboxSchema } from './mail.address.js';
+import { validationDiagnostics } from '@/platform/error/error.validation.js';
 
 const messageSchema = z
     .strictObject({
@@ -18,7 +19,7 @@ const messageSchema = z
         text: z.string().optional(),
         html: z.string().optional(),
     })
-    .refine((message) => !!message.text || !!message.html);
+    .refine((message) => !!message.text || !!message.html, { path: ['text'] });
 
 @Injectable()
 export class MailService implements OnModuleInit, OnModuleDestroy {
@@ -32,7 +33,15 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
 
     async onModuleInit(): Promise<void> {
-        await this.verify();
+        try {
+            await this.verify();
+        } catch (error) {
+            if (!MailError.is(error)) throw error;
+            this.logger.error(
+                { event: 'mail.smtp.verification.failed', err: error },
+                'SMTP startup verification failed; application startup will continue'
+            );
+        }
     }
 
     async onModuleDestroy(): Promise<void> {
@@ -51,14 +60,30 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
 
     async sendMail(message: MailMessage, options: MailSendOptions = {}): Promise<MailSendResult> {
-        const input = messageSchema.safeParse(message);
+        const input = messageSchema.safeParse(message, { reportInput: true });
         if (!input.success) {
-            throw new MailError({
-                reason: 'invalid-request',
-                operation: 'send',
-                phase: 'configuration',
-                outcome: 'not-sent',
-            });
+            throw new MailError(
+                {
+                    reason: 'invalid-request',
+                    operation: 'send',
+                    phase: 'configuration',
+                    outcome: 'not-sent',
+                },
+                {
+                    validationIssues: validationDiagnostics(input.error, message, {
+                        fields: {
+                            to: {
+                                expected: 'a valid mailbox, or an array of 1-50 valid mailboxes',
+                            },
+                            subject: {
+                                hint: 'Provide a subject of 1-998 characters without CR/LF.',
+                            },
+                            text: { customExpected: 'nonempty text or html body' },
+                            html: {},
+                        },
+                    }),
+                }
+            );
         }
         const started = performance.now();
         const result = await this.transport.send(input.data, options);

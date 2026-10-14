@@ -3,6 +3,9 @@ import allConfig, { type AllConfig } from '@/config/index.js';
 import { AccessModule } from '@/core/access/index.js';
 
 import { KvsModule } from '@/infra/kvs/kvs.module.js';
+import { IamModule } from '@/infra/iam/index.js';
+import { MailModule } from '@/infra/mail/index.js';
+import { StorageModule } from '@/infra/storage/index.js';
 import { HealthModule } from '@/system/health/health.module.js';
 
 import { AuthModule } from '@/modules/auth/index.js';
@@ -13,6 +16,7 @@ import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
 import { errorProviders } from './error.provider.js';
 import { loggerOptions } from './logger.provider.js';
+import { iamOptions, mailOptions, storageOptions } from './infra.composition.js';
 import { PlatformLoggerModule } from '@/platform/observability/logger/logger.module.js';
 import { AuthGuard } from '@/platform/http/guards/auth.guard.js';
 import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
@@ -32,8 +36,8 @@ import { ZodValidationPipe } from 'nestjs-zod';
 /**
  * Nest 运行时的组合根。
  *
- * 这里只装配跨业务的 Platform 能力。具体业务模块及其 Infra 依赖应当由各自的
- * Module 显式导入，避免 AppModule 重新成为任意基础设施的全局暴露点。
+ * 在这里统一注册共享 Infra，仅将各适配器声明的 Provider 暴露为应用级单例。
+ * 业务模块直接注入，不重复注册；底层 SDK 和配置 token 保持私有。
  */
 @Module({
     imports: [
@@ -57,6 +61,9 @@ import { ZodValidationPipe } from 'nestjs-zod';
             },
         }),
         PlatformLoggerModule.forRoot(loggerOptions),
+        IamModule.forRootAsync(iamOptions),
+        MailModule.forRootAsync(mailOptions),
+        StorageModule.forRootAsync(storageOptions),
         AccessModule,
         KvsModule,
         AuthModule,

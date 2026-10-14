@@ -1,6 +1,7 @@
 import type { FactoryProvider, ModuleMetadata } from '@nestjs/common';
 import { z } from 'zod/v4';
 import { IamError } from './iam.error.js';
+import { validationDiagnostics } from '@/platform/error/error.validation.js';
 
 export interface CasdoorIamOptions {
     endpoint: string;
@@ -15,7 +16,6 @@ export interface CasdoorIamOptions {
 
 export interface IamModuleOptions {
     options: CasdoorIamOptions;
-    imports?: ModuleMetadata['imports'];
 }
 
 export interface IamModuleAsyncOptions {
@@ -36,8 +36,25 @@ const optionsSchema = z.object({
 });
 
 export function resolveIamOptions(input: CasdoorIamOptions): Readonly<CasdoorIamOptions> {
-    const parsed = optionsSchema.safeParse(input);
-    if (!parsed.success) throw new IamError({ reason: 'configuration' });
+    const parsed = optionsSchema.safeParse(input, { reportInput: true });
+    if (!parsed.success)
+        throw new IamError(
+            { reason: 'configuration' },
+            {
+                validationIssues: validationDiagnostics(parsed.error, input, {
+                    fields: {
+                        endpoint: { label: 'endpoint (CASDOOR_ENDPOINT)' },
+                        clientId: { label: 'clientId (CASDOOR_CLIENT_ID)' },
+                        clientSecret: { label: 'clientSecret (CASDOOR_CLIENT_SECRET)' },
+                        organization: { label: 'organization (CASDOOR_ORGANIZATION)' },
+                        application: { label: 'application (CASDOOR_APPLICATION)' },
+                        certificate: { label: 'certificate (CASDOOR_CERTIFICATE_PATH)' },
+                        issuer: { label: 'issuer (CASDOOR_OIDC_ISSUER)' },
+                        redirectUri: { label: 'redirectUri (CASDOOR_OIDC_REDIRECT_URI)' },
+                    },
+                }),
+            }
+        );
     return Object.freeze({
         ...parsed.data,
         endpoint: parsed.data.endpoint.replace(/\/+$/, ''),

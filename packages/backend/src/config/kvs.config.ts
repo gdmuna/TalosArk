@@ -1,6 +1,7 @@
 import { ConfigType, registerAs } from '@nestjs/config';
 
 import { z } from 'zod/v4';
+import { parseEnvironment } from './internal/config.validation.js';
 
 const KvsConfigValidateSchema = z
     .object({
@@ -14,6 +15,6 @@ const KvsConfigValidateSchema = z
         closeTimeoutMs: env.KVS_CLOSE_TIMEOUT_MS,
     }));
 
-export const kvsConfig = registerAs('kvs', () => KvsConfigValidateSchema.parse(process.env));
+export const kvsConfig = registerAs('kvs', () => parseEnvironment(KvsConfigValidateSchema, 'KVS'));
 
 export type KvsConfig = ConfigType<typeof kvsConfig>;

@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { createPublicKey, type KeyObject } from 'node:crypto';
 import type { CasdoorIamOptions } from '../iam.options.js';
 import { IamError } from '../iam.error.js';
+import { configurationIssue } from '@/platform/error/error.validation.js';
 
 interface VerifiedToken {
     issuer: string;
@@ -17,10 +18,37 @@ export class CasdoorTokenVerifier {
         try {
             this.publicKey = createPublicKey(options.certificate);
         } catch (cause) {
-            throw new IamError({ reason: 'configuration' }, { cause });
+            throw new IamError(
+                { reason: 'configuration' },
+                {
+                    cause,
+                    validationIssues: [
+                        configurationIssue(
+                            'certificate (CASDOOR_CERTIFICATE_PATH)',
+                            'a parseable PEM/X.509 RSA verification key',
+                            options.certificate,
+                            {
+                                hint: 'Use the provider token-verification certificate, not a client secret or an empty file.',
+                            }
+                        ),
+                    ],
+                }
+            );
         }
         if (this.publicKey.asymmetricKeyType !== 'rsa') {
-            throw new IamError({ reason: 'configuration' });
+            throw new IamError(
+                { reason: 'configuration' },
+                {
+                    validationIssues: [
+                        {
+                            field: 'certificate (CASDOOR_CERTIFICATE_PATH)',
+                            code: 'invalid_key_type',
+                            expected: 'an RSA public key for RS256 verification',
+                            received: `${this.publicKey.asymmetricKeyType ?? 'unknown'} key`,
+                        },
+                    ],
+                }
+            );
         }
     }
 

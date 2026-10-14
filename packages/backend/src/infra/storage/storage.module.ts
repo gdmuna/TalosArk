@@ -6,18 +6,10 @@ import { StorageService } from './storage.service.js';
 
 @Module({})
 export class StorageModule {
-    static forRoot(options: StorageModuleOptions): DynamicModule {
-        return {
-            module: StorageModule,
-            imports: options.imports ?? [],
-            providers: this.createProviders({ provide: S3_OPTIONS, useValue: options }),
-            exports: [StorageService],
-        };
-    }
-
     static forRootAsync(options: StorageModuleAsyncOptions): DynamicModule {
         return {
             module: StorageModule,
+            global: true,
             imports: options.imports ?? [],
             providers: this.createProviders({
                 provide: S3_OPTIONS,

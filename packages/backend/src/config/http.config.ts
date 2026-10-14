@@ -1,5 +1,6 @@
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod/v4';
+import { parseEnvironment } from './internal/config.validation.js';
 
 // http
 
@@ -152,6 +153,19 @@ export const httpConfigValidateSchema = z
         requestIdHeader: env.REQUEST_ID_HEADER,
     }));
 
-export const httpConfig = registerAs('http', () => httpConfigValidateSchema.parse(process.env));
+export const httpConfig = registerAs('http', () =>
+    parseEnvironment(httpConfigValidateSchema, 'HTTP', {
+        fields: { THROTTLE_LIMIT: { expected: 'a positive integer or Infinity' } },
+        refinements: {
+            'Expected a canonical HTTP(S) origin without a path':
+                'a canonical HTTP(S) origin without a path',
+            'Allowlist mode requires at least one origin':
+                'at least one origin when HTTP_BROWSER_ORIGIN_MODE=allowlist',
+            'Development origin modes require NODE_ENV=development':
+                'NODE_ENV=development for development-* origin modes',
+            'Production browser origins must use HTTPS': 'HTTPS origins when NODE_ENV=production',
+        },
+    })
+);
 
 export type HttpConfig = ConfigType<typeof httpConfig>;

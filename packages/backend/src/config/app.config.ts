@@ -2,6 +2,7 @@ import _package_info from '@root/package.json' with { type: 'json' };
 
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod/v4';
+import { parseEnvironment } from './internal/config.validation.js';
 
 // app
 
@@ -63,6 +64,8 @@ const AppConfigValidateSchema = z
         packageInfo: PACKAGE_INFO,
     }));
 
-export const appConfig = registerAs('app', () => AppConfigValidateSchema.parse(process.env));
+export const appConfig = registerAs('app', () =>
+    parseEnvironment(AppConfigValidateSchema, 'application')
+);
 
 export type AppConfig = ConfigType<typeof appConfig>;

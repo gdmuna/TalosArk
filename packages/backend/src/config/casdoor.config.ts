@@ -1,7 +1,13 @@
-import { readFile } from './config-file.reader.js';
+import { readFile } from './internal/config-file.reader.js';
 
 import { ConfigType, registerAs } from '@nestjs/config';
 import { z } from 'zod/v4';
+import {
+    parseConfiguration,
+    ConfigurationError,
+    configurationIssue,
+} from '@/platform/error/error.validation.js';
+import { parseEnvironment } from './internal/config.validation.js';
 
 // 空字符串等同于未配置，避免环境模板中的占位值意外启用 Casdoor。
 const OptionalCasdoorEnvironmentValue = z
@@ -36,16 +42,28 @@ const stripTrailingSlashes = (value: string) => value.replace(/\/+$/, '');
 
 /** Required Casdoor configuration; application and explicit issuer remain optional. */
 const CasdoorConfigValidateSchema = CasdoorEnvironmentSchema.transform((environment) => {
-    const configuredEnvironment = ConfiguredCasdoorEnvironmentSchema.parse(environment);
+    const configuredEnvironment = parseConfiguration(
+        ConfiguredCasdoorEnvironmentSchema,
+        environment,
+        'Casdoor environment',
+        { environment: true }
+    );
     const certificate = readFile(configuredEnvironment.CASDOOR_CERTIFICATE_PATH).replace(
         /\\n/g,
         '\n'
     );
 
     if (!certificate) {
-        throw new Error(
-            `无法读取 CASDOOR_CERTIFICATE_PATH 指定的 Casdoor 证书：${configuredEnvironment.CASDOOR_CERTIFICATE_PATH}`
-        );
+        throw new ConfigurationError('Casdoor environment', [
+            configurationIssue(
+                'CASDOOR_CERTIFICATE_PATH',
+                'a readable, nonempty token-verification certificate file',
+                configuredEnvironment.CASDOOR_CERTIFICATE_PATH,
+                {
+                    hint: 'Resolve the path relative to the backend working directory; check that the file exists and is readable.',
+                }
+            ),
+        ]);
     }
 
     const endpoint = stripTrailingSlashes(configuredEnvironment.CASDOOR_ENDPOINT);
@@ -73,7 +91,7 @@ const CasdoorConfigValidateSchema = CasdoorEnvironmentSchema.transform((environm
 
 /** Casdoor connection configuration; incomplete configuration prevents startup. */
 export const casdoorConfig = registerAs('casdoor', () =>
-    CasdoorConfigValidateSchema.parse(process.env)
+    parseEnvironment(CasdoorConfigValidateSchema, 'Casdoor')
 );
 
 export type CasdoorConfig = ConfigType<typeof casdoorConfig>;
