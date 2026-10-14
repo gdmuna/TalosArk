@@ -1,5 +1,7 @@
-/**
- * TODO: 定义组织租户类型。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export interface TenantMembership {
+    readonly userId: string;
+    readonly organizationId: string;
+    readonly organizationMemberId: string;
+    readonly name: string;
+    readonly isOwner: boolean;
+}

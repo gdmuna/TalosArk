@@ -1,5 +1,4 @@
-/**
- * TODO: 定义组织租户内核导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { TenantKernel } from './tenant.kernel.js';
+export { TenantModule } from './tenant.module.js';
+export { TenantError } from './tenant.error.js';
+export type { TenantMembership } from './tenant.types.js';

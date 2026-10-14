@@ -1,5 +1,8 @@
-/**
- * TODO: 定义权限内核导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { PermissionKernel } from './permission.kernel.js';
+export { PermissionModule } from './permission.module.js';
+export { AuthorizationExtension } from './authorization-extension.decorator.js';
+export type {
+    AuthorizationDefinition,
+    AuthorizationMetadata,
+    AuthorizationScope,
+} from './authorization-definition.js';

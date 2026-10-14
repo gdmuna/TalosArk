@@ -1,5 +1,2 @@
-/**
- * TODO: 定义工作空间模块跨模块公开 API。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { WorkspaceService, workspacePermission } from '../application/workspace.service.js';
+export { workspaceCreateAuthorization } from '../contribution/workspace-authorization.contribution.js';
