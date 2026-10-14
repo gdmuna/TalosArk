@@ -67,7 +67,7 @@ Storage 协议修复与文档工具链可在配置清理后作为独立工作推
 
 来源 F2、候选 A/D、复查；第一批结构整改，不改变正常业务行为。
 
-- 将文件读取收回 `config/config-file.reader.ts`，Casdoor 配置不再经 Common 总桶获取它。
+- 将文件读取收回 `config/internal/config-file.reader.ts`，Casdoor 配置不再经 Common 总桶获取它。
   先保持当前读取失败语义；改为保留 cause/详细错误属于后续行为调整。
 - 将 Fastify/Bearer 凭据辅助移入 `platform/http`；将 KVS 连接 timeout 收回 KVS。
 - 将已用随机/hash 支持拆到轻量 `common/utils/crypto.ts`；保留其余 crypto 工具及 `Simplify` 纯类型支持。
