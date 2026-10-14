@@ -15,6 +15,7 @@ OIDC 登录与会话创建已有接口；公开会话刷新和当前会话退出
 ## 文档入口
 
 - [运行与交付](./guide/quick-start.md)：运行前提、健康语义、规范导出与静态文档构建。
+- [后端配置](./reference/backend/environment/index.md)：配置加载规则与 HTTP 环境变量参考。
 - [English](./en/index.md)
 - [项目源码](https://github.com/gdmuna/TalosArk)
 

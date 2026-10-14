@@ -36,6 +36,11 @@ export default defineConfig({
             { text: '首页', link: '/' },
             { text: '运行与交付', link: '/guide/quick-start', activeMatch: '/guide/' },
             {
+                text: '后端配置',
+                link: '/reference/backend/environment/',
+                activeMatch: '/reference/backend/environment/',
+            },
+            {
                 text: 'API 参考文档',
                 link: process.env.VITE_API_REFERENCE_URL ?? '/api-reference/',
                 target: '_blank',
@@ -45,6 +50,14 @@ export default defineConfig({
         sidebar: [
             { text: '项目状态', link: '/' },
             { text: '运行与交付', link: '/guide/quick-start' },
+            {
+                text: '后端配置',
+                items: [
+                    { text: '配置概览', link: '/reference/backend/environment/' },
+                    { text: '加载与生效', link: '/reference/backend/environment/loading' },
+                    { text: 'HTTP 与浏览器来源', link: '/reference/backend/environment/http' },
+                ],
+            },
         ],
         // 内置本地全文搜索
         search: {
@@ -55,8 +68,10 @@ export default defineConfig({
                         translations: {
                             button: { buttonText: '搜索文档', buttonAriaLabel: '搜索文档' },
                             modal: {
+                                displayDetails: '显示详细结果',
                                 noResultsText: '无法找到相关结果',
                                 resetButtonTitle: '清除查询条件',
+                                backButtonTitle: '关闭搜索',
                                 footer: {
                                     selectText: '选择',
                                     navigateText: '切换',
@@ -114,6 +129,7 @@ export default defineConfig({
         darkModeSwitchTitle: '切换到深色模式',
         sidebarMenuLabel: '菜单',
         returnToTopLabel: '回到顶部',
+        langMenuLabel: '切换语言',
 
         i18nRouting: true,
     },
@@ -143,7 +159,7 @@ export default defineConfig({
                     }
                 })();
                 return fence(tokens, idx, options, env, self).replace(
-                    '<button title="复制代码" class="copy"></button>',
+                    '<button title="Copy Code" class="copy"></button>',
                     `<button title="${codeCopyButtonTitle}" class="copy"></button>`
                 );
             };
@@ -154,6 +170,69 @@ export default defineConfig({
 
     locales: {
         root: { label: '简体中文', lang: 'zh-Hans', dir: 'ltr' },
-        en: { label: 'English', lang: 'en-US', dir: 'ltr' },
+        en: {
+            label: 'English',
+            lang: 'en-US',
+            dir: 'ltr',
+            description: 'Biological sample storage management system',
+            themeConfig: {
+                nav: [
+                    { text: 'Home', link: '/en/' },
+                    {
+                        text: 'Runtime and Delivery',
+                        link: '/en/guide/quick-start',
+                        activeMatch: '/en/guide/',
+                    },
+                    {
+                        text: 'Backend Configuration',
+                        link: '/en/reference/backend/environment/',
+                        activeMatch: '/en/reference/backend/environment/',
+                    },
+                    {
+                        text: 'API Reference',
+                        link: process.env.VITE_API_REFERENCE_URL ?? '/api-reference/',
+                        target: '_blank',
+                    },
+                ],
+                sidebar: [
+                    { text: 'Project Status', link: '/en/' },
+                    { text: 'Runtime and Delivery', link: '/en/guide/quick-start' },
+                    {
+                        text: 'Backend Configuration',
+                        items: [
+                            { text: 'Overview', link: '/en/reference/backend/environment/' },
+                            {
+                                text: 'Loading and Activation',
+                                link: '/en/reference/backend/environment/loading',
+                            },
+                            {
+                                text: 'HTTP and Browser Origins',
+                                link: '/en/reference/backend/environment/http',
+                            },
+                        ],
+                    },
+                ],
+                footer: {
+                    message:
+                        'Released under the <a href="https://github.com/gdmuna/TalosArk/blob/dev/LICENSE">AGPL-3.0 License</a>',
+                    copyright:
+                        'Copyright © 2024-present <a href="https://github.com/gdmuna">GDMU-NA & GDMU-ACM</a>',
+                },
+                editLink: {
+                    pattern:
+                        'https://github.com/gdmuna/TalosArk/edit/dev/packages/docsite/docs/:path',
+                    text: 'Edit this page on GitHub',
+                },
+                lastUpdated: { text: 'Last updated' },
+                outline: { label: 'On this page' },
+                docFooter: { prev: 'Previous page', next: 'Next page' },
+                darkModeSwitchLabel: 'Appearance',
+                lightModeSwitchTitle: 'Switch to light theme',
+                darkModeSwitchTitle: 'Switch to dark theme',
+                sidebarMenuLabel: 'Menu',
+                returnToTopLabel: 'Return to top',
+                langMenuLabel: 'Change language',
+            },
+        },
     },
 });

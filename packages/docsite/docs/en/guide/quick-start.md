@@ -6,6 +6,9 @@ Use Node.js 24+ and the pnpm version declared in the repository's package.json.
 The backend requires PostgreSQL, KVS, access-token signing keys, complete Casdoor settings and its certificate.
 Casdoor is currently required at startup; S3 settings must also pass configuration validation.
 
+See [Loading and Activation](../reference/backend/environment/loading.md) for file selection and precedence,
+and [HTTP Configuration](../reference/backend/environment/http.md) for browser origins, CORS, throttling, and request timeouts.
+
 From the repository root:
 
 ```sh

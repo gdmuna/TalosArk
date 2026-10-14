@@ -6,6 +6,9 @@
 后端必须获得有效的 PostgreSQL、KVS、访问令牌签名密钥和完整 Casdoor 配置及证书。
 当前 Casdoor 仍为启动必配项；S3 配置也需要通过启动校验。
 
+配置文件的选择与覆盖规则见[加载与生效](../reference/backend/environment/loading.md)；
+浏览器来源、CORS、限流与请求时限见[HTTP 配置参考](../reference/backend/environment/http.md)。
+
 从仓库根目录执行：
 
 ```sh
