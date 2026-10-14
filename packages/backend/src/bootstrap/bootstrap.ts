@@ -32,7 +32,7 @@ export async function bootstrap() {
     });
     adapter.getInstance().decorateRequest('authentication', null);
     const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
-        bufferLogs: true,
+        bufferLogs: false,
     });
     app.useLogger(app.get(NestPinoLogger));
 
@@ -168,7 +168,7 @@ function logListenFailure(logger: Logger, port: number, error: unknown): void {
 }
 
 async function printStartupBanner() {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // await new Promise((resolve) => setTimeout(resolve, 200));
 
     const startupBanner = await figlet.text('Talos-Ark', {
         font: 'Slant',

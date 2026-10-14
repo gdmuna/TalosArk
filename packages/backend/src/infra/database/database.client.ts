@@ -90,15 +90,15 @@ export class DatabaseClient implements OnApplicationShutdown, OnModuleInit {
         // 根据查询耗时选择日志级别
         if (duration >= slowQueryThreshold.error) {
             logContext.event = 'database.query.critical';
-            // 超过 500ms：error 级别
-            this.logger.error(logContext, `Critical slow query (${duration}ms)`);
+            // 超过 500ms：warn 级别
+            this.logger.warn(logContext, `Critical slow query (${duration}ms)`);
         } else if (duration >= slowQueryThreshold.warn) {
             logContext.event = 'database.query.slow';
-            // 超过 100ms：warn 级别
-            this.logger.warn(logContext, `Slow query (${duration}ms)`);
+            // 超过 100ms：info 级别
+            this.logger.info(logContext, `Slow query (${duration}ms)`);
         } else {
             // 所有查询：debug 级别
-            this.logger.debug(logContext, `Query executed (${duration}ms)`);
+            this.logger.trace(logContext, `Query executed (${duration}ms)`);
         }
     }
 

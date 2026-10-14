@@ -1,9 +1,27 @@
 import { logObject, type PrettyLog } from './pretty.adapter.js';
 import { inlineText, terminalText } from './pretty.text.js';
+import {
+    formatValidationIssues,
+    type ValidationDiagnosticIssue,
+} from '@/platform/error/error.validation.js';
 
 export function isDiagnostic(value: unknown): value is PrettyLog {
     const error = logObject(value);
     return !!error && typeof error.type === 'string';
+}
+
+export function logValidationIssues(value: unknown): ValidationDiagnosticIssue[] {
+    if (!Array.isArray(value)) return [];
+    return value.slice(0, 21).filter((issue) => {
+        const fields = logObject(issue);
+        return (
+            fields &&
+            ['field', 'code', 'expected', 'received'].every(
+                (key) => typeof fields[key] === 'string'
+            ) &&
+            (fields.hint === undefined || typeof fields.hint === 'string')
+        );
+    }) as ValidationDiagnosticIssue[];
 }
 
 function hasBranches(error: PrettyLog, depth = 0): boolean {
@@ -28,8 +46,18 @@ export function formatLinearError(
         const message =
             typeof current.message === 'string' ? `: ${inlineText(current.message)}` : '';
         lines.push(`    ${prefix}${heading}${message}\n`);
+        const issues = logValidationIssues(current.validationIssues);
+        if (issues.length) {
+            lines.push(
+                terminalText(formatValidationIssues(issues))
+                    .split('\n')
+                    .map((line) => `    ${line}\n`)
+                    .join('')
+            );
+        }
         const fields = { ...current };
         for (const key of ['type', 'id', 'code', 'message', 'stack', 'cause']) delete fields[key];
+        if (issues.length) delete fields.validationIssues;
         lines.push(formatFields(fields));
         if (typeof current.stack === 'string' && current.stack) {
             lines.push(

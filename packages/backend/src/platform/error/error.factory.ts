@@ -4,6 +4,7 @@ import {
     type ErrorDefinition,
 } from '@talos-ark/contracts/protocol';
 import type { z } from 'zod';
+import { formatValidationIssues, type ValidationDiagnosticIssue } from './error.validation.js';
 
 type DetailsInput<D> = D extends { public: { details: infer S extends z.ZodType } }
     ? null extends z.output<S>
@@ -18,6 +19,8 @@ export type ErrorFailure<C extends ErrorCatalog> = {
 export interface ErrorRuntimeOptions extends ErrorOptions {
     retryAfterSeconds?: number;
     retryAfterMs?: number;
+    /** Owner-approved safe diagnostics, never raw Zod issues or rejected input. */
+    validationIssues?: readonly ValidationDiagnosticIssue[];
 }
 
 export interface DefinedError<F extends { reason: string } = { reason: string }> extends Error {
@@ -37,10 +40,22 @@ export interface ErrorClass<F extends { reason: string }> {
     ): error is DefinedError<Extract<F, { reason: R }> | (F & { reason: R })>;
 }
 
-const instances = new WeakMap<Error, string>();
+const instances = new WeakMap<
+    Error,
+    Readonly<{
+        id: string;
+        message: string;
+        validationIssues?: readonly ValidationDiagnosticIssue[];
+    }>
+>();
 
 export function definedErrorId(error: unknown): string | undefined {
-    return error instanceof Error ? instances.get(error) : undefined;
+    return error instanceof Error ? instances.get(error)?.id : undefined;
+}
+
+/** Constructor-approved diagnostics, independent of later mutations to Error.message. */
+export function definedErrorDiagnostic(error: Error) {
+    return instances.get(error);
 }
 
 export function defineInternalErrorCatalog<
@@ -79,8 +94,15 @@ export function defineErrorClass<
                 if (value !== undefined && (!Number.isFinite(value) || value < 0))
                     throw new TypeError('Invalid error retry delay');
             }
+            const message =
+                options.diagnosticMessage?.(failure) ??
+                definition.public?.message ??
+                `Operation failed: ${definition.id}`;
+            const issues =
+                runtime.validationIssues &&
+                Object.freeze(runtime.validationIssues.map((issue) => Object.freeze({ ...issue })));
             super(
-                options.diagnosticMessage?.(failure) ?? `Operation failed: ${definition.id}`,
+                issues?.length ? `${message}\n${formatValidationIssues(issues)}` : message,
                 runtime
             );
             this.name = options.name ?? 'DomainError';
@@ -91,7 +113,10 @@ export function defineErrorClass<
                 retryAfterSeconds: { value: runtime.retryAfterSeconds },
                 retryAfterMs: { value: runtime.retryAfterMs },
             });
-            instances.set(this, definition.id);
+            instances.set(
+                this,
+                Object.freeze({ id: definition.id, message, validationIssues: issues })
+            );
         }
 
         static is(error: unknown, reason?: string): error is DomainError {
@@ -102,5 +127,6 @@ export function defineErrorClass<
             );
         }
     }
+    Object.defineProperty(DomainError, 'name', { value: options.name ?? 'DomainError' });
     return DomainError;
 }

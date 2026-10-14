@@ -1,8 +1,9 @@
 import { styleText } from 'node:util';
 import pretty from 'pino-pretty';
-import type { PrettyAdapter, PrettyLog } from './pretty.adapter.js';
-import { formatLinearError, isDiagnostic } from './pretty.error.js';
+import { logObject, type PrettyAdapter, type PrettyLog } from './pretty.adapter.js';
+import { formatLinearError, isDiagnostic, logValidationIssues } from './pretty.error.js';
 import { inlineText, terminalText } from './pretty.text.js';
+import { formatValidationIssues } from '@/platform/error/error.validation.js';
 
 const levels = new Map<number, { label: string; color: Parameters<typeof styleText>[0] }>([
     [10, { label: 'TRACE', color: 'gray' }],
@@ -44,6 +45,19 @@ export function createPrettyRenderer(
             ? `${color('cyan', `[${inlineText(record.context)}]`)} `
             : '';
         let message = terminalText(record.msg ?? '');
+        // Pino copies Error.message to msg; show our multiline diagnostics only once.
+        for (const key of ['err', 'error', 'resolutionError']) {
+            const error = logObject(record[key]);
+            const issues = logValidationIssues(error?.validationIssues);
+            if (
+                typeof error?.message === 'string' &&
+                issues.length &&
+                record.msg === `${error.message}\n${formatValidationIssues(issues)}`
+            ) {
+                message = terminalText(error.message);
+                break;
+            }
+        }
         const adapter = typeof record.event === 'string' ? adapters.get(record.event) : undefined;
         if (adapter) {
             try {

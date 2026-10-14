@@ -45,6 +45,19 @@ const catalog = defineInternalErrorCatalog('storage', [
 ]);
 export const StorageError = defineErrorClass<typeof catalog, StorageFailure>(catalog, {
     name: 'StorageError',
+    diagnosticMessage: (failure) =>
+        ({
+            'not-found': 'Storage object was not found',
+            unavailable: 'Object storage is unavailable',
+            'permission-denied': 'Object storage denied the operation',
+            configuration: 'Object storage connection or authentication configuration is invalid',
+            'checksum-mismatch': 'Storage object checksum does not match',
+            'invalid-request': 'Object storage request is invalid',
+            'invalid-multipart': 'Multipart upload or its completion parts are invalid',
+            'invalid-response': 'Object storage returned an invalid response',
+            'partial-delete': 'Object storage failed to delete some requested objects',
+            'request-failed': 'Object storage request failed',
+        })[failure.reason],
 });
 // eslint-disable-next-line no-redeclare -- TypeScript value/type namespace pairing.
 export type StorageError = InstanceType<typeof StorageError>;
