@@ -35,6 +35,15 @@ const catalog = defineInternalErrorCatalog('database', [
 
 export const DatabaseError = defineErrorClass<typeof catalog, DatabaseFailure>(catalog, {
     name: 'DatabaseError',
+    diagnosticMessage: (failure) =>
+        ({
+            'unique-constraint': 'Database write violates a unique constraint',
+            'record-not-found': 'Database record was not found',
+            'transaction-conflict': 'Database transaction conflicted with another write',
+            unavailable: 'Database is unavailable',
+            configuration: 'Database connection or authentication configuration is invalid',
+            'query-failed': 'Database query failed',
+        })[failure.reason],
 });
 // eslint-disable-next-line no-redeclare -- TypeScript value/type namespace pairing.
 export type DatabaseError = InstanceType<typeof DatabaseError>;

@@ -47,12 +47,12 @@ layout even when duplicated in the summary. Common header fields and the new
 
 ## Current events
 
-| Owner | Events |
-| --- | --- |
-| DatabaseClient | `database.connected`, `database.disconnected`, `database.query.completed`, `database.query.slow`, `database.query.critical` |
-| KVS | `kvs.connected`, `kvs.closed`, `kvs.close.timeout`, `kvs.connection.error` |
-| Inbound HTTP performance | `http.request.completed`, `http.request.failed`, `http.request.slow`, `http.request.critical` |
-| Outbound HTTP | `http.outbound.completed` |
+| Owner                    | Events                                                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| DatabaseClient           | `database.connected`, `database.disconnected`, `database.query.completed`, `database.query.slow`, `database.query.critical` |
+| KVS                      | `kvs.connected`, `kvs.closed`, `kvs.close.timeout`, `kvs.connection.error`                                                  |
+| Inbound HTTP performance | `http.request.completed`, `http.request.failed`, `http.request.slow`, `http.request.critical`                               |
+| Outbound HTTP            | `http.outbound.completed`                                                                                                   |
 
 Example summaries (values are illustrative):
 
@@ -71,7 +71,8 @@ Outbound templates do not infer HTTP methods or URLs from operation identifiers.
 
 The serializer never copies arbitrary vendor messages, URL credentials, response
 objects, SQL or parameters. Known factory errors receive their WeakMap-verified
-identity and a fixed description. An optional owner projector may provide a
+identity and constructor-approved description, rather than a generic
+`Operation failed: ...` message. An optional owner projector may provide a
 bounded, explicitly approved description and technical coordinates. Projection
 failure does not prevent the base error diagnostic from being recorded.
 
@@ -92,6 +93,47 @@ to distinguish the original failure from a resolution failure.
 
 The original error objects and serialized records are not modified by rendering.
 JSON always keeps the bounded error tree; pretty only changes its presentation.
+
+## Configuration validation diagnostics
+
+`platform/error/error.validation.ts` projects Zod failures into bounded, immutable
+diagnostics containing field, code, expected constraint, received description and
+an optional owner-defined correction hint. It does not retain the Zod error or
+its rejected input. `config/internal/config.validation.ts` applies this to all runtime
+environment groups; Mail and IAM also apply it to explicit module options.
+
+Numeric/boolean values are shown only for approved scalar settings. Credentials,
+keys, certificates, URLs and mail content retain type/missing information, not
+their values. Sensitive strings do not expose their lengths. Arbitrary custom
+refinement messages and unknown property names are not copied; owners explicitly
+provide approved constraint descriptions. At most 20 issues plus an omission
+marker are kept, and projected text is bounded and stripped of control bytes.
+
+Errors contain a readable multiline message for Nest's early startup logger,
+which runs before the application's Pino logger is bound. JSON diagnostics retain
+the same constraints in a separate `validationIssues` array; linear pretty output
+renders them as indented lines before the stack. Aggregate branches retain their
+structured representation. Pino's automatic copy of our multiline Error.message
+is recognized for display only, avoiding duplicate rows without modifying the
+record or replacing a caller's distinct business message.
+
+Example of the previously opaque SMTP constraint:
+
+```text
+MailError [mail.configuration]: Invalid SMTP configuration
+  - requireTLS (SMTP_REQUIRE_TLS) [custom]
+    expected: SMTP_SECURE=true or SMTP_REQUIRE_TLS=true when SMTP_USER is configured
+    received: false
+    hint: Enable STARTTLS with SMTP_REQUIRE_TLS=true, or use implicit TLS. Authentication over plaintext is not allowed.
+```
+
+Validation acceptance, defaults, retries, severity and public HTTP error contracts
+are unchanged. Known DB, transaction, KVS, HTTP, storage and IAM failures now have
+owner-defined English descriptions; unknown vendor messages remain excluded.
+Isolated verification exercised startup/ConsoleLogger, real Pino calls and pretty
+rendering, all 12 environment groups, cross-field checks, sensitive-value
+exclusion and message/record immutability. No real provider calls or mail delivery
+were used, and no maintained test script was added.
 
 ## Runtime
 

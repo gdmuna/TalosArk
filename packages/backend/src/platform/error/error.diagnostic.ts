@@ -1,5 +1,6 @@
 import type { ResolvedError } from './error.resolver.js';
-import { definedErrorId } from './error.factory.js';
+import { definedErrorDiagnostic } from './error.factory.js';
+import { ConfigurationError, type ValidationDiagnosticIssue } from './error.validation.js';
 
 export interface ErrorDiagnosticProjection {
     message?: string;
@@ -22,6 +23,7 @@ export interface ErrorDiagnostic extends ErrorDiagnosticProjection {
     errors?: ErrorDiagnostic[];
     errorsOmitted?: number;
     stackFramesOmitted?: number;
+    validationIssues?: readonly ValidationDiagnosticIssue[];
 }
 
 const safeLabel = (value: unknown) =>
@@ -50,7 +52,9 @@ export function serializeError(
             ? value.stack.slice(heading.length)
             : undefined;
         const frames = stack?.split('\n').filter((line) => /^\s+at /.test(line));
-        const id = definedErrorId(value);
+        const approved = definedErrorDiagnostic(value);
+        const id = approved?.id;
+        const configuration = value instanceof ConfigurationError ? value : undefined;
         let projection: ErrorDiagnosticProjection | undefined;
         try {
             projection = project?.(value);
@@ -62,7 +66,10 @@ export function serializeError(
             type: safeLabel(value.name) ?? 'Error',
             id,
             message:
-                projection?.message?.slice(0, 400) ?? (id ? `Operation failed: ${id}` : undefined),
+                projection?.message?.slice(0, 400) ??
+                approved?.message.slice(0, 400) ??
+                configuration?.summary,
+            validationIssues: approved?.validationIssues ?? configuration?.validationIssues,
             code:
                 'code' in value
                     ? safeLabel(value.code)

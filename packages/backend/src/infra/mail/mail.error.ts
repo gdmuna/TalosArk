@@ -22,6 +22,12 @@ export type MailFailure = {
 };
 
 export function mailFailureMessage(failure: MailFailure): string {
+    if (failure.reason === 'configuration') {
+        if (failure.operation === 'configure') return 'Invalid SMTP configuration';
+        if (failure.phase === 'authenticate')
+            return 'SMTP authentication failed; check credentials and provider authentication policy';
+        return 'SMTP connection or TLS configuration is invalid';
+    }
     const message = {
         configuration: 'SMTP configuration or authentication is invalid',
         'invalid-request': 'Mail message is invalid',
