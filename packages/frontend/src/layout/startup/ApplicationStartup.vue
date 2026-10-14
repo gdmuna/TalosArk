@@ -7,7 +7,7 @@ const { state, start } = useApplicationBootstrap();
 </script>
 
 <template>
-    <div data-slot="application-startup" class="flex size-full min-h-0 items-center justify-center bg-background p-6">
+    <div data-slot="application-startup" class="flex size-full min-h-0 items-center justify-center bg-muted p-6">
         <div
             v-if="state.status === 'error'"
             role="alert"
@@ -15,7 +15,7 @@ const { state, start } = useApplicationBootstrap();
         >
             <AlertCircle class="size-6 text-destructive" aria-hidden="true" />
             <h1 class="text-lg font-medium">无法加载{{ state.stage }}</h1>
-            <p class="w-full break-words text-sm text-muted-foreground">{{ state.error }}</p>
+            <p class="w-full wrap-break-word text-sm text-muted-foreground">{{ state.error }}</p>
             <Button variant="outline" class="mt-1 gap-2" @click="start()">
                 <RotateCw class="size-4" aria-hidden="true" />
                 重新加载

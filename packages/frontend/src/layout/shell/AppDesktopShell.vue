@@ -1,5 +1,8 @@
 <template>
-    <div class="desktop-shell flex flex-col h-svh bg-muted" :class="route.meta.fluidLayout ? 'min-w-0' : 'min-w-4xl'">
+    <div
+        class="desktop-shell flex flex-col h-svh bg-muted"
+        :class="route.meta.fluidLayout || showStartup ? 'min-w-0' : 'min-w-4xl'"
+    >
         <header
             ref="titlebar"
             data-slot="window-titlebar"
@@ -37,8 +40,8 @@
             </Button>
         </div>
         <div class="flex min-h-0 min-w-0 flex-1">
-            <RouterView v-slot="{ Component, route: pageRoute }">
-                <ApplicationStartup v-if="pageRoute.meta.requiresApplicationData && state.status !== 'ready'" />
+            <RouterView v-slot="{ Component }">
+                <ApplicationStartup v-if="showStartup" />
                 <component :is="Component" v-else />
             </RouterView>
         </div>
@@ -54,20 +57,27 @@
 <script setup lang="ts">
 import { Button } from '@/ui/button';
 
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useElementBounding } from '@vueuse/core';
 import { provideOverlayContainer } from '@/shared/browser/overlay-container';
 import ApplicationStartup from '../startup/ApplicationStartup.vue';
 import { useApplicationBootstrap } from '../startup/context';
+import { useAuthApi } from '@/module/auth';
 
 import { X, Square, Minus, Box, Copy } from '@lucide/vue';
 
 const windowState = ref<'minimize' | 'maximize' | 'normal'>('maximize');
 const { state, start } = useApplicationBootstrap();
+const auth = useAuthApi();
 const route = useRoute();
+const showStartup = computed(
+    () =>
+        (route.meta.requiresApplicationData && state.value.status !== 'ready') ||
+        (route.meta.requiresAuthentication && auth.state.value.status !== 'authenticated')
+);
 watch(
-    () => route.meta.requiresApplicationData,
+    () => route.meta.requiresApplicationData || route.meta.requiresAuthentication,
     (required) => {
         if (required) void start();
     },

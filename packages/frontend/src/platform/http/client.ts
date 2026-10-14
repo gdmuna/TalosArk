@@ -4,7 +4,13 @@ import { createTaskScope, delay } from '../task';
 import type { AuthLease } from './auth-gate';
 import { AuthenticationError, HttpError } from './error';
 import { parseRetryAfter, retryDelay, validateRetryPolicy } from './retry';
-import type { HttpClient, HttpClientOptions, HttpRequest } from './type';
+import type {
+    EmptyHttpRequest,
+    HttpClient,
+    HttpClientOptions,
+    HttpRequest,
+    JsonHttpRequest,
+} from './type';
 
 export function createHttpClient(options: HttpClientOptions): HttpClient {
     const base = new URL(options.baseUrl.endsWith('/') ? options.baseUrl : `${options.baseUrl}/`);
@@ -23,7 +29,11 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     const lifetime = new AbortController();
     const auth = options.auth;
 
-    async function request<T>(input: HttpRequest<T>): Promise<T> {
+    function request(input: EmptyHttpRequest): Promise<void>;
+    // eslint-disable-next-line no-redeclare -- TypeScript overload signatures.
+    function request<T>(input: JsonHttpRequest<T>): Promise<T>;
+    // eslint-disable-next-line no-redeclare -- TypeScript overload implementation.
+    async function request<T>(input: HttpRequest<T>): Promise<T | void> {
         // Only module-owned relative paths may receive credentials.
         if (
             !input.path.startsWith('/') ||
@@ -79,7 +89,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
                     const failure = normalize(error);
                     if (failure.status === 401 && lease && auth) {
                         if (recovered) {
-                            auth.invalidate(lease);
+                            auth.invalidate(lease, failure);
                             throw failure;
                         }
                         lease = await auth.recover(lease, scope.signal, input.authWait);
@@ -106,7 +116,8 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     };
 }
 
-function decode<T>(response: AxiosResponse<unknown>, input: HttpRequest<T>): T {
+function decode<T>(response: AxiosResponse<unknown>, input: HttpRequest<T>): T | void {
+    if (input.response === 'empty' && response.status === 204) return;
     const retryAfter = parseRetryAfter(response.headers['retry-after']);
     const envelope = ApiResponseSchema.safeParse(response.data);
     const body = envelope.success ? envelope.data : undefined;
@@ -120,6 +131,9 @@ function decode<T>(response: AxiosResponse<unknown>, input: HttpRequest<T>): T {
             undefined,
             retryAfter
         );
+    }
+    if (input.response === 'empty') {
+        throw new HttpError('Expected HTTP 204', 'protocol', response.status);
     }
     if (!body || !body.success) {
         throw new HttpError(

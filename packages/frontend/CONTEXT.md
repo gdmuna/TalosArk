@@ -4,7 +4,7 @@
 
 - `layout/`: application shells and cross-business composition, including the command palette, user menu and custom paged sidebar. Sidebar expansion belongs to the primary shell and is passed by props/events; sidebar-page selection belongs to `layout/sidebar/`. Business layouts do not depend on shadcn SidebarProvider or useSidebar.
 - `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the administration skeletons and current-account settings, with private presentation helpers; it does not establish a catch-all management business module. `router/management-navigation.ts` owns their navigation descriptions and labels; `router/management.ts` assembles the statically imported pages.
-- `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account, workspace and workbench use Pinia and mock adapters; auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
+- `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account uses Pinia and a real HTTP reader; workspace and workbench retain mock adapters but are not selected by default. Auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
 - `component/`: reusable functional component modules without business semantics: DataTable, Inspector, ScrollSurface, SelectField, StateBadge, breadcrumb, route-tab, view-host and view-context. Each component owns its private interaction, state and context, not just Vue files. DataTable internals are organized under `control/`, `interaction/`, `layout/` and `model/`.
 - `platform/`: environment mechanisms: navigation, HTTP execution and task scheduling. HTTP owns retry, cancellation, validated response decoding and an authentication barrier; `module/auth` owns session credentials and the actual refresh adapter. Platform code never imports a business module.
 - `shared/`: business-free leaves: `asset/`, `util/` and headless browser contracts. The overlay-container contract is shared by primitives and shells without depending on either.
@@ -12,27 +12,30 @@
 
 `App.vue`, `router/`, `main.ts`, and `style.css` remain conventional Vite entry files. Do not recreate broad top-level `app/`, `composable/`, `event/`, `lib/`, or `util/` directories. Generic functional components belong in `component/`; business UI belongs in its module.
 
-Only the application composition in `bootstrap.ts` selects mock data sources through the modules' explicit `data/mock.ts` entries. Each adapter alone imports its `data/fixture.ts`. Composition creates and binds one instance per data source without fetching. Each store owns `connect(source)` and cancellable `load(signal?)`; the existing `initialize(source)` remains a convenience for connect + load. Reconnection and Pinia scope disposal invalidate pending loads, including adapters that ignore cancellation. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
+Application composition selects data sources explicitly. `main.ts` supplies the real account reader; `bootstrap.ts` has no mock fallback. Retained mock adapters stay behind their explicit `data/mock.ts` entries and alone import fixtures. Composition binds sources without fetching. Each store owns `connect(source)`, cancellable `load(signal?)` and session-change `reset()`; `initialize(source)` remains connect + load. Reset/reconnection/disposal invalidate pending reads, including ignored cancellation, and prevent old mutation/synchronization results from changing a newer context. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
 
 `main.ts` owns Vue/plugin installation and HTTP/auth/Pinia disposal. The small
 application-owned `bootstrap.ts` coordinates required reads, not business rules or
 a generic module registry. `layout/startup` owns its injected presentation context.
 The desktop shell mounts before data loading; routes marked
 `requiresApplicationData` show startup progress or stage-specific failure until
-account -> workspace -> workbench succeeds. Public auth routes bypass this data
-gate and do not initiate these reads. This route flag is not an authorization guard.
-Workbench remains a main-workspace prerequisite because sidebar, command palette
-and resource skeletons consume its shared snapshot; no resource HTTP contracts or
-per-page data sources are invented. Future page-specific remote reads belong to
-their module and actual consuming context, not this startup list.
+session -> account -> configured workspace/workbench reads succeed. Startup feedback
+uses the available window width; the desktop minimum applies only to business views.
+Public auth
+routes bypass this data gate and do not initiate these reads. Authentication is a
+separate route requirement. P03 selects only the real account reader; missing
+workspace/workbench sources remain unloaded, with a workspace-unavailable view
+rather than invented membership or mock records. Account Settings remains accessible
+without a workspace. No resource HTTP contracts or per-page data sources are
+invented; future remote reads belong to their module and consuming context.
 Concurrent starts/retries share one promise, retain successful stages and reuse
 sources. Recovery retries only the first unfinished stage and its successors,
 never a business write or navigation registration. Navigation installs once in
 main, independently of data retry. Bootstrap disposal aborts pending reads and
 prevents late ready/error publication; Pinia disposal releases module resources.
-See `docs/design/frontend-f12-2026-10-13.md` for scope and verification. Real
-authentication/session restoration and session-change invalidation remain F13/P03,
-not something implied by a ready business-data gate.
+F12's original scope and verification remain in docs/design/frontend-f12-2026-10-13.md.
+P03 adds real restoration and session-change invalidation; its Web evidence and
+Tauri/production limits live in docs/design/mvp-p03-2026-10-14.md.
 
 `component/view-context` owns only the generic scope registry (`register` and
 its returned `dispose`). Each provider creates its own reactive state in its
@@ -103,9 +106,9 @@ Architecture lint guards these imports, including same-owner module descriptors.
 
 `platform/http` exposes the schema-validated HTTP client, authentication barrier and pagination wrapper. `platform/task` exposes abortable task scopes and an owned, non-overlapping scheduler. Business endpoints belong in `module/<owner>/data/api.ts`; `data/source.ts` describes the operations consumed by that owner's model. Route views consume business operations through the owner's public entry, not raw transport. `main.ts` composes the HTTP client and auth session and owns their disposal.
 
-Auth follows the same responsibility layout as other modules: `data/api.ts` is a pure HTTP data source, `model/auth.ts` owns login-result ordering and local sign-out, and `model/session.ts` owns credentials and refresh validation. `model/context.ts` provides the business-operation interface to Vue. The existing `createAuthApi`, `createAuthSession`, `authApiKey` and `useAuthApi` exports are preserved; the API name denotes the public business facade, not a transport adapter with permission to mutate state.
+Auth follows the same responsibility layout as other modules: `data/api.ts` is a pure HTTP data source, `model/auth.ts` owns login-result ordering and server/local sign-out, and `model/session.ts` owns in-memory credentials and restoration/refresh validation. `model/browser-session.ts` owns Cookie-operation coordination and a credential-free persistent sign-out marker. `model/context.ts` provides the business interface to Vue. `createAuthApi`, `createAuthSession`, `authApiKey` and `useAuthApi` remain the public entries; createAuthApi now also requires the API root for coordination. The API name denotes the public business facade, not a transport adapter with permission to mutate state.
 
-P01 backend implements password login/activation/first-password setup, current account and Cookie refresh/logout. Public SessionCredentials contains only session/AT data, never a readable RT. Existing OIDC adapters send X-TalosArk-Client; the session model no longer reads RT expiry. Bootstrap still supplies no refresh adapter, and local sign-out does not claim server revocation. Account/workspace/workbench remain on mock sources. P03 must add real account/login/activation, startup restoration, Cookie-aware concurrency and 204/logout handling; browser/Tauri persistence is not claimed by this minimal adaptation. Do not invent resource endpoints or pagination contracts before the backend slice exists.
+P03 connects password login, activation, first-password setup, OIDC, real current account and Cookie refresh/logout. Public SessionCredentials contains only session/AT data, never a readable RT; AT remains in memory. Cookie writes use one same-origin Web Lock, and storage events invalidate old account/workspace/workbench snapshots. Persistent browser storage contains only a coordination revision and sign-out/confirmation flags. Network-failed logout still clears local state, reports unconfirmed server revocation and suppresses automatic restoration across reload/reopen until explicit login. Cold restoration, invalid credentials, network failure and 403 remain distinct. Only confirmed anonymous sessions redirect protected entries to login. Restoration error keeps the protected URL and uses ApplicationStartup's failure/retry view without clearing Cookie or marking sign-out; manual retry retains query/hash and proceeds with remaining reads. Login has no duplicate restoration message/button; password/SSO errors and sign-out notices remain local feedback. Explicit public login does not automatically restore a session. Full-screen startup loading/error views use muted, matching the custom titlebar. The HTTP decoder accepts only explicitly declared empty 204 responses; JSON envelope/schema checks otherwise remain strict. Web browser-process persistence is verified; Tauri, cross-site hosting, different frontend origins and real Casdoor/provider delivery are not. Do not invent resource endpoints or pagination contracts before their slice exists.
 
 P02 adds real request/confirm recovery adapters and `/auth/recovery` /
 `/auth/reset-password` forms. The reset form consumes the secret fragment with
@@ -114,16 +117,18 @@ on completion, invalidity or unmount. Request acknowledgement never claims inbox
 delivery; recovery confirms without automatic login. A successful confirm clears
 local credentials only if no newer login revision has superseded it. Public auth
 routes set fluidLayout for narrow screens; desktop business routes retain their
-existing minimum width and application-data startup boundary. P03's broader session
-and account integration is not completed by this slice. Backend design and isolated
-browser/SMTP evidence live in ../backend/docs/design/mvp-p02-2026-10-13.md.
+existing minimum width and application-data startup boundary. This remains P02's
+recovery scope, not a claim about every auth flow. P03 now coordinates its Cookie
+clearing with login/refresh/logout. P02's isolated evidence remains in
+../backend/docs/design/mvp-p02-2026-10-13.md.
 
 Administration skeletons use the current workspace store only for known organization/workspace identity. Other records and settings remain unloaded; counters and fields do not invent values. Write actions are disabled. Existing workspace-switcher create/join behavior is unchanged. Design-backed local views use the private `page/management/useManagementView.ts` helper and `ManagementViewNav`, with query-backed history rather than new primary routes. Personal notification preferences retain current-account context, separate from organization policy. `ManagementPage` keeps page-level navigation outside the body scroll owner, matching the workbench bar's stable height and insets. Only the body content group uses centered table, form or wide layouts; responsive inner grids use container width. Integration detail navigation stays local to its detail region. Administration navigation is not a permission boundary; authorization and real configuration loading belong to later backend-connected business slices. See `docs/design/management-skeleton.md` for scope and design references.
 
 Account Settings is an uncategorized top management entry. Its profile and personal
-notification views use the existing current-account context. Profile editing
-retains `account.updateDisplayName` and its mock data source; notification writes
-remain disabled until loading and API contracts exist. The header settings button
+notification views use the real current-account context. Profile editing retains
+the optional `account.updateDisplayName` data-source capability, but real-source
+profile writes and notification writes remain disabled until their API contracts
+exist. The account page links to authenticated first-password setup. The header settings button
 and user menu route here instead of maintaining a second profile Dialog.
 
 The user approved removal of the unused legacy `shared/api` adapters. Their missing-schema source errors are gone, but old tests still reference retired API paths and previously removed stores/pages/schemas. Do not repair this with compatibility stubs, placeholder types, `any`, or wider compiler exclusions. See `docs/reviews/frontend-api-platform-2026-10-08.md` for the current design and verification limits; the earlier migration record remains historical.

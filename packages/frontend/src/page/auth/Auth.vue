@@ -19,6 +19,7 @@
                     class="w-1/3 px-2 text-muted-foreground data-[active=true]:bg-card data-[active=true]:text-foreground data-[active=true]:shadow-xs shrink"
                     :data-active="activeMethod === method.value"
                     :aria-pressed="activeMethod === method.value"
+                    :disabled="method.value !== 'account'"
                     @click="activeMethod = method.value"
                 >
                     <component :is="method.icon" class="size-4" stroke-width="1.75" aria-hidden="true" />
@@ -45,17 +46,20 @@
                     <Building2 class="size-4" stroke-width="1.75" aria-hidden="true" />
                     <span>企业 SSO</span>
                 </Button>
-                <Button type="button" variant="outline" class="h-10 min-w-0 px-2 font-normal">
+                <Button type="button" variant="outline" class="h-10 min-w-0 px-2 font-normal" disabled>
                     <MessageCircle class="size-4" stroke-width="1.75" aria-hidden="true" />
                     <span>微信</span>
                 </Button>
-                <Button type="button" variant="outline" class="h-10 min-w-0 px-2 font-normal">
+                <Button type="button" variant="outline" class="h-10 min-w-0 px-2 font-normal" disabled>
                     <Globe2 class="size-4" stroke-width="1.75" aria-hidden="true" />
                     <span>Google</span>
                 </Button>
             </div>
 
             <p v-if="loginError" role="alert" class="mt-3 text-sm text-destructive">{{ loginError }}</p>
+            <p v-if="api.state.value.notice" role="status" class="mt-3 text-sm text-muted-foreground">
+                {{ api.state.value.notice }}
+            </p>
 
             <p class="mt-6 text-center text-xs leading-5 text-muted-foreground">
                 登录即表示你同意璇玑云库的服务条款与隐私政策。

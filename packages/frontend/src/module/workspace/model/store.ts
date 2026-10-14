@@ -25,6 +25,16 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         sourceScope = createTaskScope([]);
         source = dataSource;
     }
+    function reset() {
+        sourceScope.dispose();
+        sourceScope = createTaskScope([]);
+        organizations.value = [];
+        workspaces.value = [];
+        activeId.value = '';
+        pendingSelection = undefined;
+        busy.value = false;
+        error.value = syncError.value = '';
+    }
     async function load(signal?: AbortSignal) {
         const task = createTaskScope([sourceScope.signal, signal]);
         try {
@@ -49,8 +59,10 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         }
     }
     async function synchronize() {
+        const scope = sourceScope;
         try {
-            const snapshot = await source.load();
+            const snapshot = await source.load(scope.signal);
+            scope.signal.throwIfAborted();
             if (
                 pendingSelection &&
                 !snapshot.workspaces.some((item) => item.id === pendingSelection)
@@ -62,16 +74,18 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
             select(pendingSelection ?? activeId.value);
             syncError.value = '';
         } catch (cause) {
-            syncError.value = cause instanceof Error ? cause.message : '工作区同步失败';
+            if (!scope.signal.aborted)
+                syncError.value = cause instanceof Error ? cause.message : '工作区同步失败';
         }
     }
     async function retrySync() {
         if (busy.value || !syncError.value) return;
         busy.value = true;
+        const scope = sourceScope;
         try {
             await synchronize();
         } finally {
-            busy.value = false;
+            if (scope === sourceScope) busy.value = false;
         }
     }
     async function mutate(operation: () => Promise<string>) {
@@ -79,13 +93,17 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         if (syncError.value) return '请先重新同步工作区';
         busy.value = true;
         error.value = '';
+        const scope = sourceScope;
         try {
-            pendingSelection = await operation();
+            const selection = await operation();
+            scope.signal.throwIfAborted();
+            pendingSelection = selection;
             await synchronize();
         } catch (cause) {
-            error.value = cause instanceof Error ? cause.message : '更新工作区失败';
+            if (!scope.signal.aborted)
+                error.value = cause instanceof Error ? cause.message : '更新工作区失败';
         } finally {
-            busy.value = false;
+            if (scope === sourceScope) busy.value = false;
         }
         return error.value;
     }
@@ -102,6 +120,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         error,
         syncError,
         connect,
+        reset,
         load,
         initialize,
         retrySync,

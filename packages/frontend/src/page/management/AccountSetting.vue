@@ -67,7 +67,9 @@ async function save() {
                         required
                         maxlength="40"
                         autocomplete="nickname"
-                        :disabled="!account.profile || account.busy || !!account.syncError"
+                        :disabled="
+                            !account.profile || account.busy || !!account.syncError || !account.canUpdateDisplayName
+                        "
                     />
                 </div>
                 <div class="space-y-2">
@@ -87,10 +89,24 @@ async function save() {
                 <Button type="button" variant="outline" :disabled="!dirty || account.busy" @click="reset">
                     取消更改
                 </Button>
-                <Button type="submit" :disabled="!dirty || account.busy || !!account.syncError || !account.profile">
+                <Button
+                    type="submit"
+                    :disabled="
+                        !dirty ||
+                        account.busy ||
+                        !!account.syncError ||
+                        !account.profile ||
+                        !account.canUpdateDisplayName
+                    "
+                >
                     保存资料
                 </Button>
             </div>
+            <ManagementSection title="登录安全">
+                <Button as-child variant="outline">
+                    <RouterLink to="/auth/set-password">设置本地密码</RouterLink>
+                </Button>
+            </ManagementSection>
         </form>
         <PersonalNotificationSetting v-else />
     </ManagementPage>

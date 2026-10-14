@@ -97,6 +97,13 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         sourceScope = createTaskScope([]);
         source = dataSource;
     }
+    function reset() {
+        sourceScope.dispose();
+        sourceScope = createTaskScope([]);
+        apply({ resources: [], tasks: [], approvals: [], exceptions: [], overviews: {} });
+        busy.value = false;
+        error.value = syncError.value = '';
+    }
     async function load(signal?: AbortSignal) {
         const task = createTaskScope([sourceScope.signal, signal]);
         try {
@@ -117,31 +124,39 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         if (syncError.value) return (error.value = '请先重新同步工作台数据');
         busy.value = true;
         error.value = '';
+        const scope = sourceScope;
         try {
             await operation();
+            scope.signal.throwIfAborted();
             await synchronize();
         } catch (cause) {
-            error.value = cause instanceof Error ? cause.message : '更新失败，请重试';
+            if (!scope.signal.aborted)
+                error.value = cause instanceof Error ? cause.message : '更新失败，请重试';
         } finally {
-            busy.value = false;
+            if (scope === sourceScope) busy.value = false;
         }
         return error.value;
     }
     async function synchronize() {
+        const scope = sourceScope;
         try {
-            apply(await source.load());
+            const snapshot = await source.load(scope.signal);
+            scope.signal.throwIfAborted();
+            apply(snapshot);
             syncError.value = '';
         } catch (cause) {
-            syncError.value = cause instanceof Error ? cause.message : '工作台数据同步失败';
+            if (!scope.signal.aborted)
+                syncError.value = cause instanceof Error ? cause.message : '工作台数据同步失败';
         }
     }
     async function retrySync() {
         if (busy.value || !syncError.value) return;
         busy.value = true;
+        const scope = sourceScope;
         try {
             await synchronize();
         } finally {
-            busy.value = false;
+            if (scope === sourceScope) busy.value = false;
         }
     }
     const completeTasks = (ids: string[]) => mutate(() => source.completeTasks(ids));
@@ -177,6 +192,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         error,
         syncError,
         connect,
+        reset,
         load,
         initialize,
         retrySync,

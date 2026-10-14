@@ -10,10 +10,9 @@ export interface RequestOptions {
     authWait?: AuthWait;
 }
 
-export interface HttpRequest<T> extends RequestOptions {
+interface HttpRequestBase extends RequestOptions {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     path: string;
-    schema: z.ZodType<T>;
     auth?: 'required' | 'none';
     body?: unknown;
     params?: Readonly<
@@ -21,6 +20,18 @@ export interface HttpRequest<T> extends RequestOptions {
     >;
     headers?: Readonly<Record<string, string>>;
 }
+
+export interface JsonHttpRequest<T> extends HttpRequestBase {
+    schema: z.ZodType<T>;
+    response?: 'json';
+}
+
+export interface EmptyHttpRequest extends HttpRequestBase {
+    response: 'empty';
+    schema?: never;
+}
+
+export type HttpRequest<T> = JsonHttpRequest<T> | EmptyHttpRequest;
 
 export interface HttpClientOptions {
     /** Full API root, including the version prefix. */
@@ -31,6 +42,7 @@ export interface HttpClientOptions {
 }
 
 export interface HttpClient {
-    request<T>(request: HttpRequest<T>): Promise<T>;
+    request(request: EmptyHttpRequest): Promise<void>;
+    request<T>(request: JsonHttpRequest<T>): Promise<T>;
     dispose(): void;
 }

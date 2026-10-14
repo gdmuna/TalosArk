@@ -70,7 +70,7 @@ function focusAbout(event: Event) {
     unrefElement(aboutTitle)?.focus();
 }
 function signOut() {
-    authApi.clearLocalSession();
+    void authApi.logout();
     void router.push('/auth/login');
 }
 defineExpose({ openSettings });
@@ -123,11 +123,12 @@ defineExpose({ openSettings });
                 class="min-h-12 gap-3 px-3"
                 aria-label="切换组织或工作区"
                 aria-haspopup="dialog"
+                :disabled="!workspace.organizations.length && !workspace.workspaces.length"
                 @select="openWorkspace"
             >
                 <UsersRound aria-hidden="true" />
                 <span class="min-w-0 flex-1">
-                    <span class="block truncate">{{ workspace.current?.name }}</span>
+                    <span class="block truncate">{{ workspace.current?.name ?? '暂无可用工作区' }}</span>
                     <span class="mt-0.5 block truncate text-xs text-muted-foreground">
                         {{ workspace.organization?.name }}
                     </span>
