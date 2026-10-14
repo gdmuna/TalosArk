@@ -3,8 +3,9 @@
 日期：2026-10-14。依据：[现有贡献机制清单](extension-contribution-inventory-2026-10-14.md)、
 [I03 计划](mvp-foundation-work-plan.md) 与本会话的双入口讨论。
 
-本文是待确认的具体设计，不是已实现接口。只新增方案文档，不修改运行时代码、不启动 P04-P06。
-下面的新名称、类型和用法均为拟议接口；业务授权 action、角色及 scope 清单仍由主线确认。
+本文最初为设计草案。2026-10-15 已按后续确认实施 I03，接口和验证边界见
+[I03 实施记录](mvp-i03-extension-2026-10-15.md)。本次沿用 P04 已实现的三条权限，
+不据此宣称 P05/P06 的成员、角色管理或团队整体交付完成。
 
 ## 1. 定位与范围
 
@@ -34,12 +35,12 @@ Nest 发现桥接 -> 宿主转换及验证 -> 宿主自己的固定目录 -> Ker
 
 ```text
 src/platform/extensions/
-  index.ts                          # 纯原语导出；不转出 nest/index
+  index.ts                          # 纯原语导出；不转出 discovery/index
   extension.contract.ts             # Entry、Source、Point、只读 Index 类型
   extension.error.ts                # 机制错误与安全诊断
   extension-point.ts                # 定义宿主自己的元数据标识
   extension-index.ts                # 显式唯一目录构建，无公开增删方法
-  nest/
+  discovery/
     index.ts
     extension.decorator.ts          # 将元数据关联到类/方法
     extension.discovery.ts          # 已装配单例扫描、目标关联、作用域检查
@@ -56,12 +57,12 @@ src/core/permission/
 src/bootstrap/composition/
   extension.composition.ts          # 明确调用本应用已启用宿主的初始化
 
-src/modules/<业务>/extensions/
-  <业务>-authorization.definition.ts
+src/modules/<业务>/contribution/     # 可选目录，不是每个模块的必备模板
+  <业务>-authorization.contribution.ts
                                     # 独立数据贡献或已有 Provider 的贡献声明
 ```
 
-保留 `platform/extensions` 的位置：它提供跨宿主运行时支撑，Nest 相关内容集中在 `nest`。
+保留 `platform/extensions` 的位置：它提供跨宿主运行时支撑，Nest 相关内容集中在 `discovery`。
 Core 已允许使用非传输专属的 Platform 支撑。纯入口不得 import Nest，也不得偷偷转出 Nest 入口。
 worker、CLI 和显式构造场景只导入纯入口，不需要 Nest 容器。
 
@@ -214,7 +215,7 @@ export interface DiscoveredExtension<M> {
           };
 }
 
-export declare class NestExtensionDiscovery {
+export declare class ExtensionDiscovery {
     collect<M>(
         point: ExtensionPoint<M>,
         parseMetadata: (input: unknown) => NoInfer<M>
@@ -251,15 +252,15 @@ export declare class NestExtensionDiscovery {
 原始元数据保留为 unknown，经过对应 parser 后才作为 M 交出；不会复用一个未验证的强制类型转换结果。
 启动后不接收新增 Module/Provider，不提供热注册或重新扫描。
 
-`NestExtensionModule` 是普通 Nest Module，不需要 forRoot/forFeature 或全局 options：
+`ExtensionDiscoveryModule` 是普通 Nest Module，不需要 forRoot/forFeature 或全局 options：
 
 ```ts
 @Module({
     imports: [DiscoveryModule],
-    providers: [NestExtensionDiscovery],
-    exports: [NestExtensionDiscovery],
+    providers: [ExtensionDiscovery],
+    exports: [ExtensionDiscovery],
 })
-export class NestExtensionModule {}
+export class ExtensionDiscoveryModule {}
 ```
 
 它不是 global Module；需要发现的宿主显式导入它，同一应用的宿主复用同一个桥接实例。
@@ -273,6 +274,7 @@ export class NestExtensionModule {}
 interface AuthorizationRegistryOptions {
     readonly explicit?: readonly ExtensionEntry<string, AuthorizationDefinition>[];
     readonly discovery?: boolean;
+    readonly required?: readonly { readonly code: string; readonly scope: AuthorizationScope }[];
 }
 ```
 
@@ -280,22 +282,23 @@ interface AuthorizationRegistryOptions {
 宿主的 required definitions 检查仍然生效；关闭发现不会自动放宽权限或允许空目录。
 这些是宿主选项，不增加环境变量或一个公共的模式开关体系。
 
-宿主私有 options token 与 useFactory/inject 的装配方式沿用现有 Mail/IAM 等模块，不由公共模块读取 ConfigService。
-例如未来 PermissionModule 的根装配可以接收 authorization 选项，由私有 Registry 构造函数保存配置：
+P04 已有普通 `PermissionModule` 导入方式，本次不改成全局动态模块。
+由 Bootstrap 在 `app.init()` 后向私有 Registry 传入当前应用的选项，不读取 ConfigService：
 
 ```ts
-PermissionModule.forRootAsync({
-    useFactory: () => ({
-        authorization: {
-            explicit: workspaceAuthorizationEntries,
-            discovery: true,
-        },
-    }),
+app.get(AuthorizationRegistry).initialize({
+    explicit: organizationAuthorizationEntries,
+    discovery: true,
+    required: [
+        { code: 'organization.read', scope: 'ORGANIZATION' },
+        { code: 'workspace.create', scope: 'ORGANIZATION' },
+        { code: 'workspace.read', scope: 'WORKSPACE' },
+    ],
 });
 ```
 
-这个 Module 接口是权限宿主集成方案，不代表 I03 会顺便实现 PermissionKernel 或启用团队业务。
-显式数据可以直接来自常量；只有依赖 DI 的贡献才使用 imports/inject。避免让贡献 Provider 与宿主形成循环依赖。
+I03 只为现有 PermissionKernel 接入已注册作用域检查，不替换 P04 的实时数据库授权查询。
+显式数据可以直接来自常量；需要实例的贡献才使用已有 Provider。避免让贡献 Provider 与宿主形成循环依赖。
 静态常量优先走显式入口，不为了被扫描而新增一个只返回常量的空壳 Provider。
 
 `AuthorizationRegistry` 在内部初始化中执行：
@@ -324,12 +327,12 @@ materializer 为启动期本地转换，不执行数据库写入、远程调用�
 显式来源与发现来源出现相同 key 时拒绝，报出两个来源；不设置“显式覆盖隐式”的默认规则。
 有替换需求时由组合根排除旧贡献或停用相应发现，再明确装配新定义。
 
-Registry 构造阶段只保存依赖和选项，不扫描容器。
-内部 `initialize()` 只能成功发布一次；准备中的内容对读者不可见，初始化失败进入 failed，不能在服务过程中重新补注册。
+Registry 构造阶段只保存依赖，不扫描容器。
+内部 `initialize(options)` 只能发布一次；准备中的内容对读者不可见，初始化失败进入 failed，不能在服务过程中重新补注册。
 业务通过 PermissionKernel 使用 ready 目录，不接触 initialize 方法或公共 Entry；过早消费由宿主报 not-ready。
 
-宿主内部 Interface 可以直接是 initialize、find 和 require，不增加一个通用可变 Registry 基类。
-initialize 由 Bootstrap 调用，find/require 由 Kernel 消费；私有 Registry 不作为业务模块的公开导出。
+宿主内部 Interface 当前只需要 initialize 和 find，不增加未使用的 require 或通用可变 Registry 基类。
+initialize 由 Bootstrap 调用，find 由 Kernel 消费；私有 Registry 不作为业务模块的公开导出。
 业务定义的输入解析、转换和必需项检查留在该 Registry 的私有实现中。
 
 授权类 registry 采用稳定的 AuthorizationDefinition Interface 即可。
@@ -365,7 +368,7 @@ CLI 根据自身实际需要选择初始化哪些宿主，不能复制一个默�
 
 ```ts
 export function initializeExtensions(app: INestApplicationContext): void {
-    app.get(AuthorizationRegistry).initialize();
+    app.get(AuthorizationRegistry).initialize(authorizationOptions);
 }
 ```
 
@@ -441,7 +444,7 @@ Bootstrap 可以在组合根访问宿主的私有初始化入口；这不要求�
 
 - `extension.types.ts` TODO -> `extension.contract.ts`。
 - `extension-registry.ts` TODO -> `extension-index.ts`，不引入通用可变 Registry 基类。
-- `nest-extension-discovery.ts` TODO -> `nest/extension.discovery.ts`。
+- `nest-extension-discovery.ts` TODO -> `discovery/extension.discovery.ts`。
 - 保留并实现 `extension.error.ts`，增加纯/Nest 两个入口和 Module。
 
 这些原有文件目前没有运行时能力，替换不需要兼容旧贡献协议。

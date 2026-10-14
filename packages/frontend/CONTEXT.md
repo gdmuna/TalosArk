@@ -4,7 +4,7 @@
 
 - `layout/`: application shells and cross-business composition, including the command palette, user menu and custom paged sidebar. Sidebar expansion belongs to the primary shell and is passed by props/events; sidebar-page selection belongs to `layout/sidebar/`. Business layouts do not depend on shadcn SidebarProvider or useSidebar.
 - `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the administration skeletons and current-account settings, with private presentation helpers; it does not establish a catch-all management business module. `router/management-navigation.ts` owns their navigation descriptions and labels; `router/management.ts` assembles the statically imported pages.
-- `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account uses Pinia and a real HTTP reader; workspace and workbench retain mock adapters but are not selected by default. Auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
+- `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account and workspace use Pinia and real HTTP readers. Retained workspace/workbench mock adapters are not selected by default. Auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
 - `component/`: reusable functional component modules without business semantics: DataTable, Inspector, ScrollSurface, SelectField, StateBadge, breadcrumb, route-tab, view-host and view-context. Each component owns its private interaction, state and context, not just Vue files. DataTable internals are organized under `control/`, `interaction/`, `layout/` and `model/`.
 - `platform/`: environment mechanisms: navigation, HTTP execution and task scheduling. HTTP owns retry, cancellation, validated response decoding and an authentication barrier; `module/auth` owns session credentials and the actual refresh adapter. Platform code never imports a business module.
 - `shared/`: business-free leaves: `asset/`, `util/` and headless browser contracts. The overlay-container contract is shared by primitives and shells without depending on either.
@@ -12,7 +12,7 @@
 
 `App.vue`, `router/`, `main.ts`, and `style.css` remain conventional Vite entry files. Do not recreate broad top-level `app/`, `composable/`, `event/`, `lib/`, or `util/` directories. Generic functional components belong in `component/`; business UI belongs in its module.
 
-Application composition selects data sources explicitly. `main.ts` supplies the real account reader; `bootstrap.ts` has no mock fallback. Retained mock adapters stay behind their explicit `data/mock.ts` entries and alone import fixtures. Composition binds sources without fetching. Each store owns `connect(source)`, cancellable `load(signal?)` and session-change `reset()`; `initialize(source)` remains connect + load. Reset/reconnection/disposal invalidate pending reads, including ignored cancellation, and prevent old mutation/synchronization results from changing a newer context. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
+Application composition selects data sources explicitly. `main.ts` supplies the real account and workspace readers; `bootstrap.ts` has no mock fallback. Retained mock adapters stay behind their explicit `data/mock.ts` entries and alone import fixtures. Composition binds sources without fetching. Each store owns `connect(source)`, cancellable `load(signal?)` and session-change `reset()`; `initialize(source)` remains connect + load. Reset/reconnection/disposal invalidate pending reads, including ignored cancellation, and prevent old mutation/synchronization results from changing a newer context. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
 
 `main.ts` owns Vue/plugin installation and HTTP/auth/Pinia disposal. The small
 application-owned `bootstrap.ts` coordinates required reads, not business rules or
@@ -23,10 +23,11 @@ session -> account -> configured workspace/workbench reads succeed. Startup feed
 uses the available window width; the desktop minimum applies only to business views.
 Public auth
 routes bypass this data gate and do not initiate these reads. Authentication is a
-separate route requirement. P03 selects only the real account reader; missing
-workspace/workbench sources remain unloaded, with a workspace-unavailable view
-rather than invented membership or mock records. Account Settings remains accessible
-without a workspace. No resource HTTP contracts or per-page data sources are
+separate route requirement. P04 selects real account and workspace readers;
+workbench remains unloaded and its page shows an unavailable state instead of
+unloaded zero statistics. A workspace-unavailable view allows first organization
+creation. Account Settings and Workspace management remain accessible without
+an active workspace. No resource HTTP contracts or per-page data sources are
 invented; future remote reads belong to their module and consuming context.
 Concurrent starts/retries share one promise, retain successful stages and reuse
 sources. Recovery retries only the first unfinished stage and its successors,
@@ -36,6 +37,16 @@ prevents late ready/error publication; Pinia disposal releases module resources.
 F12's original scope and verification remain in docs/design/frontend-f12-2026-10-13.md.
 P03 adds real restoration and session-change invalidation; its Web evidence and
 Tauri/production limits live in docs/design/mvp-p03-2026-10-14.md.
+
+P04's workspace HTTP adapter uses contracts/team and validates a selected tenant/
+workspace pair on the server before publishing it. It never treats local selection
+or canCreateWorkspace as authorization. Context changes invalidate old workspace
+and workbench operations. Explicit selection may replace pendingSelection but
+cannot clear syncError; only a completed full snapshot synchronization clears it.
+WorkspaceCreateDialog owns form generations so late results cannot affect a
+reopened form. The real source does not enable invitation-code joining; retained
+mock joining remains behind its explicit source. Evidence and P05/P06 limits are
+in ../backend/docs/design/mvp-p04-2026-10-15.md.
 
 `component/view-context` owns only the generic scope registry (`register` and
 its returned `dispose`). Each provider creates its own reactive state in its
