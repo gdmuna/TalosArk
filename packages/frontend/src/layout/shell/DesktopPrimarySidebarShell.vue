@@ -15,8 +15,9 @@
         >
             <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <RouterView v-slot="{ Component, route: pageRoute }">
+                    <WorkspaceUnavailable v-if="pageRoute.meta.requiresWorkspace && !workspace.current" />
                     <div
-                        v-if="Component"
+                        v-else-if="Component"
                         :key="pageRoute.matched[1]?.path"
                         class="flex min-h-0 min-w-0 flex-1 flex-col"
                         data-slot="route-page"
@@ -35,11 +36,13 @@
 import { useWorkbenchStore, type Resource } from '@/module/workbench';
 import { workbenchPath } from '@/module/workbench/navigation';
 import { ResourceDialog } from '@/module/workbench/ui';
+import { useWorkspaceStore } from '@/module/workspace';
 import { matchesRoutePath } from '@/shared/util';
 import DesktopPrimaryContentShell from './DesktopPrimaryContentShell.vue';
 import ApplicationSidebar from '../sidebar/ApplicationSidebar.vue';
 import { workspaceNavigation } from '../sidebar/navigation';
 import { CommandPalette } from '../command-palette';
+import WorkspaceUnavailable from '../startup/WorkspaceUnavailable.vue';
 import { useEventListener } from '@vueuse/core';
 
 import { computed, ref, watch } from 'vue';
@@ -52,6 +55,7 @@ watch(sidebarExpanded, (value) => {
 });
 const paletteOpen = ref(false);
 const workbench = useWorkbenchStore();
+const workspace = useWorkspaceStore();
 const preview = ref<Resource | null>(null);
 const recentResources = computed(() =>
     workbench.overview.recentItems.flatMap((item) => workbench.resourceById.get(item.resourceId) ?? [])

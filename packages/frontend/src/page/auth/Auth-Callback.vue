@@ -1,11 +1,22 @@
 <template>
-    <p v-if="error" role="alert" class="p-6 text-destructive">{{ error }}</p>
+    <div class="flex size-full flex-col items-center justify-center gap-3 p-6">
+        <template v-if="error">
+            <p role="alert" class="text-destructive">{{ error }}</p>
+            <Button as-child variant="outline"><RouterLink to="/auth/login">返回登录</RouterLink></Button>
+        </template>
+        <p v-else role="status" class="flex items-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle class="size-4 animate-spin" aria-hidden="true" />
+            正在完成登录
+        </p>
+    </div>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useAuthApi } from '@/module/auth';
+import { authErrorMessage, useAuthApi } from '@/module/auth';
+import { LoaderCircle } from '@lucide/vue';
+import { Button } from '@/ui/button';
 import { consumeQuery } from '@/platform/navigation';
 
 const route = useRoute();
@@ -30,7 +41,7 @@ onMounted(async () => {
         }
         await router.replace('/');
     } catch (cause) {
-        if (!controller.signal.aborted) error.value = cause instanceof Error ? cause.message : '登录失败';
+        if (!controller.signal.aborted) error.value = authErrorMessage(cause, '暂时无法完成登录，请重试。');
     }
 });
 </script>

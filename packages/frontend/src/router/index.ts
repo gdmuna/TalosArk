@@ -10,6 +10,8 @@ import Auth from '@/page/auth/Auth.vue';
 import AuthCallback from '@/page/auth/Auth-Callback.vue';
 import AuthRecovery from '@/page/auth/Auth-Recovery.vue';
 import AuthResetPassword from '@/page/auth/Auth-ResetPassword.vue';
+import AuthActivate from '@/page/auth/Auth-Activate.vue';
+import AuthSetPassword from '@/page/auth/Auth-SetPassword.vue';
 import Management from '@/page/management/Management.vue';
 import Workbench from '@/page/workbench/Workbench.vue';
 import Material from '@/page/material/Material.vue';
@@ -27,6 +29,8 @@ declare module 'vue-router' {
         /** Public forms may use the available width instead of the desktop minimum. */
         fluidLayout?: boolean;
         requiresApplicationData?: boolean;
+        requiresAuthentication?: boolean;
+        requiresWorkspace?: boolean;
     }
 }
 
@@ -65,12 +69,26 @@ const routes: RouteRecordRaw[] = [
                 component: AuthResetPassword,
                 meta: { defaultTitle: '重设密码' },
             },
+            {
+                path: 'activate',
+                component: AuthActivate,
+                meta: { defaultTitle: '激活账户' },
+            },
+            {
+                path: 'set-password',
+                component: AuthSetPassword,
+                meta: { defaultTitle: '设置本地密码', requiresAuthentication: true },
+            },
         ],
     },
     {
         path: '/main',
         component: DesktopPrimarySidebarShell,
-        meta: { requiresApplicationData: true },
+        meta: {
+            requiresApplicationData: true,
+            requiresAuthentication: true,
+            requiresWorkspace: true,
+        },
         children: [
             {
                 path: '',
@@ -133,12 +151,6 @@ const router = createRouter({
     history: createWebHistory(),
     routes,
 });
-
-// router.beforeEach(async (to) => {
-//     const auth = useAuthStore();
-//     if (!auth.initialized) await auth.fetchMe();
-//     if (!to.meta.public && !auth.isLoggedIn) return '/login';
-// });
 
 // 同步浏览器标签页标题
 // router.afterEach((to) => {

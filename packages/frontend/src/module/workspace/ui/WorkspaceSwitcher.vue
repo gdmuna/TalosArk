@@ -9,6 +9,7 @@
                 :class="compact ? 'gap-0 p-0' : 'gap-3 p-2'"
                 :data-compact="compact"
                 aria-label="切换组织或工作区"
+                :disabled="!workspace.organizations.length && !workspace.workspaces.length"
                 use-tooltip
                 :tooltip-disabled="!compact"
                 tooltip="切换组织或工作区"
@@ -18,14 +19,15 @@
                 <span
                     class="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-base text-primary-foreground"
                 >
-                    {{ workspace.current?.name.slice(0, 1) ?? '' }}
+                    <UsersRound v-if="!workspace.current" class="size-5" aria-hidden="true" />
+                    <template v-else>{{ workspace.current.name.slice(0, 1) }}</template>
                 </span>
                 <span
                     class="workspace-label min-w-0 flex-1 transition-opacity duration-(--sidebar-transition-duration,240ms) ease-standard"
                     :class="compact && 'opacity-0'"
                     :aria-hidden="compact"
                 >
-                    <span class="block truncate">{{ workspace.current?.name }}</span>
+                    <span class="block truncate">{{ workspace.current?.name ?? '暂无工作区' }}</span>
                     <span class="mt-1 block truncate text-xs text-muted-foreground">
                         {{ workspace.organization?.name }}
                     </span>

@@ -41,6 +41,10 @@ export const managementRoutes: RouteRecordRaw[] = managementNavigation.flatMap((
     group.items.map(({ path, label }) => ({
         path,
         component: pages[path],
-        meta: { defaultTitle: label, pageLabel: label },
+        meta: {
+            defaultTitle: label,
+            pageLabel: label,
+            ...(path === 'account-setting' ? { requiresWorkspace: false } : {}),
+        },
     }))
 );

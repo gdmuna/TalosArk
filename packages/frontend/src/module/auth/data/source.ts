@@ -6,10 +6,26 @@ import type {
     PasswordRecoveryRequestResponse,
     PasswordRecoveryConfirmBody,
     PasswordRecoveryConfirmResponse,
+    PasswordLoginBody,
+    PasswordLoginResponse,
+    AccountActivateBody,
+    PasswordSetBody,
+    SessionRefreshResponse,
 } from '@talos-ark/contracts/auth';
 import type { RequestOptions } from '@/platform/http';
 
 export interface AuthDataSource {
+    passwordLogin(
+        body: PasswordLoginBody,
+        options?: RequestOptions
+    ): Promise<PasswordLoginResponse>;
+    activateAccount(body: AccountActivateBody, options?: RequestOptions): Promise<void>;
+    setFirstPassword(
+        body: PasswordSetBody,
+        options?: RequestOptions
+    ): Promise<PasswordLoginResponse>;
+    refreshSession(options?: RequestOptions): Promise<SessionRefreshResponse>;
+    logout(options?: RequestOptions): Promise<void>;
     requestPasswordRecovery(
         body: PasswordRecoveryRequestBody,
         options?: RequestOptions

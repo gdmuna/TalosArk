@@ -15,7 +15,7 @@ export interface AuthLease extends AccessCredential {
 export interface AuthGateOptions {
     refresh?: (signal: AbortSignal) => Promise<AccessCredential>;
     refreshTimeoutMs?: number;
-    onExpired?: () => void;
+    onExpired?: (cause?: unknown) => void;
 }
 
 export type AuthGate = ReturnType<typeof createAuthGate>;
@@ -54,12 +54,12 @@ export function createAuthGate(options: AuthGateOptions = {}) {
         if (disposed || expected.epoch !== epoch) throw new AuthenticationError('changed');
     }
 
-    function invalidate(expected: AuthLease) {
+    function invalidate(expected: AuthLease, cause?: unknown) {
         assertCurrent(expected);
         // An old 401 must not invalidate a newer access token.
         if (expected.revision !== revision) return;
         setCredential(null);
-        options.onExpired?.();
+        options.onExpired?.(cause);
     }
 
     async function recover(expected: AuthLease, signal: AbortSignal, wait: AuthWait = 'wait') {
@@ -98,7 +98,7 @@ export function createAuthGate(options: AuthGateOptions = {}) {
                         if (expected.epoch !== epoch || disposed) {
                             throw new AuthenticationError('changed', error);
                         }
-                        invalidate(expected);
+                        invalidate(expected, error);
                         throw new AuthenticationError('expired', error);
                     } finally {
                         scope.dispose();
