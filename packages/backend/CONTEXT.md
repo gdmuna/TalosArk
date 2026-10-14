@@ -57,6 +57,27 @@ missing identity. Metadata cannot supply an actor. The existing allowlisted
 response context.userId is now populated for authenticated requests; session IDs
 and raw claims are not projected there.
 
+## Organization and workspace (P04)
+
+OrganizationModule composes atomic organization creation, initial effective
+membership/organization grants, WorkspaceModule's public creation capability
+and two audit records. WorkspaceService joins the ambient DatabaseRuntime
+transaction; audit failures roll back the whole operation. No account ID comes
+from the request body: application services consume the verified ALS actor.
+
+TenantKernel validates effective tenant membership. PermissionKernel reads live
+allow-only bindings with effective membership, unarchived roles and explicit
+ORGANIZATION/WORKSPACE scope. WorkspaceContextKernel validates the tenant/workspace
+pair and effective workspace membership. Owners have no implicit workspace access:
+P04 creation also requires a current organization grant, and entry requires both
+organization and workspace read grants. Read snapshots use RepeatableRead.
+
+Initial permissions/roles are explicit business writes, not startup Discovery or
+automatic remote Casbin synchronization. I03 now supplies code-definition assembly;
+P05/P06 still own its broader acceptance, member/invitation/role management and the
+team-stage delivery gate. Wire contracts
+live in contracts/team; unknown/unavailable tenant contexts share a non-disclosing 403. See docs/design/mvp-p04-2026-10-15.md for exact boundaries and evidence.
+
 ## Business audit
 
 core/audit exports AuditModule, AuditKernel, SDK-free contracts and AuditError.
@@ -76,6 +97,32 @@ uses filter-bound (occurredAt DESC, id DESC) cursors, not authorization tokens o
 cross-page snapshots. The append/query interface is not database tamper protection.
 Limits, P04's direct-input example, isolated verification and pending integration
 live in docs/design/mvp-i02-audit-2026-10-14.md.
+
+## Extension contributions
+
+platform/extensions exports pure typed Entry/Source/Point contracts and an immutable
+unique index. It never imports Nest. The separate discovery entry collects only own
+class/instance-method declarations on already-registered static singleton providers,
+skips DI aliases and binds methods without invoking them. Request/transient targets
+and request-scoped dependency trees are rejected when their point is enabled.
+The caller must await app.init before collecting. Candidate scanning is cached once;
+metadata validation and execution semantics belong to each host, not Platform.
+
+Bootstrap initializes the private AuthorizationRegistry after app.init and before
+listen/readiness. Organization contributes explicit data; WorkspaceService carries
+the workspace definitions as metadata. Definitions and sources are snapshotted and
+published once; duplicate, invalid or missing required definitions abort startup.
+PermissionKernel first requires a registered compatible scope, then retains P04's
+live allow-only database query. Declaration alone grants no access. Existing business
+permission/role writes remain in their transactions; discovery never writes the DB.
+PermissionModule retains ordinary imports and exports only Kernel to Nest consumers.
+
+ErrorResolver and the pretty worker reuse the pure index while keeping explicit
+assembly, duplicate-error behavior, error allowlists and rendering fallback. Ordered
+mappers, diagnostics, request metadata and infra configuration are not migrated.
+New business contribution files may use an optional contribution directory; existing
+unimplemented extension skeletons are not bulk moved. Interfaces and isolated evidence
+live in docs/design/mvp-i03-extension-2026-10-15.md.
 
 ## Cookie binding
 
@@ -326,7 +373,7 @@ visibility; they are not an application-wide public surface.
     |   |   +-- http/                          # HTTP guards, filters, pipes, decorators
     |   |   +-- realtime/                      # websocket and SSE adapters
     |   |   +-- context/                       # ALS runtime adapter
-    |   |   +-- extensions/                    # Nest Discovery bridge
+    |   |   +-- extensions/                    # pure typed contribution index; discovery/ Nest bridge
     |   |   +-- observability/logger/          # Nest Pino wiring and pretty worker transport
     |   |   `-- lifecycle/                     # only a real Nest -> Core bridge
     |   +-- core/
@@ -444,7 +491,7 @@ UserModule exposes only the authenticated current account with an explicit wire
 projection; no arbitrary user query, organization membership or admin
 GUI is activated. The compiled provision-account CLI requires database confirmation
 and explicit consent to controlled secret-link stdout. It is not a seed and does
-not send mail. HTTP_BROWSER_*, IDENTITY_PASSWORD_HASH_CONCURRENCY and AUTH_* defaults
+not send mail. HTTP_BROWSER__, IDENTITY_PASSWORD_HASH_CONCURRENCY and AUTH__ defaults
 are present in all runtime envs; production URL values
 must match actual deployment. P03 now connects real Web password/OIDC login,
 activation/first-password setup, current-account reads and Cookie restoration/logout.

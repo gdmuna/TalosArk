@@ -15,7 +15,7 @@ const levels = new Map<number, { label: string; color: Parameters<typeof styleTe
 ]);
 
 export function createPrettyRenderer(
-    adapters: ReadonlyMap<string, PrettyAdapter>,
+    adapters: Pick<ReadonlyMap<string, PrettyAdapter>, 'get'>,
     colorize: boolean
 ): (record: PrettyLog) => string {
     const color = (style: Parameters<typeof styleText>[0], text: string) =>

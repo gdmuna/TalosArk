@@ -11,6 +11,7 @@ import { HealthModule } from '@/system/health/health.module.js';
 import { AuthModule } from '@/modules/auth/index.js';
 import { AuthRecoveryModule } from '@/modules/auth/auth-recovery.module.js';
 import { UserModule } from '@/modules/user/user.module.js';
+import { OrganizationModule } from '@/modules/organization/index.js';
 
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
@@ -69,6 +70,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         AuthModule,
         AuthRecoveryModule,
         UserModule,
+        OrganizationModule,
         PlatformContextModule,
         HealthModule,
     ],

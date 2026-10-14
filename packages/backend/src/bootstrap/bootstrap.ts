@@ -1,6 +1,7 @@
 import { APP_AUTHOR, APP_VERSION, type AllConfig } from '@/config/index.js';
 
 import { AppModule } from './composition/app.module.js';
+import { initializeExtensions } from './composition/extension.composition.js';
 import { installProcessShutdown } from './lifecycle/shutdown.js';
 import { HealthState } from '@/system/health/health.state.js';
 
@@ -72,6 +73,8 @@ export async function bootstrap() {
         });
         registerOpenApi(app);
 
+        await app.init();
+        initializeExtensions(app);
         await app.listen(port, '0.0.0.0');
         app.get(HealthState).markReady();
         logger.log(`Server started at: http://localhost:${port}`);

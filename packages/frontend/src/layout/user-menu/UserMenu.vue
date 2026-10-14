@@ -123,7 +123,6 @@ defineExpose({ openSettings });
                 class="min-h-12 gap-3 px-3"
                 aria-label="切换组织或工作区"
                 aria-haspopup="dialog"
-                :disabled="!workspace.organizations.length && !workspace.workspaces.length"
                 @select="openWorkspace"
             >
                 <UsersRound aria-hidden="true" />

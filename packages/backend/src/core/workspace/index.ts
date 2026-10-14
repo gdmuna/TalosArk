@@ -1,5 +1,3 @@
-/**
- * TODO: 定义工作空间内核导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { WorkspaceContextKernel } from './workspace-context.kernel.js';
+export { WorkspaceContextModule } from './workspace-context.module.js';
+export type { WorkspaceContext } from './workspace-context.types.js';

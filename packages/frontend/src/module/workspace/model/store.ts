@@ -1,8 +1,9 @@
 import { computed, onScopeDispose, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { createTaskScope, waitFor } from '@/platform/task';
+import { HttpError } from '@/platform/http';
 import type { WorkspaceDataSource } from '../data/source';
-import type { Organization, Workspace } from './workspace';
+import type { Organization, Workspace, WorkspaceSnapshot } from './workspace';
 
 export const useWorkspaceStore = defineStore('workspace-context', () => {
     const organizations = ref<Organization[]>([]);
@@ -11,10 +12,17 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
     const busy = ref(false);
     const error = ref('');
     const syncError = ref('');
+    const switching = ref(false);
+    const canCreateOrganization = ref(false);
+    const canJoin = ref(false);
     let pendingSelection: string | undefined;
     let source: WorkspaceDataSource;
     let sourceScope = createTaskScope([]);
-    onScopeDispose(() => sourceScope.dispose());
+    let selectionScope = createTaskScope([sourceScope.signal]);
+    onScopeDispose(() => {
+        sourceScope.dispose();
+        selectionScope.dispose();
+    });
     const current = computed(() => workspaces.value.find((item) => item.id === activeId.value));
     const organization = computed(() =>
         organizations.value.find((item) => item.id === current.value?.organizationId)
@@ -24,15 +32,22 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         sourceScope.dispose();
         sourceScope = createTaskScope([]);
         source = dataSource;
+        selectionScope.dispose();
+        selectionScope = createTaskScope([sourceScope.signal]);
+        canCreateOrganization.value = !!dataSource.createOrganization;
+        canJoin.value = !!dataSource.join;
     }
     function reset() {
         sourceScope.dispose();
         sourceScope = createTaskScope([]);
+        selectionScope.dispose();
+        selectionScope = createTaskScope([sourceScope.signal]);
         organizations.value = [];
         workspaces.value = [];
         activeId.value = '';
         pendingSelection = undefined;
         busy.value = false;
+        switching.value = false;
         error.value = syncError.value = '';
     }
     async function load(signal?: AbortSignal) {
@@ -41,9 +56,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
             task.signal.throwIfAborted();
             const snapshot = await waitFor(source.load(task.signal), task.signal);
             task.signal.throwIfAborted();
-            organizations.value = snapshot.organizations;
-            workspaces.value = snapshot.workspaces;
-            select(snapshot.activeId);
+            apply(snapshot);
         } finally {
             task.dispose();
         }
@@ -52,10 +65,49 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         connect(dataSource);
         await load();
     }
-    function select(id: string) {
-        if (workspaces.value.some((item) => item.id === id)) {
-            activeId.value = id;
+    function applySelection(id: string) {
+        if (activeId.value !== id) {
+            sourceScope.dispose();
+            sourceScope = createTaskScope([]);
+            busy.value = false;
+        }
+        activeId.value = id;
+    }
+    function apply(snapshot: WorkspaceSnapshot) {
+        organizations.value = snapshot.organizations;
+        workspaces.value = snapshot.workspaces;
+        const selected = [pendingSelection, activeId.value, snapshot.activeId].find((id) =>
+            snapshot.workspaces.some((item) => item.id === id)
+        );
+        applySelection(selected ?? snapshot.workspaces[0]?.id ?? '');
+        pendingSelection = undefined;
+    }
+    async function select(id: string) {
+        const target = workspaces.value.find((item) => item.id === id);
+        if (!target) return '工作区不存在';
+        selectionScope.dispose();
+        const scope = createTaskScope([sourceScope.signal]);
+        selectionScope = scope;
+        switching.value = true;
+        error.value = '';
+        try {
+            await source.select?.(target, scope.signal);
+            scope.signal.throwIfAborted();
+            if (scope !== selectionScope) return '工作区切换已取消';
+            applySelection(id);
             pendingSelection = undefined;
+            return '';
+        } catch (cause) {
+            if (scope.signal.aborted) return '工作区切换已取消';
+            if (cause instanceof HttpError && cause.status === 403) {
+                workspaces.value = workspaces.value.filter((item) => item.id !== id);
+                if (activeId.value === id) applySelection('');
+                error.value = '当前账户已无权进入此工作区';
+            } else error.value = cause instanceof Error ? cause.message : '工作区切换失败';
+            return error.value;
+        } finally {
+            if (scope === selectionScope) switching.value = false;
+            scope.dispose();
         }
     }
     async function synchronize() {
@@ -69,9 +121,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
             ) {
                 throw new Error('新工作区尚未出现在同步结果中，请重新同步');
             }
-            organizations.value = snapshot.organizations;
-            workspaces.value = snapshot.workspaces;
-            select(pendingSelection ?? activeId.value);
+            apply(snapshot);
             syncError.value = '';
         } catch (cause) {
             if (!scope.signal.aborted)
@@ -88,18 +138,20 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
             if (scope === sourceScope) busy.value = false;
         }
     }
-    async function mutate(operation: () => Promise<string>) {
+    async function mutate(operation: (signal: AbortSignal) => Promise<string>) {
         if (busy.value) return '工作区正在更新';
+        if (switching.value) return '正在切换工作区';
         if (syncError.value) return '请先重新同步工作区';
         busy.value = true;
         error.value = '';
         const scope = sourceScope;
         try {
-            const selection = await operation();
+            const selection = await operation(scope.signal);
             scope.signal.throwIfAborted();
             pendingSelection = selection;
             await synchronize();
         } catch (cause) {
+            if (scope.signal.aborted) return '操作上下文已改变，请重新检查操作结果';
             if (!scope.signal.aborted)
                 error.value = cause instanceof Error ? cause.message : '更新工作区失败';
         } finally {
@@ -108,8 +160,19 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         return error.value;
     }
     const create = (name: string, organizationId: string) =>
-        mutate(() => source.create(name, organizationId));
-    const join = (code: string) => mutate(() => source.join(code));
+        mutate((signal) => source.create(name, organizationId, signal));
+    const createOrganization = (name: string, workspaceName: string) => {
+        const operation = source.createOrganization?.bind(source);
+        return operation
+            ? mutate((signal) => operation(name, workspaceName, signal))
+            : Promise.resolve('组织创建尚未开放');
+    };
+    const join = (code: string) => {
+        const operation = source.join?.bind(source);
+        return operation
+            ? mutate((signal) => operation(code, signal))
+            : Promise.resolve('成员邀请将在后续阶段开放');
+    };
     return {
         organizations,
         workspaces,
@@ -119,6 +182,9 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         busy,
         error,
         syncError,
+        switching,
+        canCreateOrganization,
+        canJoin,
         connect,
         reset,
         load,
@@ -126,6 +192,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         retrySync,
         select,
         create,
+        createOrganization,
         join,
     };
 });

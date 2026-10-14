@@ -1,5 +1,6 @@
-/**
- * TODO: 定义当前工作空间上下文类型。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+import type { TenantMembership } from '../tenant/tenant.types.js';
+
+export interface WorkspaceContext extends TenantMembership {
+    readonly workspaceId: string;
+    readonly workspaceMemberId: string;
+}
