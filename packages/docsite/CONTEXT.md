@@ -8,8 +8,11 @@ not implicitly copied into this site.
 ## Current state
 
 The site publishes current status and runtime/delivery instructions in Chinese
-and English. Navigation must point to existing pages. Do not restore the legacy
-scaffold's guides, feature claims or missing assets merely to satisfy its old
+and English. The backend configuration reference currently covers an overview,
+loading rules, and all ten HTTP configuration inputs, with matching Chinese and
+English routes and variable anchors. Other configuration groups remain design
+material outside docs/. Navigation must point to existing pages. Do not restore
+the legacy scaffold's guides, feature claims or missing assets merely to satisfy its old
 navigation configuration.
 
 ## OpenAPI delivery

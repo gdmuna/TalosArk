@@ -15,6 +15,7 @@ Directories, schemas and placeholder endpoints are not evidence of a completed b
 ## Resources
 
 - [Runtime and Delivery](./guide/quick-start.md)
+- [Backend Configuration](./reference/backend/environment/index.md): loading rules and HTTP environment variables.
 - [Chinese](../index.md)
 - [Source Repository](https://github.com/gdmuna/TalosArk)
 

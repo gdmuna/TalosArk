@@ -38,3 +38,6 @@ Scalar 的相对规范地址仍可正确解析。静态规范缺失时返回 404
 开发 CD 保留外部文档模式；同一 artifact 继续用于 Apifox 同步，也可用于本地规范模式。
 
 [当前运行与交付说明](docs/guide/quick-start.md)列明启动前提、端口、探针及验证边界。
+
+[后端配置参考](docs/reference/backend/environment/index.md)目前发布配置概览、加载规则和全部 10 项 HTTP 配置；
+[英文版本](docs/en/reference/backend/environment/index.md)使用对应路由与相同变量锚点。
