@@ -1,5 +1,6 @@
 import { registerAs, type ConfigType } from '@nestjs/config';
 import { z } from 'zod';
+import { parseEnvironment } from './internal/config.validation.js';
 
 const optionalBoolean = z
     .enum(['true', 'false'])
@@ -42,7 +43,7 @@ const schema = z
         maxConcurrentSends: env.SMTP_MAX_CONCURRENT_SENDS,
     }));
 
-export const mailConfig = registerAs('mail', () => schema.parse(process.env));
+export const mailConfig = registerAs('mail', () => parseEnvironment(schema, 'mail'));
 export type MailConfig = ConfigType<typeof mailConfig>;
 
 export default mailConfig;

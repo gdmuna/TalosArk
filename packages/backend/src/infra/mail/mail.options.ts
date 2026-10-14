@@ -2,6 +2,7 @@ import type { FactoryProvider, ModuleMetadata } from '@nestjs/common';
 import { z } from 'zod';
 import { MailError } from './mail.error.js';
 import { mailboxSchema } from './mail.address.js';
+import { validationDiagnostics } from '@/platform/error/error.validation.js';
 
 export const MAIL_OPTIONS = Symbol('MAIL_OPTIONS');
 
@@ -27,7 +28,6 @@ export interface SmtpOptions {
 
 export interface MailModuleOptions {
     options: SmtpOptions;
-    imports?: ModuleMetadata['imports'];
 }
 
 export interface MailModuleAsyncOptions {
@@ -69,28 +69,79 @@ const schema = z
 export type ResolvedSmtpOptions = Readonly<z.output<typeof schema>>;
 
 export function resolveSmtpOptions(options: SmtpOptions): ResolvedSmtpOptions {
-    const result = schema.safeParse({
+    const input = {
         ...options,
         secure: options?.secure ?? (options?.port ?? 465) === 465,
-    });
+    };
+    const result = schema.safeParse(input, { reportInput: true });
     if (!result.success) {
-        // Invalid configuration can contain credentials; do not attach the input or Zod error.
-        throw new MailError({
-            reason: 'configuration',
-            operation: 'configure',
-            phase: 'configuration',
-            outcome: 'not-sent',
-            invalidFields: Object.freeze([
-                ...new Set(
-                    result.error.issues.map((issue) =>
-                        typeof issue.path[0] === 'string' &&
-                        Object.hasOwn(schema.shape, issue.path[0])
-                            ? issue.path[0]
-                            : 'options'
-                    )
-                ),
-            ]),
-        });
+        const fields = {
+            host: {
+                label: 'host (SMTP_HOST)',
+                expected: 'a hostname or IP without whitespace, protocol or path',
+            },
+            port: { label: 'port (SMTP_PORT)', scalar: true },
+            secure: {
+                label: 'secure (SMTP_SECURE)',
+                scalar: true,
+                customExpected: 'true when SMTP_PORT=465',
+                hint: 'Use implicit TLS on 465; for STARTTLS on 587 set secure=false and requireTLS=true.',
+            },
+            requireTLS: {
+                label: 'requireTLS (SMTP_REQUIRE_TLS)',
+                scalar: true,
+                customExpected:
+                    'SMTP_SECURE=true or SMTP_REQUIRE_TLS=true when SMTP_USER is configured',
+                hint: 'Enable STARTTLS with SMTP_REQUIRE_TLS=true, or use implicit TLS. Authentication over plaintext is not allowed.',
+            },
+            servername: { label: 'servername (SMTP_SERVERNAME)' },
+            user: { label: 'user (SMTP_USER)' },
+            pass: {
+                label: 'pass (SMTP_PASS)',
+                customExpected: 'SMTP_USER and SMTP_PASS configured together, or both absent',
+                hint: 'Provide both credentials; omit both only for a trusted unauthenticated relay.',
+            },
+            from: {
+                label: 'from (SMTP_FROM)',
+                customExpected: 'a single valid mailbox without header newlines',
+            },
+            connectionTimeoutMs: {
+                label: 'connectionTimeoutMs (SMTP_CONNECTION_TIMEOUT_MS)',
+                scalar: true,
+            },
+            greetingTimeoutMs: {
+                label: 'greetingTimeoutMs (SMTP_GREETING_TIMEOUT_MS)',
+                scalar: true,
+            },
+            socketTimeoutMs: { label: 'socketTimeoutMs (SMTP_SOCKET_TIMEOUT_MS)', scalar: true },
+            dnsTimeoutMs: { label: 'dnsTimeoutMs (SMTP_DNS_TIMEOUT_MS)', scalar: true },
+            sendTimeoutMs: { label: 'sendTimeoutMs (SMTP_SEND_TIMEOUT_MS)', scalar: true },
+            closeTimeoutMs: { label: 'closeTimeoutMs (SMTP_CLOSE_TIMEOUT_MS)', scalar: true },
+            maxConcurrentSends: {
+                label: 'maxConcurrentSends (SMTP_MAX_CONCURRENT_SENDS)',
+                scalar: true,
+            },
+        };
+        // Retain safe constraints, not the original error, credentials or configuration object.
+        throw new MailError(
+            {
+                reason: 'configuration',
+                operation: 'configure',
+                phase: 'configuration',
+                outcome: 'not-sent',
+                invalidFields: Object.freeze([
+                    ...new Set(
+                        result.error.issues.map((issue) =>
+                            typeof issue.path[0] === 'string' &&
+                            Object.hasOwn(schema.shape, issue.path[0])
+                                ? issue.path[0]
+                                : 'options'
+                        )
+                    ),
+                ]),
+            },
+            { validationIssues: validationDiagnostics(result.error, input, { fields }) }
+        );
     }
     return Object.freeze(result.data);
 }

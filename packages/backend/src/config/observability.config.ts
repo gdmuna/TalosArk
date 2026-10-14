@@ -1,5 +1,6 @@
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod';
+import { parseEnvironment } from './internal/config.validation.js';
 
 // observability
 
@@ -63,7 +64,7 @@ const ObservabilityConfigValidateSchema = z
     }));
 
 export const observabilityConfig = registerAs('observability', () =>
-    ObservabilityConfigValidateSchema.parse(process.env)
+    parseEnvironment(ObservabilityConfigValidateSchema, 'observability')
 );
 
 export type ObservabilityConfig = ConfigType<typeof observabilityConfig>;

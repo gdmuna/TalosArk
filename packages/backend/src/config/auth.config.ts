@@ -1,5 +1,7 @@
 import { registerAs, type ConfigType } from '@nestjs/config';
 import { z } from 'zod';
+import { parseEnvironment } from './internal/config.validation.js';
+import { ConfigurationError, configurationIssue } from '@/platform/error/error.validation.js';
 
 export const AuthConfigSchema = z
     .object({
@@ -44,7 +46,7 @@ export const AuthConfigSchema = z
     }));
 
 export const authConfig = registerAs('auth', () => {
-    const config = AuthConfigSchema.parse(process.env);
+    const config = parseEnvironment(AuthConfigSchema, 'authentication');
     const activation = new URL(config.activationUrl);
     const recovery = new URL(config.recovery.url);
     if (
@@ -54,26 +56,67 @@ export const authConfig = registerAs('auth', () => {
         recovery.search ||
         recovery.hash
     )
-        throw new Error(
-            'AUTH_RECOVERY_URL must be an HTTP URL without credentials, query or fragment'
-        );
+        throw new ConfigurationError('authentication environment', [
+            configurationIssue(
+                'AUTH_RECOVERY_URL',
+                'an HTTP(S) URL without credentials, query or fragment',
+                config.recovery.url
+            ),
+        ]);
     if (config.recovery.cooldownSeconds > config.recovery.windowSeconds)
-        throw new Error('Recovery cooldown must not exceed its rate-limit window');
+        throw new ConfigurationError('authentication environment', [
+            configurationIssue(
+                'AUTH_RECOVERY_COOLDOWN_SECONDS',
+                `<= AUTH_RECOVERY_WINDOW_SECONDS (${config.recovery.windowSeconds})`,
+                config.recovery.cooldownSeconds,
+                { scalar: true }
+            ),
+        ]);
     if (
         !['http:', 'https:'].includes(activation.protocol) ||
         activation.username ||
         activation.password ||
         activation.hash
     ) {
-        throw new Error('AUTH_ACTIVATION_URL must be an HTTP URL without credentials or fragment');
+        throw new ConfigurationError('authentication environment', [
+            configurationIssue(
+                'AUTH_ACTIVATION_URL',
+                'an HTTP(S) URL without credentials or fragment',
+                config.activationUrl
+            ),
+        ]);
     }
     if (
         process.env.NODE_ENV === 'production' &&
         (!config.cookieSecure || activation.protocol !== 'https:' || recovery.protocol !== 'https:')
     ) {
-        throw new Error(
-            'Production authentication requires Secure cookies and HTTPS activation/recovery URLs'
-        );
+        const issues = [];
+        if (!config.cookieSecure)
+            issues.push(
+                configurationIssue(
+                    'AUTH_COOKIE_SECURE',
+                    'true when NODE_ENV=production',
+                    config.cookieSecure,
+                    { scalar: true }
+                )
+            );
+        if (activation.protocol !== 'https:')
+            issues.push(
+                configurationIssue(
+                    'AUTH_ACTIVATION_URL',
+                    'an HTTPS URL when NODE_ENV=production',
+                    config.activationUrl
+                )
+            );
+        if (recovery.protocol !== 'https:')
+            issues.push(
+                configurationIssue(
+                    'AUTH_RECOVERY_URL',
+                    'an HTTPS URL when NODE_ENV=production',
+                    config.recovery.url
+                )
+            );
+        throw new ConfigurationError('authentication environment', issues);
     }
     return config;
 });

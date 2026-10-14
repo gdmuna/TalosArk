@@ -1,5 +1,6 @@
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod';
+import { parseEnvironment } from './internal/config.validation.js';
 
 // database
 
@@ -18,7 +19,7 @@ const DatabaseConfigValidateSchema = z
     }));
 
 export const databaseConfig = registerAs('database', () =>
-    DatabaseConfigValidateSchema.parse(process.env)
+    parseEnvironment(DatabaseConfigValidateSchema, 'database')
 );
 
 export type DatabaseConfig = ConfigType<typeof databaseConfig>;

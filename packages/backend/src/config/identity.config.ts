@@ -1,5 +1,6 @@
 import { registerAs, type ConfigType } from '@nestjs/config';
 import { z } from 'zod';
+import { parseEnvironment } from './internal/config.validation.js';
 
 export const IdentityConfigSchema = z
     .object({
@@ -7,5 +8,7 @@ export const IdentityConfigSchema = z
     })
     .transform((env) => ({ passwordHashConcurrency: env.IDENTITY_PASSWORD_HASH_CONCURRENCY }));
 
-export const identityConfig = registerAs('identity', () => IdentityConfigSchema.parse(process.env));
+export const identityConfig = registerAs('identity', () =>
+    parseEnvironment(IdentityConfigSchema, 'identity')
+);
 export type IdentityConfig = ConfigType<typeof identityConfig>;

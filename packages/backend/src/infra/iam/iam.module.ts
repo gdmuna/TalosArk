@@ -8,18 +8,10 @@ const IAM_OPTIONS = Symbol('IAM_OPTIONS');
 
 @Module({})
 export class IamModule {
-    static forRoot(options: IamModuleOptions): DynamicModule {
-        return {
-            module: IamModule,
-            imports: [HttpModule, ...(options.imports ?? [])],
-            providers: this.createProviders({ provide: IAM_OPTIONS, useValue: options }),
-            exports: [CasdoorOidcClient],
-        };
-    }
-
     static forRootAsync(options: IamModuleAsyncOptions): DynamicModule {
         return {
             module: IamModule,
+            global: true,
             imports: [HttpModule, ...(options.imports ?? [])],
             providers: this.createProviders({
                 provide: IAM_OPTIONS,

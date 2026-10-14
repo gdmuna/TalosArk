@@ -12,7 +12,6 @@ export interface S3ProviderOptions {
 
 export interface StorageModuleOptions {
     options: S3ProviderOptions;
-    imports?: ModuleMetadata['imports'];
 }
 
 export interface StorageModuleAsyncOptions {

@@ -1,5 +1,6 @@
 import { registerAs, ConfigType } from '@nestjs/config';
 import { z } from 'zod/v4';
+import { parseEnvironment } from './internal/config.validation.js';
 
 function normalizeS3Endpoint(value: string) {
     const trimmed = value.trim();
@@ -43,7 +44,7 @@ const StorageConfigValidateSchema = z
     }));
 
 export const storageConfig = registerAs('storage', () =>
-    StorageConfigValidateSchema.parse(process.env)
+    parseEnvironment(StorageConfigValidateSchema, 'storage')
 );
 
 export type StorageConfig = ConfigType<typeof storageConfig>;
