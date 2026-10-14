@@ -7,6 +7,11 @@ import {
 } from '@talos-ark/contracts/protocol';
 import { SystemErrorDefinition } from '@talos-ark/contracts/backend';
 import { definedErrorId, type DefinedError } from './error.factory.js';
+import {
+    createExtensionIndex,
+    type ExtensionEntry,
+    type ExtensionIndex,
+} from '../extensions/index.js';
 
 export interface ResolvedError {
     readonly definition: ErrorDefinition & { readonly public: ErrorContract };
@@ -16,27 +21,35 @@ export interface ResolvedError {
 }
 
 export class ErrorResolver {
-    private readonly definitions = new Map<string, ErrorDefinition>();
+    private readonly definitions: ExtensionIndex<ExtensionEntry<string, ErrorDefinition>>;
 
     constructor(catalogs: readonly ErrorCatalog[]) {
         const codes = new Set<string>();
+        const ids = new Set<string>();
+        const entries: ExtensionEntry<string, ErrorDefinition>[] = [];
         for (const catalog of catalogs) {
             for (const definition of Object.values(catalog)) {
                 if (
-                    this.definitions.has(definition.id) ||
+                    ids.has(definition.id) ||
                     (definition.public && codes.has(definition.public.code))
                 )
                     throw new TypeError(`Duplicate error definition: ${definition.id}`);
-                this.definitions.set(definition.id, definition);
+                ids.add(definition.id);
+                entries.push({
+                    key: definition.id,
+                    value: definition,
+                    source: { kind: 'explicit', owner: 'error-catalog' },
+                });
                 if (definition.public) codes.add(definition.public.code);
             }
         }
+        this.definitions = createExtensionIndex(entries);
     }
 
     resolve(error: unknown): ResolvedError {
         try {
             const id = definedErrorId(error);
-            const definition = id === undefined ? undefined : this.definitions.get(id);
+            const definition = id === undefined ? undefined : this.definitions.find(id);
             if (!definition?.public) return this.internal(error);
             const details = definition.public.details.parse((error as DefinedError).details);
             const publicError = PublicErrorSchema.parse({
