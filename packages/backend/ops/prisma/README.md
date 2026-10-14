@@ -67,5 +67,5 @@ at the first failure, retaining its nonzero exit status; earlier committed files
 are not rolled back as a group. If scripts acquire dependencies, use filename
 prefixes to make their order explicit. Files outside `ddl/init` are never included.
 
-See [the DDL guide](../../prisma/ddl/README.md) for schema synchronization and
-existing-data upgrade ordering.
+See [the DDL guide](../../prisma/ddl/README.md) for schema synchronization ordering
+and upgrade-policy boundaries.

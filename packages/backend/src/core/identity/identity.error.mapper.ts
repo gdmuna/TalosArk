@@ -37,9 +37,7 @@ export const mapIdentityDatabaseError = defineErrorMapper(
         const owner = table ?? model;
         const userConflict =
             ((owner === undefined || owner === 'User') &&
-                (constraint === 'User_email_key' ||
-                    constraint === 'User_username_key' ||
-                    constraint === 'User_email_normalized_key')) ||
+                (constraint === 'User_email_key' || constraint === 'User_username_key')) ||
             (owner === 'User' &&
                 fields.length === 1 &&
                 fields.some((field) => field === 'email' || field === 'username'));
