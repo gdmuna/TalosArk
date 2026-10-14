@@ -1,7 +1,37 @@
-/**
- * TODO: 实现审计内核。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
+import { Injectable } from '@nestjs/common';
+import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
+import type {
+    AuditListInput,
+    AuditPage,
+    AuditReceipt,
+    AuditRecordInput,
+} from './audit.contract.js';
+import { AuditRepository } from './internal/audit.repository.js';
+import { parseAuditList, parseAuditRecord } from './internal/audit.input.js';
+import { readAuditCursor, writeAuditCursor } from './internal/audit.cursor.js';
+
+@Injectable()
 export class AuditKernel {
-    // TODO: 在首个已批准的真实用例中实现。
+    constructor(
+        private readonly database: DatabaseRuntime,
+        private readonly repository: AuditRepository
+    ) {}
+
+    record(input: AuditRecordInput): Promise<AuditReceipt> {
+        return this.database.transaction.run(
+            async () => this.repository.append(parseAuditRecord(input)),
+            { propagation: 'mandatory' }
+        );
+    }
+
+    async list(input: AuditListInput): Promise<AuditPage> {
+        const query = parseAuditList(input);
+        const rows = await this.repository.list(query, readAuditCursor(query));
+        const items = rows.slice(0, query.limit);
+        return {
+            items,
+            nextCursor:
+                rows.length > query.limit ? writeAuditCursor(query, items[items.length - 1]) : null,
+        };
+    }
 }

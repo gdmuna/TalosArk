@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 import merge from 'lodash/merge.js';
 import cloneDeep from 'lodash/cloneDeep.js';
+import { ContextError } from './context.error.js';
+
+export interface AuthenticatedActor {
+    readonly userId: string;
+}
 
 /**
  * 请求上下文接口，用于在异步调用链中传递请求级别的上下文信息。
@@ -58,8 +63,8 @@ export class AlsContextAdapter {
      *   () => next()
      * );
      */
-    run(context: AlsExecutionContext, callback: () => void) {
-        this.asyncLocalStorage.run(context, callback);
+    run<T>(context: AlsExecutionContext, callback: () => T): T {
+        return this.asyncLocalStorage.run(context, callback);
     }
 
     /**
@@ -78,6 +83,22 @@ export class AlsContextAdapter {
      */
     get() {
         return cloneDeep(this.asyncLocalStorage.getStore());
+    }
+
+    /** Only trusted authentication adapters bind identity; metadata never supplies it. */
+    bindAuthenticatedUser(userId: string): void {
+        const context = this.asyncLocalStorage.getStore();
+        if (!context) throw new ContextError({ reason: 'missing' });
+        if (!userId) throw new ContextError({ reason: 'actor-required' });
+        if (context.userId && context.userId !== userId)
+            throw new ContextError({ reason: 'actor-conflict' });
+        context.userId = userId;
+    }
+
+    requireActor(): Readonly<AuthenticatedActor> {
+        const userId = this.asyncLocalStorage.getStore()?.userId;
+        if (!userId) throw new ContextError({ reason: 'actor-required' });
+        return Object.freeze({ userId });
     }
 
     /**

@@ -9,12 +9,14 @@ import { RequestError } from '@/platform/request/request.error.js';
 import { Reflector } from '@nestjs/core';
 
 import { FastifyRequest } from 'fastify';
+import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
     constructor(
         private readonly reflector: Reflector,
-        private readonly accessKernel: AccessKernel
+        private readonly accessKernel: AccessKernel,
+        private readonly contextAdapter: AlsContextAdapter
     ) {}
 
     async canActivate(context: ExecutionContext) {
@@ -41,6 +43,7 @@ export class AuthGuard implements CanActivate {
             throw new RequestError({ reason: 'authentication' });
         }
 
+        this.contextAdapter.bindAuthenticatedUser(claim.sub);
         request.authentication = Object.freeze({
             userId: claim.sub,
             sessionId: claim.sid,
