@@ -66,7 +66,7 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
                 throw cause;
             }
         }
-        this.logger.debug({ event: 'kvs.connected' }, 'KVS connected');
+        this.logger.info({ event: 'kvs.connected' }, 'KVS connected');
     }
 
     /** Pending commands drain within a budget; destroy rejects them on timeout. */
