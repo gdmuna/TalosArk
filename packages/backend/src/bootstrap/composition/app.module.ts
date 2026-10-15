@@ -16,6 +16,7 @@ import { OrganizationModule } from '@/modules/organization/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
 import { errorProviders } from './error.provider.js';
+import { permissionConfiguration } from './permission.provider.js';
 import { loggerOptions } from './logger.provider.js';
 import { iamOptions, mailOptions, storageOptions } from './infra.composition.js';
 import { PlatformLoggerModule } from '@/platform/observability/logger/logger.module.js';
@@ -62,6 +63,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
             },
         }),
         PlatformLoggerModule.forRoot(loggerOptions),
+        permissionConfiguration,
         IamModule.forRootAsync(iamOptions),
         MailModule.forRootAsync(mailOptions),
         StorageModule.forRootAsync(storageOptions),

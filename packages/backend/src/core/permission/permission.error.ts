@@ -6,6 +6,7 @@ const catalog = defineInternalErrorCatalog('permission', [
     'scope-conflict',
     'not-ready',
     'already-initialized',
+    'missing-configuration',
 ]);
 
 interface PermissionFailure {
@@ -22,6 +23,8 @@ export const PermissionError = defineErrorClass<typeof catalog, PermissionFailur
             'scope-conflict': 'A required authorization definition has an incompatible scope',
             'not-ready': 'Authorization definitions have not been initialized successfully',
             'already-initialized': 'Authorization definitions may only be initialized once',
+            'missing-configuration':
+                'PermissionConfigurationModule must supply authorization options',
         }[failure.reason];
         const code =
             failure.code && /^[a-z][a-z0-9.-]{0,119}$/.test(failure.code)

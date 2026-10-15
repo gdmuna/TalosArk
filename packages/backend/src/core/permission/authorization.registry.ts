@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional, type OnApplicationBootstrap } from '@nestjs/common';
 import {
     createExtensionIndex,
     type ExtensionEntry,
@@ -13,16 +13,27 @@ import {
     type AuthorizationRegistryOptions,
 } from './authorization-definition.js';
 import { PermissionError } from './permission.error.js';
+import { AUTHORIZATION_OPTIONS } from './permission.configuration.js';
 
 @Injectable()
-export class AuthorizationRegistry {
+export class AuthorizationRegistry implements OnApplicationBootstrap {
     private state: 'pending' | 'preparing' | 'ready' | 'failed' = 'pending';
     private index?: ExtensionIndex<ExtensionEntry<string, AuthorizationDefinition>>;
 
-    constructor(private readonly discovery: ExtensionDiscovery) {}
+    constructor(
+        private readonly discovery: ExtensionDiscovery,
+        @Optional()
+        @Inject(AUTHORIZATION_OPTIONS)
+        private readonly options?: AuthorizationRegistryOptions
+    ) {}
 
-    /** Called by composition after app.init(), before listeners or consumers start. */
-    initialize(options: AuthorizationRegistryOptions): void {
+    onApplicationBootstrap(): void {
+        if (!this.options) throw new PermissionError({ reason: 'missing-configuration' });
+        this.initialize(this.options);
+    }
+
+    /** Lifecycle-owned publication; no consumer may read during module initialization. */
+    private initialize(options: AuthorizationRegistryOptions): void {
         if (this.state !== 'pending') throw new PermissionError({ reason: 'already-initialized' });
         this.state = 'preparing';
         try {
