@@ -69,7 +69,7 @@
 
 ### 不能只按目录认领工作
 
-`core/identity`、`core/access`、`core/tenant` 等也包含主线正在依赖的业务能力。
+`core/identity`、`core/session`、`core/organization-context` 等也包含主线正在依赖的业务能力。
 它们位于 Core，并不意味着全部交给本会话。
 业务模块中的存储树 SQL 虽然是技术实现，也不因此搬进通用 Database 模块。
 

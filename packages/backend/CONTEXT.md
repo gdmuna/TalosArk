@@ -50,7 +50,7 @@ test scripts unless the user explicitly requests them.
 HTTP request authentication uses the Platform-owned RequestAuthentication snapshot
 (`request.authentication`: userId/sessionId), not raw JWT claims or Identity SDK types.
 Bootstrap decorates each request with null; AuthGuard binds a frozen snapshot only
-after successful Access verification. Public/optional authentication behavior and
+after successful Session token verification. Public/optional authentication behavior and
 wire shapes are unchanged. AuthGuard also binds the verified user into request ALS;
 AlsContextAdapter.requireActor returns a frozen userId-only snapshot and rejects
 missing identity. Metadata cannot supply an actor. The existing allowlisted
@@ -65,9 +65,9 @@ and two audit records. WorkspaceService joins the ambient DatabaseRuntime
 transaction; audit failures roll back the whole operation. No account ID comes
 from the request body: application services consume the verified ALS actor.
 
-TenantKernel validates effective tenant membership. PermissionKernel reads live
-allow-only bindings with effective membership, unarchived roles and explicit
-ORGANIZATION/WORKSPACE scope. WorkspaceContextKernel validates the tenant/workspace
+OrganizationContextKernel validates effective organization membership. PermissionKernel
+evaluates transaction-local allow-only binding snapshots with internal Casbin and explicit
+ORGANIZATION/WORKSPACE scope. WorkspaceContextKernel supplies facts for the organization/workspace
 pair and effective workspace membership. Owners have no implicit workspace access:
 P04 creation also requires a current organization grant, and entry requires both
 organization and workspace read grants. Read snapshots use RepeatableRead.
@@ -76,7 +76,7 @@ Initial permissions/roles are explicit business writes, not startup Discovery or
 automatic remote Casbin synchronization. I03 now supplies code-definition assembly;
 P05/P06 still own its broader acceptance, member/invitation/role management and the
 team-stage delivery gate. Wire contracts
-live in contracts/team; unknown/unavailable tenant contexts share a non-disclosing 403. See docs/design/mvp-p04-2026-10-15.md for exact boundaries and evidence.
+live in contracts/team; unknown/unavailable organization contexts share a non-disclosing 403. See docs/design/mvp-p04-2026-10-15.md for exact boundaries and evidence.
 
 ## Business audit
 
@@ -116,10 +116,29 @@ definitions through PermissionConfigurationModule; only its configuration token 
 global. Organization contributes explicit data; WorkspaceService carries
 the workspace definitions as metadata. Definitions and sources are snapshotted and
 published once; duplicate, invalid or missing required definitions abort startup.
-PermissionKernel first requires a registered compatible scope, then retains P04's
-live allow-only database query. Declaration alone grants no access. Existing business
-permission/role writes remain in their transactions; discovery never writes the DB.
+PermissionKernel first requires a registered compatible scope, then loads live policies
+for its isolated Casbin evaluator. Declaration alone grants no access. Application services
+explicitly invoke transaction-mandatory permission writes; discovery never writes the DB.
 PermissionModule retains ordinary imports and exports only Kernel to Nest consumers.
+
+## Authorization foundation (pre-P06)
+
+core/authorization resolves trusted organization/workspace membership facts and coordinates
+Permission checks through check/require/scope. Neither core reads request ALS. Scope results
+are explicit none/organization IDs/workspace pairs, applied before pagination and counts.
+WorkspaceContext no longer imports Permission; its requireMembership is facts-only.
+Organization/Workspace callers use Authorization for reads and Permission's mandatory
+write primitives for roles/bindings while preserving owner-only workspace creation,
+explicit initial grants and transactional audit. Missing and inaccessible contexts keep
+the same team 403 wire contract. Internal organizationIds/workspaceIds are removed.
+
+The existing tables are the only durable policy source; no casbin_rule, cross-request
+allow cache, owner bypass or hierarchy is introduced. Standalone policy reads use
+RepeatableRead; ambient reads/writes join the existing DatabaseRuntime transaction.
+Catalog synchronization is explicit. Replacement updates the parent Role before replacing
+permissions so competing snapshots cannot silently merge grants. Details, internal API
+changes and verification limits: docs/design/permission-authorization-2026-10-15.md.
+This is not completion of P06 invitation/member/role management or node inheritance.
 
 ErrorResolver retains explicit assembly and error allowlists. Logger uses static
 LoggerExtension declarations on owner modules (and the existing performance
@@ -389,8 +408,9 @@ visibility; they are not an application-wide public surface.
     |   |   +-- observability/logger/          # Nest Pino wiring and pretty worker transport
     |   |   `-- lifecycle/                     # only a real Nest -> Core bridge
     |   +-- core/
-    |   |   +-- context/ identity/ access/ tenant/ workspace/
-    |   |   +-- resource/ permission/ cache/ lock/ idempotency/
+    |   |   +-- context/ identity/ session/
+    |   |   +-- organization-context/ workspace-context/
+    |   |   +-- resource/ permission/ authorization/ cache/ lock/ idempotency/
     |   |   +-- event/ task/ file/ quota/ risk/ audit/ notification/
     |   |   +-- realtime/ background/ clock/
     |   +-- infra/
@@ -446,9 +466,9 @@ health. HealthState is marked ready only after successful listening and cannot
 become ready again after stopping. Future provider health checks require their
 own finite-budget design rather than extending this meaning silently.
 
-## Access lifecycle
+## Session lifecycle
 
-core/access now validates TokenPair revocation and Session revocation/idle expiry
+core/session validates TokenPair revocation and Session revocation/idle expiry
 consistently during AT verification and RT rotation. Rotation additionally requires
 an unexpired, unconsumed RT from the current Session generation. Its ReadCommitted
 interactive transaction locks the public Session row, re-reads state and time,
@@ -461,6 +481,12 @@ Normal rotation does not invalidate older unexpired ATs: AT sv identifies its
 TokenPair generation, not the Session's latest version. Actual PostgreSQL concurrency/rollback evidence,
 schema assumptions and uncertain-commit limits live in
 docs/design/backend-w05-2026-10-11.md. No generic lifecycle or retry layer was added.
+
+The former core/access module, internal types and config namespace are now named session.
+Access-token terminology, JWT_ACCESS_* inputs, HTTP contracts, the access.* public error
+catalog and existing KVS key family identity/prefix remain unchanged. The Prisma model
+file is session.prisma; model/table definitions are unchanged. Dated reviews/design
+evidence retain historical names rather than being rewritten as new validation evidence.
 
 P01 replaces browser HTTP delivery, not W05's token lifecycle. Refresh reads the
 HttpOnly RT cookie, requires no AT, rejects body RTs, and returns public session/AT
@@ -492,7 +518,7 @@ bounded Argon2id/PHC and private credential persistence under identity/internal;
 passwords are not trimmed/case-folded. The neutral contracts/auth/password subpath
 shares input bounds without importing transport DTOs. Auth prepares an opaque
 password reference before the transaction, then orchestrates Identity writes and
-Access-owned Session revocation/creation in one transaction. Identity never writes
+Session-owned revocation/creation in one transaction. Identity never writes
 Session directly. User -> Session locking and mandatory ambient writes prevent
 partial credential/session results. Recent login uses Session.createdAt, never
 the refreshed AT issue time. auth.firstPasswordSessionMaxAgeSeconds only limits
@@ -515,7 +541,7 @@ P02 supplies public password-recovery request/confirm routes and real recovery
 pages. Requests acknowledge before account lookup and use a bounded process-local
 queue, not reliable jobs. Identity issues hashed reset credentials only for accounts
 with a local password; OIDC-only cannot create one through recovery. Confirming uses
-the same User lock, mandatory credential transaction and Access-owned revocation;
+the same User lock, mandatory credential transaction and Session-owned revocation;
 password update, consumption and old-session revocation roll back together.
 Request defaults are 30-minute credentials, 60-second email cooldown, five email
 requests and twenty IP requests per one-hour window, explicit in all six envs.
@@ -584,11 +610,12 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
   FileKernel extension boundary.
 - Platform-level Casdoor OIDC remains the current identity-provider model.
   TalosArk-owned identity and session behavior belongs to core/identity and
-  core/access, not Casdoor SDK code.
-- Casdoor/Casbin administration and remote enforcement are Casdoor Infra concerns.
+  core/session, not Casdoor SDK code.
+- Casdoor administration and remote enforcement are Casdoor Infra concerns, distinct
+  from Permission's local Casbin evaluator.
   A future Casdoor authorization client belongs beside the OIDC client in infra/iam,
   registered by the same IamModule; authorization business decisions enter through
-  core/permission. This does not activate any permission implementation today.
+  core/permission. No remote authorization client is activated by the local evaluator.
 
 ## Verification expectation
 

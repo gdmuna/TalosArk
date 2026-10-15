@@ -121,16 +121,16 @@ Cookie 参数绑定及其调用方在本轮开始时存在工作树变更；P00 
 
 ### P01：完成第一方账密登录和真实当前账户
 
-涉及：`backend/src/modules/auth`、`modules/user`、`core/identity`、`core/access`、`contract/src/auth`。
+涉及：`backend/src/modules/auth`、`modules/user`、`core/identity`、`core/session`、`contract/src/auth`。
 依赖：P00 的 D01/D03；账号创建方式不能默认等于开放注册，首次登录交付必须遵守已选 Cookie 协议。
 
 1. 用户名和邮箱均可登录；标识去掉首尾空格，用户名区分大小写，邮箱忽略大小写，不合并邮箱的点或 + 后缀。落实匹配及唯一性，检查既有邮箱碰撞及数据库约束；必要的 Schema 变化先说明，不自动合并或删除原有账户。
 2. 提供受控运维开户入口，创建无密码账户和专用、一次性、限时激活链接，由用户设置密码，只保存密码 hash，不恢复 seed、共享临时密码或匿名注册。组织邀请和管理界面留到 P06；OIDC-only 账户登录后主动设置密码，不复用找回密码来完成首次设置。
-3. 实现账密登录：识别账户、验证密码、按既有 Access 能力签发会话；登录失败不泄露究竟是账户不存在还是密码错误。
+3. 实现账密登录：识别账户、验证密码、按既有 Session 能力签发会话；登录失败不泄露究竟是账户不存在还是密码错误。
 4. 增加当前账户查询，返回客户端需要的身份与资料，不返回 hash、内部 Token 或未经授权的组织资料。
 5. 为入口增加失败频率限制，声明请求、成功响应和错误契约；密码和登录凭据不得写日志。
 6. 按职责把新增 Auth 代码放到 api/application 等位置；现有平铺文件只在本任务确有需要时迁移，不为目录整齐拆转发类。
-7. 登录成功和 RT 轮转由 HTTP 层写 Cookie，公开 JSON 不再返回 RT，刷新不再接收 body 中的 RT。同步调整 OIDC、refresh/logout 的契约与必需客户端类型；复用 Access 的签发和轮转，不把 Fastify Cookie 放进 Core。Cookie/CSRF/CORS 的明确策略以及退出时 AT 已失效的处理，在实现前一并定清。
+7. 登录成功和 RT 轮转由 HTTP 层写 Cookie，公开 JSON 不再返回 RT，刷新不再接收 body 中的 RT。同步调整 OIDC、refresh/logout 的契约与必需客户端类型；复用 Session 的签发和轮转，不把 Fastify Cookie 放进 Core。Cookie/CSRF/CORS 的明确策略以及退出时 AT 已失效的处理，在实现前一并定清。
 
 **产出：** 账密登录、选定的开户能力、当前账户接口及对应公开契约。
 **验收：** 正确密码得到可验证的凭据；错误密码、重复标识、OIDC-only 账户走明确拒绝路径；当前账户来自验证后的身份，而不是请求 body 中的 userId。
@@ -142,7 +142,7 @@ Cookie 参数绑定及其调用方在本轮开始时存在工作树变更；P00 
 
 ### P02：完成邮箱找回密码
 
-涉及：Auth/Identity、Access、`infra/mail`、`PasswordResetToken`。
+涉及：Auth/Identity、Session、`infra/mail`、`PasswordResetToken`。
 依赖：P01；OIDC-only 处理已确认，开始前提出 D02 的有效期/发送限制方案并确认邮件要求。
 
 1. 提供申请恢复入口：存在与不存在的账户采用批准的统一外部响应，限制对同一目标和来源的发送频率。
@@ -180,7 +180,7 @@ Cookie 参数绑定及其调用方在本轮开始时存在工作树变更；P00 
 
 ### P04：建立组织和工作区的最小闭环
 
-涉及：`modules/organization`、`modules/workspace`、`core/tenant`、`core/workspace`、账户/工作区前端模块。
+涉及：`modules/organization`、`modules/workspace`、`core/organization-context`、`core/workspace-context`、账户/工作区前端模块。
 依赖：P03；和 P05/P06 作为“团队可用”整体交付，外部入口不能暂时跳过授权。
 
 1. 提供创建组织和工作区的业务操作；创建者、初始成员和初始角色关系在一次事务内成立，不能留下没有负责人的组织。
@@ -223,7 +223,7 @@ Cookie 参数绑定及其调用方在本轮开始时存在工作树变更；P00 
 3. 实现成员列表、授予/撤销角色、离开/移除；保留历史成员关系，不能因离开而破坏流水里的操作者。
 4. Permission 查询当前有效成员和角色关系，按 allow-only 判断；未知权限、无授权或无有效成员资格时拒绝。
 5. 为列表、详情、写入、批量和导出使用同一授权口径；先在数据库查询里限制组织/工作区/授权范围，再分页和统计。
-6. 根据确认的最小规则选择具体执行方式；旧草案里的 Casbin 是候选，不等于可以省略业务定义或已经有实现。
+6. 已确认采用内部 Casbin 的 Permission 与 Authorization 上下文编排；前置基座实现及边界见 [设计记录](../../packages/backend/docs/design/permission-authorization-2026-10-15.md)。P06 仍须完成实际角色、委派和成员管理规则，不能用执行器替代业务定义。
 7. 前端显示真实成员和角色，刷新权限变化后的可操作状态；服务端仍对每次实际操作重新鉴权。
 
 **产出：** 邀请/成员/角色操作、Permission 最小实现、授权感知查询和对应管理界面。
