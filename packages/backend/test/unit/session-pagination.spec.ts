@@ -1,7 +1,10 @@
-import { AccessKernel } from '@/core/access/access.kernel.js';
+import { SessionKernel } from '@/core/session/session.kernel.js';
 
 type Row = { id: string; userId: string };
-type CursorPage = Extract<Awaited<ReturnType<AccessKernel['listUserSession']>>, { type: 'cursor' }>;
+type CursorPage = Extract<
+    Awaited<ReturnType<SessionKernel['listUserSession']>>,
+    { type: 'cursor' }
+>;
 
 const records: Row[] = Array.from({ length: 10 }, (_, index) => ({
     id: String(index + 1).padStart(2, '0'),
@@ -38,15 +41,17 @@ function createKernel() {
         $transaction: (queries: Promise<unknown>[]) => Promise.all(queries),
     };
 
-    return Object.assign(Object.create(AccessKernel.prototype), { prismaService }) as AccessKernel;
+    return Object.assign(Object.create(SessionKernel.prototype), {
+        prismaService,
+    }) as SessionKernel;
 }
 
-function cursorPage(output: Awaited<ReturnType<AccessKernel['listUserSession']>>): CursorPage {
+function cursorPage(output: Awaited<ReturnType<SessionKernel['listUserSession']>>): CursorPage {
     if (output.type !== 'cursor') throw new Error('Expected cursor pagination');
     return output;
 }
 
-describe('AccessKernel.listUserSession', () => {
+describe('SessionKernel.listUserSession', () => {
     it.each(['asc', 'desc'] as const)('moves forward and backward in %s order', async (order) => {
         const kernel = createKernel();
         const input = { type: 'cursor' as const, userId: 'user-1', order, pageSize: 3 };

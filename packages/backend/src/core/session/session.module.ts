@@ -1,4 +1,4 @@
-import { AccessKernel } from './access.kernel.js';
+import { SessionKernel } from './session.kernel.js';
 
 import { DatabaseModule } from '@/infra/database/database.module.js';
 
@@ -6,7 +6,7 @@ import { Module } from '@nestjs/common';
 
 @Module({
     imports: [DatabaseModule],
-    providers: [AccessKernel],
-    exports: [AccessKernel],
+    providers: [SessionKernel],
+    exports: [SessionKernel],
 })
-export class AccessModule {}
+export class SessionModule {}

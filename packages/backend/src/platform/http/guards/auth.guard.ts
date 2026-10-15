@@ -1,6 +1,6 @@
 import { extractAccessTokenFromRequest } from '../credential.js';
 
-import { AccessKernel } from '@/core/access/index.js';
+import { SessionKernel } from '@/core/session/index.js';
 
 import { AUTH_STRATEGY_KEY, AUTH_STRATEGY_TYPE } from '@/platform/http/decorators/index.js';
 
@@ -15,7 +15,7 @@ import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 export class AuthGuard implements CanActivate {
     constructor(
         private readonly reflector: Reflector,
-        private readonly accessKernel: AccessKernel,
+        private readonly sessionKernel: SessionKernel,
         private readonly contextAdapter: AlsContextAdapter
     ) {}
 
@@ -37,7 +37,7 @@ export class AuthGuard implements CanActivate {
             throw new RequestError({ reason: 'authentication' });
         }
 
-        const claim = await this.accessKernel.verifyAccessToken({ accessToken });
+        const claim = await this.sessionKernel.verifyAccessToken({ accessToken });
         if (!claim) {
             if (authStrategy === 'optional') return true;
             throw new RequestError({ reason: 'authentication' });

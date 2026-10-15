@@ -34,13 +34,13 @@ workspace selector.
 `prisma.config.ts` points at `prisma`, so Prisma loads the domain files together
 and generates **one client**, not separate databases or clients per file.
 The generated output stays at `prisma/generated`; existing imports stay valid.
-There are 17 domain files and 53 models: seven existing identity/access models
+There are 17 domain files and 53 models: seven existing identity/session models
 and 46 new models.
 
 | File under `prisma/model` | Responsibility |
 | --- | --- |
 | `identity.prisma` | Existing users, profiles, OIDC identities, hashed password-reset credentials |
-| `access.prisma` | Existing sessions, token pairs, access and refresh tokens |
+| `session.prisma` | Existing sessions, token pairs, access and refresh tokens |
 | `organization.prisma` | Organization ownership, retained membership, hashed invitations |
 | `workspace.prisma` | Workspace and tenant-consistent membership |
 | `permission.prisma` | Allow-only permission catalog, scoped roles and role bindings |
@@ -226,7 +226,7 @@ Basic equipment records do not imply hardware capabilities or a mandatory UI.
 
 Destructive retention policies, detailed issue/return rules and batch API atomicity
 still need their own approved slices.
-The existing seven identity/access tables retain scalar fields, defaults, native
+The existing seven identity/session tables retain scalar fields, defaults, native
 types, unique constraints and relations. New reverse relations add no columns.
 
 ## Verification
@@ -263,5 +263,5 @@ a benchmark of the deferred read/pagination functionality.
 
 The offline diff for this iteration affects only StorageNode, MaterialType and
 InventoryTransactionLine: it adds native path/GiST and nullable history snapshots,
-and removes the approved classification hierarchy. No existing identity/access
+and removes the approved classification hierarchy. No existing identity/session
 columns change. Full review: [MVP schema readiness](../reviews/mvp-prisma-schema-2026-10-08.md).

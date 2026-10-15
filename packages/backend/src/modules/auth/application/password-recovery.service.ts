@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import type { AllConfig } from '@/config/index.js';
 import { IdentityKernel } from '@/core/identity/index.js';
-import { AccessKernel } from '@/core/access/index.js';
+import { SessionKernel } from '@/core/session/index.js';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { MailService } from '@/infra/mail/index.js';
 import { MailError } from '@/infra/mail/mail.error.js';
@@ -28,7 +28,7 @@ export class PasswordRecoveryService implements OnModuleDestroy {
 
     constructor(
         private readonly identity: IdentityKernel,
-        private readonly access: AccessKernel,
+        private readonly session: SessionKernel,
         private readonly database: DatabaseRuntime,
         private readonly mail: MailService,
         private readonly config: ConfigService<AllConfig, true>,
@@ -57,7 +57,7 @@ export class PasswordRecoveryService implements OnModuleDestroy {
                     token: input.token,
                     preparedPassword,
                 });
-                await this.access.revokeUserSessionAll({ userId });
+                await this.session.revokeUserSessionAll({ userId });
             },
             { isolationLevel: 'ReadCommitted' }
         );

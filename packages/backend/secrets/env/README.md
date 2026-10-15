@@ -174,7 +174,7 @@ Origin 列表不是登录跳转 URL，也不是激活链接 URL。
 
 | 变量                                          | 必填性 / 默认值                                             | 作用                                                             |
 | --------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
-| `JWT_ACCESS_PRIVATE_KEY`                      | 当前 AccessKernel 启动必填                                  | ES256/P-256 签名 PEM 私钥，支持转义换行                          |
+| `JWT_ACCESS_PRIVATE_KEY`                      | 当前 SessionKernel 启动必填                                 | ES256/P-256 签名 PEM 私钥，支持转义换行                          |
 | `JWT_ACCESS_PUBLIC_KEY`                       | 当前启动必填                                                | 与私钥匹配的验证 PEM 公钥                                        |
 | `JWT_ACCESS_EXPIRES_IN`                       | 可选，`15m`                                                 | AT 时长，格式为正整数加 s/m/h/d                                  |
 | `IDENTITY_PASSWORD_HASH_CONCURRENCY`          | 可选，`2`                                                   | 密码哈希并发限制，1–16                                           |

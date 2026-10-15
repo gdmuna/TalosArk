@@ -1,7 +1,7 @@
-import type * as Access from './access.contract.js';
+import type * as Session from './session.contract.js';
 import type { Prisma } from '@root/prisma/generated/client.js';
-import { AccessError } from './access.error.js';
-import { mapAccessDatabaseError } from './access.error.mapper.js';
+import { SessionError } from './session.error.js';
+import { mapSessionDatabaseError } from './session.error.mapper.js';
 
 import type { AllConfig } from '@/config/index.js';
 import { createSecureRandomString } from '@/common/utils/crypto.js';
@@ -44,7 +44,7 @@ function isTokenPairActive(
 }
 
 @Injectable()
-export class AccessKernel {
+export class SessionKernel {
     private readonly signingKey: KeyObject;
     private readonly verificationKey: KeyObject;
 
@@ -52,7 +52,7 @@ export class AccessKernel {
         private readonly database: DatabaseRuntime,
         private readonly configService: ConfigService<AllConfig, true>
     ) {
-        const config = this.configService.get('access', { infer: true });
+        const config = this.configService.get('session', { infer: true });
         if (!config.privateKey || !config.publicKey) {
             throw new Error('JWT_ACCESS_PRIVATE_KEY and JWT_ACCESS_PUBLIC_KEY must be configured');
         }
@@ -61,8 +61,8 @@ export class AccessKernel {
     }
 
     async createUserSession(
-        input: Access.CreateUserSessionInput
-    ): Promise<Access.CreateUserSessionOutput> {
+        input: Session.CreateUserSessionInput
+    ): Promise<Session.CreateUserSessionOutput> {
         const nowDate = new Date();
         const now = dayjs(nowDate).utc();
         const sessionIdleExpiresAt = now.add(30, 'day');
@@ -132,8 +132,8 @@ export class AccessKernel {
     }
 
     async rotateTokenPair(
-        input: Access.RotateTokenPairInput
-    ): Promise<Access.RotateTokenPairOutput> {
+        input: Session.RotateTokenPairInput
+    ): Promise<Session.RotateTokenPairOutput> {
         const refreshTokenHash = createHash('sha256')
             .update(input.refreshToken)
             .digest('base64url');
@@ -152,7 +152,7 @@ export class AccessKernel {
                             FOR UPDATE OF s
                         `;
                         if (locked.length === 0) {
-                            throw new AccessError({ reason: 'session-inactive' });
+                            throw new SessionError({ reason: 'session-inactive' });
                         }
 
                         // Re-read after waiting: the previous holder may have consumed this RT.
@@ -182,10 +182,10 @@ export class AccessKernel {
                             });
                         const nowDate = new Date();
                         if (!refreshToken || refreshToken.expiresAt <= nowDate) {
-                            throw new AccessError({ reason: 'session-inactive' });
+                            throw new SessionError({ reason: 'session-inactive' });
                         }
                         if (refreshToken.consumedAt !== null) {
-                            throw new AccessError({ reason: 'refresh-token-reused' });
+                            throw new SessionError({ reason: 'refresh-token-reused' });
                         }
 
                         const session = refreshToken.tokenPair.session;
@@ -193,7 +193,7 @@ export class AccessKernel {
                             !isTokenPairActive(refreshToken.tokenPair, nowDate) ||
                             refreshToken.tokenPair.generation !== session.version
                         ) {
-                            throw new AccessError({ reason: 'session-inactive' });
+                            throw new SessionError({ reason: 'session-inactive' });
                         }
 
                         const now = dayjs(nowDate).utc();
@@ -206,7 +206,7 @@ export class AccessKernel {
                             data: { consumedAt: now.startOf('second').toDate() },
                         });
                         if (consumed.count !== 1) {
-                            throw new AccessError({ reason: 'session-inactive' });
+                            throw new SessionError({ reason: 'session-inactive' });
                         }
 
                         const sessionIdleExpiresAt = now.add(30, 'day');
@@ -282,8 +282,8 @@ export class AccessKernel {
     }
 
     async verifyAccessToken(
-        input: Access.VerifyAccessTokenInput
-    ): Promise<Access.VerifyAccessTokenOutput> {
+        input: Session.VerifyAccessTokenInput
+    ): Promise<Session.VerifyAccessTokenOutput> {
         let payload: JWTPayload;
         try {
             ({ payload } = await jwtVerify(input.accessToken, this.verificationKey, {
@@ -372,8 +372,8 @@ export class AccessKernel {
     }
 
     async revokeUserSession(
-        input: Access.RevokeUserSessionInput
-    ): Promise<Access.RevokeUserSessionOutput> {
+        input: Session.RevokeUserSessionInput
+    ): Promise<Session.RevokeUserSessionOutput> {
         const session = await this.execute(
             () =>
                 this.database.queryClient.session.update({
@@ -393,7 +393,7 @@ export class AccessKernel {
         return session ? session.id : null;
     }
 
-    async revokeSessionByRefreshToken(input: Access.RotateTokenPairInput): Promise<void> {
+    async revokeSessionByRefreshToken(input: Session.RotateTokenPairInput): Promise<void> {
         const hash = createHash('sha256').update(input.refreshToken).digest('base64url');
         await this.execute(() =>
             this.database.transaction.run(
@@ -467,8 +467,8 @@ export class AccessKernel {
     }
 
     async revokeUserSessionAll(
-        input: Access.RevokeUserSessionAllInput
-    ): Promise<Access.RevokeUserSessionAllOutput> {
+        input: Session.RevokeUserSessionAllInput
+    ): Promise<Session.RevokeUserSessionAllOutput> {
         const session = await this.execute(() =>
             this.database.queryClient.session.updateManyAndReturn({
                 where: {
@@ -494,8 +494,8 @@ export class AccessKernel {
     }
 
     async listUserSession(
-        input: Access.ListUserSessionInput
-    ): Promise<Access.ListUserSessionOutput> {
+        input: Session.ListUserSessionInput
+    ): Promise<Session.ListUserSessionOutput> {
         const { type } = input;
         if (type === 'cursor') {
             const { userId, cursor, order, direction } = input;
@@ -576,7 +576,7 @@ export class AccessKernel {
         try {
             return await operation();
         } catch (cause) {
-            throw mapAccessDatabaseError(cause, inactiveOnMissing) ?? cause;
+            throw mapSessionDatabaseError(cause, inactiveOnMissing) ?? cause;
         }
     }
 
@@ -585,7 +585,7 @@ export class AccessKernel {
         sessionIdleExpiresAtUnix: number;
         timeReference: Date;
     }) {
-        const config = this.configService.get('access', { infer: true });
+        const config = this.configService.get('session', { infer: true });
 
         // Base all lifetimes on one UTC instant so their boundaries are consistent.
         const now = dayjs(input.timeReference).utc();

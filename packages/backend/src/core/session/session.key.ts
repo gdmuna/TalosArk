@@ -2,7 +2,7 @@ import { defineKvsKeyFamily } from '@/infra/kvs/index.js';
 
 import z from 'zod';
 
-export const accessSessionKey = defineKvsKeyFamily({
+export const sessionKey = defineKvsKeyFamily({
     id: 'access.session',
     canonical: 1,
     family: {

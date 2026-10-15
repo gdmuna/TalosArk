@@ -30,7 +30,7 @@ import { Body, Controller, Post, Req, Res } from '@nestjs/common';
 import { Cookie } from '@/platform/http/decorators/cookie.decorator.js';
 import { ApiRoute } from '@/platform/http/decorators/route.decorator.js';
 import { RequestError } from '@/platform/request/request.error.js';
-import { AccessError } from '@/core/access/access.error.js';
+import { SessionError } from '@/core/session/session.error.js';
 import { AuthHttpSession } from './api/auth-http-session.js';
 import { AuthAttemptLimiter } from './application/auth-attempt-limiter.js';
 import { z } from 'zod';
@@ -214,7 +214,7 @@ export class AuthController {
     ): Promise<SessionRefreshResponse> {
         this.httpSession.assertClient(request);
         const refreshToken = this.httpSession.readRefreshToken(request);
-        if (!refreshToken) throw new AccessError({ reason: 'session-inactive' });
+        if (!refreshToken) throw new SessionError({ reason: 'session-inactive' });
         return this.httpSession.deliver(
             res,
             await this.authService.sessionRefresh({ refreshToken })

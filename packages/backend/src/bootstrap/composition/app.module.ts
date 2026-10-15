@@ -1,6 +1,6 @@
 import allConfig, { type AllConfig } from '@/config/index.js';
 
-import { AccessModule } from '@/core/access/index.js';
+import { SessionModule } from '@/core/session/index.js';
 
 import { KvsModule } from '@/infra/kvs/kvs.module.js';
 import { IamModule } from '@/infra/iam/index.js';
@@ -66,7 +66,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         IamModule.forRootAsync(iamOptions),
         MailModule.forRootAsync(mailOptions),
         StorageModule.forRootAsync(storageOptions),
-        AccessModule,
+        SessionModule,
         KvsModule,
         AuthModule,
         AuthRecoveryModule,
