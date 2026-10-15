@@ -1,5 +1,6 @@
 export type ExtensionSource =
     | { readonly kind: 'explicit'; readonly owner: string }
+    | { readonly kind: 'module'; readonly owner: string }
     | { readonly kind: 'provider'; readonly owner: string; readonly provider: string }
     | {
           readonly kind: 'method';

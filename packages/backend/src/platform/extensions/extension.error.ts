@@ -38,7 +38,7 @@ export const ExtensionError = defineErrorClass<typeof catalog, ExtensionFailure>
             'missing-key': 'Requested extension key is not registered',
             'discovery-scope': 'Extension discovery requires a static singleton provider',
             'target-unavailable': 'Extension discovery target is unavailable or not callable',
-            'not-ready': 'Extension discovery requires application initialization',
+            'not-ready': 'Provider extension discovery requires module initialization',
         }[failure.reason];
         const context = [
             failure.point,

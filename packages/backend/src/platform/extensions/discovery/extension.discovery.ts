@@ -1,4 +1,4 @@
-import { Injectable, Scope, type OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Scope, type OnModuleInit } from '@nestjs/common';
 import { DiscoveryService } from '@nestjs/core';
 import type { ExtensionPoint, ExtensionSource } from '../extension.contract.js';
 import { ExtensionError } from '../extension.error.js';
@@ -19,15 +19,68 @@ interface Candidate {
     readonly resolveTarget: () => DiscoveredExtension<unknown>['target'];
 }
 
+export interface ExtensionDeclaration<M> {
+    readonly metadata: M;
+    readonly source: ExtensionSource;
+}
+
 @Injectable()
-export class ExtensionDiscovery implements OnApplicationBootstrap {
+export class ExtensionDiscovery implements OnModuleInit {
     private ready = false;
     private candidates?: ReadonlyMap<symbol, readonly Candidate[]>;
+    private declarations?: ReadonlyMap<symbol, readonly ExtensionDeclaration<unknown>[]>;
 
     constructor(private readonly discovery: DiscoveryService) {}
 
-    onApplicationBootstrap(): void {
+    onModuleInit(): void {
         this.ready = true;
+    }
+
+    /** Trusted typed class declarations only; call after Nest has scanned the module graph. */
+    collectDeclarations<M>(point: ExtensionPoint<M>): readonly ExtensionDeclaration<M>[] {
+        this.declarations ??= this.snapshotDeclarations();
+        return (this.declarations.get(point.metadataKey) ??
+            Object.freeze([])) as readonly ExtensionDeclaration<M>[];
+    }
+
+    private snapshotDeclarations(): ReadonlyMap<symbol, readonly ExtensionDeclaration<unknown>[]> {
+        const declarations = new Map<symbol, ExtensionDeclaration<unknown>[]>();
+        const seen = new Set<object>();
+        const add = (ctor: unknown, source: ExtensionSource) => {
+            if (typeof ctor !== 'function' || seen.has(ctor)) return;
+            seen.add(ctor);
+            const keys = (Reflect.getOwnMetadata(EXTENSION_DECLARATIONS, ctor) ??
+                []) as readonly symbol[];
+            for (const key of keys) {
+                const entries = declarations.get(key) ?? [];
+                entries.push(
+                    Object.freeze({
+                        metadata: Reflect.getOwnMetadata(key, ctor),
+                        source: snapshotExtensionSource(source),
+                    })
+                );
+                declarations.set(key, entries);
+            }
+        };
+        const providers = this.discovery.getProviders();
+        // Nest registers each module class as a provider before constructing its instance.
+        for (const wrapper of providers) {
+            if (!wrapper.isAlias && wrapper.metatype === wrapper.host?.metatype) {
+                add(wrapper.metatype, {
+                    kind: 'module',
+                    owner: wrapper.metatype.name || 'anonymous-module',
+                });
+            }
+        }
+        for (const wrapper of providers) {
+            if (wrapper.isAlias) continue;
+            add(wrapper.metatype, {
+                kind: 'provider',
+                owner: wrapper.host?.metatype.name ?? 'anonymous-module',
+                provider: wrapper.metatype?.name || 'anonymous-provider',
+            });
+        }
+        return new Map([...declarations].map(([key, entries]) => [key, Object.freeze(entries)]));
     }
 
     collect<M>(
