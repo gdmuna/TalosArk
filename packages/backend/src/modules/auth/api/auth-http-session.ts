@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { AllConfig } from '@/config/index.js';
-import type { CreateUserSessionOutput } from '@/core/access/access.contract.js';
+import type { CreateUserSessionOutput } from '@/core/session/session.contract.js';
 import { SessionCredentialsSchema, type SessionCredentials } from '@talos-ark/contracts/auth';
 import { RequestError } from '@/platform/request/request.error.js';
 import { isAllowedBrowserOrigin } from '@/platform/http/browser-origin.policy.js';

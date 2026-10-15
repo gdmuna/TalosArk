@@ -1,7 +1,7 @@
 import type * as Auth from './auth.contract.js';
 
-import { AccessKernel } from '@/core/access/index.js';
-import type * as Access from '@/core/access/access.contract.js';
+import { SessionKernel } from '@/core/session/index.js';
+import type * as Session from '@/core/session/session.contract.js';
 import { IdentityKernel } from '@/core/identity/index.js';
 import { IdentityError } from '@/core/identity/identity.error.js';
 
@@ -19,7 +19,7 @@ import { AuthError } from './auth.error.js';
 @Injectable()
 export class AuthService {
     constructor(
-        private readonly accessKernel: AccessKernel,
+        private readonly sessionKernel: SessionKernel,
         private readonly identityKernel: IdentityKernel,
         private readonly database: DatabaseRuntime,
         private readonly config: ConfigService<AllConfig, true>
@@ -44,12 +44,12 @@ export class AuthService {
         };
     }
 
-    async passwordLogin(input: PasswordLoginBody): Promise<Access.CreateUserSessionOutput> {
+    async passwordLogin(input: PasswordLoginBody): Promise<Session.CreateUserSessionOutput> {
         const verified = await this.identityKernel.authenticateAccount(input);
         return this.database.transaction.run(
             async () => {
                 await this.identityKernel.confirmAuthentication(verified);
-                return this.accessKernel.createUserSession({ userId: verified.userId });
+                return this.sessionKernel.createUserSession({ userId: verified.userId });
             },
             { isolationLevel: 'ReadCommitted' }
         );
@@ -63,7 +63,7 @@ export class AuthService {
                     token: input.token,
                     preparedPassword,
                 });
-                await this.accessKernel.revokeUserSessionAll({ userId });
+                await this.sessionKernel.revokeUserSessionAll({ userId });
             },
             { isolationLevel: 'ReadCommitted' }
         );
@@ -73,13 +73,13 @@ export class AuthService {
         userId: string;
         sessionId: string;
         password: string;
-    }): Promise<Access.CreateUserSessionOutput> {
+    }): Promise<Session.CreateUserSessionOutput> {
         const preparedPassword = await this.identityKernel.preparePassword(input.password);
         return this.database.transaction.run(
             async () => {
                 await this.identityKernel.lockAccountForCredentialUpdate(input.userId);
                 if (
-                    !(await this.accessKernel.isFreshUserSession({
+                    !(await this.sessionKernel.isFreshUserSession({
                         userId: input.userId,
                         sessionId: input.sessionId,
                         maxAgeSeconds: this.config.get('auth.firstPasswordSessionMaxAgeSeconds', {
@@ -92,27 +92,27 @@ export class AuthService {
                     userId: input.userId,
                     preparedPassword,
                 });
-                await this.accessKernel.revokeUserSessionAll({ userId: input.userId });
-                return this.accessKernel.createUserSession({ userId: input.userId });
+                await this.sessionKernel.revokeUserSessionAll({ userId: input.userId });
+                return this.sessionKernel.createUserSession({ userId: input.userId });
             },
             { isolationLevel: 'ReadCommitted', timeout: 10000 }
         );
     }
 
     async logoutByCookie(refreshToken?: string): Promise<void> {
-        if (refreshToken) await this.accessKernel.revokeSessionByRefreshToken({ refreshToken });
+        if (refreshToken) await this.sessionKernel.revokeSessionByRefreshToken({ refreshToken });
     }
 
     oidcStart() {
         return this.identityKernel.createOidcTransaction();
     }
 
-    sessionRefresh(input: Access.RotateTokenPairInput): Promise<Access.RotateTokenPairOutput> {
-        return this.accessKernel.rotateTokenPair(input);
+    sessionRefresh(input: Session.RotateTokenPairInput): Promise<Session.RotateTokenPairOutput> {
+        return this.sessionKernel.rotateTokenPair(input);
     }
 
-    sessionLogout(input: Access.RevokeUserSessionInput): Promise<Access.RevokeUserSessionOutput> {
-        return this.accessKernel.revokeUserSession(input);
+    sessionLogout(input: Session.RevokeUserSessionInput): Promise<Session.RevokeUserSessionOutput> {
+        return this.sessionKernel.revokeUserSession(input);
     }
 
     async oidcLoginCallback(
@@ -129,7 +129,7 @@ export class AuthService {
             return {
                 type: 'success',
                 data: {
-                    ...(await this.accessKernel.createUserSession({ userId: user.id })),
+                    ...(await this.sessionKernel.createUserSession({ userId: user.id })),
                 },
             };
         }
@@ -159,7 +159,7 @@ export class AuthService {
         return {
             type: 'success',
             data: {
-                ...(await this.accessKernel.createUserSession({ userId: user.id })),
+                ...(await this.sessionKernel.createUserSession({ userId: user.id })),
             },
         };
     }

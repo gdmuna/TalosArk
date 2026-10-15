@@ -1,11 +1,11 @@
 import { defineErrorMapper } from '@/platform/error/index.js';
 import { DatabaseError } from '@/infra/database/database.error.js';
-import { AccessError, type AccessFailure } from './access.error.js';
+import { SessionError, type SessionFailure } from './session.error.js';
 
-export const mapAccessDatabaseError = defineErrorMapper(
+export const mapSessionDatabaseError = defineErrorMapper(
     DatabaseError,
-    AccessError,
-    (failure, inactiveOnMissing: boolean): AccessFailure | undefined => {
+    SessionError,
+    (failure, inactiveOnMissing: boolean): SessionFailure | undefined => {
         if (failure.reason === 'unavailable') return { reason: 'session-unavailable' };
         if (inactiveOnMissing && failure.reason === 'record-not-found')
             return { reason: 'session-inactive' };

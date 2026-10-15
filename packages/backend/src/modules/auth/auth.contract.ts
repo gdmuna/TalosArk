@@ -1,4 +1,4 @@
-import type { CreateUserSessionOutput } from '@/core/access/access.contract.js';
+import type { CreateUserSessionOutput } from '@/core/session/session.contract.js';
 
 import { Simplify } from '@/common/types/index.js';
 

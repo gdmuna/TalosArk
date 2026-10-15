@@ -1,4 +1,4 @@
-import { accessConfig, AccessConfig } from './access.config.js';
+import { sessionConfig, SessionConfig } from './session.config.js';
 import { authConfig, type AuthConfig } from './auth.config.js';
 import { appConfig, AppConfig } from './app.config.js';
 import { casdoorConfig, CasdoorConfig } from './casdoor.config.js';
@@ -14,7 +14,7 @@ import { storageConfig, StorageConfig } from './storage.config.js';
 // 导出所有配置
 
 export type AllConfig = {
-    access: AccessConfig;
+    session: SessionConfig;
     auth: AuthConfig;
     app: AppConfig;
     casdoor: CasdoorConfig;
@@ -29,7 +29,7 @@ export type AllConfig = {
 };
 
 export const allConfig = {
-    accessConfig,
+    sessionConfig,
     authConfig,
     appConfig,
     casdoorConfig,
@@ -45,7 +45,7 @@ export const allConfig = {
 
 export default [...Object.values(allConfig)];
 
-export * from './access.config.js';
+export * from './session.config.js';
 export * from './app.config.js';
 export * from './casdoor.config.js';
 export * from './database.config.js';
