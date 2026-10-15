@@ -47,7 +47,7 @@ const columns = [
                 <ArrowRight class="size-4 text-muted-foreground" aria-hidden="true" />
             </RouterLink>
         </div>
-        <ManagementSection title="工作区概况" class="mx-auto w-fit max-w-full">
+        <ManagementSection title="工作区概况" class="w-full min-w-0">
             <template #actions>
                 <RouterLink
                     :to="`${managementPath}/workspace`"

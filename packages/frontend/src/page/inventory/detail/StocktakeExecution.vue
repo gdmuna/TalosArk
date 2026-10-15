@@ -32,7 +32,7 @@ const tabs = [
 const { view, select } = useResourceView(tabs.map((tab) => tab.id));
 </script>
 <template>
-    <ResourceDetailPage label="盘点执行">
+    <ResourceDetailPage label="盘点执行" layout="tool">
         <template #header>
             <ResourceObjectHeader
                 :id="taskId"
@@ -75,7 +75,7 @@ const { view, select } = useResourceView(tabs.map((tab) => tab.id));
             />
         </ResourceSection>
         <template v-else-if="view === 'count'">
-            <div class="grid min-w-0 gap-8 @4xl:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)]">
+            <div class="grid min-w-0 gap-8 @min-[1000px]:grid-cols-[minmax(0,2fr)_minmax(220px,1fr)]">
                 <ResourceSection title="盘点记录">
                     <div class="flex gap-2">
                         <Input readonly aria-label="扫描实例或存储位置" placeholder="扫描实例或存储位置" />

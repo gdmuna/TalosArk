@@ -106,7 +106,7 @@ function openInstance(item: Resource) {
                         ]"
                     />
                 </ResourceSection>
-                <div class="grid gap-8 @3xl:grid-cols-2">
+                <div class="grid gap-8 @min-[1000px]:grid-cols-2">
                     <ResourceSection title="库存汇总">
                         <ResourceFactList
                             :fields="[

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ScrollSurface } from '@/component/scroll-surface';
 
-defineProps<{ label: string }>();
+withDefaults(defineProps<{ label: string; layout?: 'detail' | 'tool' }>(), { layout: 'detail' });
 </script>
 
 <template>
@@ -10,8 +10,12 @@ defineProps<{ label: string }>();
             <slot name="header" />
         </div>
         <ScrollSurface class="min-h-0 flex-1 scroll-smooth" edge-effect="line">
-            <main class="@container w-full min-w-0 p-5 lg:p-8">
-                <div class="mx-auto w-fit min-w-0 max-w-full space-y-6" data-slot="resource-detail-content">
+            <main class="w-full min-w-0 p-4 lg:p-6">
+                <div
+                    class="@container mx-auto w-full min-w-0 space-y-6"
+                    :class="layout === 'tool' ? 'max-w-[1440px]' : 'max-w-[1280px]'"
+                    data-slot="resource-detail-content"
+                >
                     <slot />
                 </div>
             </main>

@@ -1,0 +1,236 @@
+{
+  "actualMatrix": [
+    {
+      "canvas": 735,
+      "footerOverflow": 0,
+      "height": 768,
+      "left": 265,
+      "pageOverflow": 0,
+      "toolbar": 735,
+      "width": 1024
+    },
+    {
+      "canvas": 991,
+      "footerOverflow": 0,
+      "height": 800,
+      "left": 265,
+      "pageOverflow": 0,
+      "toolbar": 991,
+      "width": 1280
+    },
+    {
+      "canvas": 1151,
+      "footerOverflow": 0,
+      "height": 900,
+      "left": 265,
+      "pageOverflow": 0,
+      "toolbar": 1151,
+      "width": 1440
+    },
+    {
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "height": 1080,
+      "left": 480.5,
+      "pageOverflow": 0,
+      "toolbar": 1200,
+      "width": 1920
+    },
+    {
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "height": 1440,
+      "left": 800.5,
+      "pageOverflow": 0,
+      "toolbar": 1200,
+      "width": 2560
+    }
+  ],
+  "collapsedMatrix": [
+    {
+      "canvas": 919,
+      "footerOverflow": 0,
+      "pageOverflow": 0,
+      "width": 1024
+    },
+    {
+      "canvas": 1175,
+      "footerOverflow": 0,
+      "pageOverflow": 0,
+      "width": 1280
+    },
+    {
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "pageOverflow": 0,
+      "width": 1440
+    },
+    {
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "pageOverflow": 0,
+      "width": 1920
+    },
+    {
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "pageOverflow": 0,
+      "width": 2560
+    }
+  ],
+  "pageResults": [
+    {
+      "id": "e-10",
+      "path": "/main/management/member",
+      "canvas": 1200,
+      "maxWidth": "1200px",
+      "pageOverflow": 0
+    },
+    {
+      "id": "f-01",
+      "path": "/main/management/role",
+      "canvas": 1200,
+      "maxWidth": "1200px",
+      "pageOverflow": 0
+    },
+    {
+      "id": "b-02",
+      "path": "/main/material/list",
+      "canvas": 1200,
+      "maxWidth": "1200px",
+      "pageOverflow": 0
+    },
+    {
+      "id": "c-02",
+      "path": "/main/inventory/ledger",
+      "canvas": 2271,
+      "maxWidth": "none",
+      "pageOverflow": 0
+    },
+    {
+      "id": "c-03",
+      "path": "/main/inventory/storage-topology",
+      "canvas": 1440,
+      "maxWidth": "1440px",
+      "pageOverflow": 0
+    },
+    {
+      "id": "x-08",
+      "path": "/main/management/account-setting",
+      "canvas": 720,
+      "maxWidth": "720px",
+      "pageOverflow": 0
+    }
+  ],
+  "isolated": [
+    {
+      "file": "isolated-100-constrained.jpg",
+      "kind": "isolated",
+      "case": "100 rows, page size 100, constrained height 360"
+    },
+    {
+      "file": "isolated-empty.jpg",
+      "kind": "isolated",
+      "case": "?count=0",
+      "metrics": {
+        "canvas": 1152,
+        "emptyHeight": 171,
+        "footerOverflow": 0,
+        "frame": 928,
+        "recordClient": 171,
+        "recordCount": 0,
+        "recordScroll": 171,
+        "toolbar": 32
+      }
+    },
+    {
+      "file": "isolated-one.jpg",
+      "kind": "isolated",
+      "case": "?count=1",
+      "metrics": {
+        "canvas": 1152,
+        "footerOverflow": 0,
+        "frame": 928,
+        "recordClient": 171,
+        "recordCount": 1,
+        "recordHeight": 57,
+        "recordScroll": 171,
+        "toolbar": 32
+      }
+    },
+    {
+      "file": "isolated-two.jpg",
+      "kind": "isolated",
+      "case": "?count=2",
+      "metrics": {
+        "canvas": 1152,
+        "footerOverflow": 0,
+        "frame": 928,
+        "recordClient": 171,
+        "recordCount": 2,
+        "recordHeight": 57,
+        "recordScroll": 171,
+        "toolbar": 32
+      }
+    },
+    {
+      "file": "isolated-long.jpg",
+      "kind": "isolated",
+      "case": "?count=10&long",
+      "metrics": {
+        "canvas": 1152,
+        "footerOverflow": 0,
+        "frame": 928,
+        "recordClient": 593,
+        "recordCount": 10,
+        "recordHeight": 65,
+        "recordScroll": 650,
+        "toolbar": 32
+      }
+    },
+    {
+      "file": "isolated-narrow.jpg",
+      "kind": "isolated",
+      "case": "?count=1&narrow",
+      "metrics": {
+        "canvas": 1152,
+        "footerOverflow": 0,
+        "frame": 318,
+        "recordClient": 171,
+        "recordCount": 1,
+        "recordHeight": 57,
+        "recordScroll": 171,
+        "toolbar": 76
+      }
+    }
+  ],
+  "resize": {
+    "client": 734,
+    "end": 426,
+    "footerOverflow": 0,
+    "left": 426,
+    "scroll": 1160
+  },
+  "reducedMotion": [
+    {
+      "behavior": "auto",
+      "label": null,
+      "slot": "scroll-area-viewport"
+    },
+    {
+      "behavior": "auto",
+      "label": "横向滚动表格",
+      "slot": "data-table-body"
+    },
+    {
+      "behavior": "auto",
+      "label": null,
+      "slot": "scroll-area-viewport"
+    }
+  ],
+  "drag": {
+    "before": ["name", "organization", "id", "status"],
+    "after": ["organization", "name", "id", "status"],
+    "pointerReleasedInRecordBody": true
+  }
+}

@@ -27,7 +27,7 @@ useQueryCommand('resource', (id) => {
 });
 </script>
 <template>
-    <ResourcePage label="存储浏览">
+    <ResourcePage label="存储浏览" layout="tool">
         <div class="grid min-h-[520px] min-w-0 gap-6 @4xl:grid-cols-[220px_minmax(0,1fr)_260px]">
             <aside aria-label="存储结构" class="min-w-0 border-b pb-5 @4xl:border-r @4xl:border-b-0 @4xl:pr-5">
                 <div class="mb-4 flex items-center justify-between">

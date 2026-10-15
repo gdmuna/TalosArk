@@ -85,7 +85,7 @@ function openMaterial() {
                         ]"
                     />
                 </ResourceSection>
-                <div class="grid min-w-0 gap-8 @3xl:grid-cols-2">
+                <div class="grid min-w-0 gap-8 @min-[1000px]:grid-cols-2">
                     <ResourceSection title="当前位置">
                         <ResourceFactList :fields="[{ label: '设施' }, { label: '存储节点' }, { label: '孔位' }]" />
                         <div class="flex min-h-56 items-center justify-center rounded-md border bg-muted/20">

@@ -29,7 +29,7 @@ const columns = [
 </script>
 
 <template>
-    <ManagementPage title="设施" :layout="view === 'list' ? 'table' : 'form'">
+    <ManagementPage title="设施" :layout="view === 'list' ? 'table' : 'tool'">
         <template #actions>
             <Button disabled>
                 <Plus aria-hidden="true" />
