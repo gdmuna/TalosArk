@@ -108,6 +108,7 @@ export async function installProcessShutdown(app: NestFastifyApplication, config
             () => process.exit(1)
         );
     process.on('SIGTERM', onSigterm);
+    // HAS_PROBLEM
     process.on('SIGINT', onSigint);
     return close;
 }
