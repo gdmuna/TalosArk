@@ -28,7 +28,7 @@ const templateColumns = [
 </script>
 
 <template>
-    <ManagementPage title="存储设施治理" :layout="view === 'rule' ? 'form' : view === 'template' ? 'table' : 'wide'">
+    <ManagementPage title="存储设施治理" :layout="view === 'rule' ? 'form' : view === 'template' ? 'table' : 'tool'">
         <template #actions>
             <Button variant="outline" disabled>
                 <Pencil aria-hidden="true" />

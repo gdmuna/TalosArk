@@ -39,7 +39,7 @@ function fullDetail(item: Resource) {
 }
 </script>
 <template>
-    <ResourcePage :label="title" layout="table">
+    <ResourcePage :label="title" :layout="domain === 'inventory' ? 'full' : 'table'">
         <template #actions>
             <Button disabled>
                 <Plus aria-hidden="true" />

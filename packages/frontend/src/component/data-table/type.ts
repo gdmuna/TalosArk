@@ -12,6 +12,7 @@ export type DataTableColumn<T> = {
     size?: number;
     minSize?: number;
     maxSize?: number;
+    fill?: boolean;
     align?: 'left' | 'right';
     wrap?: boolean;
 };

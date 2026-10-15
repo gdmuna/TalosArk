@@ -107,8 +107,8 @@ function fullDetail(item: Resource) {
 </script>
 
 <template>
-    <main aria-label="材料列表" class="w-full min-w-0 px-5 pb-8 lg:px-6">
-        <div class="mx-auto w-fit min-w-0 max-w-full">
+    <main aria-label="材料列表" class="w-full min-w-0 px-4 pb-6 lg:px-6">
+        <div class="mx-auto w-full min-w-0 max-w-[1200px]">
             <SheetInspector v-model:open="open" :title="selected?.name ?? '材料详情'" description="材料与关联库存摘要">
                 <template #main>
                     <DataTable

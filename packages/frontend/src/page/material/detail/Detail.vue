@@ -90,46 +90,53 @@ function openInstance(item: Resource) {
         <ResourceEmpty v-if="!resource" text="当前工作区未找到该材料" />
         <template v-else>
             <template v-if="view === 'overview'">
-                <ResourceSection title="基本信息">
-                    <ResourceFactList
-                        :fields="[
-                            { label: '材料名称', value: resource.name },
-                            { label: '业务分支', value: materialBranch(resource)?.label },
-                            { label: '材料类型', value: resource.material?.type },
-                            { label: '制造商' },
-                            { label: '目录编号' },
-                            { label: '计量单位' },
-                            { label: '负责人' },
-                            { label: '工作区', value: workspace.current?.name },
-                            { label: '创建时间' },
-                            { label: '说明', value: resource.description },
-                        ]"
-                    />
-                </ResourceSection>
-                <div class="grid gap-8 @3xl:grid-cols-2">
-                    <ResourceSection title="库存汇总">
-                        <ResourceFactList
-                            :fields="[
-                                { label: '可用实例' },
-                                { label: '已预留' },
-                                { label: '存储位置' },
-                                { label: '在库数量' },
-                            ]"
-                        />
-                    </ResourceSection>
-                    <ResourceSection title="近期动态"><ResourceEmpty text="材料动态未加载" /></ResourceSection>
+                <div
+                    class="grid min-w-0 gap-6 @min-[1000px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+                    data-slot="material-overview-columns"
+                >
+                    <div class="min-w-0 space-y-6">
+                        <ResourceSection title="基本信息">
+                            <ResourceFactList
+                                :fields="[
+                                    { label: '材料名称', value: resource.name },
+                                    { label: '业务分支', value: materialBranch(resource)?.label },
+                                    { label: '材料类型', value: resource.material?.type },
+                                    { label: '制造商' },
+                                    { label: '目录编号' },
+                                    { label: '计量单位' },
+                                    { label: '负责人' },
+                                    { label: '工作区', value: workspace.current?.name },
+                                    { label: '创建时间' },
+                                    { label: '说明', value: resource.description },
+                                ]"
+                            />
+                        </ResourceSection>
+                        <ResourceSection :title="supportsCulture ? '批次与 Cell Bank' : '批次'">
+                            <ResourceTable
+                                :fields="[
+                                    ['name', supportsCulture ? 'Cell Bank / Batch' : '批次', 260],
+                                    ['type', '类型', 120],
+                                    ['quality', '检验状态', 130],
+                                    ['available', '可用实例', 120],
+                                    ['created', '创建时间', 180],
+                                ]"
+                            />
+                        </ResourceSection>
+                    </div>
+                    <aside class="min-w-0 space-y-6" aria-label="库存与动态摘要">
+                        <ResourceSection title="库存汇总">
+                            <ResourceFactList
+                                :fields="[
+                                    { label: '可用实例' },
+                                    { label: '已预留' },
+                                    { label: '存储位置' },
+                                    { label: '在库数量' },
+                                ]"
+                            />
+                        </ResourceSection>
+                        <ResourceSection title="近期动态"><ResourceEmpty text="材料动态未加载" /></ResourceSection>
+                    </aside>
                 </div>
-                <ResourceSection :title="supportsCulture ? '批次与 Cell Bank' : '批次'">
-                    <ResourceTable
-                        :fields="[
-                            ['name', supportsCulture ? 'Cell Bank / Batch' : '批次', 260],
-                            ['type', '类型', 120],
-                            ['quality', '检验状态', 130],
-                            ['available', '可用实例', 120],
-                            ['created', '创建时间', 180],
-                        ]"
-                    />
-                </ResourceSection>
             </template>
             <template v-else-if="view === 'instance'">
                 <ResourceSection title="库存实例">

@@ -32,8 +32,8 @@ function openList(branch?: string) {
 </script>
 
 <template>
-    <main aria-label="材料概览" class="w-full min-w-0 px-5 pb-8 lg:px-6">
-        <div class="@container mx-auto w-full max-w-[1360px] space-y-7">
+    <main aria-label="材料概览" class="w-full min-w-0 px-4 pb-6 lg:px-6">
+        <div class="@container mx-auto w-full max-w-[1200px] space-y-7">
             <div class="flex flex-wrap gap-4">
                 <div
                     class="flex max-w-[340px] flex-1 basis-[220px] items-center gap-4 rounded-md border bg-card p-5 shadow-sm"

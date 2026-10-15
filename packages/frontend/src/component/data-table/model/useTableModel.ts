@@ -38,7 +38,8 @@ export function useTableModel<T extends { id: string }>(
         searchText?: (row: T) => string;
         selectable?: (row: T) => boolean;
     },
-    models: { query: Ref<string>; filters: Ref<Record<string, string[]>>; selected: Ref<string[]> }
+    models: { query: Ref<string>; filters: Ref<Record<string, string[]>>; selected: Ref<string[]> },
+    availableWidth?: Ref<number>
 ) {
     const { query, filters, selected } = models;
     const sorting = ref<SortingState>(props.initialSorting);
@@ -66,6 +67,30 @@ export function useTableModel<T extends { id: string }>(
     function constrainSize(column: { minSize: number; maxSize: number }, size: number) {
         return Math.min(column.maxSize, Math.max(column.minSize, size));
     }
+    const effectiveSizing = computed(() => {
+        const visible = normalizedColumns.value.filter(
+            (column) => columnVisibility.value[column.id] !== false
+        );
+        const fill = visible.find((column) => column.fill);
+        // Automatic layout never becomes a saved user width; manual sizing always wins.
+        if (!fill || columnSizing.value[fill.id] !== undefined || !availableWidth?.value)
+            return columnSizing.value;
+        const fixedWidth = visible.reduce(
+            (sum, column) =>
+                sum +
+                (column.id === fill.id
+                    ? 0
+                    : constrainSize(column, columnSizing.value[column.id] ?? column.size)),
+            (props.selectable ? 44 : 0) + (props.actions.length ? 144 : 0)
+        );
+        return {
+            ...columnSizing.value,
+            [fill.id]: constrainSize(
+                fill,
+                Math.max(fill.size, Math.floor(availableWidth.value) - 2 - fixedWidth)
+            ),
+        };
+    });
     function normalizeSizing(value: ColumnSizingState) {
         return Object.fromEntries(
             Object.entries(value).flatMap(([id, size]) => {
@@ -113,7 +138,19 @@ export function useTableModel<T extends { id: string }>(
     function resizeColumn(id: string, size: number) {
         const column = columnById.value.get(id);
         if (!column || !table.getColumn(id)?.getCanResize()) return;
-        table.setColumnSizing((current) => ({ ...current, [id]: constrainSize(column, size) }));
+        const fill = normalizedColumns.value.find(
+            (item) => item.fill && columnVisibility.value[item.id] !== false
+        );
+        const frozenFill =
+            fill && columnSizing.value[fill.id] === undefined
+                ? { [fill.id]: table.getColumn(fill.id)?.getSize() ?? fill.size }
+                : {};
+        // Keep the drag edge attached to the pointer even when fill precedes the resized column.
+        table.setColumnSizing((current) => ({
+            ...frozenFill,
+            ...current,
+            [id]: constrainSize(column, size),
+        }));
     }
     // Guard both TanStack updates and the existing mutable exposed state.
     watch(
@@ -249,7 +286,7 @@ export function useTableModel<T extends { id: string }>(
         rowSelection: rowSelection.value,
         globalFilter: query.value.trim(),
         columnFilters: columnFilters.value,
-        columnSizing: columnSizing.value,
+        columnSizing: effectiveSizing.value,
         columnOrder: ['__select', ...columnOrder.value, '__actions'],
         columnVisibility: {
             ...columnVisibility.value,

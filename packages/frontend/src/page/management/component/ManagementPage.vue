@@ -2,7 +2,7 @@
 import { useWorkspaceStore } from '@/module/workspace';
 import { ScrollSurface } from '@/component/scroll-surface';
 
-withDefaults(defineProps<{ title: string; layout?: 'wide' | 'table' | 'form'; context?: string }>(), {
+withDefaults(defineProps<{ title: string; layout?: 'wide' | 'table' | 'form' | 'tool'; context?: string }>(), {
     layout: 'wide',
 });
 const workspace = useWorkspaceStore();
@@ -18,12 +18,13 @@ const workspace = useWorkspaceStore();
             <slot name="navigation" />
         </div>
         <ScrollSurface class="min-h-0 flex-1 scroll-smooth" edge-effect="line">
-            <div class="w-full min-w-0 p-5 lg:p-8">
+            <div class="w-full min-w-0 p-4 lg:p-6">
                 <div
                     data-slot="management-content"
-                    class="mx-auto min-w-0 space-y-6"
-                    :class="layout === 'table' ? 'w-fit' : '@container w-full'"
-                    :style="{ maxWidth: `min(100%, ${layout === 'form' ? 768 : 1280}px)` }"
+                    class="@container mx-auto w-full min-w-0 space-y-6"
+                    :class="
+                        layout === 'form' ? 'max-w-[720px]' : layout === 'tool' ? 'max-w-[1440px]' : 'max-w-[1200px]'
+                    "
                 >
                     <header class="flex flex-wrap items-center justify-between gap-3">
                         <div class="min-w-0">

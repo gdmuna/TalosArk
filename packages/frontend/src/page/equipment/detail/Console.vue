@@ -23,7 +23,7 @@ useResourceBreadcrumb({
 });
 </script>
 <template>
-    <ResourceDetailPage label="设备操作台">
+    <ResourceDetailPage label="设备操作台" layout="tool">
         <template #header>
             <ResourceObjectHeader
                 :id="resourceId"
@@ -45,7 +45,7 @@ useResourceBreadcrumb({
                     ]"
                 />
             </ResourceSection>
-            <div class="grid min-w-0 gap-8 @3xl:grid-cols-2">
+            <div class="grid min-w-0 gap-8 @min-[1000px]:grid-cols-2">
                 <ResourceSection title="指令配置">
                     <div class="space-y-5">
                         <div class="space-y-2">

@@ -3,7 +3,7 @@ defineProps<{ fields: { label: string; value?: string | number }[] }>();
 </script>
 <template>
     <div class="@container [contain-intrinsic-inline-size:40rem]">
-        <dl class="grid grid-cols-1 gap-x-8 gap-y-5 @2xl:grid-cols-2">
+        <dl class="grid grid-cols-1 gap-x-8 gap-y-5 @min-[640px]:grid-cols-2">
             <div
                 v-for="field in fields"
                 :key="field.label"

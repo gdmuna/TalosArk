@@ -1,0 +1,216 @@
+{
+  "workspaceViewportMatrix": [
+    {
+      "width": 1024,
+      "height": 768,
+      "sidebar": "expanded",
+      "canvas": 735,
+      "footerOverflow": 0,
+      "frame": 735,
+      "pageOverflow": 0,
+      "sidebarWidth": 240,
+      "toolbar": 735
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "sidebar": "expanded",
+      "canvas": 991,
+      "footerOverflow": 0,
+      "frame": 991,
+      "pageOverflow": 0,
+      "sidebarWidth": 240,
+      "toolbar": 991
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "sidebar": "expanded",
+      "canvas": 1151,
+      "footerOverflow": 0,
+      "frame": 1151,
+      "pageOverflow": 0,
+      "sidebarWidth": 240,
+      "toolbar": 1151
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "sidebar": "expanded",
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "frame": 1200,
+      "pageOverflow": 0,
+      "sidebarWidth": 240,
+      "toolbar": 1200
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "sidebar": "expanded",
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "frame": 1200,
+      "pageOverflow": 0,
+      "sidebarWidth": 240,
+      "toolbar": 1200
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "sidebar": "collapsed",
+      "canvas": 919,
+      "footerOverflow": 0,
+      "frame": 919,
+      "pageOverflow": 0,
+      "sidebarWidth": 56,
+      "toolbar": 919
+    },
+    {
+      "width": 1280,
+      "height": 800,
+      "sidebar": "collapsed",
+      "canvas": 1175,
+      "footerOverflow": 0,
+      "frame": 1175,
+      "pageOverflow": 0,
+      "sidebarWidth": 56,
+      "toolbar": 1175
+    },
+    {
+      "width": 1440,
+      "height": 900,
+      "sidebar": "collapsed",
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "frame": 1200,
+      "pageOverflow": 0,
+      "sidebarWidth": 56,
+      "toolbar": 1200
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "sidebar": "collapsed",
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "frame": 1200,
+      "pageOverflow": 0,
+      "sidebarWidth": 56,
+      "toolbar": 1200
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "sidebar": "collapsed",
+      "canvas": 1200,
+      "footerOverflow": 0,
+      "frame": 1200,
+      "pageOverflow": 0,
+      "sidebarWidth": 56,
+      "toolbar": 1200
+    }
+  ],
+  "density": [
+    {
+      "count": 0,
+      "body": 212,
+      "empty": 171,
+      "footerX": 0,
+      "frame": 1152,
+      "pageX": 0,
+      "rows": 1,
+      "toolbar": 1152
+    },
+    {
+      "count": 1,
+      "body": 212,
+      "footerX": 0,
+      "frame": 1152,
+      "pageX": 0,
+      "rows": 1,
+      "toolbar": 1152
+    },
+    {
+      "count": 10,
+      "long": true,
+      "body": 634,
+      "footerX": 0,
+      "frame": 1152,
+      "pageX": 0,
+      "rows": 10,
+      "toolbar": 1152
+    },
+    {
+      "count": 100,
+      "pageSize": 100,
+      "body": 634,
+      "footerX": 0,
+      "frame": 1152,
+      "pageX": 0,
+      "rows": 100,
+      "toolbar": 1152
+    }
+  ],
+  "minimumColumns": {
+    "body": 454,
+    "footerX": 0,
+    "frame": 190,
+    "pageX": 0,
+    "rows": 100,
+    "toolbar": 190
+  },
+  "resizeAfterReorder": {
+    "order": ["name", "description", "organization"],
+    "fillWidth": 442,
+    "organizationBefore": 220,
+    "organizationAfter": 260,
+    "pointerDelta": 40
+  },
+  "material": {
+    "wide": {
+      "body": 1280,
+      "columns": "837.328px 418.656px",
+      "header": 1680,
+      "overflow": 0
+    },
+    "narrow": {
+      "body": 736,
+      "columns": "736px",
+      "overflow": 0
+    }
+  },
+  "limits": [
+    "Native 125% browser zoom not verified",
+    "Production resource/workbench readers unavailable",
+    "Permission matrix not executed"
+  ],
+  "nativeXEnd": {
+    "expected": 254,
+    "sl": 254,
+    "sw": 988,
+    "w": 734
+  },
+  "reducedMotion": {
+    "x": "auto",
+    "y": ["auto", "auto"]
+  },
+  "keyboardPreview": {
+    "open": "Enter",
+    "close": "Escape",
+    "restoredFocus": "预览wtf"
+  },
+  "teamLongRoleNarrow": {
+    "viewport": 1024,
+    "pageX": 0,
+    "tableWidth": 960,
+    "badgeWidth": 234,
+    "badgeHeight": 36,
+    "badgeScrollHeight": 36
+  },
+  "materialFactGridWide": {
+    "width": 837.328125,
+    "columns": 2,
+    "height": 180
+  }
+}

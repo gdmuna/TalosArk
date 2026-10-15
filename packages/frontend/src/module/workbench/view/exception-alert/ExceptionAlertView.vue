@@ -195,7 +195,7 @@ watch(
 
 <template>
     <main aria-label="异常与提醒" class="flex min-h-0 flex-1 flex-col p-4 pt-2 lg:p-6 lg:pt-2">
-        <div class="mx-auto min-w-0 w-fit max-w-full" data-slot="workbench-content">
+        <div class="mx-auto w-full min-w-0 max-w-[1200px]" data-slot="workbench-content">
             <p v-if="error" role="alert" class="mb-3 text-sm text-destructive">{{ error }}</p>
             <WorkbenchSummary label="异常概览" :items="summaries" />
             <SheetInspector v-model:open="inspectorOpen" title="异常详情">

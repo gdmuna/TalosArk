@@ -162,8 +162,13 @@ application-level presentation and scoped resource-summary composition; it is no
 a business module or an API contract. `router/resource-navigation.ts` owns domain
 descriptions; `router/resource.ts` assembles static routes. Domain tabs stay outside the body scroll owner. Object routes
 use `ResourceDetailPage`: the object header and local query-backed navigation share
-a full-width top region outside the body scroll owner. Each body composition sets
-its intrinsic width and is centered with margins, without moving the top region.
+a full-width top region outside the body scroll owner. The body uses a centered,
+full-width canvas capped at 1280px (1440px for tool workspaces), without moving
+the top region. Ordinary management/resource canvases are capped at 1200px,
+single forms at 720px, and topology/tool canvases at 1440px. Inventory's ledger
+uses the full available width without a cap. Page canvases do not shrink with
+table columns or row counts; fixed/manual table widths remain independent and
+start at the canvas's left edge. Body padding is 16px, or 24px from desktop lg.
 `component/breadcrumb` combines provider-owned layers, labels and actions; the
 shell renders them without inferring business routes. Resource pages provide list
 return URLs, searchable active-workspace record pickers and deep-page ancestors;
@@ -208,6 +213,23 @@ from the first visible record and retained for the empty state. An explicit
 `minHeight` is rounded up to complete rows after reserving header/footer/scrollbar
 space. Empty content fills the entire record viewport. Header and footer remain
 outside the vertical scroll owner.
+DataTable's canvas remains full width, while its toolbar follows the actual frame
+width: below 600px, search takes a deliberate second full-width row. Callers may
+explicitly mark a name/description column with `fill`; the first visible marked
+column takes remaining canvas width within its bounds. Other columns remain fixed.
+Any manual resize freezes the current automatic fill width so a preceding fill
+column cannot absorb the pointer movement. Explicit sizing wins until that fill
+column's sizing is cleared. The model accepts a measured numeric available width;
+DOM measurement stays in DataTable. Pagination
+responds to the frame width, grouping total/page size and page number/navigation;
+very narrow frames use a compact vertical arrangement without stretching columns.
+Detail main/aside composition becomes single-column below 1000px of body width;
+internal fact lists independently use two columns from 640px. Management Overview
+uses compact summary links and a 2:1 main/aside composition. Workspace identity
+and TeamManagement presentation use existing fields only; server queries,
+commands, permissions and production data sources remain unchanged.
+See `docs/remediation/2026-10-15/r01/revision/README.md` for revised R01 evidence
+and open gates; the parent R01 record preserves the first-round baseline.
 `component/data-table/model/useTableModel.ts` owns TanStack controlled state,
 filter definitions, pagination resets, selection pruning, column visibility/order
 and width constraints. Controls request changes through this owner instead of
