@@ -2,6 +2,7 @@ import { readonly, shallowRef } from 'vue';
 import type { Pinia } from 'pinia';
 import { useAccountStore, type AccountDataSource } from '@/module/account';
 import { useWorkspaceStore, type WorkspaceDataSource } from '@/module/workspace';
+import { useTeamStore, type TeamDataSource } from '@/module/workspace';
 import { useWorkbenchStore, type WorkbenchDataSource } from '@/module/workbench';
 import type { AuthApi } from '@/module/auth';
 import { HttpError } from '@/platform/http';
@@ -10,6 +11,7 @@ export interface ApplicationDataSources {
     account: AccountDataSource;
     workspace?: WorkspaceDataSource;
     workbench?: WorkbenchDataSource;
+    team?: TeamDataSource;
 }
 
 export interface BootstrapState {
@@ -26,9 +28,11 @@ export function createApplicationBootstrap(
     const account = useAccountStore(pinia);
     const workspace = useWorkspaceStore(pinia);
     const workbench = useWorkbenchStore(pinia);
+    const team = useTeamStore(pinia);
     account.connect(sources.account);
     if (sources.workspace) workspace.connect(sources.workspace);
     if (sources.workbench) workbench.connect(sources.workbench);
+    if (sources.team) team.connect(sources.team);
 
     const state = shallowRef<BootstrapState>({ status: 'idle', stage: '', error: '' });
     let lifetime = new AbortController();
@@ -107,6 +111,7 @@ export function createApplicationBootstrap(
         completed = 0;
         pending = undefined;
         account.reset();
+        team.reset();
         workspace.reset();
         workbench.reset();
         state.value =

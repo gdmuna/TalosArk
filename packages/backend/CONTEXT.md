@@ -72,10 +72,20 @@ pair and effective workspace membership. Owners have no implicit workspace acces
 P04 creation also requires a current organization grant, and entry requires both
 organization and workspace read grants. Read snapshots use RepeatableRead.
 
+P06 adds organization-owned member, invitation and custom-role HTTP/application
+services and Web management views. Owners explicitly initialize governance once;
+reads never repair grants. Workspace managers may only delegate held permissions
+inside their scope. Invitations target existing normalized-email accounts, expire,
+rotate on resend and are accepted once under the same organization row lock used
+by management writes. Audit joins the write transaction; bounded SMTP delivery is
+queued only after commit, with no retry or durability promise. Removed members and
+bindings lose access on the next authorization snapshot; historical membership rows
+remain. See docs/design/mvp-p06-2026-10-15.md for rules and verification limits.
+
 Initial permissions/roles are explicit business writes, not startup Discovery or
 automatic remote Casbin synchronization. I03 now supplies code-definition assembly;
-P05/P06 still own its broader acceptance, member/invitation/role management and the
-team-stage delivery gate. Wire contracts
+P06 verifies the bounded Web member/invitation/role workflow, not future resource
+or facility-node authorization. Wire contracts
 live in contracts/team; unknown/unavailable organization contexts share a non-disclosing 403. See docs/design/mvp-p04-2026-10-15.md for exact boundaries and evidence.
 
 ## Business audit

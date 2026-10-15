@@ -89,7 +89,7 @@ async function submit() {
         const destination =
             typeof next === 'string' &&
             !next.includes('\\') &&
-            (/^\/main(?:\/|\?|$)/.test(next) || next === '/auth/set-password')
+            (/^\/main(?:\/|\?|$)/.test(next) || next === '/auth/set-password' || next === '/auth/invitation')
                 ? next
                 : '/main';
         await router.replace(destination);

@@ -6,7 +6,7 @@ import { useNavigationStore } from '@/platform/navigation';
 import { authApiKey, createAuthApi, createAuthSession } from '@/module/auth';
 import { createHttpClient } from '@/platform/http';
 import { createHttpAccountDataSource } from '@/module/account';
-import { createHttpWorkspaceDataSource } from '@/module/workspace';
+import { createHttpWorkspaceDataSource, createHttpTeamDataSource } from '@/module/workspace';
 import { createApplicationBootstrap } from './bootstrap';
 import { applicationBootstrapKey } from './layout/startup/context';
 
@@ -27,7 +27,11 @@ const authApi = createAuthApi(http, authSession, apiRoot);
 app.provide(authApiKey, authApi);
 const bootstrap = createApplicationBootstrap(
     pinia,
-    { account: createHttpAccountDataSource(http), workspace: createHttpWorkspaceDataSource(http) },
+    {
+        account: createHttpAccountDataSource(http),
+        workspace: createHttpWorkspaceDataSource(http),
+        team: createHttpTeamDataSource(http),
+    },
     authApi
 );
 app.provide(applicationBootstrapKey, bootstrap);

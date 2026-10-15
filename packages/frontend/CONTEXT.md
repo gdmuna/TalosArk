@@ -48,6 +48,16 @@ reopened form. The real source does not enable invitation-code joining; retained
 mock joining remains behind its explicit source. Evidence and P05/P06 limits are
 in ../backend/docs/design/mvp-p04-2026-10-15.md.
 
+P06 connects real team management through the workspace owner: data/team-api.ts
+owns transport, model/team-store.ts owns scoped reads/mutations, and TeamManagement
+composes the member/role pages. Failed reads after a confirmed write pause further
+writes; a committed leave clears the old member view and recovers by reading the
+workspace snapshot, never replaying leave. Invitation intent is memory-only across
+SPA password login. The public invitation page removes its fragment, binds preview
+and acceptance to token/identity generations and requires explicit acceptance.
+Full reload or external SSO requires reopening the original mail link after login.
+No mock organization binding, remote workbench reader or node authorization is added.
+
 `component/view-context` owns only the generic scope registry (`register` and
 its returned `dispose`). Each provider creates its own reactive state in its
 actual owner: route-tab, breadcrumb or view-host. Route-tab types belong to
