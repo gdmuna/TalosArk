@@ -1,5 +1,7 @@
 import type { PrettyAdapterMap } from '@/platform/observability/logger/pretty/pretty.adapter.js';
 
+export const moduleUrl = import.meta.url;
+
 export default {
     'http.outbound.completed': (record) => {
         if (

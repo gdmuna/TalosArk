@@ -12,6 +12,8 @@ const query =
         return `${label} · ${database.duration}ms`;
     };
 
+export const moduleUrl = import.meta.url;
+
 export default {
     'database.connected': () => 'Database connected',
     'database.disconnected': () => 'Database disconnected',

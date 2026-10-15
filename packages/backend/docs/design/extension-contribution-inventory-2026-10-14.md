@@ -2,6 +2,10 @@
 
 核对日期：2026-10-14。源码基线：HEAD `361b624d` 及核对时工作树。
 
+此文是当时的清单，不代表当前装配方式。I03 与日志的后续落地见
+[I03 实施记录](mvp-i03-extension-2026-10-15.md) 和
+[日志贡献实施记录](logger-contribution-2026-10-15.md)。
+
 本文把“三方贡献”理解为宿主之外的模块提供定义、行为或适配实现，并不专指外部 npm 插件。
 只整理当前源码中真实的契约、调用与装配链，不实施 I03，不更改现有运行行为。
 本次为静态核对；“已接入”表示存在实际调用或组合根装配，不代表本轮运行验收。
@@ -84,9 +88,9 @@ Access 当前直接使用 `mapAccessDatabaseError`，并非所有领域都强制
 
 主要源码：
 
-- [契约和消费](../../src/platform/error/error.diagnostic.ts)：`ErrorDiagnosticProjector`、`serializeError`。
-- [Mail 贡献](../../src/infra/mail/mail.error.diagnostic.ts)、[KVS 贡献](../../src/infra/kvs/kvs.error.diagnostic.ts)。
-- [组合入口](../../src/bootstrap/composition/logger.provider.ts)、[Logger 接入](../../src/platform/observability/logger/logger.module.ts)。
+- [投影契约](../../src/platform/observability/logger/logger.diagnostic.ts)、[序列化消费](../../src/platform/error/error.diagnostic.ts)（后续重组后的路径）。
+- [Mail 贡献](../../src/infra/mail/mail.log.diagnostic.ts)、[KVS 贡献](../../src/infra/kvs/kvs.log.diagnostic.ts)（后续改名后的路径）。
+- [贡献收集](../../src/platform/observability/logger/logger.registry.ts)、[Logger 接入](../../src/platform/observability/logger/logger.module.ts)（原组合入口已由后续隐式发现替代）。
 
 ```ts
 errorProject: (error) => projectMailError(error) ?? projectKvsError(error);
@@ -111,7 +115,7 @@ Mail 不接管 KVS 错误；KVS projector 还识别特定连接错误及网络 c
 主要源码：
 
 - [小接口](../../src/platform/observability/logger/pretty/pretty.adapter.ts)。
-- [路径装配](../../src/bootstrap/composition/logger.provider.ts)。
+- [引用收集](../../src/platform/observability/logger/logger.registry.ts)（原组合根路径清单已移除）。
 - [worker 加载与冲突检查](../../src/platform/observability/logger/pretty.transport.ts)。
 - [执行与降级](../../src/platform/observability/logger/pretty/pretty.renderer.ts)。
 - [现有设计说明](logger-pretty.md)。
