@@ -1,4 +1,4 @@
-export interface TenantMembership {
+export interface OrganizationContext {
     readonly userId: string;
     readonly organizationId: string;
     readonly organizationMemberId: string;
