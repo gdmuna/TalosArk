@@ -16,28 +16,59 @@
   **`KEY=` 是一个明确的空值，也会覆盖后续文件；不需要覆盖时，请省略 local 中的这一行。**
 - Zod 的默认值通常只对未定义值生效；空字符串不是通用的“采用默认值”。
   数字、布尔值、枚举等有默认值的变量在基础文件中填写有效默认值，避免空值被转换成 0 或校验失败。
-- `TODO(required)` 表示缺少当前启动必填项；`TODO(required-if-mail-enabled)` 表示启用邮件时需确认。
-  已填写不等于已验证：示例账号、示例地址和 PEM 格式占位不能直接用于部署。
-- 保留现有 dotenvx 公钥元数据，不在示例中复制真实私钥、口令或供应商凭据。
+- `REQUIRED`、`REQUIRED WHEN AUTHENTICATING` 和 `DEPLOYMENT` 是长期配置要求，
+  不是对本机有效配置缺失的自动判断。值可以由 local 或进程环境提供；
+  已填写也不等于已验证，示例账号、示例地址和 PEM 占位不能直接用于部署。
+- 基础 env 的 dotenvx 公钥及配套注释固定放在文件顶部；整理位置不改变公钥值。
+  不在示例中复制真实私钥、口令或供应商凭据。
   `.env.keys` 属于解密材料，不是应用配置模板。
+
+## 文件分组
+
+示例与三份基础 runtime env 按 `src/config` 的职责使用同一组序：
+
+1. Application：运行模式、端口和应用元数据。
+2. HTTP and browser access：浏览器来源、CORS、限流和请求超时。
+3. Access token：访问令牌密钥与有效期。
+4. Identity：密码哈希等身份能力参数。
+5. Authentication and account lifecycle：Cookie、激活、找回密码和登录尝试限制。
+6. Identity provider (Casdoor)：外部身份提供方。
+7. Database：主库与影子库。
+8. KVS：连接地址及连接/关闭时限。
+9. Object storage：S3 连接、凭据和桶。
+10. Mail (SMTP)：主机、TLS、认证、默认发件人、超时与并发。
+11. Observability：日志、慢请求/查询阈值及文档地址。
+12. Process lifecycle：进程关闭与 HTTP/log drain 预算。
+13. Tooling：OpenAPI 导出工具，不属于应用运行配置。
+
+历史 `ALLOWED_ORIGINS_*`、`JWT_REFRESH_*`、`JWT_ACCESS_ALGORITHM` 和 `VITE_*`
+若存在，统一放在最后的 Legacy 分组；仅保留原值，不代表当前后端会读取。
+local 使用同一组序，但只显示实际存在覆盖项的分组，不补空白占位。
+多行 PEM 作为完整赋值块移动，不改变换行内容或拆分密钥。
+
+当前基础 env 和已有 local 文件都被 Git 跟踪；本次整理没有改变追踪或加密策略。
+local 不等于天然被 Git 忽略，敏感值仍需按 dotenvx 流程加密或通过进程环境注入。
 
 ## 当前待补事项
 
-本次整理保留原值，没有生成或替换密钥、凭据，没有连接服务。
+最初的占位符整理保留了原值。2026-10-15 修正 development 的 SMTP TLS 模式，
+并完成连接/认证诊断；没有生成或替换密钥、凭据，也没有发送邮件。
 
 | 文件范围                       | 需要提供或确认什么                                                                                                                                                                   |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 三份 runtime 基础 env          | `CASDOOR_ENDPOINT`、`CASDOOR_CLIENT_ID`、`CASDOOR_CLIENT_SECRET`、`CASDOOR_ORGANIZATION`、`CASDOOR_CERTIFICATE_PATH`、`CASDOOR_OIDC_REDIRECT_URI` 原先缺失，现在已加空占位和必填标记 |
 | development.local / test.local | 已有上述 Casdoor 覆盖；继续保持稀疏，不补全变量、不改原值                                                                                                                            |
 | production                     | 目前没有 production.local，部署须填基础文件或通过进程环境注入；不能把未配置的 Casdoor 理解为禁用 OIDC                                                                                |
-| SMTP                           | 基础文件已有 SMTP 值，但含示例信息；启用 MailModule 前须确认真实 SMTP 主机、发件身份、认证凭据及 TLS 配置                                                                            |
+| SMTP                           | Web 启动已接入 MailModule；development 已通过连接和认证验证，其他环境仍须确认真实 SMTP 主机、发件身份、认证凭据及 TLS 配置                                                           |
 | production 文档/认证/来源 URL  | 必须匹配真实部署；此轮不猜测域名，不替换已有设置。新补 `ERROR_REFERENCE_URL` 维持代码原默认值，并加部署提醒                                                                          |
 | Prisma dev/test/prod 基础 env  | 两个数据库 URL 原先为空，已加必填标记；配置好的 local 文件仍作为独立可选 profile 使用                                                                                                |
 
 ## Mail 变量
 
-MailModule 目前没有装配到 AppModule。未启用时不连接 SMTP；启用后启动阶段会验证
-连接、TLS 和认证，但不发送邮件。已经填写的端口、布尔值、时限仍会由全局配置解析校验。
+MailModule 已装配到 Web AppModule，启动阶段会验证连接、TLS 和认证，但不发送邮件。
+已知 SMTP 故障会记录错误并允许应用继续启动，不代表邮件功能可用；实际 verify/send
+仍会拒绝失败。账户 provisioning CLI 不装配 MailModule，不连接 SMTP。
+已经填写的端口、布尔值、时限仍会由全局配置解析校验。
 
 只需配置主机、发件人，以及服务器要求的账号/密码；其余大多采用默认值即可。
 有些选项是为了区分 DNS、建连、协议等待和整体操作的超时边界，并非每个部署都需要调整。
@@ -65,6 +96,41 @@ TLS 证书校验始终开启，最低 TLS 1.2，没有关闭证书验证的环�
 安全配置不会随每封邮件重新读取，而是在模块启用时验证并冻结。
 没有自动重试、自动降级、连接池或 Outbox 开关；这些尚未成为当前模块的实现能力。
 进一步的结果、错误及接入约定见 [I01 设计](../../docs/design/mvp-i01-mail-2026-10-13.md)。
+
+### TLS 模式与 Gmail 认证
+
+`SMTP_SECURE` 表示是否从建连第一刻使用 TLS，不是是否要求加密的总开关：
+
+```dotenv
+# 587: connect using SMTP, then require STARTTLS before authentication.
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+```
+
+465 则使用 `SMTP_SECURE=true`。不要为 Gmail 的 587 设置 secure=true，
+否则可能在握手阶段遇到 ESOCKET，而尚未进入账号认证。
+参见 [Nodemailer SMTP 配置](https://nodemailer.com/smtp)。
+
+2026-10-15 的本机复查发现 587 在 SMTP 欢迎语之前被关闭，独立 TCP 探针也能复现。
+同一配置/凭据改用 465 隐式 TLS 后，连接、证书校验和认证均通过，因此 development
+现采用 `SMTP_PORT=465`、`SMTP_SECURE=true`；未发送邮件。587 本身支持 STARTTLS，
+此现象不代表协议配置无效，也尚不能确定是代理、网络还是上游关闭连接。
+
+`SMTP_SERVERNAME` 指定 TLS 服务器的预期域名，用于 SNI 和证书主机名校验，
+不是 SMTP 登录身份、发件地址或 EHLO 名称，也不会改变 TCP 的目标地址。
+`SMTP_HOST` 已为域名时通常可以省略，Nodemailer 会使用该域名；直接连接 IP
+或经过 TCP 转发时，应将 servername 配为服务证书对应的域名。例如连接 IP
+`192.0.2.10`，但验证身份为 `smtp.example.com`。填错可能导致 TLS 身份校验失败，
+不要为此关闭证书校验。参见 [Nodemailer TLS 选项](https://nodemailer.com/smtp#tls-options)。
+
+如果连接成功后出现 `phase=authenticate`、`EAUTH`，应处理供应商的认证要求，
+而不是关闭 TLS 或证书校验。Gmail 的用户名/密码认证可能需要启用两步验证并使用
+应用专用密码；不要把普通 Google 登录密码当作应用专用密码。
+在 `.env.development.local` 中覆盖 `SMTP_PASS` 或安全注入进程变量即可，不需修改共享模板；
+使用 local 覆盖时运行 `pnpm start:local`，`start:dev` 不读取 local。
+账号是否允许创建应用专用密码取决于 Google 账号及组织策略，参见
+[Google 官方说明](https://support.google.com/mail/answer/185833?hl=zh-Hans)。
 
 ## 其他运行时变量
 
