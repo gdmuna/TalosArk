@@ -17,7 +17,7 @@ export function snapshotExtensionSource(source: ExtensionSource): ExtensionSourc
     if (!source || typeof source !== 'object')
         throw new ExtensionError({ reason: 'invalid-entry' });
     assertExtensionLabel(source.owner);
-    if (source.kind === 'explicit')
+    if (source.kind === 'explicit' || source.kind === 'module')
         return Object.freeze({ kind: source.kind, owner: source.owner });
     if (source.kind !== 'provider' && source.kind !== 'method')
         throw new ExtensionError({ reason: 'invalid-entry' });
