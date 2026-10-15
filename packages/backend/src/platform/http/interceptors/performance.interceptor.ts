@@ -5,6 +5,8 @@ import type { AllConfig } from '@/config/index.js';
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { LoggerExtension } from '../../observability/logger/logger-contribution.decorator.js';
+import { performanceLogContribution } from './performance.log.contribution.js';
 
 /**
  * @description 性能监控拦截器
@@ -12,6 +14,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
  * - 当请求耗时超过阈值时记录慢请求日志
  * - 区分成功请求和失败请求的日志级别
  */
+@LoggerExtension(performanceLogContribution)
 @Injectable()
 export class PerformanceInterceptor implements NestInterceptor {
     constructor(

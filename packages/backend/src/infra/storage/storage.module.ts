@@ -3,7 +3,10 @@ import { Module, type DynamicModule, type Provider } from '@nestjs/common';
 import { S3_OPTIONS } from './storage.constant.js';
 import type { StorageModuleOptions, StorageModuleAsyncOptions } from './storage.options.js';
 import { StorageService } from './storage.service.js';
+import { LoggerExtension } from '@/platform/observability/logger/logger-contribution.decorator.js';
+import { storageLogContribution } from './storage.log.contribution.js';
 
+@LoggerExtension(storageLogContribution)
 @Module({})
 export class StorageModule {
     static forRootAsync(options: StorageModuleAsyncOptions): DynamicModule {

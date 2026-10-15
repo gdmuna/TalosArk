@@ -1,34 +1,33 @@
 import { once } from 'node:events';
-import { basename } from 'node:path';
 import build from 'pino-abstract-transport';
 import pino from 'pino';
 import pretty from 'pino-pretty';
 import type { PrettyAdapter, PrettyAdapterMap } from './pretty/pretty.adapter.js';
 import { createPrettyRenderer } from './pretty/pretty.renderer.js';
 import { createExtensionIndex, type ExtensionEntry } from '../../extensions/index.js';
+import type { PrettyModuleReference } from './logger.contribution.js';
 
 export interface PrettyTransportOptions {
     colorize?: boolean;
     destination?: string | number;
-    adapterPaths?: readonly string[];
+    adapters?: readonly PrettyModuleReference[];
 }
 
 export default async function prettyTransport(options: PrettyTransportOptions = {}) {
     const entries: ExtensionEntry<string, PrettyAdapter>[] = [];
     const events = new Set<string>();
-    for (const path of options.adapterPaths ?? []) {
-        // Paths come only from the trusted composition root, never from a log record.
-        const { default: registered } = (await import(path)) as { default: PrettyAdapterMap };
+    for (const reference of options.adapters ?? []) {
+        // URLs originate in already-registered trusted modules, never in a log record.
+        const { default: registered } = (await import(reference.moduleUrl)) as {
+            default: PrettyAdapterMap;
+        };
         for (const [event, adapter] of Object.entries(registered)) {
             if (events.has(event)) throw new Error(`Duplicate pretty event: ${event}`);
             events.add(event);
             entries.push({
                 key: event,
                 value: adapter,
-                source: {
-                    kind: 'explicit',
-                    owner: basename(new URL(path, import.meta.url).pathname),
-                },
+                source: reference.source,
             });
         }
     }

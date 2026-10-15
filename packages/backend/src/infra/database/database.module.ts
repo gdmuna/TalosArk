@@ -6,7 +6,10 @@ import { DatabaseTransactionContext } from './transaction/transaction.context.js
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 
 import { Module } from '@nestjs/common';
+import { LoggerExtension } from '@/platform/observability/logger/logger-contribution.decorator.js';
+import { databaseLogContribution } from './database.log.contribution.js';
 
+@LoggerExtension(databaseLogContribution)
 @Module({
     imports: [PlatformContextModule],
     providers: [

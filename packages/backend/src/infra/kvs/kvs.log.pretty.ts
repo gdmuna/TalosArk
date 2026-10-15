@@ -3,6 +3,9 @@ import {
     type PrettyAdapterMap,
     type PrettyLog,
 } from '@/platform/observability/logger/pretty/pretty.adapter.js';
+import { kvsConnectionMessage } from './kvs.log.message.js';
+
+export const moduleUrl = import.meta.url;
 
 function collectCodes(error: PrettyLog, codes: Set<string>, depth = 0): void {
     if (depth >= 8) return;
@@ -34,15 +37,8 @@ export default {
         const codes = new Set<string>();
         collectCodes(error, codes);
         if (codes.size !== 1) return 'Valkey connection failed';
-        const message: Record<string, string> = {
-            ECONNREFUSED: 'Valkey connection refused',
-            ECONNRESET: 'Valkey connection reset by peer',
-            ETIMEDOUT: 'Valkey connection timed out',
-            EPIPE: 'Valkey connection pipe closed',
-            ENOTFOUND: 'Valkey host lookup failed',
-            EAI_AGAIN: 'Valkey host lookup temporarily unavailable',
-        };
         const code = [...codes][0];
-        return code && Object.hasOwn(message, code) ? message[code] : 'Valkey connection failed';
+        const message = code ? kvsConnectionMessage(code) : undefined;
+        return message ? `Valkey ${message}` : 'Valkey connection failed';
     },
 } satisfies PrettyAdapterMap;

@@ -18,6 +18,8 @@ const request =
         return `${http.method} ${http.url} → ${http.status} · ${http.duration}ms${label ? ` · ${label}` : ''}`;
     };
 
+export const moduleUrl = import.meta.url;
+
 export default {
     'http.request.completed': request(),
     'http.request.failed': request('Request failed'),

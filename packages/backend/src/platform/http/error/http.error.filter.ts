@@ -9,6 +9,7 @@ import { HttpErrorPolicy, createHttpErrorResponse } from './http.error.policy.js
 import { normalizeHttpError } from './http.error.normalize.js';
 import { ErrorResolver } from '@/platform/error/error.resolver.js';
 import { createErrorDiagnostic } from '@/platform/error/error.diagnostic.js';
+import { LoggerContributions } from '@/platform/observability/logger/logger.registry.js';
 import { ApiResponseContextSchema } from '@talos-ark/contracts/protocol';
 import { REQUEST_ROUTE_CONTRACT, errorResponseSchema } from '../route/route.contract.js';
 import { parseJsonResponse, RouteResponseError } from '../route/route.response.js';
@@ -20,6 +21,7 @@ export class HttpErrorFilter implements ExceptionFilter {
         private readonly resolver: ErrorResolver,
         private readonly context: AlsContextAdapter,
         private readonly config: ConfigService<AllConfig, true>,
+        private readonly logContributions: LoggerContributions,
         @InjectPinoLogger(HttpErrorFilter.name) private readonly logger: PinoLogger
     ) {}
 
@@ -69,7 +71,7 @@ export class HttpErrorFilter implements ExceptionFilter {
             }
         }
         // Log even when a stream has already sent its headers; never send a second response.
-        const diagnostic = createErrorDiagnostic(error);
+        const diagnostic = createErrorDiagnostic(error, this.logContributions.project);
         this.logger[diagnostic.level](
             {
                 ...diagnostic.data,

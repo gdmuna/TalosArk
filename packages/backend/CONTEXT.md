@@ -101,15 +101,19 @@ live in docs/design/mvp-i02-audit-2026-10-14.md.
 ## Extension contributions
 
 platform/extensions exports pure typed Entry/Source/Point contracts and an immutable
-unique index. It never imports Nest. The separate discovery entry collects only own
-class/instance-method declarations on already-registered static singleton providers,
-skips DI aliases and binds methods without invoking them. Request/transient targets
-and request-scoped dependency trees are rejected when their point is enabled.
-The caller must await app.init before collecting. Candidate scanning is cached once;
-metadata validation and execution semantics belong to each host, not Platform.
+unique index. It never imports Nest. The separate discovery entry has two paths:
+collectDeclarations reads only own class metadata on registered modules/providers
+after Nest's module scan, without requiring instances; collect binds existing
+provider/method targets after module initialization. Instance behavior requires
+static singletons and rejects request/transient dependency trees. Both skip aliases
+and cache candidates once; neither invokes contribution methods. Declaration
+classes are deduplicated by constructor identity, including repeated dynamic-module
+instances. Metadata validation and execution semantics belong to each host.
 
-Bootstrap initializes the private AuthorizationRegistry after app.init and before
-listen/readiness. Organization contributes explicit data; WorkspaceService carries
+AuthorizationRegistry initializes itself in onApplicationBootstrap, after all
+onModuleInit hooks and before listen/readiness. Bootstrap supplies required/explicit
+definitions through PermissionConfigurationModule; only its configuration token is
+global. Organization contributes explicit data; WorkspaceService carries
 the workspace definitions as metadata. Definitions and sources are snapshotted and
 published once; duplicate, invalid or missing required definitions abort startup.
 PermissionKernel first requires a registered compatible scope, then retains P04's
@@ -117,12 +121,15 @@ live allow-only database query. Declaration alone grants no access. Existing bus
 permission/role writes remain in their transactions; discovery never writes the DB.
 PermissionModule retains ordinary imports and exports only Kernel to Nest consumers.
 
-ErrorResolver and the pretty worker reuse the pure index while keeping explicit
-assembly, duplicate-error behavior, error allowlists and rendering fallback. Ordered
-mappers, diagnostics, request metadata and infra configuration are not migrated.
+ErrorResolver retains explicit assembly and error allowlists. Logger uses static
+LoggerExtension declarations on owner modules (and the existing performance
+interceptor), with the same pure index and duplicate checks. Projectors run on the
+main thread; workers receive only serializable pretty-module references. Ordered
+business mappers, request metadata and infra configuration are not migrated.
 New business contribution files may use an optional contribution directory; existing
 unimplemented extension skeletons are not bulk moved. Interfaces and isolated evidence
-live in docs/design/mvp-i03-extension-2026-10-15.md.
+live in docs/design/mvp-i03-extension-2026-10-15.md and
+docs/design/logger-contribution-2026-10-15.md.
 
 ## Cookie binding
 
@@ -347,8 +354,13 @@ visibility; they are not an application-wide public surface.
   JSON file output. Event-keyed, owner-local pure pretty adapters customize only
   the summary; existing structured fields remain visible. The worker owns the
   header and linear error stacks; branching errors and ordinary objects retain
-  pino-pretty rendering. Explicit composition supplies adapter URLs and approved
-  error projections; workers never import Nest or SDK modules. Usage and extension
+  pino-pretty rendering. Owner module declarations supply diagnostic/pretty modules
+  using native imports. The logger snapshots them after Nest scans the graph;
+  development startup waits for worker ready (5-second deadline), including required
+  imports and duplicate-event checks. Failure aborts startup and closes the worker;
+  other environments do not create a pretty worker. Flat JSON diagnostic fields are
+  bounded and cannot override serializer/Pino structure. Workers never import Nest
+  or SDK modules. Usage and extension
   rules live in docs/design/logger-pretty.md. Register forRoot() at composition
   time so every imported InjectPinoLogger context is available. infra/observability
   is reserved for a real external sink or exporter, not another logger wrapper.
