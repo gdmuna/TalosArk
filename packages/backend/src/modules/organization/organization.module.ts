@@ -8,6 +8,12 @@ import { WorkspaceModule } from '@/modules/workspace/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { OrganizationController } from './api/organization.controller.js';
 import { OrganizationService } from './application/organization.service.js';
+import { OrganizationTeamController } from './api/team.controller.js';
+import { InvitationController } from './api/invitation.controller.js';
+import { OrganizationTeamService } from './application/team.service.js';
+import { OrganizationInvitationService } from './application/invitation.service.js';
+import { InvitationDelivery } from './application/invitation.delivery.js';
+import { TeamOperations } from './application/team.operations.js';
 
 @Module({
     imports: [
@@ -19,7 +25,13 @@ import { OrganizationService } from './application/organization.service.js';
         WorkspaceModule,
         PlatformContextModule,
     ],
-    controllers: [OrganizationController],
-    providers: [OrganizationService],
+    controllers: [OrganizationController, OrganizationTeamController, InvitationController],
+    providers: [
+        OrganizationService,
+        OrganizationTeamService,
+        OrganizationInvitationService,
+        InvitationDelivery,
+        TeamOperations,
+    ],
 })
 export class OrganizationModule {}

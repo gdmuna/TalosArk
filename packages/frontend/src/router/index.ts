@@ -12,6 +12,7 @@ import AuthRecovery from '@/page/auth/Auth-Recovery.vue';
 import AuthResetPassword from '@/page/auth/Auth-ResetPassword.vue';
 import AuthActivate from '@/page/auth/Auth-Activate.vue';
 import AuthSetPassword from '@/page/auth/Auth-SetPassword.vue';
+import AuthInvitation from '@/page/auth/Auth-Invitation.vue';
 import Management from '@/page/management/Management.vue';
 import Workbench from '@/page/workbench/Workbench.vue';
 import Material from '@/page/material/Material.vue';
@@ -45,6 +46,7 @@ const routes: RouteRecordRaw[] = [
         redirect: '/auth/login',
         meta: { fluidLayout: true },
         children: [
+            { path: 'invitation', component: AuthInvitation, meta: { defaultTitle: '组织邀请' } },
             {
                 path: 'login',
                 component: Auth,

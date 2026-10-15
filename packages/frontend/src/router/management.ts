@@ -44,7 +44,10 @@ export const managementRoutes: RouteRecordRaw[] = managementNavigation.flatMap((
         meta: {
             defaultTitle: label,
             pageLabel: label,
-            ...(path === 'account-setting' || path === 'workspace'
+            ...(path === 'account-setting' ||
+            path === 'workspace' ||
+            path === 'member' ||
+            path === 'role'
                 ? { requiresWorkspace: false }
                 : {}),
         },

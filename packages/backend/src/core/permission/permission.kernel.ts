@@ -36,6 +36,10 @@ export class PermissionKernel {
         return definition;
     }
 
+    definitions(): readonly AuthorizationDefinition[] {
+        return this.registry.definitions();
+    }
+
     async evaluate(input: PermissionCheck): Promise<PermissionDecision> {
         const [decision] = await this.evaluateMany([input]);
         return decision;

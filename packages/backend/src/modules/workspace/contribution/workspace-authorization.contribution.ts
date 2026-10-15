@@ -3,7 +3,11 @@ import type {
     AuthorizationMetadata,
 } from '@/core/permission/authorization-definition.js';
 
-export const workspacePermission = { create: 'workspace.create', read: 'workspace.read' } as const;
+export const workspacePermission = {
+    create: 'workspace.create',
+    read: 'workspace.read',
+    members: 'workspace.member.manage',
+} as const;
 export const workspaceCreateAuthorization = Object.freeze({
     code: workspacePermission.create,
     name: 'Create workspace',
@@ -17,5 +21,13 @@ export const workspaceReadAuthorization = Object.freeze({
 
 export const workspaceAuthorization = Object.freeze({
     namespace: 'workspace',
-    definitions: Object.freeze([workspaceCreateAuthorization, workspaceReadAuthorization]),
+    definitions: Object.freeze([
+        workspaceCreateAuthorization,
+        workspaceReadAuthorization,
+        {
+            code: workspacePermission.members,
+            name: 'Manage workspace members',
+            scope: 'WORKSPACE',
+        } as const,
+    ]),
 } satisfies AuthorizationMetadata);

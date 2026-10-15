@@ -10,6 +10,7 @@ import { lifecycleConfig, LifecycleConfig } from './lifecycle.config.js';
 import { mailConfig, MailConfig } from './mail.config.js';
 import { observabilityConfig, ObservabilityConfig } from './observability.config.js';
 import { storageConfig, StorageConfig } from './storage.config.js';
+import { teamConfig, type TeamConfig } from './team.config.js';
 
 // 导出所有配置
 
@@ -26,6 +27,7 @@ export type AllConfig = {
     mail: MailConfig;
     observability: ObservabilityConfig;
     storage: StorageConfig;
+    team: TeamConfig;
 };
 
 export const allConfig = {
@@ -41,6 +43,7 @@ export const allConfig = {
     mailConfig,
     observabilityConfig,
     storageConfig,
+    teamConfig,
 };
 
 export default [...Object.values(allConfig)];
