@@ -78,4 +78,10 @@ export class AuthorizationRegistry implements OnApplicationBootstrap {
             throw new PermissionError({ reason: 'not-ready' });
         return this.index.find(code);
     }
+
+    definitions(): readonly AuthorizationDefinition[] {
+        if (this.state !== 'ready' || !this.index)
+            throw new PermissionError({ reason: 'not-ready' });
+        return Object.freeze(this.index.entries().map((entry) => entry.value));
+    }
 }

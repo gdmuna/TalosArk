@@ -5,26 +5,21 @@ import type {
     TeamSnapshotResponse,
 } from '@talos-ark/contracts/team';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { TenantKernel } from '@/core/tenant/index.js';
+import { OrganizationContextKernel } from '@/core/organization-context/index.js';
 import { PermissionKernel } from '@/core/permission/index.js';
+import { AuthorizationKernel } from '@/core/authorization/index.js';
 import { AuditKernel } from '@/core/audit/index.js';
-import {
-    WorkspaceService,
-    workspacePermission,
-    workspaceCreateAuthorization,
-} from '@/modules/workspace/index.js';
+import { WorkspaceService, workspacePermission } from '@/modules/workspace/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
-import {
-    organizationPermission,
-    organizationReadAuthorization,
-} from '../contribution/organization-authorization.contribution.js';
+import { organizationPermission } from '../contribution/organization-authorization.contribution.js';
 
 @Injectable()
 export class OrganizationService {
     constructor(
         private readonly database: DatabaseRuntime,
-        private readonly tenant: TenantKernel,
+        private readonly organizationContext: OrganizationContextKernel,
         private readonly permission: PermissionKernel,
+        private readonly authorization: AuthorizationKernel,
         private readonly workspace: WorkspaceService,
         private readonly audit: AuditKernel,
         private readonly actor: AlsContextAdapter
@@ -33,43 +28,26 @@ export class OrganizationService {
     create(input: CreateOrganizationBody): Promise<CreateOrganizationResponse> {
         const { userId } = this.actor.requireActor();
         return this.database.transaction.run(async () => {
-            await this.tenant.requireUser(userId);
+            await this.organizationContext.requireUser(userId);
             const organization = await this.database.queryClient.organization.create({
                 data: { name: input.name, ownerUserId: userId },
                 select: { id: true, name: true },
             });
-            await this.database.queryClient.permission.createMany({
-                data: [
-                    { code: organizationPermission.read, name: organizationReadAuthorization.name },
-                    { code: workspacePermission.create, name: workspaceCreateAuthorization.name },
-                ],
-                skipDuplicates: true,
-            });
-            const role = await this.database.queryClient.role.create({
-                data: {
-                    organizationId: organization.id,
-                    code: 'organization-owner',
-                    name: 'Organization owner',
-                    scope: 'ORGANIZATION',
-                    permissions: {
-                        create: [
-                            { permissionCode: organizationPermission.read },
-                            { permissionCode: workspacePermission.create },
-                        ],
-                    },
-                },
-                select: { id: true },
+            const role = await this.permission.createRole({
+                organizationId: organization.id,
+                code: 'organization-owner',
+                name: 'Organization owner',
+                scope: 'ORGANIZATION',
+                permissions: [organizationPermission.read, workspacePermission.create],
             });
             const member = await this.database.queryClient.organizationMember.create({
                 data: { organizationId: organization.id, userId },
                 select: { id: true },
             });
-            await this.database.queryClient.organizationRoleBinding.create({
-                data: {
-                    organizationId: organization.id,
-                    organizationMemberId: member.id,
-                    roleId: role.id,
-                },
+            await this.permission.bindRole({
+                scope: { kind: 'organization', organizationId: organization.id },
+                memberId: member.id,
+                roleId: role.id,
             });
             await this.audit.record({
                 organizationId: organization.id,
@@ -90,17 +68,28 @@ export class OrganizationService {
         const { userId } = this.actor.requireActor();
         return this.database.transaction.run(
             async () => {
-                const readIds = await this.permission.organizationIds(
-                    userId,
-                    organizationPermission.read
-                );
+                const subject = { kind: 'user' as const, userId };
+                const readable = await this.authorization.scope({
+                    subject,
+                    permissionCode: organizationPermission.read,
+                });
+                const creatable = await this.authorization.scope({
+                    subject,
+                    permissionCode: workspacePermission.create,
+                });
+                const accessible = await this.authorization.scope({
+                    subject,
+                    permissionCode: workspacePermission.read,
+                });
+                const readIds =
+                    readable.kind === 'organization' ? [...readable.organizationIds] : [];
                 const createIds = new Set(
-                    await this.permission.organizationIds(userId, workspacePermission.create)
+                    creatable.kind === 'organization' ? creatable.organizationIds : []
                 );
-                const workspaceIds = await this.permission.workspaceIds(
-                    userId,
-                    workspacePermission.read
-                );
+                const workspaceIds =
+                    accessible.kind === 'workspace'
+                        ? accessible.workspaces.map((scope) => scope.workspaceId)
+                        : [];
                 const organizations = await this.database.queryClient.organization.findMany({
                     where: { id: { in: readIds } },
                     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],

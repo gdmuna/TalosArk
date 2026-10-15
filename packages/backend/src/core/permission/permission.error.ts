@@ -7,6 +7,9 @@ const catalog = defineInternalErrorCatalog('permission', [
     'not-ready',
     'already-initialized',
     'missing-configuration',
+    'invalid-input',
+    'role-unavailable',
+    'member-unavailable',
 ]);
 
 interface PermissionFailure {
@@ -25,6 +28,9 @@ export const PermissionError = defineErrorClass<typeof catalog, PermissionFailur
             'already-initialized': 'Authorization definitions may only be initialized once',
             'missing-configuration':
                 'PermissionConfigurationModule must supply authorization options',
+            'invalid-input': 'Permission input violates the declared constraints',
+            'role-unavailable': 'The role is inactive, missing or outside the declared scope',
+            'member-unavailable': 'The member is inactive, missing or outside the declared scope',
         }[failure.reason];
         const code =
             failure.code && /^[a-z][a-z0-9.-]{0,119}$/.test(failure.code)

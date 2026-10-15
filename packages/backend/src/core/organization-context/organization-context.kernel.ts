@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { RequestError } from '@/platform/request/request.error.js';
-import { TenantError } from './tenant.error.js';
-import type { TenantMembership } from './tenant.types.js';
+import { OrganizationContextError } from './organization-context.error.js';
+import type { OrganizationContext } from './organization-context.types.js';
 
 @Injectable()
-export class TenantKernel {
+export class OrganizationContextKernel {
     constructor(private readonly database: DatabaseRuntime) {}
 
     async requireUser(userId: string): Promise<void> {
@@ -16,7 +16,7 @@ export class TenantKernel {
         if (!user) throw new RequestError({ reason: 'authentication' });
     }
 
-    async requireMembership(userId: string, organizationId: string): Promise<TenantMembership> {
+    async requireMembership(userId: string, organizationId: string): Promise<OrganizationContext> {
         const member = await this.database.queryClient.organizationMember.findFirst({
             where: { userId, organizationId, status: 'ACTIVE', organization: { archivedAt: null } },
             select: {
@@ -24,7 +24,7 @@ export class TenantKernel {
                 organization: { select: { id: true, name: true, ownerUserId: true } },
             },
         });
-        if (!member) throw new TenantError({ reason: 'forbidden' });
+        if (!member) throw new OrganizationContextError({ reason: 'forbidden' });
         return Object.freeze({
             userId,
             organizationId,

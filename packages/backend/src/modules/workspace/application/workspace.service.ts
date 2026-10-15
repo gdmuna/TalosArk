@@ -1,16 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import type { CreateWorkspaceBody, WorkspaceSummary } from '@talos-ark/contracts/team';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { TenantKernel, TenantError } from '@/core/tenant/index.js';
+import { OrganizationContextError } from '@/core/organization-context/index.js';
 import { AuthorizationExtension, PermissionKernel } from '@/core/permission/index.js';
-import { WorkspaceContextKernel } from '@/core/workspace/index.js';
+import { AuthorizationKernel } from '@/core/authorization/index.js';
 import { AuditKernel } from '@/core/audit/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 
 import {
     workspaceAuthorization,
     workspacePermission,
-    workspaceReadAuthorization,
 } from '../contribution/workspace-authorization.contribution.js';
 
 export { workspacePermission } from '../contribution/workspace-authorization.contribution.js';
@@ -20,9 +19,8 @@ export { workspacePermission } from '../contribution/workspace-authorization.con
 export class WorkspaceService {
     constructor(
         private readonly database: DatabaseRuntime,
-        private readonly tenant: TenantKernel,
         private readonly permission: PermissionKernel,
-        private readonly context: WorkspaceContextKernel,
+        private readonly authorization: AuthorizationKernel,
         private readonly audit: AuditKernel,
         private readonly actor: AlsContextAdapter
     ) {}
@@ -30,59 +28,29 @@ export class WorkspaceService {
     create(organizationId: string, input: CreateWorkspaceBody): Promise<WorkspaceSummary> {
         const { userId } = this.actor.requireActor();
         return this.database.transaction.run(async () => {
-            const tenant = await this.tenant.requireMembership(userId, organizationId);
-            const allowed = await this.permission.organizationIds(
-                userId,
-                workspacePermission.create
-            );
-            if (!tenant.isOwner || !allowed.includes(organizationId))
-                throw new TenantError({ reason: 'forbidden' });
+            const { organization: organizationContext } = await this.authorization.require({
+                subject: { kind: 'user', userId },
+                permissionCode: workspacePermission.create,
+                target: { kind: 'organization', organizationId },
+            });
+            if (!organizationContext.isOwner)
+                throw new OrganizationContextError({ reason: 'forbidden' });
 
             // A scoped role is shared within the organization, never rebound across tenants.
-            let role = await this.database.queryClient.role.findUnique({
-                where: {
-                    organizationId_scope_code: {
-                        organizationId,
-                        scope: 'WORKSPACE',
-                        code: 'workspace-manager',
-                    },
-                },
-                select: {
-                    id: true,
-                    archivedAt: true,
-                    permissions: {
-                        where: { permissionCode: workspacePermission.read },
-                        select: { permissionCode: true },
-                    },
-                },
+            let role = await this.permission.findRole({
+                organizationId,
+                scope: 'WORKSPACE',
+                code: 'workspace-manager',
             });
-            if (role && (role.archivedAt || !role.permissions.length))
-                throw new TenantError({ reason: 'forbidden' });
+            if (role && (role.archivedAt || !role.permissions.includes(workspacePermission.read)))
+                throw new OrganizationContextError({ reason: 'forbidden' });
             if (!role) {
-                await this.database.queryClient.permission.upsert({
-                    where: { code: workspacePermission.read },
-                    update: {},
-                    create: {
-                        code: workspacePermission.read,
-                        name: workspaceReadAuthorization.name,
-                    },
-                });
-                role = await this.database.queryClient.role.create({
-                    data: {
-                        organizationId,
-                        scope: 'WORKSPACE',
-                        code: 'workspace-manager',
-                        name: 'Workspace manager',
-                        permissions: { create: { permissionCode: workspacePermission.read } },
-                    },
-                    select: {
-                        id: true,
-                        archivedAt: true,
-                        permissions: {
-                            where: { permissionCode: workspacePermission.read },
-                            select: { permissionCode: true },
-                        },
-                    },
+                role = await this.permission.createRole({
+                    organizationId,
+                    scope: 'WORKSPACE',
+                    code: 'workspace-manager',
+                    name: 'Workspace manager',
+                    permissions: [workspacePermission.read],
                 });
             }
             const workspace = await this.database.queryClient.workspace.create({
@@ -93,17 +61,14 @@ export class WorkspaceService {
                 data: {
                     organizationId,
                     workspaceId: workspace.id,
-                    organizationMemberId: tenant.organizationMemberId,
+                    organizationMemberId: organizationContext.organizationMemberId,
                 },
                 select: { id: true },
             });
-            await this.database.queryClient.workspaceRoleBinding.create({
-                data: {
-                    organizationId,
-                    workspaceId: workspace.id,
-                    workspaceMemberId: member.id,
-                    roleId: role.id,
-                },
+            await this.permission.bindRole({
+                scope: { kind: 'workspace', organizationId, workspaceId: workspace.id },
+                memberId: member.id,
+                roleId: role.id,
             });
             await this.audit.record({
                 organizationId,
@@ -122,18 +87,17 @@ export class WorkspaceService {
         const { userId } = this.actor.requireActor();
         return this.database.transaction.run(
             async () => {
-                await this.context.requireContext(
-                    userId,
-                    organizationId,
-                    workspaceId,
-                    workspacePermission.read
-                );
-                if (
-                    !(await this.permission.organizationIds(userId, 'organization.read')).includes(
-                        organizationId
-                    )
-                )
-                    throw new TenantError({ reason: 'forbidden' });
+                const subject = { kind: 'user' as const, userId };
+                await this.authorization.require({
+                    subject,
+                    permissionCode: 'organization.read',
+                    target: { kind: 'organization', organizationId },
+                });
+                await this.authorization.require({
+                    subject,
+                    permissionCode: workspacePermission.read,
+                    target: { kind: 'workspace', organizationId, workspaceId },
+                });
                 const workspace = await this.database.queryClient.workspace.findUniqueOrThrow({
                     where: { organizationId_id: { organizationId, id: workspaceId } },
                     select: { id: true, organizationId: true, name: true, description: true },
