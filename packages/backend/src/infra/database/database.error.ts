@@ -7,21 +7,22 @@ interface DatabaseFailureContext {
     sqlState?: string;
 }
 
+// prettier-ignore
 export type DatabaseFailure = DatabaseFailureContext &
     (
         | {
-              reason: 'unique-constraint';
-              fields: readonly string[];
-              constraint?: string;
-          }
+            reason: 'unique-constraint';
+            fields: readonly string[];
+            constraint?: string;
+        }
         | {
-              reason:
-                  | 'record-not-found'
-                  | 'transaction-conflict'
-                  | 'unavailable'
-                  | 'configuration'
-                  | 'query-failed';
-          }
+            reason:
+                | 'record-not-found'
+                | 'transaction-conflict'
+                | 'unavailable'
+                | 'configuration'
+                | 'query-failed';
+        }
     );
 
 const catalog = defineInternalErrorCatalog('database', [
