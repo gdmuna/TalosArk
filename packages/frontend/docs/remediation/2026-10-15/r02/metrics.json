@@ -1,0 +1,309 @@
+[
+  {
+    "case": "write-committed-sync-failed",
+    "counters": [
+      "读取 2 · 写入 1",
+      "{\"organizationId\":\"sjtu\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ],
+    "blocked": true
+  },
+  {
+    "case": "retry-read-only",
+    "counters": [
+      "读取 3 · 写入 1",
+      "{\"organizationId\":\"sjtu\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ],
+    "createdRole": true
+  },
+  {
+    "case": "403-clears-data",
+    "tables": 0,
+    "error": "Forbidden"
+  },
+  {
+    "case": "old-read-after-scope-switch",
+    "organization": "苏州研究所",
+    "counters": [
+      "读取 3 · 写入 0",
+      "{\"organizationId\":\"suzhou\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ]
+  },
+  {
+    "case": "readonly-no-actions-or-matrix",
+    "createButtons": 0,
+    "matrixButtons": 0
+  },
+  {
+    "case": "old-read-after-scope-switch-distinct-payload",
+    "rows": "组织所有者 · suzhou\norganization-owner\n\t组织\n系统保护\n\t查看组织\t\n预览\n\n\n研究与材料归档只读角色 · suzhou\nresearch-reader\n\t组织\t查看组织\t\n预览\n\n\n工作区成员管理员 · suzhou\nworkspace-manager\n\t工作区\t查看工作区、管理工作区成员\t\n预览"
+  },
+  {
+    "case": "revoke-existing-nongrantable-role",
+    "row": "跨\n跨区域协作实验室的长名称验证成员\n\ta-long-member-address-for-layout@isolated.example\t\n—\n\t有效\t\n预览",
+    "counters": [
+      "读取 2 · 写入 1",
+      "{\"organizationId\":\"sjtu\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ]
+  },
+  {
+    "case": "resend-expired-invitation",
+    "notice": "邀请已提交发送，尚未确认送达",
+    "counters": [
+      "读取 4 · 写入 2",
+      "{\"organizationId\":\"sjtu\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ]
+  },
+  {
+    "case": "failed-write-retains-form",
+    "error": "隔离写入失败",
+    "counters": [
+      "读取 4 · 写入 3",
+      "{\"organizationId\":\"sjtu\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ]
+  },
+  {
+    "case": "scope-clears-search-and-page",
+    "input": "",
+    "counters": [
+      "读取 6 · 写入 3",
+      "{\"organizationId\":\"suzhou\",\"page\":1,\"pageSize\":20,\"search\":\"\"}"
+    ],
+    "caption": "苏州研究所 · 组织"
+  },
+  {
+    "case": "long-workspace-preview",
+    "heading": {
+      "height": 56,
+      "scrollWidth": 463,
+      "width": 463
+    }
+  },
+  {
+    "case": "workspace-all-organizations",
+    "rows": 4
+  },
+  {
+    "case": "workspace-create-respects-scope",
+    "organization": "苏州研究所"
+  },
+  {
+    "case": "size-failure-then-next-page",
+    "counters": [
+      "读取 3 · 写入 0",
+      "{\"organizationId\":\"sjtu\",\"page\":2,\"pageSize\":20,\"search\":\"\"}"
+    ],
+    "page": "第 2 / 3 页",
+    "pageSize": "20 条",
+    "firstRow": "布\n布局成员 21\n\tmember21@isolated.example\t\n研究与材料归档只读角色\n\t有效\t\n预览"
+  },
+  {
+    "case": "search-failure-then-next-page",
+    "counters": [
+      "读取 5 · 写入 0",
+      "{\"organizationId\":\"sjtu\",\"page\":3,\"pageSize\":20,\"search\":\"\"}"
+    ],
+    "page": "第 3 / 3 页",
+    "firstRow": "布\n布局成员 41\n\tmember41@isolated.example\t\n研究与材料归档只读角色\n\t有效\t\n预览",
+    "search": ""
+  },
+  {
+    "case": "remove-last-row-clamps-page",
+    "counters": [
+      "读取 7 · 写入 1",
+      "{\"organizationId\":\"sjtu\",\"page\":2,\"pageSize\":20,\"search\":\"\"}"
+    ],
+    "page": "第 2 / 2 页",
+    "rows": 20
+  },
+  {
+    "case": "f-01-real-1024",
+    "geometry": {
+      "document": 1024,
+      "main": [
+        {
+          "scrollWidth": 783,
+          "width": 783
+        }
+      ],
+      "tables": [
+        {
+          "parent": 733,
+          "scroll": 784,
+          "width": 784
+        }
+      ],
+      "viewport": 1024
+    }
+  },
+  {
+    "case": "e-10-real-1024",
+    "geometry": {
+      "document": 1024,
+      "main": [
+        {
+          "scrollWidth": 783,
+          "width": 783
+        }
+      ],
+      "viewport": 1024
+    }
+  },
+  {
+    "case": "e-03-real-1024",
+    "geometry": {
+      "document": 1024,
+      "main": [
+        {
+          "scrollWidth": 783,
+          "width": 783
+        }
+      ],
+      "viewport": 1024
+    }
+  },
+  {
+    "case": "e-03-real-2560",
+    "geometry": {
+      "document": 2560,
+      "main": [
+        {
+          "scrollWidth": 2319,
+          "width": 2319
+        }
+      ],
+      "viewport": 2560
+    }
+  },
+  {
+    "case": "e-10-real-2560",
+    "geometry": {
+      "document": 2560,
+      "main": [
+        {
+          "scrollWidth": 2319,
+          "width": 2319
+        }
+      ],
+      "viewport": 2560
+    }
+  },
+  {
+    "case": "f-01-real-2560",
+    "geometry": {
+      "document": 2560,
+      "main": [
+        {
+          "scrollWidth": 2319,
+          "width": 2319
+        }
+      ],
+      "viewport": 2560
+    }
+  },
+  {
+    "case": "403-clears-data-final",
+    "alert": "当前账户无权访问此组织或工作区",
+    "tables": 0
+  },
+  {
+    "case": "enter-current-real-workspace",
+    "url": "http://localhost:4444/main/workbench/overview",
+    "workspaceButton": "w\nwtf\ntest"
+  },
+  {
+    "case": "e-03-real-1280",
+    "geometry": {
+      "document": 1280,
+      "main": [
+        {
+          "scrollWidth": 1039,
+          "width": 1039
+        }
+      ],
+      "viewport": 1280
+    }
+  },
+  {
+    "case": "e-10-real-1280",
+    "geometry": {
+      "document": 1280,
+      "main": [
+        {
+          "scrollWidth": 1039,
+          "width": 1039
+        }
+      ],
+      "viewport": 1280
+    }
+  },
+  {
+    "case": "f-01-real-1280",
+    "geometry": {
+      "document": 1280,
+      "main": [
+        {
+          "scrollWidth": 1039,
+          "width": 1039
+        }
+      ],
+      "viewport": 1280
+    }
+  },
+  {
+    "case": "f-01-real-1920",
+    "geometry": {
+      "document": 1920,
+      "main": [
+        {
+          "scrollWidth": 1679,
+          "width": 1679
+        }
+      ],
+      "viewport": 1920
+    }
+  },
+  {
+    "case": "e-10-real-1920",
+    "geometry": {
+      "document": 1920,
+      "main": [
+        {
+          "scrollWidth": 1679,
+          "width": 1679
+        }
+      ],
+      "viewport": 1920
+    }
+  },
+  {
+    "case": "e-03-real-1920",
+    "geometry": {
+      "document": 1920,
+      "main": [
+        {
+          "scrollWidth": 1679,
+          "width": 1679
+        }
+      ],
+      "viewport": 1920
+    }
+  },
+  {
+    "case": "e-03-collapsed-1920",
+    "geometry": {
+      "document": 1920,
+      "main": [
+        {
+          "scrollWidth": 1863,
+          "width": 1863
+        }
+      ],
+      "viewport": 1920
+    }
+  },
+  {
+    "case": "workspace-keyboard-preview-escape",
+    "focus": "预览wtf",
+    "note": "First Escape on close button did not close; Escape from a content control closed; tooltip precedence not separately isolated"
+  }
+]

@@ -20,9 +20,13 @@ export function teamErrorMessage(error: unknown): string {
         )[code ?? ''] ??
         (error instanceof HttpError && error.kind === 'network'
             ? '无法连接服务，请检查网络后重试'
-            : error instanceof Error
-              ? error.message
-              : '操作失败')
+            : error instanceof HttpError && error.status === 403
+              ? '当前账户无权访问此组织或工作区'
+              : error instanceof HttpError && error.status === 401
+                ? '登录会话已失效，请重新登录'
+                : error instanceof Error
+                  ? error.message
+                  : '操作失败')
     );
 }
 
@@ -38,6 +42,7 @@ export const useTeamStore = defineStore('team-management', () => {
     const page = ref(1),
         pageSize = ref(20),
         search = ref('');
+    const appliedSearch = ref('');
     let source: TeamDataSource;
     let scope = createTaskScope([]);
     let readVersion = 0;
@@ -58,6 +63,7 @@ export const useTeamStore = defineStore('team-management', () => {
         error.value = syncError.value = notice.value = '';
         page.value = 1;
         search.value = '';
+        appliedSearch.value = '';
     }
     async function load(): Promise<void> {
         const selected = selection.value;
@@ -72,17 +78,17 @@ export const useTeamStore = defineStore('team-management', () => {
                 if (current === scope) reset();
                 return;
             }
-            const result = await source.load(
-                selected,
-                { page: page.value, pageSize: pageSize.value, search: search.value },
-                current.signal
-            );
+            const query = { page: page.value, pageSize: pageSize.value, search: search.value };
+            const result = await source.load(selected, query, current.signal);
             current.signal.throwIfAborted();
             if (version !== readVersion) return;
             data.value = result;
+            appliedSearch.value = query.search;
             syncError.value = '';
         } catch (cause) {
             if (!current.signal.aborted && version === readVersion) {
+                if (cause instanceof HttpError && (cause.status === 401 || cause.status === 403))
+                    data.value = null;
                 if (pendingLeaveSync)
                     syncError.value = '已离开，但工作区列表未同步。请重新加载，不要重复提交。';
                 else error.value = teamErrorMessage(cause);
@@ -155,6 +161,7 @@ export const useTeamStore = defineStore('team-management', () => {
         page,
         pageSize,
         search,
+        appliedSearch,
         ready,
         connect,
         reset,

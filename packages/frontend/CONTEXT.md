@@ -58,6 +58,22 @@ and acceptance to token/identity generations and requires explicit acceptance.
 Full reload or external SSO requires reopening the original mail link after login.
 No mock organization binding, remote workbench reader or node authorization is added.
 
+R02 keeps member/invitation search and pagination on the server. The team store
+records `appliedSearch` only with a successful snapshot; pagination restores that
+snapshot's capacity/search instead of mixing in a failed request. Explicit reload
+alone retries the failed query. Role search and scope filtering apply locally to
+the complete authorized role catalog. The optional read-only matrix displays
+returned role definitions, not a member's effective authorization. Shared private
+team UI owns row menus and searchable permission selection; original role bindings
+remain removable even when the role cannot be newly granted.
+
+Management Workspace's organization filter is local to that list, not a global
+workspace switch. Previews use only known snapshot fields. Entering a different
+workspace still requires a successful server selection; creation prefers the
+list's selected organization. R02 adds no object-detail contracts or routes.
+See `docs/remediation/2026-10-15/r02/README.md` for real read-only and isolated
+verification, remaining contract gaps and acceptance limits.
+
 `component/view-context` owns only the generic scope registry (`register` and
 its returned `dispose`). Each provider creates its own reactive state in its
 actual owner: route-tab, breadcrumb or view-host. Route-tab types belong to

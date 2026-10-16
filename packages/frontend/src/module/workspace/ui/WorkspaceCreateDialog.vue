@@ -8,7 +8,7 @@ import { DataSyncNotice } from '@/component/data-sync';
 import { useWorkspaceStore } from '../model/store';
 
 const open = defineModel<boolean>('open', { default: false });
-const props = defineProps<{ mode: 'organization' | 'workspace' | 'join' }>();
+const props = defineProps<{ mode: 'organization' | 'workspace' | 'join'; organizationId?: string }>();
 const emit = defineEmits<{ 'close-auto-focus': [event: Event] }>();
 const workspace = useWorkspaceStore();
 const name = ref('');
@@ -31,6 +31,7 @@ watch(
         name.value = workspaceName.value = error.value = '';
         committed.value = false;
         organizationId.value =
+            options.value.find((item) => item.value === props.organizationId)?.value ??
             options.value.find((item) => item.value === workspace.organization?.id)?.value ??
             options.value[0]?.value ??
             '';
