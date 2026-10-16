@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T extends { id: string }">
 import { computed, ref, useTemplateRef, type CSSProperties } from 'vue';
+import { useElementSize } from '@vueuse/core';
 import {
     ArrowDown,
     ArrowUp,
@@ -89,7 +90,9 @@ const props = withDefaults(
 const query = defineModel<string>('query', { default: '' });
 const filters = defineModel<Record<string, string[]>>('filters', { default: () => ({}) });
 const selected = defineModel<string[]>('selected', { default: () => [] });
-const model = useTableModel(props, { query, filters, selected });
+const root = useTemplateRef<HTMLElement>('root');
+const { width: availableWidth } = useElementSize(root);
+const model = useTableModel(props, { query, filters, selected }, availableWidth);
 const {
     api,
     pageInput,
@@ -230,62 +233,65 @@ defineExpose(api);
 
 <template>
     <div
-        class="@container/data-table flex min-h-0 min-w-0 flex-col gap-3"
+        ref="root"
+        class="flex w-full min-h-0 min-w-0 flex-col gap-3"
         data-slot="data-table"
         :data-pagination-mode="paginationMode"
     >
-        <div
-            class="flex shrink-0 flex-wrap items-center gap-3 @min-[600px]/data-table:flex-nowrap"
-            data-slot="data-table-toolbar"
-        >
-            <div class="relative min-w-0 flex-1 basis-full @min-[600px]/data-table:basis-0">
-                <div class="overflow-x-auto scroll-smooth [scrollbar-width:none] motion-reduce:scroll-auto">
-                    <div class="flex w-max min-w-full items-center gap-3">
-                        <slot name="filters-before" />
-                        <DataTableFilters v-model="filters" :fields="resolvedFilterFields" />
-                        <DataTableSorting v-model="sorting" :columns="sortableColumns" />
-                        <DataTableVisibility
-                            v-if="!actions.length"
-                            v-model:order="columnOrder"
-                            :visibility="columnVisibility"
-                            :columns="columns"
-                            :can-hide="canHideColumn"
-                            @toggle="setColumnVisibility($event, columnVisibility[$event] === false)"
-                            @show-all="showAllColumns"
-                        />
-                        <DataTableBulkActions
-                            v-if="bulkActions.length"
-                            :rows="selectedRows"
-                            :actions="bulkActions"
-                            :busy="busy"
-                            @clear="clearSelection"
-                        />
+        <div class="@container/table-toolbar max-w-full shrink-0" :style="{ width: contentWidth + 2 + 'px' }">
+            <div
+                class="flex flex-wrap items-center gap-3 @min-[600px]/table-toolbar:flex-nowrap"
+                data-slot="data-table-toolbar"
+            >
+                <div class="relative min-w-0 flex-1 basis-full @min-[600px]/table-toolbar:basis-0">
+                    <div class="overflow-x-auto scroll-smooth [scrollbar-width:none] motion-reduce:scroll-auto">
+                        <div class="flex w-max min-w-full items-center gap-3">
+                            <slot name="filters-before" />
+                            <DataTableFilters v-model="filters" :fields="resolvedFilterFields" />
+                            <DataTableSorting v-model="sorting" :columns="sortableColumns" />
+                            <DataTableVisibility
+                                v-if="!actions.length"
+                                v-model:order="columnOrder"
+                                :visibility="columnVisibility"
+                                :columns="columns"
+                                :can-hide="canHideColumn"
+                                @toggle="setColumnVisibility($event, columnVisibility[$event] === false)"
+                                @show-all="showAllColumns"
+                            />
+                            <DataTableBulkActions
+                                v-if="bulkActions.length"
+                                :rows="selectedRows"
+                                :actions="bulkActions"
+                                :busy="busy"
+                                @clear="clearSelection"
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="relative w-full min-w-0 shrink-0 @min-[600px]/data-table:w-64">
-                <Search
-                    class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden="true"
-                />
-                <Input
-                    v-model="query"
-                    class="h-8 bg-card pl-9 pr-8"
-                    :placeholder="searchLabel"
-                    :aria-label="searchLabel"
-                />
-                <Button
-                    v-if="query"
-                    variant="ghost"
-                    size="icon-sm"
-                    class="absolute right-0.5 top-1/2 size-7 -translate-y-1/2 text-muted-foreground"
-                    use-tooltip
-                    title="清除搜索"
-                    aria-label="清除搜索"
-                    @click="query = ''"
-                >
-                    <X class="size-3.5" aria-hidden="true" />
-                </Button>
+                <div class="relative w-full min-w-0 shrink-0 @min-[600px]/table-toolbar:w-64">
+                    <Search
+                        class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                        aria-hidden="true"
+                    />
+                    <Input
+                        v-model="query"
+                        class="h-8 bg-card pl-9 pr-8"
+                        :placeholder="searchLabel"
+                        :aria-label="searchLabel"
+                    />
+                    <Button
+                        v-if="query"
+                        variant="ghost"
+                        size="icon-sm"
+                        class="absolute right-0.5 top-1/2 size-7 -translate-y-1/2 text-muted-foreground"
+                        use-tooltip
+                        title="清除搜索"
+                        aria-label="清除搜索"
+                        @click="query = ''"
+                    >
+                        <X class="size-3.5" aria-hidden="true" />
+                    </Button>
+                </div>
             </div>
         </div>
         <p

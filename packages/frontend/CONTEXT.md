@@ -213,11 +213,23 @@ from the first visible record and retained for the empty state. An explicit
 `minHeight` is rounded up to complete rows after reserving header/footer/scrollbar
 space. Empty content fills the entire record viewport. Header and footer remain
 outside the vertical scroll owner.
-DataTable's toolbar responds to its own available width, not the sum of column
-widths: below 600px, search takes a deliberate second full-width row. Pagination
+DataTable's canvas remains full width, while its toolbar follows the actual frame
+width: below 600px, search takes a deliberate second full-width row. Callers may
+explicitly mark a name/description column with `fill`; the first visible marked
+column takes remaining canvas width within its bounds. Other columns remain fixed.
+Any manual resize freezes the current automatic fill width so a preceding fill
+column cannot absorb the pointer movement. Explicit sizing wins until that fill
+column's sizing is cleared. The model accepts a measured numeric available width;
+DOM measurement stays in DataTable. Pagination
 responds to the frame width, grouping total/page size and page number/navigation;
 very narrow frames use a compact vertical arrangement without stretching columns.
-See `docs/remediation/2026-10-15/r01/README.md` for R01 evidence and open gates.
+Detail main/aside composition becomes single-column below 1000px of body width;
+internal fact lists independently use two columns from 640px. Management Overview
+uses compact summary links and a 2:1 main/aside composition. Workspace identity
+and TeamManagement presentation use existing fields only; server queries,
+commands, permissions and production data sources remain unchanged.
+See `docs/remediation/2026-10-15/r01/revision/README.md` for revised R01 evidence
+and open gates; the parent R01 record preserves the first-round baseline.
 `component/data-table/model/useTableModel.ts` owns TanStack controlled state,
 filter definitions, pagination resets, selection pruning, column visibility/order
 and width constraints. Controls request changes through this owner instead of
