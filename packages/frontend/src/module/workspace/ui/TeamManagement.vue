@@ -13,8 +13,10 @@ import {
     ChevronLeft,
     ChevronRight,
     LogOut,
+    List,
+    Grid2X2,
 } from '@lucide/vue';
-import type { TeamMember, TeamRole, TeamRoleBody } from '@talos-ark/contracts/team';
+import type { TeamMember, TeamRole, TeamRoleBody, TeamInvitation } from '@talos-ark/contracts/team';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/checkbox';
@@ -24,11 +26,19 @@ import { StateBadge } from '@/component/state-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/ui/dialog';
 import { SelectField } from '@/component/select-field';
+import { ButtonGroup } from '@/ui/button-group';
+import { SheetInspector, CopyableId } from '@/component/inspector';
+import { ScrollSurface } from '@/component/scroll-surface';
+import { DataSyncNotice } from '@/component/data-sync';
 import { useWorkspaceStore } from '../model/store';
 import { useTeamStore } from '../model/team-store';
 import type { TeamCommand } from '../data/team-source';
+import TeamActionMenu from './TeamActionMenu.vue';
+import TeamPermissionField from './TeamPermissionField.vue';
+import TeamPermissionMatrix from './TeamPermissionMatrix.vue';
 
 const props = defineProps<{ view: 'members' | 'roles' }>();
+const emit = defineEmits<{ 'scope-label': [label: string] }>();
 const workspace = useWorkspaceStore(),
     team = useTeamStore();
 const organizationId = ref(workspace.organization?.id ?? workspace.organizations[0]?.id ?? '');
@@ -36,6 +46,10 @@ const workspaceId = ref('organization');
 const selectedWorkspaceId = computed(() => (workspaceId.value === 'organization' ? undefined : workspaceId.value));
 const tab = ref<'members' | 'invitations'>('members');
 const search = ref('');
+const roleSearch = ref('');
+const roleFilter = ref('all');
+const roleView = ref('list');
+const preview = ref<{ kind: 'member' | 'role' | 'invitation'; id: string } | null>(null);
 const modal = ref<'invite' | 'add-member' | 'bindings' | 'role' | 'confirm' | null>(null);
 const email = ref(''),
     formError = ref('');
@@ -64,6 +78,78 @@ const scopeOptions = computed(() => [
 ]);
 const disabled = computed(() => team.busy || team.loading || !!team.syncError);
 const definitions = computed(() => team.data?.definitions.filter((item) => item.scope === roleScope.value) ?? []);
+const scopeName = computed(() => scopeOptions.value.find((item) => item.value === workspaceId.value)?.label ?? '组织');
+const organizationName = computed(
+    () => organizationOptions.value.find((item) => item.value === organizationId.value)?.label ?? '组织'
+);
+watch(
+    [organizationName, scopeName],
+    () => emit('scope-label', `${organizationName.value} · ${props.view === 'roles' ? '角色定义' : scopeName.value}`),
+    { immediate: true }
+);
+const filteredRoles = computed(() =>
+    (team.data?.roles ?? []).filter(
+        (role) =>
+            (roleFilter.value === 'all' || role.scope === roleFilter.value) &&
+            `${role.name} ${role.code}`.toLocaleLowerCase().includes(roleSearch.value.trim().toLocaleLowerCase())
+    )
+);
+const matrixDefinitions = computed(() =>
+    (team.data?.definitions ?? []).filter((item) => roleFilter.value === 'all' || item.scope === roleFilter.value)
+);
+const permissionName = (code: string) => team.data?.definitions.find((item) => item.code === code)?.name ?? code;
+const previewRecord = computed(() => {
+    const current = preview.value;
+    if (!current) return;
+    if (current.kind === 'member') {
+        const member = team.data?.members.find((item) => item.id === current.id);
+        if (member)
+            return {
+                id: member.id,
+                name: member.name,
+                kind: '成员身份',
+                fields: [
+                    { label: '邮箱', value: member.email },
+                    { label: '状态', value: status(member.status) },
+                    { label: '角色', value: member.roles.map((role) => role.name).join('、') || '—' },
+                    { label: '所有者', value: member.isOwner ? '是' : '否' },
+                ],
+            };
+    } else if (current.kind === 'role') {
+        const role = team.data?.roles.find((item) => item.id === current.id);
+        if (role)
+            return {
+                id: role.id,
+                name: role.name,
+                kind: '角色定义',
+                fields: [
+                    { label: '标识', value: role.code },
+                    { label: '作用域', value: role.scope === 'ORGANIZATION' ? '组织' : '工作区' },
+                    { label: '保护状态', value: role.protected ? '系统保护' : '可管理' },
+                    { label: '权限', value: role.permissions.map(permissionName).join('\n') || '—' },
+                ],
+            };
+    } else {
+        const invitation = team.data?.invitations.find((item) => item.id === current.id);
+        if (invitation)
+            return {
+                id: invitation.id,
+                name: invitation.email,
+                kind: '成员邀请',
+                fields: [
+                    { label: '邀请范围', value: invitation.workspaceName || '组织' },
+                    { label: '状态', value: status(invitation.status) },
+                    { label: '有效期', value: new Date(invitation.expiresAt).toLocaleString() },
+                ],
+            };
+    }
+});
+const previewOpen = computed({
+    get: () => !!previewRecord.value,
+    set: (value) => {
+        if (!value) preview.value = null;
+    },
+});
 const total = computed(() =>
     props.view === 'roles'
         ? (team.data?.roles.length ?? 0)
@@ -71,7 +157,34 @@ const total = computed(() =>
           ? (team.data?.memberTotal ?? 0)
           : (team.data?.invitationTotal ?? 0)
 );
-const pages = computed(() => Math.max(1, Math.ceil(total.value / team.pageSize)));
+const pages = computed(() => Math.max(1, Math.ceil(total.value / (team.data?.pageSize ?? team.pageSize))));
+const pageSize = computed({
+    get: () => String(team.data?.pageSize ?? team.pageSize),
+    set: (value) => {
+        restoreDisplayedQuery();
+        team.pageSize = Number(value);
+        team.page = 1;
+        void reload();
+    },
+});
+const confirmationDescription = computed(() => {
+    switch (confirmation.value?.kind) {
+        case 'leave':
+            return selectedWorkspaceId.value
+                ? '将离开此工作区，不影响其他工作区的成员身份。'
+                : '将离开此组织及其工作区，不会注销账户。';
+        case 'remove-member':
+            return selectedWorkspaceId.value
+                ? '将移除此工作区的成员身份，不会删除账户。'
+                : '将移除此组织及其工作区的成员身份，不会删除账户。';
+        case 'archive-role':
+            return '角色归档后不能再分配；已有绑定的角色由服务端拒绝归档。';
+        case 'revoke':
+            return '撤销后，收件人无法再使用原邀请链接加入。';
+        default:
+            return '';
+    }
+});
 const status = (value: string) =>
     (
         ({
@@ -96,6 +209,9 @@ watch(
     [organizationId, workspaceId, () => workspace.activeId],
     async () => {
         modal.value = null;
+        preview.value = null;
+        search.value = '';
+        roleSearch.value = '';
         if (!organizationId.value) {
             team.reset();
             return;
@@ -106,15 +222,63 @@ watch(
     { immediate: true }
 );
 watch(tab, () => {
-    team.page = 1;
-    void reload();
+    preview.value = null;
+    goToPage(1);
 });
+watch(
+    () => team.data,
+    (data) => {
+        if (!previewRecord.value) preview.value = null;
+        if (!data) {
+            modal.value = null;
+            return;
+        }
+        if (!data.canInvite && tab.value === 'invitations') tab.value = 'members';
+        if (
+            (modal.value === 'role' &&
+                (!data.canManageRoles ||
+                    (selectedRole.value &&
+                        !data.roles.some((item) => item.id === selectedRole.value?.id && !item.protected)))) ||
+            (modal.value === 'bindings' &&
+                (!data.canManageMembers ||
+                    !data.members.some(
+                        (item) => item.id === selectedMember.value?.id && item.status === 'ACTIVE' && !item.isOwner
+                    ))) ||
+            (modal.value === 'invite' && !data.canInvite)
+        )
+            modal.value = null;
+        if (!data.definitions.length) roleView.value = 'list';
+        if (props.view === 'members' && data.page > pages.value) {
+            team.page = pages.value;
+            void reload();
+        }
+    }
+);
 async function reload() {
     try {
         await team.load();
     } catch {
         /* Error and retry stay visible. */
     }
+}
+function restoreDisplayedQuery() {
+    if (!team.data) return;
+    team.pageSize = team.data.pageSize;
+    team.search = team.appliedSearch;
+    search.value = team.appliedSearch;
+}
+function goToPage(page: number) {
+    if (team.busy || team.loading) return;
+    restoreDisplayedQuery();
+    team.page = page;
+    void reload();
+}
+function searchMembers() {
+    if (team.busy || team.loading) return;
+    team.pageSize = team.data?.pageSize ?? team.pageSize;
+    team.search = search.value.trim();
+    team.page = 1;
+    void reload();
 }
 function toggle(values: string[], value: string, checked: boolean | 'indeterminate') {
     return checked === true ? [...new Set([...values, value])] : values.filter((item) => item !== value);
@@ -135,6 +299,58 @@ function editRole(role?: TeamRole) {
     roleScope.value = role?.scope ?? 'WORKSPACE';
     permissions.value = [...(role?.permissions ?? [])];
     modal.value = 'role';
+}
+function memberActions(member: TeamMember) {
+    if (!team.data?.canManageMembers || member.isOwner) return [];
+    return [
+        ...(member.status === 'ACTIVE'
+            ? [{ label: '分配角色', icon: ShieldCheck, run: () => editBindings(member) }]
+            : []),
+        ...(member.status !== 'LEFT'
+            ? [
+                  {
+                      label: selectedWorkspaceId.value ? '移出工作区' : '移出组织',
+                      icon: UserMinus,
+                      destructive: true,
+                      run: () =>
+                          confirm(`移出${scopeName.value}中的成员「${member.name}」？`, {
+                              kind: 'remove-member',
+                              id: member.id,
+                          }),
+                  },
+              ]
+            : []),
+    ];
+}
+function roleActions(role: TeamRole) {
+    if (!team.data?.canManageRoles || role.protected) return [];
+    return [
+        { label: '编辑角色', icon: Pencil, run: () => editRole(role) },
+        {
+            label: '归档角色',
+            icon: Archive,
+            destructive: true,
+            run: () => confirm(`归档角色「${role.name}」？`, { kind: 'archive-role', id: role.id }),
+        },
+    ];
+}
+function invitationActions(invitation: TeamInvitation) {
+    if (!team.data?.canInvite || !['pending', 'expired'].includes(invitation.status)) return [];
+    return [
+        {
+            label: '重发邀请',
+            icon: Send,
+            run: () => {
+                void team.mutate({ kind: 'resend', id: invitation.id });
+            },
+        },
+        {
+            label: '撤销邀请',
+            icon: X,
+            destructive: true,
+            run: () => confirm(`撤销发送给「${invitation.email}」的邀请？`, { kind: 'revoke', id: invitation.id }),
+        },
+    ];
 }
 function confirm(title: string, command: TeamCommand) {
     confirmationTitle.value = title;
@@ -234,15 +450,24 @@ async function submit() {
                 </Button>
             </div>
         </div>
-        <p v-if="team.error" role="alert" class="text-sm text-destructive">{{ team.error }}</p>
-        <p v-if="team.syncError" role="alert" class="text-sm text-destructive">{{ team.syncError }}</p>
+        <div class="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <span>{{ organizationName }}</span>
+            <span aria-hidden="true">/</span>
+            <span>{{ view === 'roles' ? '角色定义' : scopeName }}</span>
+            <span v-if="team.loading" role="status" class="ml-auto">{{ team.data ? '正在更新列表' : '正在加载' }}</span>
+        </div>
+        <p v-if="team.error && !team.syncError" role="alert" class="text-sm text-destructive">
+            {{ team.error }}
+            <span v-if="team.data" class="ml-2 text-muted-foreground">当前显示上次成功加载的结果</span>
+        </p>
+        <DataSyncNotice scope="团队管理" :error="team.syncError" :busy="team.loading || team.busy" @retry="reload" />
         <p v-if="team.notice" role="status" class="text-sm text-muted-foreground">{{ team.notice }}</p>
         <p v-if="!organizationId" class="py-10 text-center text-sm text-muted-foreground">暂无可用组织</p>
         <template v-else-if="team.data">
             <div v-if="view === 'members'" class="flex flex-wrap items-center gap-3">
                 <div class="flex rounded-md border p-0.5" aria-label="成员视图">
                     <Button :variant="tab === 'members' ? 'secondary' : 'ghost'" size="sm" @click="tab = 'members'">
-                        成员
+                        成员 {{ team.data.memberTotal }}
                     </Button>
                     <Button
                         v-if="team.data.canInvite"
@@ -250,29 +475,75 @@ async function submit() {
                         size="sm"
                         @click="tab = 'invitations'"
                     >
-                        邀请
+                        邀请 {{ team.data.invitationTotal }}
                     </Button>
                 </div>
                 <form
                     class="flex w-full gap-2 @min-[600px]/team-management:ml-auto @min-[600px]/team-management:w-auto"
-                    @submit.prevent="
-                        team.search = search;
-                        team.page = 1;
-                        reload();
-                    "
+                    @submit.prevent="searchMembers"
                 >
                     <Input
                         v-model="search"
-                        aria-label="搜索成员或邮箱"
-                        placeholder="搜索成员或邮箱"
+                        :aria-label="tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱'"
+                        :placeholder="tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱'"
                         class="min-w-0 flex-1 @min-[600px]/team-management:w-60"
                         maxlength="100"
                     />
-                    <Button variant="outline" :disabled="team.loading">搜索</Button>
+                    <Button variant="outline" :disabled="team.loading || team.busy">搜索</Button>
                 </form>
             </div>
-            <div class="min-w-0 overflow-x-auto scroll-smooth rounded-lg border bg-card motion-reduce:scroll-auto">
+            <div v-else class="flex flex-wrap items-center gap-3">
+                <ButtonGroup aria-label="角色视图">
+                    <Button
+                        :variant="roleView === 'list' ? 'secondary' : 'outline'"
+                        :aria-pressed="roleView === 'list'"
+                        @click="roleView = 'list'"
+                    >
+                        <List />
+                        列表
+                    </Button>
+                    <Button
+                        v-if="team.data.definitions.length"
+                        :variant="roleView === 'matrix' ? 'secondary' : 'outline'"
+                        :aria-pressed="roleView === 'matrix'"
+                        @click="roleView = 'matrix'"
+                    >
+                        <Grid2X2 />
+                        权限矩阵
+                    </Button>
+                </ButtonGroup>
+                <SelectField
+                    v-model="roleFilter"
+                    label="角色作用域筛选"
+                    :options="[
+                        { value: 'all', label: '全部作用域' },
+                        { value: 'ORGANIZATION', label: '组织' },
+                        { value: 'WORKSPACE', label: '工作区' },
+                    ]"
+                />
+                <Input
+                    v-model="roleSearch"
+                    class="w-full @min-[600px]/team-management:ml-auto @min-[600px]/team-management:w-64"
+                    aria-label="搜索角色名称或标识"
+                    placeholder="搜索角色名称或标识"
+                />
+            </div>
+            <p v-if="view === 'roles'" class="text-sm text-muted-foreground">
+                {{ filteredRoles.length }} 个角色
+                <span v-if="roleSearch || roleFilter !== 'all'">，目录共 {{ team.data.roles.length }} 个</span>
+            </p>
+            <TeamPermissionMatrix
+                v-if="view === 'roles' && roleView === 'matrix'"
+                :roles="filteredRoles"
+                :definitions="matrixDefinitions"
+            />
+            <div
+                v-else
+                class="min-w-0 overflow-x-auto scroll-smooth rounded-lg border bg-card motion-reduce:scroll-auto"
+                :aria-busy="team.loading"
+            >
                 <Table
+                    container-class="overflow-visible"
                     class="table-fixed [&_th]:px-2.5 [&_td]:px-2.5 [&_td]:py-3"
                     :class="view === 'roles' ? 'min-w-[640px]' : 'min-w-[960px]'"
                 >
@@ -281,16 +552,16 @@ async function submit() {
                     </caption>
                     <colgroup v-if="view === 'roles'">
                         <col class="w-60" />
-                        <col class="w-28" />
+                        <col class="w-36" />
                         <col />
-                        <col class="w-28" />
+                        <col class="w-36" />
                     </colgroup>
                     <colgroup v-else>
                         <col class="w-60" />
                         <col class="w-64" />
                         <col />
                         <col class="w-24" />
-                        <col class="w-28" />
+                        <col class="w-36" />
                     </colgroup>
                     <TableHeader>
                         <TableRow>
@@ -311,76 +582,77 @@ async function submit() {
                                 <TableHead>有效期</TableHead>
                                 <TableHead>状态</TableHead>
                             </template>
-                            <TableHead class="w-28 text-right">操作</TableHead>
+                            <TableHead class="w-36 text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         <template v-if="view === 'roles'">
-                            <TableRow v-for="role in team.data.roles" :key="role.id">
-                                <TableCell class="whitespace-normal break-words font-medium">
-                                    <span class="flex items-start gap-3">
+                            <TableRow v-for="role in filteredRoles" :key="role.id">
+                                <TableCell class="relative whitespace-normal break-words font-medium">
+                                    <button
+                                        class="group flex w-full items-start gap-3 text-left after:absolute after:inset-0"
+                                        :aria-label="`预览角色 ${role.name}`"
+                                        @click="preview = { kind: 'role', id: role.id }"
+                                    >
                                         <ShieldCheck
                                             class="mt-0.5 size-5 shrink-0 text-muted-foreground"
                                             aria-hidden="true"
                                         />
-                                        {{ role.name }}
-                                    </span>
+                                        <span class="min-w-0">
+                                            <span class="block group-hover:underline group-focus-visible:underline">
+                                                {{ role.name }}
+                                            </span>
+                                            <span
+                                                class="mt-1 block break-all font-mono text-xs font-normal text-muted-foreground"
+                                            >
+                                                {{ role.code }}
+                                            </span>
+                                        </span>
+                                    </button>
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="secondary">
                                         {{ role.scope === 'ORGANIZATION' ? '组织' : '工作区' }}
                                     </Badge>
+                                    <span v-if="role.protected" class="mt-1 block text-xs text-muted-foreground">
+                                        系统保护
+                                    </span>
                                 </TableCell>
                                 <TableCell class="whitespace-normal break-words text-sm text-muted-foreground">
-                                    {{
-                                        role.permissions
-                                            .map(
-                                                (code) =>
-                                                    team.data?.definitions.find((item) => item.code === code)?.name ??
-                                                    code
-                                            )
-                                            .join('、') || '—'
-                                    }}
+                                    {{ role.permissions.slice(0, 3).map(permissionName).join('、') || '—' }}
+                                    <span v-if="role.permissions.length > 3" class="mt-1 block text-xs">
+                                        共 {{ role.permissions.length }} 项
+                                    </span>
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <Button
-                                        v-if="team.data.canManageRoles && !role.protected"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        use-tooltip
-                                        :aria-label="`编辑角色 ${role.name}`"
+                                    <TeamActionMenu
+                                        :name="role.name"
                                         :disabled="disabled"
-                                        @click="editRole(role)"
-                                    >
-                                        <Pencil />
-                                    </Button>
-                                    <Button
-                                        v-if="team.data.canManageRoles && !role.protected"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        use-tooltip
-                                        :aria-label="`归档角色 ${role.name}`"
-                                        :disabled="disabled"
-                                        @click="
-                                            confirm(`归档角色「${role.name}」？`, { kind: 'archive-role', id: role.id })
-                                        "
-                                    >
-                                        <Archive />
-                                    </Button>
+                                        :actions="roleActions(role)"
+                                        @preview="preview = { kind: 'role', id: role.id }"
+                                    />
                                 </TableCell>
                             </TableRow>
                         </template>
                         <template v-else-if="tab === 'members'">
                             <TableRow v-for="member in team.data.members" :key="member.id">
-                                <TableCell class="whitespace-normal">
-                                    <div class="flex items-center gap-3">
+                                <TableCell class="relative whitespace-normal">
+                                    <button
+                                        class="group flex w-full items-center gap-3 text-left after:absolute after:inset-0"
+                                        :aria-label="`预览成员 ${member.name}`"
+                                        @click="preview = { kind: 'member', id: member.id }"
+                                    >
                                         <Avatar class="size-9 shrink-0">
                                             <AvatarFallback class="bg-primary-soft text-primary">
                                                 {{ Array.from(member.name)[0] }}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div class="min-w-0">
-                                            <span class="block break-words font-medium">{{ member.name }}</span>
+                                            <span
+                                                class="block break-words font-medium group-hover:underline group-focus-visible:underline"
+                                            >
+                                                {{ member.name }}
+                                            </span>
                                             <span
                                                 v-if="member.isOwner"
                                                 class="mt-1 block text-xs text-muted-foreground"
@@ -388,7 +660,7 @@ async function submit() {
                                                 所有者
                                             </span>
                                         </div>
-                                    </div>
+                                    </button>
                                 </TableCell>
                                 <TableCell class="whitespace-normal break-all text-muted-foreground">
                                     {{ member.email }}
@@ -412,41 +684,28 @@ async function submit() {
                                     </StateBadge>
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <Button
-                                        v-if="
-                                            team.data.canManageMembers && member.status === 'ACTIVE' && !member.isOwner
-                                        "
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        use-tooltip
-                                        :aria-label="`分配角色 ${member.name}`"
+                                    <TeamActionMenu
+                                        :name="member.name"
                                         :disabled="disabled"
-                                        @click="editBindings(member)"
-                                    >
-                                        <ShieldCheck />
-                                    </Button>
-                                    <Button
-                                        v-if="team.data.canManageMembers && member.status !== 'LEFT' && !member.isOwner"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        use-tooltip
-                                        :aria-label="`移除成员 ${member.name}`"
-                                        :disabled="disabled"
-                                        @click="
-                                            confirm(`移除成员「${member.name}」？`, {
-                                                kind: 'remove-member',
-                                                id: member.id,
-                                            })
-                                        "
-                                    >
-                                        <UserMinus />
-                                    </Button>
+                                        :actions="memberActions(member)"
+                                        @preview="preview = { kind: 'member', id: member.id }"
+                                    />
                                 </TableCell>
                             </TableRow>
                         </template>
                         <template v-else>
                             <TableRow v-for="invitation in team.data.invitations" :key="invitation.id">
-                                <TableCell class="whitespace-normal break-all">{{ invitation.email }}</TableCell>
+                                <TableCell class="relative whitespace-normal break-all">
+                                    <button
+                                        class="group w-full text-left after:absolute after:inset-0"
+                                        :aria-label="`预览邀请 ${invitation.email}`"
+                                        @click="preview = { kind: 'invitation', id: invitation.id }"
+                                    >
+                                        <span class="group-hover:underline group-focus-visible:underline">
+                                            {{ invitation.email }}
+                                        </span>
+                                    </button>
+                                </TableCell>
                                 <TableCell class="whitespace-normal break-words">
                                     {{ invitation.workspaceName || '组织' }}
                                 </TableCell>
@@ -467,37 +726,37 @@ async function submit() {
                                     </StateBadge>
                                 </TableCell>
                                 <TableCell class="text-right">
-                                    <Button
-                                        v-if="invitation.status === 'pending' || invitation.status === 'expired'"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        use-tooltip
-                                        :aria-label="`重发邀请 ${invitation.email}`"
+                                    <TeamActionMenu
+                                        :name="invitation.email"
                                         :disabled="disabled"
-                                        @click="team.mutate({ kind: 'resend', id: invitation.id })"
-                                    >
-                                        <Send />
-                                    </Button>
-                                    <Button
-                                        v-if="invitation.status === 'pending' || invitation.status === 'expired'"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        use-tooltip
-                                        :aria-label="`撤销邀请 ${invitation.email}`"
-                                        :disabled="disabled"
-                                        @click="confirm('撤销此邀请？', { kind: 'revoke', id: invitation.id })"
-                                    >
-                                        <X />
-                                    </Button>
+                                        :actions="invitationActions(invitation)"
+                                        @preview="preview = { kind: 'invitation', id: invitation.id }"
+                                    />
                                 </TableCell>
                             </TableRow>
                         </template>
-                        <TableRow v-if="!total">
+                        <TableRow
+                            v-if="
+                                view === 'roles'
+                                    ? !filteredRoles.length
+                                    : !(tab === 'members' ? team.data.members.length : team.data.invitations.length)
+                            "
+                        >
                             <TableCell
                                 :colspan="view === 'roles' ? 4 : 5"
                                 class="h-28 text-center text-muted-foreground"
                             >
-                                暂无记录
+                                {{
+                                    (
+                                        view === 'roles'
+                                            ? roleSearch || roleFilter !== 'all'
+                                            : team.data.page && team.search
+                                    )
+                                        ? '没有匹配的记录'
+                                        : tab === 'invitations'
+                                          ? '当前范围暂无邀请'
+                                          : '当前范围暂无记录'
+                                }}
                             </TableCell>
                         </TableRow>
                     </TableBody>
@@ -506,17 +765,25 @@ async function submit() {
             <div v-if="view === 'members'" class="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span class="text-muted-foreground">共 {{ total }} 项</span>
                 <div class="ml-auto flex items-center gap-3">
-                    <span>第 {{ team.page }} / {{ pages }} 页</span>
+                    <SelectField
+                        v-model="pageSize"
+                        label="每页条数"
+                        hide-title
+                        :options="[
+                            { value: '20', label: '20 条' },
+                            { value: '50', label: '50 条' },
+                            { value: '100', label: '100 条' },
+                        ]"
+                        :disabled="disabled"
+                    />
+                    <span>第 {{ team.data.page }} / {{ pages }} 页</span>
                     <Button
                         variant="outline"
                         size="icon-sm"
                         use-tooltip
                         aria-label="上一页"
-                        :disabled="team.page <= 1 || disabled"
-                        @click="
-                            team.page--;
-                            reload();
-                        "
+                        :disabled="team.data.page <= 1 || disabled"
+                        @click="goToPage(team.data.page - 1)"
                     >
                         <ChevronLeft />
                     </Button>
@@ -525,19 +792,34 @@ async function submit() {
                         size="icon-sm"
                         use-tooltip
                         aria-label="下一页"
-                        :disabled="team.page >= pages || disabled"
-                        @click="
-                            team.page++;
-                            reload();
-                        "
+                        :disabled="team.data.page >= pages || disabled"
+                        @click="goToPage(team.data.page + 1)"
                     >
                         <ChevronRight />
                     </Button>
                 </div>
             </div>
         </template>
-        <p v-else-if="team.loading" role="status" class="py-10 text-center text-sm text-muted-foreground">正在加载</p>
     </section>
+    <SheetInspector
+        v-model:open="previewOpen"
+        :title="previewRecord?.name ?? '团队记录预览'"
+        description="当前组织范围内的记录摘要"
+    >
+        <ScrollSurface v-if="previewRecord" class="min-h-0 flex-1 p-6 pt-10">
+            <p class="mb-2 text-sm text-muted-foreground">{{ organizationName }} · {{ previewRecord.kind }}</p>
+            <h2 class="mb-3 break-words pr-6 text-lg font-semibold">{{ previewRecord.name }}</h2>
+            <CopyableId :value="previewRecord.id" :label="previewRecord.kind + ' ID'" />
+            <dl class="mt-6 grid grid-cols-[6rem_minmax(0,1fr)] gap-4 border-t pt-6 text-sm">
+                <dt class="text-muted-foreground">查询范围</dt>
+                <dd class="break-words">{{ view === 'roles' ? '组织角色目录' : scopeName }}</dd>
+                <template v-for="field in previewRecord.fields" :key="field.label">
+                    <dt class="text-muted-foreground">{{ field.label }}</dt>
+                    <dd class="break-words whitespace-pre-wrap">{{ field.value }}</dd>
+                </template>
+            </dl>
+        </ScrollSurface>
+    </SheetInspector>
     <Dialog
         :open="modal !== null"
         @update:open="
@@ -548,7 +830,7 @@ async function submit() {
     >
         <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg" :aria-describedby="undefined">
             <DialogHeader>
-                <DialogTitle>
+                <DialogTitle class="break-words pr-6">
                     {{
                         modal === 'invite'
                             ? '邀请已有账户'
@@ -563,8 +845,13 @@ async function submit() {
                                   : confirmationTitle
                     }}
                 </DialogTitle>
+                <p class="break-words text-sm text-muted-foreground">
+                    {{ organizationName }} ·
+                    {{ modal === 'role' ? (roleScope === 'ORGANIZATION' ? '组织角色' : '工作区角色定义') : scopeName }}
+                </p>
             </DialogHeader>
             <form class="space-y-4" @submit.prevent="submit">
+                <p v-if="modal === 'confirm'" class="break-words text-sm">{{ confirmationDescription }}</p>
                 <label v-if="modal === 'invite' || modal === 'add-member'" class="grid gap-2 text-sm">
                     账户邮箱
                     <Input v-model="email" type="email" required maxlength="254" :disabled="team.busy" />
@@ -594,40 +881,53 @@ async function submit() {
                         :disabled="!!selectedRole || team.busy"
                         @update:model-value="permissions = []"
                     />
-                    <div class="grid gap-3">
-                        <label
-                            v-for="definition in definitions"
-                            :key="definition.code"
-                            class="flex items-center gap-3 text-sm"
-                        >
-                            <Checkbox
-                                :model-value="permissions.includes(definition.code)"
-                                :disabled="team.busy"
-                                @update:model-value="
-                                    (value) => (permissions = toggle(permissions, definition.code, value))
-                                "
-                            />
-                            {{ definition.name }}
-                        </label>
-                    </div>
+                    <TeamPermissionField
+                        :key="roleScope"
+                        v-model="permissions"
+                        :definitions="definitions"
+                        :disabled="disabled"
+                    />
                 </template>
                 <div v-if="modal === 'bindings'" class="grid gap-3">
                     <label
-                        v-for="role in team.data?.roles.filter((item) => item.grantable)"
+                        v-for="role in team.data?.roles.filter(
+                            (item) => item.grantable || selectedMember?.roles.some((binding) => binding.id === item.id)
+                        )"
                         :key="role.id"
                         class="flex items-center gap-3 text-sm"
                     >
                         <Checkbox
                             :model-value="roleIds.includes(role.id)"
-                            :disabled="team.busy"
+                            :disabled="
+                                disabled ||
+                                (!role.grantable && !selectedMember?.roles.some((binding) => binding.id === role.id))
+                            "
                             @update:model-value="(value) => (roleIds = toggle(roleIds, role.id, value))"
                         />
                         {{ role.name }}
+                        <span v-if="!role.grantable" class="text-xs text-muted-foreground">当前不可新增授予</span>
                     </label>
+                    <p
+                        v-if="
+                            !team.data?.roles.some(
+                                (item) =>
+                                    item.grantable || selectedMember?.roles.some((binding) => binding.id === item.id)
+                            )
+                        "
+                        class="text-sm text-muted-foreground"
+                    >
+                        当前范围暂无可分配角色
+                    </p>
                 </div>
-                <p v-if="formError || team.syncError" role="alert" class="text-sm text-destructive">
-                    {{ formError || team.syncError }}
+                <p v-if="formError" role="alert" class="text-sm text-destructive">
+                    {{ formError }}
                 </p>
+                <DataSyncNotice
+                    scope="团队管理"
+                    :error="team.syncError"
+                    :busy="team.busy || team.loading"
+                    @retry="reload"
+                />
                 <DialogFooter>
                     <Button type="button" variant="outline" @click="modal = null">取消</Button>
                     <Button type="submit" :disabled="disabled">{{ team.busy ? '正在提交' : '确认' }}</Button>
