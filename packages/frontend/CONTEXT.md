@@ -74,6 +74,30 @@ list's selected organization. R02 adds no object-detail contracts or routes.
 See `docs/remediation/2026-10-15/r02/README.md` for real read-only and isolated
 verification, remaining contract gaps and acceptance limits.
 
+R03 adds explicit Mock detail routes for workspace, organization membership and
+role, following the user's decision to infer frontend read models from Prisma
+without backend changes. Real management lists expose separate prototype links;
+real row IDs, bootstrap and production readers never silently select Mock data.
+`module/workspace/prototype.ts` is a separate public entry selected only by
+`page/management/detail/prototype.ts`. Detail fixtures are imported only by their
+mock adapter. They are not aggregated into the ordinary module index.
+`createTeamManagementState` keeps the existing team behavior shared by the real
+Pinia store and a locally owned prototype instance. Embedded member/role views
+pin their explicit organization/workspace scope, not the global active workspace.
+OrganizationMember, WorkspaceMember and User IDs stay distinct. Detail-page
+headers and local navigation remain full width; only the body is centered and
+limited to 1280px of content. Quick returns read reactive navigation origins;
+same-kind object pickers preserve the entry source. Discarding a confirmed draft
+restores its values, not merely bypassing the navigation guard.
+Facility sharing means FacilityWorkspaceAccess, not generic sharing or expiry.
+Resource-created charts count createdAt in an explicit fixture date window, not
+usage. Member role-source views are not effective authorization evaluators. Role
+matrices use only existing registered definitions and do not add inheritance.
+Mock edits are memory-only and reset on reload; protection/read-only flags are
+simulation scenarios, not server authorization proof. See
+`docs/remediation/2026-10-15/r03/README.md` for schema mappings, future read-model
+requirements, browser evidence and unfinished real-backend acceptance.
+
 `component/view-context` owns only the generic scope registry (`register` and
 its returned `dispose`). Each provider creates its own reactive state in its
 actual owner: route-tab, breadcrumb or view-host. Route-tab types belong to

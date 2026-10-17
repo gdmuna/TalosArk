@@ -15,6 +15,9 @@ import AuditLog from '@/page/management/AuditLog.vue';
 import NotificationPolicy from '@/page/management/NotificationPolicy.vue';
 import Integration from '@/page/management/Integration.vue';
 import SystemSetting from '@/page/management/SystemSetting.vue';
+import WorkspaceDetail from '@/page/management/workspace/Detail.vue';
+import MemberDetail from '@/page/management/member/Detail.vue';
+import RoleDetail from '@/page/management/role/Detail.vue';
 
 import { managementNavigation } from './management-navigation';
 
@@ -37,19 +40,36 @@ const pages = {
     'system-setting': SystemSetting,
 };
 
-export const managementRoutes: RouteRecordRaw[] = managementNavigation.flatMap((group) =>
-    group.items.map(({ path, label }) => ({
-        path,
-        component: pages[path],
-        meta: {
-            defaultTitle: label,
-            pageLabel: label,
-            ...(path === 'account-setting' ||
-            path === 'workspace' ||
-            path === 'member' ||
-            path === 'role'
-                ? { requiresWorkspace: false }
-                : {}),
-        },
-    }))
-);
+export const managementRoutes: RouteRecordRaw[] = [
+    ...managementNavigation.flatMap((group) =>
+        group.items.map(({ path, label }) => ({
+            path,
+            component: pages[path],
+            meta: {
+                defaultTitle: label,
+                pageLabel: label,
+                ...(path === 'account-setting' ||
+                path === 'workspace' ||
+                path === 'member' ||
+                path === 'role'
+                    ? { requiresWorkspace: false }
+                    : {}),
+            },
+        }))
+    ),
+    {
+        path: 'workspace/:workspaceId',
+        component: WorkspaceDetail,
+        meta: { pageLabel: '工作区详情', defaultTitle: '工作区详情', requiresWorkspace: false },
+    },
+    {
+        path: 'member/:memberId',
+        component: MemberDetail,
+        meta: { pageLabel: '成员详情', defaultTitle: '成员详情', requiresWorkspace: false },
+    },
+    {
+        path: 'role/:roleId',
+        component: RoleDetail,
+        meta: { pageLabel: '角色详情', defaultTitle: '角色详情', requiresWorkspace: false },
+    },
+];

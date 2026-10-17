@@ -4,7 +4,7 @@
 
 ## 1. 现有 45 个叶子路由台账
 
-以当前 `src/router/index.ts`、`resource.ts`、`management.ts` 和 `module/workbench/route.ts` 为依据。下面不计 `/`、`/main` 等 redirect 和纯容器。拟新增路由另见对应分册，不能与这 45 项混算“已有”。
+以下 45 项是整改计划建立时的基线，以当时 `src/router/index.ts`、`resource.ts`、`management.ts` 和 `module/workbench/route.ts` 为依据，不计 redirect 和纯容器。R03 另增工作区、组织成员、角色三个显式 Mock 详情叶子路由，故不能继续把 45 当成当前路由总量；新增项及查询视图见 [R03](r03/README.md)，也不算真实接口已接入。
 
 | 序号 | 现有地址 | 整改归属 |
 | --- | --- | --- |
