@@ -36,18 +36,21 @@ import type { TeamCommand } from '../data/team-source';
 import TeamActionMenu from './TeamActionMenu.vue';
 import TeamPermissionField from './TeamPermissionField.vue';
 import TeamPermissionMatrix from './TeamPermissionMatrix.vue';
+import type { TeamManagementContext } from './team-context';
 
-const props = defineProps<{ view: 'members' | 'roles' }>();
+const props = defineProps<{ view: 'members' | 'roles'; context?: TeamManagementContext }>();
 const emit = defineEmits<{ 'scope-label': [label: string] }>();
-const workspace = useWorkspaceStore(),
-    team = useTeamStore();
-const organizationId = ref(workspace.organization?.id ?? workspace.organizations[0]?.id ?? '');
-const workspaceId = ref('organization');
+const workspace = props.context?.catalog ?? useWorkspaceStore(),
+    team = props.context?.team ?? useTeamStore();
+const organizationId = ref(
+    props.context?.selection.organizationId ?? workspace.organization?.id ?? workspace.organizations[0]?.id ?? ''
+);
+const workspaceId = ref(props.context?.selection.workspaceId ?? 'organization');
 const selectedWorkspaceId = computed(() => (workspaceId.value === 'organization' ? undefined : workspaceId.value));
 const tab = ref<'members' | 'invitations'>('members');
 const search = ref('');
 const roleSearch = ref('');
-const roleFilter = ref('all');
+const roleFilter = ref(props.context?.selection.workspaceId ? 'WORKSPACE' : 'all');
 const roleView = ref('list');
 const preview = ref<{ kind: 'member' | 'role' | 'invitation'; id: string } | null>(null);
 const modal = ref<'invite' | 'add-member' | 'bindings' | 'role' | 'confirm' | null>(null);
@@ -152,7 +155,8 @@ const previewOpen = computed({
 });
 const total = computed(() =>
     props.view === 'roles'
-        ? (team.data?.roles.length ?? 0)
+        ? (team.data?.roles.filter((role) => !props.context?.selection.workspaceId || role.scope === 'WORKSPACE')
+              .length ?? 0)
         : tab.value === 'members'
           ? (team.data?.memberTotal ?? 0)
           : (team.data?.invitationTotal ?? 0)
@@ -391,9 +395,15 @@ async function submit() {
 <template>
     <section class="@container/team-management min-w-0 space-y-4">
         <div class="flex flex-wrap items-center gap-3">
-            <SelectField v-model="organizationId" label="组织" :options="organizationOptions" :disabled="team.busy" />
             <SelectField
-                v-if="view === 'members'"
+                v-if="!context"
+                v-model="organizationId"
+                label="组织"
+                :options="organizationOptions"
+                :disabled="team.busy"
+            />
+            <SelectField
+                v-if="view === 'members' && !context"
                 v-model="workspaceId"
                 label="成员范围"
                 :options="scopeOptions"
@@ -461,7 +471,9 @@ async function submit() {
             <span v-if="team.data" class="ml-2 text-muted-foreground">当前显示上次成功加载的结果</span>
         </p>
         <DataSyncNotice scope="团队管理" :error="team.syncError" :busy="team.loading || team.busy" @retry="reload" />
-        <p v-if="team.notice" role="status" class="text-sm text-muted-foreground">{{ team.notice }}</p>
+        <p v-if="team.notice" role="status" class="text-sm text-muted-foreground">
+            {{ context?.simulation ? '模拟操作已完成，未发送邮件' : team.notice }}
+        </p>
         <p v-if="!organizationId" class="py-10 text-center text-sm text-muted-foreground">暂无可用组织</p>
         <template v-else-if="team.data">
             <div v-if="view === 'members'" class="flex flex-wrap items-center gap-3">
@@ -513,6 +525,7 @@ async function submit() {
                     </Button>
                 </ButtonGroup>
                 <SelectField
+                    v-if="!context"
                     v-model="roleFilter"
                     label="角色作用域筛选"
                     :options="[
@@ -545,7 +558,7 @@ async function submit() {
                 <Table
                     container-class="overflow-visible"
                     class="table-fixed [&_th]:px-2.5 [&_td]:px-2.5 [&_td]:py-3"
-                    :class="view === 'roles' ? 'min-w-[640px]' : 'min-w-[960px]'"
+                    :class="view === 'roles' ? (context ? 'min-w-[768px]' : 'min-w-[640px]') : 'min-w-[960px]'"
                 >
                     <caption class="sr-only">
                         {{ view === 'roles' ? '角色与权限' : tab === 'members' ? '成员' : '邀请' }}
@@ -553,6 +566,7 @@ async function submit() {
                     <colgroup v-if="view === 'roles'">
                         <col class="w-60" />
                         <col class="w-36" />
+                        <col v-if="context" class="w-28" />
                         <col />
                         <col class="w-36" />
                     </colgroup>
@@ -568,6 +582,7 @@ async function submit() {
                             <template v-if="view === 'roles'">
                                 <TableHead>角色</TableHead>
                                 <TableHead>作用域</TableHead>
+                                <TableHead v-if="context" class="w-28 text-center">本区绑定</TableHead>
                                 <TableHead>权限</TableHead>
                             </template>
                             <template v-else-if="tab === 'members'">
@@ -618,6 +633,9 @@ async function submit() {
                                         系统保护
                                     </span>
                                 </TableCell>
+                                <TableCell v-if="context" class="text-center">
+                                    {{ context.roleBindings[role.id] ?? 0 }}
+                                </TableCell>
                                 <TableCell class="whitespace-normal break-words text-sm text-muted-foreground">
                                     {{ role.permissions.slice(0, 3).map(permissionName).join('、') || '—' }}
                                     <span v-if="role.permissions.length > 3" class="mt-1 block text-xs">
@@ -627,6 +645,7 @@ async function submit() {
                                 <TableCell class="text-right">
                                     <TeamActionMenu
                                         :name="role.name"
+                                        :detail="context ? () => context?.onRoleDetail(role.id) : undefined"
                                         :disabled="disabled"
                                         :actions="roleActions(role)"
                                         @preview="preview = { kind: 'role', id: role.id }"
@@ -686,6 +705,7 @@ async function submit() {
                                 <TableCell class="text-right">
                                     <TeamActionMenu
                                         :name="member.name"
+                                        :detail="context ? () => context?.onMemberDetail(member.id) : undefined"
                                         :disabled="disabled"
                                         :actions="memberActions(member)"
                                         @preview="preview = { kind: 'member', id: member.id }"
@@ -743,7 +763,7 @@ async function submit() {
                             "
                         >
                             <TableCell
-                                :colspan="view === 'roles' ? 4 : 5"
+                                :colspan="view === 'roles' && !context ? 4 : 5"
                                 class="h-28 text-center text-muted-foreground"
                             >
                                 {{

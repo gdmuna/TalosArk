@@ -11,6 +11,7 @@ import { SelectField } from '@/component/select-field';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { ScrollSurface } from '@/component/scroll-surface';
 import ManagementPage from './component/ManagementPage.vue';
+import PrototypeLink from './detail/PrototypeLink.vue';
 
 const workspace = useWorkspaceStore();
 const router = useRouter();
@@ -94,6 +95,7 @@ const columns: DataTableColumn<(typeof rows.value)[number]>[] = [
         :context="scopeOptions.find((item) => item.value === organizationId)?.label"
     >
         <template #actions>
+            <PrototypeLink kind="workspace" />
             <Button
                 v-if="workspace.canCreateOrganization"
                 variant="outline"

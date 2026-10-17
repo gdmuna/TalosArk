@@ -4,7 +4,7 @@
 
 ## 先确定对象层级，不再让列表代替详情
 
-以下为**拟新增**的路由方案，当前并不存在：
+以下路由已在 R03 作为**显式 Mock 详情**实施，真实详情接口仍缺失。`memberId` 明确为 OrganizationMember ID，工作区成员到此身份的映射由读模型提供。真实列表另设“模拟详情”入口，不把真实行替换为 Mock。详细适配与截图见 [R03](r03/README.md)。本册后续“当前差异/缺失”为整改前基线，不能当作本轮实现状态。
 
 | 设计 | 建议地址 | 对象上下文 |
 | --- | --- | --- |
@@ -12,9 +12,9 @@
 | E-05 | 同上 `view=member` | 当前查看的工作区成员，不是全组织成员 |
 | E-06 | 同上 `view=role` | 本工作区角色与成员绑定，区分组织级角色定义所有权 |
 | E-07 | 同上 `view=resource` | 工作区资源及关系，不等于可见的所有资源 |
-| E-08 | 同上 `view=sharing` | 发出/收到的组织内共享，分别说明权限来源 |
+| E-08 | 同上 `view=sharing` | 发出/收到的设施工作区访问；不扩展为通用资源共享 |
 | E-09 | 同上 `view=setting` | 该工作区设置，不是组织或个人设置 |
-| E-11 | `/main/management/member/:memberId?organization=:organizationId&view=overview` | 组织成员身份；memberId 的契约含义须确认，不能拿 User ID 冒充 membership ID |
+| E-11 | `/main/management/member/:memberId?organization=:organizationId&view=overview` | 组织成员身份，不是 User ID 或 WorkspaceMember ID；组织参数参与查询 |
 
 页面内部可以分组为 `page/management/workspace/`、`member/`，模型仍归 `module/workspace/` 或对应领域模块。先做清楚的对象路由与复用数据能力，不做万能详情框架。
 

@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch, type UnwrapRef } from 'vue';
 import { defineStore } from 'pinia';
 import type { TeamManagement } from '@talos-ark/contracts/team';
 import { HttpError } from '@/platform/http';
@@ -30,8 +30,9 @@ export function teamErrorMessage(error: unknown): string {
     );
 }
 
-export const useTeamStore = defineStore('team-management', () => {
-    const workspace = useWorkspaceStore();
+export function createTeamManagementState(
+    workspace: Pick<ReturnType<typeof useWorkspaceStore>, 'load' | 'activeId'>
+) {
     const selection = shallowRef<TeamSelection | null>(null);
     const data = shallowRef<TeamManagement | null>(null);
     const loading = ref(false),
@@ -171,4 +172,9 @@ export const useTeamStore = defineStore('team-management', () => {
         inspect: (token: string, signal: AbortSignal) => source.inspect(token, signal),
         accept: (token: string, signal: AbortSignal) => source.accept(token, signal),
     };
-});
+}
+
+export type TeamManagementModel = UnwrapRef<ReturnType<typeof createTeamManagementState>>;
+export const useTeamStore = defineStore('team-management', () =>
+    createTeamManagementState(useWorkspaceStore())
+);

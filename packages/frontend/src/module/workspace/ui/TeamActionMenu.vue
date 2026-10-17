@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 defineProps<{
     name: string;
     disabled: boolean;
+    detail?: () => void;
     actions: { label: string; icon: Component; run: () => void; destructive?: boolean }[];
 }>();
 defineEmits<{ preview: [] }>();
@@ -14,7 +15,13 @@ defineEmits<{ preview: [] }>();
 
 <template>
     <div class="flex items-center justify-end gap-1">
-        <Button size="sm" :aria-label="`预览：${name}`" @click="$emit('preview')">预览</Button>
+        <Button
+            size="sm"
+            :aria-label="`${detail ? '详情' : '预览'}：${name}`"
+            @click="detail ? detail() : $emit('preview')"
+        >
+            {{ detail ? '详情' : '预览' }}
+        </Button>
         <DropdownMenu>
             <DropdownMenuTrigger as-child>
                 <Button variant="ghost" size="icon-sm" use-tooltip :aria-label="`更多操作：${name}`">
@@ -22,6 +29,10 @@ defineEmits<{ preview: [] }>();
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+                <DropdownMenuItem v-if="detail" @select="detail">
+                    <Eye />
+                    详情
+                </DropdownMenuItem>
                 <DropdownMenuItem @select="$emit('preview')">
                     <Eye />
                     预览

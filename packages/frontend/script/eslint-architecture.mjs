@@ -21,7 +21,7 @@ const componentDependencies = {
 };
 const platformDependencies = { http: new Set(['task']) };
 const publicEntries = {
-    module: new Set(['index.ts', 'ui/index.ts', 'route.ts', 'navigation.ts']),
+    module: new Set(['index.ts', 'ui/index.ts', 'route.ts', 'navigation.ts', 'prototype.ts']),
     component: new Set(['index.ts']),
     platform: new Set(['index.ts']),
 };
@@ -99,6 +99,14 @@ export const frontendImportBoundaries = {
                 return;
             }
             if (to.layer === 'module') {
+                if (to.owner === 'workspace' && to.entry === 'prototype.ts') {
+                    if (from.relative !== 'page/management/detail/prototype.ts') report('mock');
+                    return;
+                }
+                if (to.entry === 'data/detail/fixture.ts') {
+                    if (from.relative !== `module/${to.owner}/data/detail/mock.ts`) report('mock');
+                    return;
+                }
                 if (to.entry === 'data/mock.ts') {
                     if (from.relative !== 'bootstrap.ts') report('mock');
                     return;
