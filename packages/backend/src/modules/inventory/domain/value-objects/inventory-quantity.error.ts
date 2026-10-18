@@ -1,6 +1,6 @@
 import { defineErrorClass, defineInternalErrorCatalog } from '@/platform/error/index.js';
 
-const catalog = defineInternalErrorCatalog('inventory.quantity', ['invalid']);
+const catalog = defineInternalErrorCatalog('inventory-quantity', ['invalid']);
 
 export const InventoryQuantityError = defineErrorClass(catalog, {
     name: 'InventoryQuantityError',
