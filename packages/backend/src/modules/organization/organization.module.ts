@@ -3,6 +3,7 @@ import { DatabaseModule } from '@/infra/database/database.module.js';
 import { OrganizationContextModule } from '@/core/organization-context/index.js';
 import { PermissionModule } from '@/core/permission/index.js';
 import { AuthorizationModule } from '@/core/authorization/index.js';
+import { TeamGovernanceModule } from '@/core/team-governance/index.js';
 import { AuditModule } from '@/core/audit/index.js';
 import { WorkspaceModule } from '@/modules/workspace/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
@@ -14,6 +15,8 @@ import { OrganizationTeamService } from './application/team.service.js';
 import { OrganizationInvitationService } from './application/invitation.service.js';
 import { InvitationDelivery } from './application/invitation.delivery.js';
 import { TeamOperations } from './application/team.operations.js';
+import { TeamDetailController } from './api/team-detail.controller.js';
+import { TeamDetailService } from './application/team-detail.service.js';
 
 @Module({
     imports: [
@@ -21,17 +24,24 @@ import { TeamOperations } from './application/team.operations.js';
         OrganizationContextModule,
         PermissionModule,
         AuthorizationModule,
+        TeamGovernanceModule,
         AuditModule,
         WorkspaceModule,
         PlatformContextModule,
     ],
-    controllers: [OrganizationController, OrganizationTeamController, InvitationController],
+    controllers: [
+        OrganizationController,
+        OrganizationTeamController,
+        TeamDetailController,
+        InvitationController,
+    ],
     providers: [
         OrganizationService,
         OrganizationTeamService,
         OrganizationInvitationService,
         InvitationDelivery,
         TeamOperations,
+        TeamDetailService,
     ],
 })
 export class OrganizationModule {}

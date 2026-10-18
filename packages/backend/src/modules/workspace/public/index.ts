@@ -1,2 +1,2 @@
-export { WorkspaceService, workspacePermission } from '../application/workspace.service.js';
-export { workspaceCreateAuthorization } from '../contribution/workspace-authorization.contribution.js';
+export { WorkspaceService } from '../application/workspace.service.js';
+export { workspacePermission, workspaceCreateAuthorization } from '@/core/team-governance/index.js';

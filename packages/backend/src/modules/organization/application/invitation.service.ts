@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import type { AllConfig } from '@/config/index.js';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { AuthorizationKernel } from '@/core/authorization/index.js';
-import { organizationPermission as op } from '../contribution/organization-authorization.contribution.js';
+import { organizationPermission as op } from '@/core/team-governance/index.js';
 import { OrganizationTeamService } from './team.service.js';
 import { TeamOperations } from './team.operations.js';
 import { TeamError } from './team.error.js';

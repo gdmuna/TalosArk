@@ -9,9 +9,9 @@ import { OrganizationContextKernel } from '@/core/organization-context/index.js'
 import { PermissionKernel } from '@/core/permission/index.js';
 import { AuthorizationKernel } from '@/core/authorization/index.js';
 import { AuditKernel } from '@/core/audit/index.js';
-import { WorkspaceService, workspacePermission } from '@/modules/workspace/index.js';
+import { WorkspaceService } from '@/modules/workspace/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
-import { organizationPermission } from '../contribution/organization-authorization.contribution.js';
+import { organizationPermission, workspacePermission } from '@/core/team-governance/index.js';
 
 @Injectable()
 export class OrganizationService {

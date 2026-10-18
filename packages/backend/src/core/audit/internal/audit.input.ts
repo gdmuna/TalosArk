@@ -40,6 +40,16 @@ const listSchema = z.strictObject({
         z.strictObject({ kind: z.literal('workspace'), organizationId: uuid, workspaceId: uuid }),
     ]),
     resourceId: uuid.optional(),
+    actions: z.array(z.string().min(1).max(100)).min(1).max(32).optional(),
+    detailsMatch: z
+        .strictObject({
+            field: z
+                .string()
+                .max(128)
+                .regex(/^[A-Za-z][A-Za-z0-9_]*$/),
+            value: text(200),
+        })
+        .optional(),
     from: date.optional(),
     until: date.optional(),
     limit: z.number().int().min(1).max(100).default(50),

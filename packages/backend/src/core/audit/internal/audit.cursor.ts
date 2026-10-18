@@ -19,6 +19,8 @@ function queryKey(input: ParsedAuditList): string {
                 organizationId: input.scope.organizationId,
                 workspaceId: input.scope.kind === 'workspace' ? input.scope.workspaceId : null,
                 resourceId: input.resourceId ?? null,
+                actions: input.actions ? [...input.actions].sort() : null,
+                detailsMatch: input.detailsMatch ?? null,
                 from: input.from?.toISOString() ?? null,
                 until: input.until?.toISOString() ?? null,
             })

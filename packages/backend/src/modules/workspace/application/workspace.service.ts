@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { CreateWorkspaceBody, WorkspaceSummary } from '@talos-ark/contracts/team';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { OrganizationContextError } from '@/core/organization-context/index.js';
@@ -6,13 +6,9 @@ import { AuthorizationExtension, PermissionKernel } from '@/core/permission/inde
 import { AuthorizationKernel } from '@/core/authorization/index.js';
 import { AuditKernel } from '@/core/audit/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
+import { WORKSPACE_MANAGER_PERMISSIONS } from '../workspace.configuration.js';
 
-import {
-    workspaceAuthorization,
-    workspacePermission,
-} from '../contribution/workspace-authorization.contribution.js';
-
-export { workspacePermission } from '../contribution/workspace-authorization.contribution.js';
+import { workspaceAuthorization, workspacePermission } from '@/core/team-governance/index.js';
 
 @Injectable()
 @AuthorizationExtension(workspaceAuthorization)
@@ -22,7 +18,9 @@ export class WorkspaceService {
         private readonly permission: PermissionKernel,
         private readonly authorization: AuthorizationKernel,
         private readonly audit: AuditKernel,
-        private readonly actor: AlsContextAdapter
+        private readonly actor: AlsContextAdapter,
+        @Inject(WORKSPACE_MANAGER_PERMISSIONS)
+        private readonly managerPermissions: readonly string[]
     ) {}
 
     create(organizationId: string, input: CreateWorkspaceBody): Promise<WorkspaceSummary> {
@@ -50,7 +48,7 @@ export class WorkspaceService {
                     scope: 'WORKSPACE',
                     code: 'workspace-manager',
                     name: 'Workspace manager',
-                    permissions: [workspacePermission.read],
+                    permissions: this.managerPermissions,
                 });
             }
             const workspace = await this.database.queryClient.workspace.create({

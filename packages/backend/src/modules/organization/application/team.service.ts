@@ -9,8 +9,12 @@ import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { OrganizationContextKernel } from '@/core/organization-context/index.js';
 import { AuthorizationKernel } from '@/core/authorization/index.js';
 import { PermissionKernel, type PermissionScope } from '@/core/permission/index.js';
-import { organizationPermission as op } from '../contribution/organization-authorization.contribution.js';
-import { workspacePermission as wp } from '@/modules/workspace/contribution/workspace-authorization.contribution.js';
+import {
+    TeamGovernanceKernel,
+    organizationPermission as op,
+    workspacePermission as wp,
+    type OrganizationGovernancePermission,
+} from '@/core/team-governance/index.js';
 import { TeamError } from './team.error.js';
 import { protectedRoleCodes, TeamOperations } from './team.operations.js';
 
@@ -21,7 +25,8 @@ export class OrganizationTeamService {
         private readonly permission: PermissionKernel,
         private readonly authorization: AuthorizationKernel,
         private readonly organization: OrganizationContextKernel,
-        private readonly operations: TeamOperations
+        private readonly operations: TeamOperations,
+        private readonly governance: TeamGovernanceKernel
     ) {}
 
     target(organizationId: string, workspaceId?: string): PermissionScope {
@@ -30,54 +35,26 @@ export class OrganizationTeamService {
             : { kind: 'organization', organizationId };
     }
 
-    async owner(organizationId: string, permissionCode: string): Promise<void> {
-        const userId = this.operations.actor();
-        if (permissionCode !== op.read)
-            await this.authorization.require({
-                subject: { kind: 'user', userId },
-                permissionCode: op.read,
-                target: this.target(organizationId),
-            });
-        const context = await this.authorization.require({
-            subject: { kind: 'user', userId },
+    owner(organizationId: string, permissionCode: OrganizationGovernancePermission): Promise<void> {
+        return this.governance.requireOrganizationOwner({
+            subject: { kind: 'user', userId: this.operations.actor() },
+            organizationId,
             permissionCode,
-            target: { kind: 'organization', organizationId },
         });
-        if (!context.organization.isOwner) throw new TeamError({ reason: 'forbidden' });
     }
 
     async manage(organizationId: string, workspaceId?: string): Promise<boolean> {
         const userId = this.operations.actor();
-        const membership = await this.organization.requireMembership(userId, organizationId);
-        await this.authorization.require({
-            subject: { kind: 'user', userId },
-            permissionCode: op.read,
-            target: this.target(organizationId),
-        });
-        const owner =
-            membership.isOwner &&
-            (
-                await this.permission.evaluate({
-                    subject: { kind: 'user', userId },
-                    permissionCode: op.members,
-                    scope: this.target(organizationId),
-                })
-            ).allowed;
-        if (workspaceId) {
-            const workspace = await this.database.queryClient.workspace.findFirst({
-                where: { id: workspaceId, organizationId, archivedAt: null },
-                select: { id: true },
-            });
-            if (!workspace) throw new TeamError({ reason: 'forbidden' });
-        }
-        if (owner) return true;
-        if (!workspaceId) throw new TeamError({ reason: 'forbidden' });
-        await this.authorization.require({
-            subject: { kind: 'user', userId },
-            permissionCode: wp.members,
-            target: this.target(organizationId, workspaceId),
-        });
-        return false;
+        const input = { subject: { kind: 'user' as const, userId }, organizationId };
+        if (workspaceId)
+            return (
+                (await this.governance.requireWorkspaceMemberManagement({
+                    ...input,
+                    workspaceId,
+                })) === 'organization'
+            );
+        await this.governance.requireOrganizationMemberManagement(input);
+        return true;
     }
 
     initialize(organizationId: string): Promise<void> {
@@ -131,88 +108,69 @@ export class OrganizationTeamService {
         return this.database.transaction.run(
             async () => {
                 const userId = this.operations.actor();
-                const membership = await this.organization.requireMembership(
-                    userId,
-                    organizationId
-                );
-                await this.authorization.require({
+                const governance = await this.governance.readTeam({
                     subject: { kind: 'user', userId },
-                    permissionCode: op.read,
-                    target: this.target(organizationId),
+                    organizationId,
+                    workspaceId: query.workspaceId,
                 });
                 const scope = this.target(organizationId, query.workspaceId);
-                const ownerGrants = await this.permission.evaluateMany(
-                    [op.members, op.roles, op.invitations].map((permissionCode) => ({
-                        subject: { kind: 'user' as const, userId },
-                        permissionCode,
-                        scope: this.target(organizationId),
-                    }))
-                );
-                const owner = membership.isOwner;
-                const organizationManager = owner && ownerGrants[0].allowed;
-                let workspaceManager = false;
-                if (query.workspaceId) {
-                    const context = await this.database.queryClient.workspace.findFirst({
-                        where: { id: query.workspaceId, organizationId, archivedAt: null },
-                        select: { id: true },
-                    });
-                    if (!context) throw new TeamError({ reason: 'forbidden' });
-                    if (!organizationManager) {
-                        await this.authorization.require({
-                            subject: { kind: 'user', userId },
-                            permissionCode: wp.read,
-                            target: scope,
-                        });
-                        workspaceManager = (
-                            await this.permission.evaluate({
-                                subject: { kind: 'user', userId },
-                                permissionCode: wp.members,
-                                scope,
-                            })
-                        ).allowed;
-                    }
+                const owner = governance.organization.isOwner;
+                const organizationManager = governance.canManageOrganizationMembers;
+                const canManageMembers = governance.memberVisibility.kind !== 'self';
+                const roles =
+                    canManageMembers || owner
+                        ? await this.database.queryClient.role.findMany({
+                              where: {
+                                  organizationId,
+                                  archivedAt: null,
+                                  ...(!owner ? { scope: 'WORKSPACE' as const } : {}),
+                              },
+                              orderBy: [{ scope: 'asc' }, { code: 'asc' }],
+                              select: {
+                                  id: true,
+                                  code: true,
+                                  name: true,
+                                  scope: true,
+                                  permissions: { select: { permissionCode: true } },
+                                  updatedAt: true,
+                              },
+                          })
+                        : [];
+                const roleViews = roles.map((role) => ({
+                    ...role,
+                    permissions: role.permissions.map((item) => item.permissionCode),
+                    protected: protectedRoleCodes.has(role.code),
+                    grantable:
+                        role.scope === (query.workspaceId ? 'WORKSPACE' : 'ORGANIZATION') &&
+                        role.code !== 'organization-owner' &&
+                        role.code !== 'organization-governance',
+                    updatedAt: role.updatedAt.toISOString(),
+                }));
+                if (!organizationManager) {
+                    const permissionCodes = [
+                        ...new Set(
+                            roleViews
+                                .filter((role) => role.grantable)
+                                .flatMap((role) => role.permissions)
+                        ),
+                    ];
+                    const decisions = permissionCodes.length
+                        ? await this.permission.evaluateMany(
+                              permissionCodes.map((permissionCode) => ({
+                                  subject: { kind: 'user' as const, userId },
+                                  permissionCode,
+                                  scope,
+                              }))
+                          )
+                        : [];
+                    const allowedPermissions = new Set(
+                        permissionCodes.filter((_, index) => decisions[index].allowed)
+                    );
+                    for (const role of roleViews)
+                        role.grantable &&= role.permissions.every((code) =>
+                            allowedPermissions.has(code)
+                        );
                 }
-                const canManageMembers = organizationManager || workspaceManager;
-                const roles = await this.database.queryClient.role.findMany({
-                    where: {
-                        organizationId,
-                        archivedAt: null,
-                        ...(!owner ? { scope: 'WORKSPACE' as const } : {}),
-                    },
-                    orderBy: [{ scope: 'asc' }, { code: 'asc' }],
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        scope: true,
-                        permissions: { select: { permissionCode: true } },
-                    },
-                });
-                const roleViews = await Promise.all(
-                    roles.map(async (role) => {
-                        const permissions = role.permissions.map((item) => item.permissionCode);
-                        const grantable =
-                            role.scope === (query.workspaceId ? 'WORKSPACE' : 'ORGANIZATION') &&
-                            role.code !== 'organization-owner' &&
-                            role.code !== 'organization-governance' &&
-                            (organizationManager ||
-                                (
-                                    await this.permission.evaluateMany(
-                                        permissions.map((permissionCode) => ({
-                                            subject: { kind: 'user' as const, userId },
-                                            permissionCode,
-                                            scope,
-                                        }))
-                                    )
-                                ).every((value) => value.allowed));
-                        return {
-                            ...role,
-                            permissions,
-                            protected: protectedRoleCodes.has(role.code),
-                            grantable,
-                        };
-                    })
-                );
                 const search = query.search
                     ? {
                           OR: [
@@ -251,6 +209,7 @@ export class OrganizationTeamService {
                         orderBy: { id: 'asc' },
                         select: {
                             id: true,
+                            organizationMemberId: true,
                             status: true,
                             organizationMember: {
                                 select: {
@@ -265,6 +224,7 @@ export class OrganizationTeamService {
                     });
                     members = rows.map((row) => ({
                         id: row.id,
+                        organizationMemberId: row.organizationMemberId,
                         userId: row.organizationMember.user.id,
                         name: row.organizationMember.user.username,
                         email: row.organizationMember.user.email,
@@ -293,6 +253,7 @@ export class OrganizationTeamService {
                     });
                     members = rows.map((row) => ({
                         id: row.id,
+                        organizationMemberId: row.id,
                         userId: row.user.id,
                         name: row.user.username,
                         email: row.user.email,
@@ -309,7 +270,7 @@ export class OrganizationTeamService {
                     ...member,
                     isOwner: member.userId === org.ownerUserId,
                 }));
-                const canInvite = owner && ownerGrants[2].allowed;
+                const canInvite = governance.canInvite;
                 const invitationWhere = {
                     organizationId,
                     ...(query.workspaceId ? { workspaceId: query.workspaceId } : {}),
@@ -346,11 +307,11 @@ export class OrganizationTeamService {
                     initialized,
                     canInitialize: owner && !initialized,
                     canManageMembers,
-                    canManageRoles: owner && ownerGrants[1].allowed,
+                    canManageRoles: governance.canEditRoleDefinitions,
                     canInvite,
                     members,
                     memberTotal,
-                    roles: canManageMembers || owner ? roleViews : [],
+                    roles: roleViews,
                     definitions: owner ? [...this.permission.definitions()] : [],
                     invitations: invitations.map((item) => ({
                         id: item.id,
@@ -397,7 +358,7 @@ export class OrganizationTeamService {
             await this.operations.record(
                 organizationId,
                 'workspace.member.add',
-                { userId: member.userId },
+                { userId: member.userId, organizationMemberId: member.id },
                 workspaceId
             );
         });
@@ -518,7 +479,11 @@ export class OrganizationTeamService {
             await this.operations.record(
                 organizationId,
                 'member.roles.replace',
-                { memberId, roleIds: roles.map((role) => role.id) },
+                {
+                    memberId,
+                    organizationMemberId: target.organizationMemberId,
+                    roleIds: roles.map((role) => role.id),
+                },
                 workspaceId
             );
         });
@@ -577,7 +542,11 @@ export class OrganizationTeamService {
             await this.operations.record(
                 organizationId,
                 self ? 'member.leave' : 'member.remove',
-                { memberId, userId: target.userId },
+                {
+                    memberId,
+                    organizationMemberId: target.organizationMemberId,
+                    userId: target.userId,
+                },
                 workspaceId
             );
         });
@@ -613,7 +582,7 @@ export class OrganizationTeamService {
                   select: {
                       status: true,
                       organizationMember: {
-                          select: { userId: true, user: { select: { email: true } } },
+                          select: { id: true, userId: true, user: { select: { email: true } } },
                       },
                   },
               })
@@ -625,11 +594,21 @@ export class OrganizationTeamService {
               }
             : await this.database.queryClient.organizationMember.findFirst({
                   where: { id: memberId, organizationId },
-                  select: { userId: true, status: true, user: { select: { email: true } } },
+                  select: {
+                      id: true,
+                      userId: true,
+                      status: true,
+                      user: { select: { email: true } },
+                  },
               });
         if (!member) throw new TeamError({ reason: 'forbidden' });
         if (member.userId === org.ownerUserId) throw new TeamError({ reason: 'conflict' });
-        return { userId: member.userId, email: member.user.email, status: member.status };
+        return {
+            organizationMemberId: member.id,
+            userId: member.userId,
+            email: member.user.email,
+            status: member.status,
+        };
     }
 
     createRole(organizationId: string, body: TeamRoleBody): Promise<void> {
@@ -659,11 +638,13 @@ export class OrganizationTeamService {
             await this.owner(organizationId, op.roles);
             const role = await this.database.queryClient.role.findFirst({
                 where: { id: roleId, organizationId, archivedAt: null },
-                select: { id: true, code: true },
+                select: { id: true, code: true, updatedAt: true },
             });
             if (!role || protectedRoleCodes.has(role.code))
                 throw new TeamError({ reason: 'conflict' });
             if (body) {
+                if (role.updatedAt.toISOString() !== body.expectedUpdatedAt)
+                    throw new TeamError({ reason: 'conflict' });
                 const definition = await this.database.queryClient.role.findUniqueOrThrow({
                     where: { id: roleId },
                     select: { scope: true },
@@ -676,7 +657,10 @@ export class OrganizationTeamService {
                 });
                 await this.database.queryClient.role.update({
                     where: { id: roleId },
-                    data: { name: body.name },
+                    data: {
+                        name: body.name,
+                        updatedAt: new Date(Math.max(Date.now(), role.updatedAt.getTime() + 1)),
+                    },
                 });
             } else
                 await this.database.queryClient.role.update({

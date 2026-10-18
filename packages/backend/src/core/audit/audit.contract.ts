@@ -43,6 +43,8 @@ export type AuditScope =
 export interface AuditListInput {
     readonly scope: AuditScope;
     readonly resourceId?: string;
+    readonly actions?: readonly string[];
+    readonly detailsMatch?: { readonly field: string; readonly value: string };
     /** Inclusive lower and exclusive upper time bounds. */
     readonly from?: Date;
     readonly until?: Date;

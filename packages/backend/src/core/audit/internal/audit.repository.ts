@@ -80,6 +80,15 @@ export class AuditRepository {
         const rows = await this.database.queryClient.auditEvent.findMany({
             where: {
                 organizationId: input.scope.organizationId,
+                ...(input.actions ? { action: { in: input.actions } } : {}),
+                ...(input.detailsMatch
+                    ? {
+                          details: {
+                              path: [input.detailsMatch.field],
+                              equals: input.detailsMatch.value,
+                          },
+                      }
+                    : {}),
                 ...(input.scope.kind === 'workspace'
                     ? { workspaceId: input.scope.workspaceId }
                     : {}),
