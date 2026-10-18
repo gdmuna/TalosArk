@@ -1,7 +1,18 @@
-/**
- * TODO: 实现请求指纹构造器。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
+import { createHash } from 'node:crypto';
+import { canonicalJson } from './internal/canonical-json.js';
+import { fingerprintInputSchema, parseIdempotencyInput } from './internal/idempotency.rules.js';
+
 export class RequestFingerprint {
-    // TODO: 在首个已批准的真实用例中实现。
+    static create(input: {
+        readonly operation: string;
+        readonly version?: number;
+        readonly payload: unknown;
+    }): string {
+        const value = parseIdempotencyInput(fingerprintInputSchema, input);
+        const payload = canonicalJson(value.payload);
+        return createHash('sha256')
+            .update('talosark.idempotency:1\n')
+            .update(JSON.stringify([value.version, value.operation, payload]))
+            .digest('hex');
+    }
 }

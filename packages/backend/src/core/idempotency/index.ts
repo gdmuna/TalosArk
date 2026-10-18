@@ -1,5 +1,13 @@
-/**
- * TODO: 定义幂等内核导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { IdempotencyError } from './idempotency.error.js';
+export { IdempotencyKernel } from './idempotency.kernel.js';
+export { RequestFingerprint } from './request-fingerprint.js';
+export type { IdempotencyRepository, IdempotencyReservation } from './idempotency.repository.js';
+export type {
+    IdempotencyExecution,
+    IdempotencyJsonValue,
+    IdempotencyLease,
+    IdempotencyPrepareInput,
+    IdempotencyResultCodec,
+    IdempotencyScope,
+    PreparedIdempotencyRequest,
+} from './idempotency.types.js';
