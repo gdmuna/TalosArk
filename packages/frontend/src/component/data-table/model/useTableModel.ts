@@ -37,13 +37,21 @@ export function useTableModel<T extends { id: string }>(
         initialSorting: SortingState;
         searchText?: (row: T) => string;
         selectable?: (row: T) => boolean;
+        serverTotal?: number;
+        filtering?: boolean;
     },
-    models: { query: Ref<string>; filters: Ref<Record<string, string[]>>; selected: Ref<string[]> },
+    models: {
+        query: Ref<string>;
+        filters: Ref<Record<string, string[]>>;
+        selected: Ref<string[]>;
+        sorting?: Ref<SortingState>;
+        pagination?: Ref<PaginationState>;
+    },
     availableWidth?: Ref<number>
 ) {
     const { query, filters, selected } = models;
-    const sorting = ref<SortingState>(props.initialSorting);
-    const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
+    const sorting = models.sorting ?? ref<SortingState>(props.initialSorting);
+    const pagination = models.pagination ?? ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
     const cursor = ref<{ id: string; direction: 'after' | 'before' } | null>(null);
     const pageInput = ref('1');
     const pageError = ref('');
@@ -191,7 +199,7 @@ export function useTableModel<T extends { id: string }>(
     );
     const primaryActions = computed(() => props.actions.filter((action) => action.primary));
     const resolvedFilterFields = computed(() =>
-        resolveFilterFields(props.columns, props.filterFields)
+        props.filtering === false ? [] : resolveFilterFields(props.columns, props.filterFields)
     );
     const filterById = computed(
         () => new Map(resolvedFilterFields.value.map((field) => [field.id, field]))
@@ -304,6 +312,18 @@ export function useTableModel<T extends { id: string }>(
         columns: definitions,
         state,
         autoResetPageIndex: false,
+        get manualFiltering() {
+            return props.serverTotal !== undefined;
+        },
+        get manualSorting() {
+            return props.serverTotal !== undefined;
+        },
+        get manualPagination() {
+            return props.serverTotal !== undefined;
+        },
+        get rowCount() {
+            return props.serverTotal;
+        },
         sortDescFirst: false,
         getRowId: (row: T) => row.id,
         globalFilterFn: 'includesString',
@@ -346,7 +366,9 @@ export function useTableModel<T extends { id: string }>(
         Object.values(widths.value).reduce((sum, width) => sum + width, 0)
     );
     const pageCount = computed(() => Math.max(1, table.getPageCount()));
-    const paginationMode = computed(() => (pageCount.value > 1000 ? 'cursor' : 'offset'));
+    const paginationMode = computed(() =>
+        props.serverTotal === undefined && pageCount.value > 1000 ? 'cursor' : 'offset'
+    );
     const orderedRows = computed(() => table.getSortedRowModel().rows);
     // In-memory keyset navigation; a remote source must supply its own opaque cursors.
     const cursorWindow = computed(() => {
@@ -446,7 +468,10 @@ export function useTableModel<T extends { id: string }>(
         pageError.value = '';
     }
     watch([query, filters, sorting], resetPagination, { deep: true });
-    watch([() => pagination.value.pageSize, () => props.data, paginationMode], resetPagination);
+    watch(() => pagination.value.pageSize, resetPagination);
+    watch([() => props.data, paginationMode], () => {
+        if (props.serverTotal === undefined) resetPagination();
+    });
     watch(
         () => pagination.value.pageIndex,
         (index) => {

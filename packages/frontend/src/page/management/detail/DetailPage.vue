@@ -6,7 +6,6 @@ import { useNavigationStore } from '@/platform/navigation';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { CopyableId } from '@/component/inspector';
 import { ScrollSurface } from '@/component/scroll-surface';
-import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
 import { StateBadge } from '@/component/state-badge';
 import ManagementViewNav from '../component/ManagementViewNav.vue';
@@ -22,7 +21,12 @@ const props = defineProps<{
     listLabel: string;
     listPath: string;
     views: readonly ManagementView[];
-    options: { id: string; name: string }[];
+    options?: { id: string; name: string }[];
+    search?: (
+        query: string,
+        page: number,
+        signal: AbortSignal
+    ) => Promise<{ items: { id: string; name: string }[]; total: number }>;
     loading?: boolean;
     error?: string;
 }>();
@@ -43,7 +47,8 @@ provideBreadcrumbs(() => [
         props: {
             label: props.title,
             activeId: props.id,
-            options: props.options,
+            options: props.options ?? [],
+            search: props.search,
             onSelect: (id: string) => emit('select', id),
         },
     },
@@ -58,7 +63,6 @@ provideBreadcrumbs(() => [
                     <ArrowLeft />
                     {{ origin?.label ?? listLabel }}
                 </Button>
-                <Badge variant="secondary">模拟数据 · 不连接真实写入 · 刷新重置</Badge>
             </div>
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="flex min-w-0 flex-1 gap-4">
@@ -82,7 +86,7 @@ provideBreadcrumbs(() => [
         </header>
         <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
             <main :aria-label="title" class="@container mx-auto w-full max-w-[1328px] space-y-6 p-4 lg:p-6">
-                <p v-if="loading" role="status" class="text-sm text-muted-foreground">正在加载模拟详情</p>
+                <p v-if="loading" role="status" class="text-sm text-muted-foreground">正在加载详情</p>
                 <div v-if="error" role="alert" class="flex flex-wrap items-center gap-3 text-sm text-destructive">
                     {{ error }}
                     <Button variant="outline" size="sm" @click="emit('retry')">重新加载</Button>

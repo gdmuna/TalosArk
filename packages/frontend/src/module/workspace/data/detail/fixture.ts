@@ -124,6 +124,7 @@ export function createDetailFixture(): DetailCatalog {
     const names = ['王教授', '张晓明', '李雨桐', '陈思远', '刘佳宁', '赵嘉宁'] as const;
     const members = names.map((name, index) => ({
         id: detailId(101 + index),
+        organizationMemberId: detailId(101 + index),
         userId: detailId(201 + index),
         organizationId,
         name,
@@ -141,6 +142,7 @@ export function createDetailFixture(): DetailCatalog {
     }));
     members.push({
         id: detailId(111),
+        organizationMemberId: detailId(111),
         userId: detailId(202),
         organizationId: otherOrganizationId,
         name: '张晓明',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
     Plus,
     UserPlus,
@@ -37,21 +38,84 @@ import TeamActionMenu from './TeamActionMenu.vue';
 import TeamPermissionField from './TeamPermissionField.vue';
 import TeamPermissionMatrix from './TeamPermissionMatrix.vue';
 import type { TeamManagementContext } from './team-context';
+import type { TeamManagementListState } from './team-list-state';
 
-const props = defineProps<{ view: 'members' | 'roles'; context?: TeamManagementContext }>();
-const emit = defineEmits<{ 'scope-label': [label: string] }>();
+const props = defineProps<{
+    view: 'members' | 'roles';
+    context?: TeamManagementContext;
+    listState?: TeamManagementListState;
+}>();
+const emit = defineEmits<{
+    'scope-label': [label: string];
+    'update:list-state': [state: TeamManagementListState];
+}>();
+const router = useRouter();
+function openMemberDetail(member: TeamMember) {
+    if (props.context) return props.context.onMemberDetail(member.id);
+    void router.push({
+        path: `/main/management/member/${member.organizationMemberId}`,
+        query: { organization: organizationId.value, workspace: selectedWorkspaceId.value },
+    });
+}
+function openRoleDetail(role: TeamRole) {
+    if (props.context) return props.context.onRoleDetail(role.id);
+    void router.push({
+        path: `/main/management/role/${role.id}`,
+        query: {
+            organization: organizationId.value,
+            workspace: role.scope === 'WORKSPACE' ? selectedWorkspaceId.value : undefined,
+        },
+    });
+}
 const workspace = props.context?.catalog ?? useWorkspaceStore(),
     team = props.context?.team ?? useTeamStore();
-const organizationId = ref(
-    props.context?.selection.organizationId ?? workspace.organization?.id ?? workspace.organizations[0]?.id ?? ''
-);
-const workspaceId = ref(props.context?.selection.workspaceId ?? 'organization');
+const localState = ref<TeamManagementListState>({
+    organizationId:
+        props.context?.selection.organizationId ?? workspace.organization?.id ?? workspace.organizations[0]?.id ?? '',
+    workspaceId: props.context?.selection.workspaceId,
+    tab: 'members',
+    search: '',
+    page: 1,
+    pageSize: 20,
+    roleFilter: props.context?.selection.workspaceId ? 'WORKSPACE' : 'all',
+    roleView: 'list',
+});
+const listState = computed(() => (props.context ? localState.value : (props.listState ?? localState.value)));
+function updateList(patch: Partial<TeamManagementListState>) {
+    const next = { ...listState.value, ...patch };
+    if (props.listState && !props.context) emit('update:list-state', next);
+    else localState.value = next;
+}
+const organizationId = computed({
+    get: () => listState.value.organizationId,
+    set: (value) => updateList({ organizationId: value, workspaceId: undefined, search: '', page: 1 }),
+});
+const workspaceId = computed({
+    get: () => listState.value.workspaceId ?? 'organization',
+    set: (value) => updateList({ workspaceId: value === 'organization' ? undefined : value, search: '', page: 1 }),
+});
 const selectedWorkspaceId = computed(() => (workspaceId.value === 'organization' ? undefined : workspaceId.value));
-const tab = ref<'members' | 'invitations'>('members');
-const search = ref('');
-const roleSearch = ref('');
-const roleFilter = ref(props.context?.selection.workspaceId ? 'WORKSPACE' : 'all');
-const roleView = ref('list');
+const tab = computed({
+    get: () => listState.value.tab,
+    set: (value) => updateList({ tab: value, page: 1 }),
+});
+const search = ref(listState.value.search);
+const roleSearch = computed({
+    get: () => listState.value.search,
+    set: (value) => updateList({ search: value }),
+});
+const roleFilter = computed({
+    get: () => listState.value.roleFilter,
+    set: (value) => updateList({ roleFilter: value }),
+});
+const roleView = computed({
+    get: () => listState.value.roleView,
+    set: (value) => updateList({ roleView: value }),
+});
+watch(
+    () => listState.value.search,
+    (value) => (search.value = value)
+);
 const preview = ref<{ kind: 'member' | 'role' | 'invitation'; id: string } | null>(null);
 const modal = ref<'invite' | 'add-member' | 'bindings' | 'role' | 'confirm' | null>(null);
 const email = ref(''),
@@ -165,10 +229,7 @@ const pages = computed(() => Math.max(1, Math.ceil(total.value / (team.data?.pag
 const pageSize = computed({
     get: () => String(team.data?.pageSize ?? team.pageSize),
     set: (value) => {
-        restoreDisplayedQuery();
-        team.pageSize = Number(value);
-        team.page = 1;
-        void reload();
+        updateList({ search: team.appliedSearch, pageSize: Number(value), page: 1 });
     },
 });
 const confirmationDescription = computed(() => {
@@ -210,24 +271,46 @@ watch(
     }
 );
 watch(
-    [organizationId, workspaceId, () => workspace.activeId],
-    async () => {
-        modal.value = null;
-        preview.value = null;
-        search.value = '';
-        roleSearch.value = '';
+    [
+        organizationId,
+        workspaceId,
+        () => workspace.activeId,
+        () => (props.view === 'members' ? listState.value.page : 1),
+        () => (props.view === 'members' ? listState.value.pageSize : 20),
+        () => (props.view === 'members' ? listState.value.search : ''),
+    ],
+    async (values, previous) => {
+        const scopeChanged = !previous.length || values.slice(0, 3).some((value, index) => value !== previous[index]);
+        if (scopeChanged) {
+            modal.value = null;
+            preview.value = null;
+        }
         if (!organizationId.value) {
             team.reset();
             return;
         }
-        if (!scopeOptions.value.some((item) => item.value === workspaceId.value)) workspaceId.value = 'organization';
-        await team.select({ organizationId: organizationId.value, workspaceId: selectedWorkspaceId.value });
+        if (!scopeOptions.value.some((item) => item.value === workspaceId.value)) {
+            workspaceId.value = 'organization';
+            return;
+        }
+        const query = {
+            page: props.view === 'members' ? listState.value.page : 1,
+            pageSize: props.view === 'members' ? listState.value.pageSize : 20,
+            search: props.view === 'members' ? listState.value.search : '',
+        };
+        if (scopeChanged) {
+            await team.select({ organizationId: organizationId.value, workspaceId: selectedWorkspaceId.value }, query);
+        } else {
+            team.page = query.page;
+            team.pageSize = query.pageSize;
+            team.search = query.search;
+            await reload();
+        }
     },
     { immediate: true }
 );
 watch(tab, () => {
     preview.value = null;
-    goToPage(1);
 });
 watch(
     () => team.data,
@@ -253,8 +336,7 @@ watch(
             modal.value = null;
         if (!data.definitions.length) roleView.value = 'list';
         if (props.view === 'members' && data.page > pages.value) {
-            team.page = pages.value;
-            void reload();
+            updateList({ page: pages.value });
         }
     }
 );
@@ -265,24 +347,15 @@ async function reload() {
         /* Error and retry stay visible. */
     }
 }
-function restoreDisplayedQuery() {
-    if (!team.data) return;
-    team.pageSize = team.data.pageSize;
-    team.search = team.appliedSearch;
-    search.value = team.appliedSearch;
-}
 function goToPage(page: number) {
     if (team.busy || team.loading) return;
-    restoreDisplayedQuery();
-    team.page = page;
-    void reload();
+    updateList({ page, pageSize: team.data?.pageSize ?? team.pageSize, search: team.appliedSearch });
+    search.value = team.appliedSearch;
 }
 function searchMembers() {
     if (team.busy || team.loading) return;
-    team.pageSize = team.data?.pageSize ?? team.pageSize;
-    team.search = search.value.trim();
-    team.page = 1;
-    void reload();
+    if (listState.value.search === search.value.trim() && listState.value.page === 1) return void reload();
+    updateList({ search: search.value.trim(), page: 1, pageSize: team.data?.pageSize ?? team.pageSize });
 }
 function toggle(values: string[], value: string, checked: boolean | 'indeterminate') {
     return checked === true ? [...new Set([...values, value])] : values.filter((item) => item !== value);
@@ -380,7 +453,11 @@ async function submit() {
             ? {
                   kind: 'update-role',
                   id: selectedRole.value.id,
-                  role: { name: body.name, permissions: body.permissions },
+                  role: {
+                      name: body.name,
+                      permissions: body.permissions,
+                      expectedUpdatedAt: selectedRole.value.updatedAt,
+                  },
               }
             : { kind: 'create-role', role: body };
     }
@@ -645,7 +722,7 @@ async function submit() {
                                 <TableCell class="text-right">
                                     <TeamActionMenu
                                         :name="role.name"
-                                        :detail="context ? () => context?.onRoleDetail(role.id) : undefined"
+                                        :detail="() => openRoleDetail(role)"
                                         :disabled="disabled"
                                         :actions="roleActions(role)"
                                         @preview="preview = { kind: 'role', id: role.id }"
@@ -705,7 +782,7 @@ async function submit() {
                                 <TableCell class="text-right">
                                     <TeamActionMenu
                                         :name="member.name"
-                                        :detail="context ? () => context?.onMemberDetail(member.id) : undefined"
+                                        :detail="() => openMemberDetail(member)"
                                         :disabled="disabled"
                                         :actions="memberActions(member)"
                                         @preview="preview = { kind: 'member', id: member.id }"

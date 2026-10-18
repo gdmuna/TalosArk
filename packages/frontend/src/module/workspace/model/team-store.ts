@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type UnwrapRef } from 'vue';
 import { defineStore } from 'pinia';
-import type { TeamManagement } from '@talos-ark/contracts/team';
+import type { TeamManagement, TeamManagementQuery } from '@talos-ark/contracts/team';
 import { HttpError } from '@/platform/http';
 import { createTaskScope } from '@/platform/task';
 import { useWorkspaceStore } from './store';
@@ -13,6 +13,7 @@ export function teamErrorMessage(error: unknown): string {
             {
                 TEAM_ACCESS_DENIED: '当前账户无权执行此操作',
                 TEAM_CONFLICT: '操作与当前状态冲突，请重新加载后检查',
+                TEAM_INVALID_CURSOR: '活动分页已失效，请重新加载',
                 TEAM_ACCOUNT_UNAVAILABLE: '需要使用已开户且符合条件的账户邮箱',
                 TEAM_INVITATION_INVALID: '邀请已失效，或与当前登录账户不匹配',
                 TEAM_UNAVAILABLE: '暂时无法完成操作，请稍后重试',
@@ -99,9 +100,14 @@ export function createTeamManagementState(
             if (version === readVersion) loading.value = false;
         }
     }
-    async function select(value: TeamSelection) {
+    async function select(value: TeamSelection, query?: Omit<TeamManagementQuery, 'workspaceId'>) {
         reset();
         selection.value = value;
+        if (query) {
+            page.value = query.page;
+            pageSize.value = query.pageSize;
+            search.value = query.search ?? '';
+        }
         try {
             await load();
         } catch {

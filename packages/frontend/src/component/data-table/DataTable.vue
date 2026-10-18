@@ -52,7 +52,7 @@ import { measureGridInsets } from './layout/geometry';
 import { useColumnResize } from './interaction/useColumnResize';
 import RecordPreview from './RecordPreview.vue';
 import { useTableModel } from './model/useTableModel';
-import type { SortingState } from '@tanstack/vue-table';
+import type { PaginationState, SortingState } from '@tanstack/vue-table';
 import type { DataTableAction, DataTableBulkAction, DataTableColumn, DataTableFilter } from './type';
 
 const props = withDefaults(
@@ -74,6 +74,9 @@ const props = withDefaults(
         minHeight?: number;
         maxHeight?: number | string;
         preview?: (row: T) => void;
+        serverTotal?: number;
+        filtering?: boolean;
+        searchable?: boolean;
     }>(),
     {
         filterFields: () => [],
@@ -84,15 +87,24 @@ const props = withDefaults(
         actions: () => [],
         bulkActions: () => [],
         minRows: 3,
+        filtering: true,
+        searchable: true,
     }
 );
 
 const query = defineModel<string>('query', { default: '' });
 const filters = defineModel<Record<string, string[]>>('filters', { default: () => ({}) });
 const selected = defineModel<string[]>('selected', { default: () => [] });
+const sortingModel = defineModel<SortingState>('sorting', { default: () => [] });
+const paginationModel = defineModel<PaginationState>('pagination', { default: () => ({ pageIndex: 0, pageSize: 10 }) });
+if (!sortingModel.value.length && props.initialSorting.length) sortingModel.value = [...props.initialSorting];
 const root = useTemplateRef<HTMLElement>('root');
 const { width: availableWidth } = useElementSize(root);
-const model = useTableModel(props, { query, filters, selected }, availableWidth);
+const model = useTableModel(
+    props,
+    { query, filters, selected, sorting: sortingModel, pagination: paginationModel },
+    availableWidth
+);
 const {
     api,
     pageInput,
@@ -238,7 +250,18 @@ defineExpose(api);
         data-slot="data-table"
         :data-pagination-mode="paginationMode"
     >
-        <div class="@container/table-toolbar max-w-full shrink-0" :style="{ width: contentWidth + 2 + 'px' }">
+        <div
+            v-if="
+                $slots['filters-before'] ||
+                filtering ||
+                sortableColumns.length ||
+                !actions.length ||
+                bulkActions.length ||
+                searchable
+            "
+            class="@container/table-toolbar max-w-full shrink-0"
+            :style="{ width: contentWidth + 2 + 'px' }"
+        >
             <div
                 class="flex flex-wrap items-center gap-3 @min-[600px]/table-toolbar:flex-nowrap"
                 data-slot="data-table-toolbar"
@@ -247,8 +270,12 @@ defineExpose(api);
                     <div class="overflow-x-auto scroll-smooth [scrollbar-width:none] motion-reduce:scroll-auto">
                         <div class="flex w-max min-w-full items-center gap-3">
                             <slot name="filters-before" />
-                            <DataTableFilters v-model="filters" :fields="resolvedFilterFields" />
-                            <DataTableSorting v-model="sorting" :columns="sortableColumns" />
+                            <DataTableFilters v-if="filtering" v-model="filters" :fields="resolvedFilterFields" />
+                            <DataTableSorting
+                                v-if="sortableColumns.length"
+                                v-model="sorting"
+                                :columns="sortableColumns"
+                            />
                             <DataTableVisibility
                                 v-if="!actions.length"
                                 v-model:order="columnOrder"
@@ -268,7 +295,7 @@ defineExpose(api);
                         </div>
                     </div>
                 </div>
-                <div class="relative w-full min-w-0 shrink-0 @min-[600px]/table-toolbar:w-64">
+                <div v-if="searchable" class="relative w-full min-w-0 shrink-0 @min-[600px]/table-toolbar:w-64">
                     <Search
                         class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                         aria-hidden="true"
@@ -699,96 +726,101 @@ defineExpose(api);
                 class="relative -mt-px shrink-0 border-t px-4 py-3 text-sm"
                 data-slot="data-table-footer"
             >
-                <p v-if="pageError" role="alert" class="mb-3 text-destructive">{{ pageError }}</p>
-                <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-                    <div
-                        class="flex flex-1 basis-52 flex-col items-start justify-between gap-2 whitespace-nowrap @min-[360px]/table-frame:flex-row @min-[360px]/table-frame:items-center"
-                    >
-                        <span class="text-muted-foreground">共 {{ filteredRows.length }} 项</span>
-                        <div class="flex items-center gap-2 [&_[data-slot=select-trigger]]:min-w-18">
-                            <span class="text-muted-foreground">每页</span>
-                            <SelectField
-                                v-model="pageSize"
-                                label="每页条数"
-                                hide-title
-                                class="h-8 min-w-18"
-                                :options="
-                                    [5, 10, 20, 50, 100].map((size) => ({ value: String(size), label: `${size} 条` }))
-                                "
-                            />
-                        </div>
-                    </div>
-                    <div
-                        class="ml-auto flex max-w-full flex-col items-end gap-2 @min-[360px]/table-frame:flex-row @min-[360px]/table-frame:items-center"
-                    >
+                <slot name="footer">
+                    <p v-if="pageError" role="alert" class="mb-3 text-destructive">{{ pageError }}</p>
+                    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
                         <div
-                            v-if="paginationMode === 'offset'"
-                            class="grid max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 whitespace-nowrap tabular-nums @min-[360px]/table-frame:flex"
+                            class="flex flex-1 basis-52 flex-col items-start justify-between gap-2 whitespace-nowrap @min-[360px]/table-frame:flex-row @min-[360px]/table-frame:items-center"
                         >
-                            <span>第</span>
-                            <Input
-                                v-model="pageInput"
-                                type="text"
-                                inputmode="numeric"
-                                pattern="[0-9]*"
-                                class="h-8 w-10 justify-self-end text-center @min-[360px]/table-frame:w-14"
-                                aria-label="跳转页码"
-                                :aria-invalid="!!pageError"
-                                @keydown.enter="jumpToPage(Number(pageInput))"
-                                @blur="jumpToPage(Number(pageInput))"
-                            />
-                            <span class="col-span-2 text-right" aria-live="polite">页，共 {{ pageCount }} 页</span>
+                            <span class="text-muted-foreground">共 {{ serverTotal ?? filteredRows.length }} 项</span>
+                            <div class="flex items-center gap-2 [&_[data-slot=select-trigger]]:min-w-18">
+                                <span class="text-muted-foreground">每页</span>
+                                <SelectField
+                                    v-model="pageSize"
+                                    label="每页条数"
+                                    hide-title
+                                    class="h-8 min-w-18"
+                                    :options="
+                                        [5, 10, 20, 50, 100].map((size) => ({
+                                            value: String(size),
+                                            label: `${size} 条`,
+                                        }))
+                                    "
+                                />
+                            </div>
                         </div>
-                        <ButtonGroup class="[&>button]:size-7 @min-[360px]/table-frame:[&>button]:size-8">
-                            <Button
+                        <div
+                            class="ml-auto flex max-w-full flex-col items-end gap-2 @min-[360px]/table-frame:flex-row @min-[360px]/table-frame:items-center"
+                        >
+                            <div
                                 v-if="paginationMode === 'offset'"
-                                variant="outline"
-                                size="icon-sm"
-                                aria-label="第一页"
-                                use-tooltip
-                                title="第一页"
-                                :disabled="!canPrevious"
-                                @click="jumpToPage(1)"
+                                class="grid max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 whitespace-nowrap tabular-nums @min-[360px]/table-frame:flex"
                             >
-                                <ChevronsLeft aria-hidden="true" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon-sm"
-                                aria-label="上一页"
-                                use-tooltip
-                                title="上一页"
-                                :disabled="!canPrevious"
-                                @click="previousPage"
-                            >
-                                <ChevronLeft aria-hidden="true" />
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon-sm"
-                                aria-label="下一页"
-                                use-tooltip
-                                title="下一页"
-                                :disabled="!canNext"
-                                @click="nextPage"
-                            >
-                                <ChevronRight aria-hidden="true" />
-                            </Button>
-                            <Button
-                                v-if="paginationMode === 'offset'"
-                                variant="outline"
-                                size="icon-sm"
-                                aria-label="最后一页"
-                                use-tooltip
-                                title="最后一页"
-                                :disabled="!canNext"
-                                @click="jumpToPage(pageCount)"
-                            >
-                                <ChevronsRight aria-hidden="true" />
-                            </Button>
-                        </ButtonGroup>
+                                <span>第</span>
+                                <Input
+                                    v-model="pageInput"
+                                    type="text"
+                                    inputmode="numeric"
+                                    pattern="[0-9]*"
+                                    class="h-8 w-10 justify-self-end text-center @min-[360px]/table-frame:w-14"
+                                    aria-label="跳转页码"
+                                    :aria-invalid="!!pageError"
+                                    @keydown.enter="jumpToPage(Number(pageInput))"
+                                    @blur="jumpToPage(Number(pageInput))"
+                                />
+                                <span class="col-span-2 text-right" aria-live="polite">页，共 {{ pageCount }} 页</span>
+                            </div>
+                            <ButtonGroup class="[&>button]:size-7 @min-[360px]/table-frame:[&>button]:size-8">
+                                <Button
+                                    v-if="paginationMode === 'offset'"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="第一页"
+                                    use-tooltip
+                                    title="第一页"
+                                    :disabled="!canPrevious"
+                                    @click="jumpToPage(1)"
+                                >
+                                    <ChevronsLeft aria-hidden="true" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="上一页"
+                                    use-tooltip
+                                    title="上一页"
+                                    :disabled="!canPrevious"
+                                    @click="previousPage"
+                                >
+                                    <ChevronLeft aria-hidden="true" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="下一页"
+                                    use-tooltip
+                                    title="下一页"
+                                    :disabled="!canNext"
+                                    @click="nextPage"
+                                >
+                                    <ChevronRight aria-hidden="true" />
+                                </Button>
+                                <Button
+                                    v-if="paginationMode === 'offset'"
+                                    variant="outline"
+                                    size="icon-sm"
+                                    aria-label="最后一页"
+                                    use-tooltip
+                                    title="最后一页"
+                                    :disabled="!canNext"
+                                    @click="jumpToPage(pageCount)"
+                                >
+                                    <ChevronsRight aria-hidden="true" />
+                                </Button>
+                            </ButtonGroup>
+                        </div>
                     </div>
-                </div>
+                </slot>
             </footer>
         </div>
         <RecordPreview v-model:open="previewOpen" :row="previewRow" :columns="columns" />

@@ -10,7 +10,7 @@ export type TeamManagementContext = {
         activeId?: string;
     };
     selection: TeamSelection;
-    simulation: true;
+    simulation?: boolean;
     roleBindings: Record<string, number>;
     onMemberDetail: (memberId: string) => void;
     onRoleDetail: (roleId: string) => void;

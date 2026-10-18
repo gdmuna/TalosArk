@@ -11,7 +11,6 @@ import { SelectField } from '@/component/select-field';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { ScrollSurface } from '@/component/scroll-surface';
 import ManagementPage from './component/ManagementPage.vue';
-import PrototypeLink from './detail/PrototypeLink.vue';
 
 const workspace = useWorkspaceStore();
 const router = useRouter();
@@ -30,6 +29,7 @@ const rows = computed(() =>
         .filter((item) => organizationId.value === 'all' || item.organizationId === organizationId.value)
         .map((item) => ({
             id: item.id,
+            organizationId: item.organizationId,
             name: item.name,
             description: item.description,
             organization: workspace.organizations.find((org) => org.id === item.organizationId)?.name ?? '—',
@@ -65,6 +65,13 @@ async function enter(row: Row) {
 const actions = [
     { id: 'enter', label: '进入工作区', icon: LogIn, primary: true, run: enter },
     {
+        id: 'detail',
+        label: '详情',
+        icon: Folders,
+        run: (row: Row) =>
+            router.push({ path: `/main/management/workspace/${row.id}`, query: { organization: row.organizationId } }),
+    },
+    {
         id: 'preview',
         label: '预览',
         icon: Eye,
@@ -95,7 +102,6 @@ const columns: DataTableColumn<(typeof rows.value)[number]>[] = [
         :context="scopeOptions.find((item) => item.value === organizationId)?.label"
     >
         <template #actions>
-            <PrototypeLink kind="workspace" />
             <Button
                 v-if="workspace.canCreateOrganization"
                 variant="outline"
@@ -180,6 +186,18 @@ const columns: DataTableColumn<(typeof rows.value)[number]>[] = [
             </dl>
         </ScrollSurface>
         <footer v-if="previewRow" class="shrink-0 border-t p-4">
+            <Button
+                variant="outline"
+                class="mb-2 w-full"
+                @click="
+                    router.push({
+                        path: `/main/management/workspace/${previewRow.id}`,
+                        query: { organization: previewRow.organizationId },
+                    })
+                "
+            >
+                查看详情
+            </Button>
             <p v-if="workspace.error" role="alert" class="mb-3 break-words text-sm text-destructive">
                 {{ workspace.error }}
             </p>

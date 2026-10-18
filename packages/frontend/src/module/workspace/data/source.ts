@@ -1,5 +1,6 @@
 import type { Workspace, WorkspaceSnapshot } from '../model/workspace';
 export type { TeamDataSource, TeamCommand, TeamSelection } from './team-source';
+export type { ManagementDataSource } from './management-source';
 
 export interface WorkspaceDataSource {
     load(signal?: AbortSignal): Promise<WorkspaceSnapshot>;

@@ -6,7 +6,12 @@ import { useNavigationStore } from '@/platform/navigation';
 import { authApiKey, createAuthApi, createAuthSession } from '@/module/auth';
 import { createHttpClient } from '@/platform/http';
 import { createHttpAccountDataSource } from '@/module/account';
-import { createHttpWorkspaceDataSource, createHttpTeamDataSource } from '@/module/workspace';
+import {
+    createHttpWorkspaceDataSource,
+    createHttpTeamDataSource,
+    createHttpManagementDataSource,
+    managementDataSourceKey,
+} from '@/module/workspace';
 import { createApplicationBootstrap } from './bootstrap';
 import { applicationBootstrapKey } from './layout/startup/context';
 
@@ -25,12 +30,14 @@ const http = createHttpClient({
 });
 const authApi = createAuthApi(http, authSession, apiRoot);
 app.provide(authApiKey, authApi);
+const teamSource = createHttpTeamDataSource(http);
+app.provide(managementDataSourceKey, createHttpManagementDataSource(http, teamSource));
 const bootstrap = createApplicationBootstrap(
     pinia,
     {
         account: createHttpAccountDataSource(http),
         workspace: createHttpWorkspaceDataSource(http),
-        team: createHttpTeamDataSource(http),
+        team: teamSource,
     },
     authApi
 );

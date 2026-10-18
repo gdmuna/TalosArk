@@ -12,6 +12,7 @@ import StorageGovernance from '@/page/management/StorageGovernance.vue';
 import DeviceAccess from '@/page/management/DeviceAccess.vue';
 import DeviceIntegration from '@/page/management/DeviceIntegration.vue';
 import AuditLog from '@/page/management/AuditLog.vue';
+import AuditDetail from '@/page/management/audit/Detail.vue';
 import NotificationPolicy from '@/page/management/NotificationPolicy.vue';
 import Integration from '@/page/management/Integration.vue';
 import SystemSetting from '@/page/management/SystemSetting.vue';
@@ -51,12 +52,18 @@ export const managementRoutes: RouteRecordRaw[] = [
                 ...(path === 'account-setting' ||
                 path === 'workspace' ||
                 path === 'member' ||
-                path === 'role'
+                path === 'role' ||
+                path === 'audit-log'
                     ? { requiresWorkspace: false }
                     : {}),
             },
         }))
     ),
+    {
+        path: 'audit-log/:eventId',
+        component: AuditDetail,
+        meta: { pageLabel: '审计事件详情', defaultTitle: '审计事件详情', requiresWorkspace: false },
+    },
     {
         path: 'workspace/:workspaceId',
         component: WorkspaceDetail,

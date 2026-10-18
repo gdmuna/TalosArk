@@ -1,6 +1,10 @@
 export { useWorkspaceStore } from './model/store';
 export { useTeamStore, teamErrorMessage } from './model/team-store';
 export { createHttpTeamDataSource } from './data/team-api';
+export { createHttpManagementDataSource } from './data/management-api';
+export type { ManagementDataSource } from './data/source';
+export { managementDataSourceKey, useManagementDataSource } from './model/management-source';
+export { createTeamManagementState } from './model/team-store';
 export { captureInvitation, pendingInvitation, clearInvitation } from './model/invitation';
 export type { TeamDataSource, TeamSelection, TeamCommand } from './data/team-source';
 export { createHttpWorkspaceDataSource } from './data/api';

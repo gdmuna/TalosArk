@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Folders, Users, Pencil, FlaskConical, Package, Monitor, Building2 } from '@lucide/vue';
 import { Button } from '@/ui/button';
@@ -8,25 +8,42 @@ import { Textarea } from '@/ui/textarea';
 import { Avatar, AvatarFallback } from '@/ui/avatar';
 import { DataSyncNotice } from '@/component/data-sync';
 import { TeamManagement } from '@/module/workspace/ui';
+import { useWorkspaceStore, useManagementDataSource, createTeamManagementState } from '@/module/workspace';
 import { useNavigationStore } from '@/platform/navigation';
 import DetailPage from '../detail/DetailPage.vue';
 import FactList from '../detail/FactList.vue';
-import ActivityList from '../detail/ActivityList.vue';
+import ActivityFeed from '../detail/ActivityFeed.vue';
 import DraftDialog from '../detail/DraftDialog.vue';
 import { useDraftGuard } from '../detail/useDraftGuard';
 import ManagementSection from '../component/ManagementSection.vue';
 import { useManagementView } from '../useManagementView';
-import { usePrototypeObject, usePrototypeTeam, detailDate } from '../detail/prototype';
+import { useDetailRead, useDetailActivity, detailDate } from '../detail/read';
+import { useMaterialDataSource } from '@/module/material';
 import WorkspaceResource from './Resource.vue';
-import WorkspaceSharing from './Sharing.vue';
 
 const route = useRoute(),
     router = useRouter(),
     navigation = useNavigationStore();
 const id = computed(() => String(route.params.workspaceId ?? ''));
-const { source, data, catalog, loading, busy, error, syncError, refresh, write } = usePrototypeObject(
-    id,
-    (source, signal) => source.workspace(id.value, signal)
+const workspace = useWorkspaceStore();
+const source = useManagementDataSource();
+const materialSource = useMaterialDataSource();
+const organizationId = computed(() =>
+    typeof route.query.organization === 'string'
+        ? route.query.organization
+        : (workspace.workspaces.find((item) => item.id === id.value)?.organizationId ?? '')
+);
+const selection = computed(() => ({ organizationId: organizationId.value, workspaceId: id.value }));
+const key = computed(() => (organizationId.value ? `${organizationId.value}:${id.value}` : ''));
+const { data, loading, busy, error, syncError, refresh, write } = useDetailRead(
+    key,
+    (signal) => source.workspace(selection.value, signal),
+    (signal) => workspace.load(signal)
+);
+const resources = useDetailRead(key, (signal) => materialSource.overview(selection.value, signal));
+const activityKey = computed(() => (data.value?.canReadActivity ? key.value : ''));
+const activity = useDetailActivity(activityKey, (cursor, signal) =>
+    source.activity(selection.value, 'workspace', id.value, { cursor, limit: 20 }, signal)
 );
 const views = [
     { value: 'overview', label: '概览' },
@@ -37,25 +54,25 @@ const views = [
     { value: 'setting', label: '设置' },
 ];
 const view = useManagementView(views);
-const { model, contextCatalog } = usePrototypeTeam(catalog, source);
+const model = reactive(createTeamManagementState(workspace));
+model.connect(source.team);
 const teamContext = computed(() => ({
     team: model,
-    catalog: contextCatalog,
+    catalog: workspace,
     selection: { organizationId: data.value?.organization.id ?? '', workspaceId: id.value },
-    simulation: true as const,
     roleBindings: data.value?.roleBindings ?? {},
     onMemberDetail: (memberId: string) => {
-        const membership = data.value?.memberships.find((item) => item.id === memberId);
+        const membership = model.data?.members.find((item) => item.id === memberId);
         if (membership)
             void router.push({
                 path: `/main/management/member/${membership.organizationMemberId}`,
-                query: { organization: membership.organizationId },
+                query: { organization: organizationId.value, workspace: id.value },
             });
     },
     onRoleDetail: (roleId: string) => {
         void router.push({
             path: `/main/management/role/${roleId}`,
-            query: { organization: data.value?.organization.id },
+            query: { organization: organizationId.value, workspace: id.value },
         });
     },
 }));
@@ -102,20 +119,24 @@ const resourceKinds = [
 function openMember(memberId: string) {
     void router.push({
         path: `/main/management/member/${memberId}`,
-        query: { organization: data.value?.organization.id },
+        query: { organization: organizationId.value, workspace: id.value },
     });
 }
 function switchWorkspace(next: string) {
     void router.push({
         path: `/main/management/workspace/${next}`,
-        query: { view: route.query.view },
+        query: {
+            view: route.query.view,
+            organization: workspace.workspaces.find((item) => item.id === next)?.organizationId,
+        },
         state: { navigationOrigin: navigation.origin ? { ...navigation.origin } : null },
     });
 }
 async function save() {
-    const currentId = id.value,
-        patch = { name: name.value, description: description.value };
-    saved.value = await write((source, signal) => source.updateWorkspace(currentId, patch, signal));
+    if (!data.value) return;
+    const current = selection.value,
+        patch = { name: name.value, description: description.value, expectedUpdatedAt: data.value.workspace.updatedAt };
+    saved.value = await write((signal) => source.updateWorkspace(current, patch, signal));
 }
 </script>
 <template>
@@ -129,14 +150,14 @@ async function save() {
         list-label="工作区"
         list-path="/main/management/workspace"
         :views="views"
-        :options="catalog?.workspaces.filter((item) => item.organizationId === data?.organization.id) ?? []"
+        :options="workspace.workspaces.filter((item) => item.organizationId === organizationId)"
         :loading="loading"
-        :error="error"
+        :error="error || (!organizationId ? '工作区不存在或当前账户无权访问，请从工作区列表重新进入。' : '')"
         @retry="refresh"
         @select="switchWorkspace"
     >
         <template v-if="data" #actions>
-            <Button variant="outline" @click="view = 'member'">
+            <Button v-if="data.canViewMembers" variant="outline" @click="view = 'member'">
                 <Users />
                 成员管理
             </Button>
@@ -146,7 +167,7 @@ async function save() {
             </Button>
         </template>
         <template v-if="data">
-            <DataSyncNotice scope="模拟工作区" :error="syncError" :busy="busy || loading" @retry="refresh" />
+            <DataSyncNotice scope="工作区" :error="syncError" :busy="busy || loading" @retry="refresh" />
             <template v-if="view === 'overview'">
                 <div class="grid min-w-0 gap-6 @min-[1000px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
                     <ManagementSection title="基本信息">
@@ -173,7 +194,12 @@ async function save() {
                                 <span class="text-left">
                                     <span class="block text-sm text-muted-foreground">{{ kind.label }}</span>
                                     <span class="text-xl font-semibold">
-                                        {{ data.resources.filter((item) => item.kind === kind.kind).length }}
+                                        {{
+                                            kind.kind === 'material'
+                                                ? (resources.data.value?.total ??
+                                                  (resources.loading.value ? '加载中' : '不可用'))
+                                                : '未接入'
+                                        }}
                                     </span>
                                 </span>
                             </Button>
@@ -182,7 +208,7 @@ async function save() {
                     <ManagementSection title="成员概况">
                         <template #actions>
                             <Button variant="ghost" size="sm" class="h-auto p-0" @click="view = 'member'">
-                                {{ data.members.length }} 人
+                                {{ data.memberTotal === null ? '无权查看' : `${data.memberTotal} 人` }}
                             </Button>
                         </template>
                         <div class="grid grid-cols-3 gap-4">
@@ -206,58 +232,59 @@ async function save() {
                     </ManagementSection>
                 </div>
                 <div class="grid min-w-0 gap-6 @min-[1000px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                    <ManagementSection title="最近活动"><ActivityList :items="data.activities" /></ManagementSection>
+                    <ManagementSection title="最近活动">
+                        <ActivityFeed v-if="data.canReadActivity" :activity="activity" />
+                        <p v-else class="text-sm text-muted-foreground">当前账户无权查看管理活动</p>
+                    </ManagementSection>
                     <ManagementSection title="新增资源记录">
-                        <figure class="space-y-3">
+                        <figure v-if="resources.data.value" class="space-y-3">
                             <figcaption class="text-xs text-muted-foreground">
-                                {{ data.resourceCreations.from }} 至 {{ data.resourceCreations.to }} · 每周新增数量
+                                材料每周新增 · UTC · {{ resources.data.value.creations.from.slice(0, 10) }} 至
+                                {{ resources.data.value.creations.to.slice(0, 10) }}
                             </figcaption>
-                            <div
-                                class="grid h-40 grid-cols-4 gap-5"
-                                role="img"
-                                :aria-label="
-                                    data.resourceCreations.points
-                                        .map((point) => `${point.label} 起一周新增 ${point.count} 项`)
-                                        .join('；')
-                                "
-                            >
+                            <div class="grid h-40 grid-cols-4 gap-5" role="img" aria-label="最近四周材料新增数量">
                                 <div
-                                    v-for="point in data.resourceCreations.points"
-                                    :key="point.label"
+                                    v-for="point in resources.data.value.creations.points"
+                                    :key="point.from"
                                     class="flex min-h-0 flex-col text-center"
                                 >
                                     <div class="flex min-h-0 flex-1 items-end border-b">
                                         <div
                                             class="w-full rounded-t-sm bg-chart-1"
                                             :style="{
-                                                height: `${(point.count / Math.max(1, ...data.resourceCreations.points.map((item) => item.count))) * 100}%`,
+                                                height: `${(point.count / Math.max(1, ...resources.data.value.creations.points.map((item) => item.count))) * 100}%`,
                                             }"
                                         />
                                     </div>
                                     <span class="pt-2 text-sm font-medium">{{ point.count }}</span>
-                                    <span class="text-xs text-muted-foreground">{{ point.label }}</span>
+                                    <span class="text-xs text-muted-foreground">{{ point.from.slice(5, 10) }}</span>
                                 </div>
                             </div>
                         </figure>
-                        <Button variant="link" class="mt-4 px-0" @click="view = 'sharing'">
-                            设施访问 · 发出 {{ data.outgoingAccess.length }} / 收到 {{ data.incomingAccess.length }}
-                        </Button>
+                        <p v-else-if="resources.loading.value" role="status" class="text-sm text-muted-foreground">
+                            正在加载材料新增记录
+                        </p>
+                        <div v-else class="text-sm text-muted-foreground">
+                            {{ resources.error.value || '材料新增记录暂不可用' }}
+                            <Button variant="link" @click="resources.refresh">重新加载</Button>
+                        </div>
+                        <Button variant="link" class="mt-4 px-0" @click="view = 'sharing'">设施访问 · 未接入</Button>
                     </ManagementSection>
                 </div>
             </template>
             <TeamManagement
-                v-else-if="view === 'member' || view === 'role'"
+                v-else-if="(view === 'member' || view === 'role') && data.canViewMembers"
                 :key="`${id}:${view}`"
                 :view="view === 'member' ? 'members' : 'roles'"
                 :context="teamContext"
             />
-            <WorkspaceResource v-else-if="view === 'resource'" :key="id" :items="data.resources" />
-            <WorkspaceSharing
-                v-else-if="view === 'sharing'"
-                :outgoing="data.outgoingAccess"
-                :incoming="data.incomingAccess"
-                :workspaces="catalog?.workspaces ?? []"
-            />
+            <p v-else-if="view === 'member' || view === 'role'" class="text-sm text-muted-foreground">
+                当前账户无权查看成员与角色管理数据
+            </p>
+            <WorkspaceResource v-else-if="view === 'resource'" :key="key" :scope="selection" />
+            <ManagementSection v-else-if="view === 'sharing'" title="设施访问">
+                <p class="text-sm text-muted-foreground">设施管理与跨工作区访问尚未接入，暂不展示模拟关系或数量。</p>
+            </ManagementSection>
             <div
                 v-else-if="view === 'setting'"
                 class="grid min-w-0 gap-8 @min-[1000px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
@@ -278,12 +305,10 @@ async function save() {
                             />
                             <span class="text-right text-xs text-muted-foreground">{{ description.length }} / 500</span>
                         </label>
-                        <p v-if="saved && !dirty" role="status" class="text-sm text-success-foreground">
-                            模拟更改已保存
-                        </p>
+                        <p v-if="saved && !dirty" role="status" class="text-sm text-success-foreground">更改已保存</p>
                         <div class="flex gap-2">
                             <Button :disabled="!data.canUpdate || !dirty || busy || !!syncError">
-                                {{ busy ? '保存中' : '保存模拟更改' }}
+                                {{ busy ? '保存中' : '保存更改' }}
                             </Button>
                             <Button
                                 type="button"
@@ -305,7 +330,7 @@ async function save() {
                             { label: '所属组织', value: data.organization.name },
                             { label: '创建时间', value: detailDate(data.workspace.createdAt) },
                             { label: '更新时间', value: detailDate(data.workspace.updatedAt) },
-                            { label: '成员数', value: data.members.length },
+                            { label: '成员数', value: data.memberTotal ?? '无权查看' },
                         ]"
                     />
                 </ManagementSection>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ label: string; layout?: 'wide' | 'table' | 'tool' | 'full' }>(), { layout: 'wide' });
+withDefaults(defineProps<{ label: string; layout?: 'wide' | 'table' | 'tool' | 'data' }>(), { layout: 'wide' });
 </script>
 
 <template>
@@ -7,7 +7,10 @@ withDefaults(defineProps<{ label: string; layout?: 'wide' | 'table' | 'tool' | '
         <div
             data-slot="resource-content"
             class="@container mx-auto w-full min-w-0 space-y-6"
-            :class="layout === 'full' ? '' : layout === 'tool' ? 'max-w-[1440px]' : 'max-w-[1200px]'"
+            :class="{
+                'max-w-[1440px]': layout === 'tool' || layout === 'data',
+                'max-w-[1200px]': layout === 'wide' || layout === 'table',
+            }"
         >
             <div v-if="$slots.actions" class="flex flex-wrap justify-end gap-2"><slot name="actions" /></div>
             <slot />
