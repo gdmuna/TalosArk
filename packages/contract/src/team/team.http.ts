@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UuidSchema } from '../protocol/scalar.js';
+import { NulFreeTextSchema, UuidSchema } from '../protocol/scalar.js';
 
 export const TeamNameSchema = z
     .string()
@@ -25,7 +25,7 @@ export const CreateOrganizationBodySchema = z.strictObject({
 });
 export const CreateWorkspaceBodySchema = z.strictObject({
     name: TeamNameSchema,
-    description: z.string().trim().max(500).optional(),
+    description: NulFreeTextSchema.trim().max(500).optional(),
 });
 export const OrganizationParamsSchema = z.strictObject({
     organizationId: UuidSchema.toLowerCase(),

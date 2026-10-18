@@ -2,6 +2,11 @@ import { TeamErrorContract } from '../team/error.js';
 import { defineErrorCatalog } from '../protocol/error.js';
 
 export const TeamErrorDefinition = defineErrorCatalog('team', {
+    'invalid-cursor': {
+        public: TeamErrorContract.invalidCursor,
+        protocol: { http: { status: 400 } },
+        internal: { logLevel: 'info' },
+    },
     forbidden: {
         public: TeamErrorContract.accessDenied,
         protocol: { http: { status: 403 } },

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UuidSchema } from '../protocol/scalar.js';
+import { NulFreeTextSchema, UuidSchema } from '../protocol/scalar.js';
 import { OrganizationParamsSchema, TeamNameSchema } from './team.http.js';
 
 export const TeamScopeQuerySchema = z.strictObject({
@@ -8,7 +8,7 @@ export const TeamScopeQuerySchema = z.strictObject({
 export const TeamManagementQuerySchema = TeamScopeQuerySchema.extend({
     page: z.coerce.number().int().min(1).max(1000000).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
-    search: z.string().trim().max(100).default(''),
+    search: NulFreeTextSchema.trim().max(100).default(''),
 });
 export const TeamItemParamsSchema = OrganizationParamsSchema.extend({
     id: UuidSchema.toLowerCase(),
@@ -21,9 +21,11 @@ export const TeamRoleSchema = z.object({
     permissions: z.array(z.string()),
     protected: z.boolean(),
     grantable: z.boolean(),
+    updatedAt: z.iso.datetime(),
 });
 export const TeamMemberSchema = z.object({
     id: UuidSchema,
+    organizationMemberId: UuidSchema,
     userId: UuidSchema,
     name: z.string(),
     email: z.string(),
@@ -72,7 +74,12 @@ export const TeamRoleBodySchema = z.strictObject({
     scope: z.enum(['ORGANIZATION', 'WORKSPACE']),
     permissions: z.array(z.string().max(120)).max(256),
 });
-export const TeamRoleUpdateSchema = TeamRoleBodySchema.pick({ name: true, permissions: true });
+export const TeamRoleUpdateSchema = TeamRoleBodySchema.pick({
+    name: true,
+    permissions: true,
+}).extend({
+    expectedUpdatedAt: z.iso.datetime({ precision: 3 }),
+});
 export const TeamBindingBodySchema = z.strictObject({
     roleIds: z.array(UuidSchema.toLowerCase()).max(32),
 });

@@ -13,6 +13,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./material": {
+      "types": "./dist/material/index.d.ts",
+      "import": "./dist/material/index.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"

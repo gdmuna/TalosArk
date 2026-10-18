@@ -2,6 +2,11 @@ import { z } from 'zod';
 import { defineErrorContract } from '../protocol/error.js';
 
 export const TeamErrorContract = {
+    invalidCursor: defineErrorContract(
+        'TEAM_INVALID_CURSOR',
+        'Management activity cursor is invalid for this query',
+        z.null()
+    ),
     accessDenied: defineErrorContract('TEAM_ACCESS_DENIED', 'Team access is denied', z.null()),
     conflict: defineErrorContract(
         'TEAM_CONFLICT',
