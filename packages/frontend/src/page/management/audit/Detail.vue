@@ -19,7 +19,11 @@ const route = useRoute(),
     source = useAuditDataSource();
 const id = computed(() => String(route.params.eventId ?? ''));
 const { scope, invalid, key: contextKey } = useAuditQuery(computed(() => account.profile?.id ?? ''));
-const key = computed(() => (source && contextKey.value && id.value ? `${contextKey.value}:${id.value}` : ''));
+const key = computed(() =>
+    source && contextKey.value && id.value && route.path.startsWith(`${auditListPath}/`)
+        ? `${contextKey.value}:${id.value}`
+        : ''
+);
 const { data, loading, error, refresh } = useAuditRead(key, async (signal) => {
     if (!source) return;
     const event = await source.event(scope.value, id.value, signal);

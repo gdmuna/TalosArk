@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
     Calendar,
     UserRound,
@@ -25,13 +25,14 @@ import ManagementPage from './component/ManagementPage.vue';
 import EventInspector from './audit/EventInspector.vue';
 import { auditListPath, useAuditQuery } from './audit/query';
 
-const router = useRouter(),
+const route = useRoute(),
+    router = useRouter(),
     account = useAccountStore(),
     workspace = useWorkspaceStore(),
     source = useAuditDataSource();
 const identity = computed(() => account.profile?.id ?? '');
 const { scope, query, invalid, key: queryKey, update } = useAuditQuery(identity);
-const key = computed(() => (source ? queryKey.value : ''));
+const key = computed(() => (source && route.path === auditListPath ? queryKey.value : ''));
 const { data, loading, error, refresh } = useAuditRead(key, async (signal) => {
     if (!source) return;
     const page = await source.list(scope.value, query.value, signal);
