@@ -16,7 +16,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Upload } from '@aws-sdk/lib-storage';
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
-import { Readable } from 'node:stream';
+import { addAbortSignal, Readable } from 'node:stream';
 import { S3_OPTIONS } from './storage.constant.js';
 import type { StorageModuleOptions } from './storage.options.js';
 import type {
@@ -34,6 +34,8 @@ import type {
     MultipartPartPresignOptions,
     MultipartCompletionPart,
     UploadedPart,
+    StorageRequestOptions,
+    DownloadPresignOptions,
 } from './storage.contract.js';
 import { StorageError, type StorageOperation } from './storage.error.js';
 import { normalizeStorageError } from './storage.error.normalize.js';
@@ -99,9 +101,21 @@ export class StorageService implements OnModuleDestroy {
 
     async presignDownload(
         object: ObjectLocation,
-        options: PresignOptions = {}
+        options: DownloadPresignOptions = {}
     ): Promise<PresignedRequest> {
-        const command = new GetObjectCommand({ Bucket: object.bucket, Key: object.key });
+        for (const value of [options.contentDisposition, options.contentType]) {
+            if (
+                value !== undefined &&
+                (value.length > 4096 || !value.isWellFormed() || /[\r\n]/.test(value))
+            )
+                throw new StorageError({ reason: 'invalid-request', operation: 'presign' });
+        }
+        const command = new GetObjectCommand({
+            Bucket: object.bucket,
+            Key: object.key,
+            ResponseContentDisposition: options.contentDisposition,
+            ResponseContentType: options.contentType,
+        });
         return this.presign(
             (signingOptions) => getSignedUrl(this.s3Client, command, signingOptions),
             'GET',
@@ -169,25 +183,39 @@ export class StorageService implements OnModuleDestroy {
         });
     }
 
-    async getObjectStream(object: ObjectLocation): Promise<Readable> {
+    async getObjectStream(
+        object: ObjectLocation,
+        options: StorageRequestOptions = {}
+    ): Promise<Readable> {
         const response = await this.execute('download', () =>
-            this.s3Client.send(new GetObjectCommand({ Bucket: object.bucket, Key: object.key }))
+            this.s3Client.send(new GetObjectCommand({ Bucket: object.bucket, Key: object.key }), {
+                abortSignal: options.signal,
+            })
         );
         if (!response.Body) {
             throw new StorageError({ reason: 'invalid-response', operation: 'download' });
         }
         const body = response.Body as Readable;
         // Normalize errors from consuming the body, not just acquiring the response.
-        return Readable.from(
+        const stream = Readable.from(
             (async function* () {
                 try {
                     for await (const chunk of body) yield chunk;
                 } catch (error) {
                     throw normalizeStorageError(error, 'download') ?? error;
+                } finally {
+                    body.destroy();
                 }
             })(),
             { objectMode: false }
         );
+        const forwardError = (error: Error) =>
+            stream.destroy(normalizeStorageError(error, 'download') ?? error);
+        body.once('error', forwardError);
+        body.once('close', () => body.removeListener('error', forwardError));
+        stream.once('close', () => body.destroy());
+        if (options.signal) addAbortSignal(options.signal, body);
+        return stream;
     }
 
     statObject(object: ObjectLocation, options: ObjectStatOptions = {}): Promise<ObjectStat> {
@@ -197,7 +225,8 @@ export class StorageService implements OnModuleDestroy {
                     Bucket: object.bucket,
                     Key: object.key,
                     ChecksumMode: options.checksum ? 'ENABLED' : undefined,
-                })
+                }),
+                { abortSignal: options.signal }
             );
             if (
                 response.ContentLength === undefined ||
@@ -228,9 +257,12 @@ export class StorageService implements OnModuleDestroy {
         });
     }
 
-    async deleteObject(object: ObjectLocation): Promise<void> {
+    async deleteObject(object: ObjectLocation, options: StorageRequestOptions = {}): Promise<void> {
         await this.execute('delete', () =>
-            this.s3Client.send(new DeleteObjectCommand({ Bucket: object.bucket, Key: object.key }))
+            this.s3Client.send(
+                new DeleteObjectCommand({ Bucket: object.bucket, Key: object.key }),
+                { abortSignal: options.signal }
+            )
         );
     }
 
@@ -272,14 +304,19 @@ export class StorageService implements OnModuleDestroy {
     }
 
     /** Copy does not delete its source or advance any File/database state. */
-    async copyObject(source: ObjectLocation, destination: ObjectLocation): Promise<void> {
+    async copyObject(
+        source: ObjectLocation,
+        destination: ObjectLocation,
+        options: StorageRequestOptions = {}
+    ): Promise<void> {
         await this.execute('copy', () =>
             this.s3Client.send(
                 new CopyObjectCommand({
                     Bucket: destination.bucket,
                     Key: destination.key,
                     CopySource: `${encodePath(source.bucket)}/${encodePath(source.key)}`,
-                })
+                }),
+                { abortSignal: options.signal }
             )
         );
     }
@@ -296,7 +333,8 @@ export class StorageService implements OnModuleDestroy {
                     ContentType: options.contentType,
                     ChecksumAlgorithm:
                         options.checksumAlgorithm === 'sha256' ? 'SHA256' : undefined,
-                })
+                }),
+                { abortSignal: options.signal }
             );
             if (!response.UploadId) {
                 throw new StorageError({ reason: 'invalid-response', operation: 'multipart-init' });
@@ -328,7 +366,10 @@ export class StorageService implements OnModuleDestroy {
     }
 
     /** Returns all provider-confirmed parts, not a client-reported completion list. */
-    listMultipartParts(upload: MultipartUpload): Promise<UploadedPart[]> {
+    listMultipartParts(
+        upload: MultipartUpload,
+        options: StorageRequestOptions = {}
+    ): Promise<UploadedPart[]> {
         return this.execute('multipart-list', async () => {
             const parts = new Map<number, UploadedPart>();
             let marker: number | undefined;
@@ -339,7 +380,8 @@ export class StorageService implements OnModuleDestroy {
                         Key: upload.object.key,
                         UploadId: upload.uploadId,
                         PartNumberMarker: marker?.toString(),
-                    })
+                    }),
+                    { abortSignal: options.signal }
                 );
                 for (const part of response.Parts ?? []) {
                     const number = part.PartNumber;
@@ -382,7 +424,8 @@ export class StorageService implements OnModuleDestroy {
     /** Validates protocol fields; File must establish ownership and the expected manifest. */
     async completeMultipartUpload(
         upload: MultipartUpload,
-        parts: readonly MultipartCompletionPart[]
+        parts: readonly MultipartCompletionPart[],
+        options: StorageRequestOptions = {}
     ): Promise<void> {
         const operation = 'multipart-complete';
         const numbers = new Set<number>();
@@ -408,19 +451,24 @@ export class StorageService implements OnModuleDestroy {
                     Key: upload.object.key,
                     UploadId: upload.uploadId,
                     MultipartUpload: { Parts: completed },
-                })
+                }),
+                { abortSignal: options.signal }
             )
         );
     }
 
-    async abortMultipartUpload(upload: MultipartUpload): Promise<void> {
+    async abortMultipartUpload(
+        upload: MultipartUpload,
+        options: StorageRequestOptions = {}
+    ): Promise<void> {
         await this.execute('multipart-abort', () =>
             this.s3Client.send(
                 new AbortMultipartUploadCommand({
                     Bucket: upload.object.bucket,
                     Key: upload.object.key,
                     UploadId: upload.uploadId,
-                })
+                }),
+                { abortSignal: options.signal }
             )
         );
     }

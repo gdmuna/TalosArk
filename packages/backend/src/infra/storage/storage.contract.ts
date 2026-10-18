@@ -17,6 +17,15 @@ export interface PresignOptions {
     readonly expiresIn?: number;
 }
 
+export interface StorageRequestOptions {
+    readonly signal?: AbortSignal;
+}
+
+export interface DownloadPresignOptions extends PresignOptions {
+    readonly contentDisposition?: string;
+    readonly contentType?: string;
+}
+
 export interface PresignedRequest {
     readonly url: string;
     readonly method: 'GET' | 'PUT';
@@ -42,7 +51,7 @@ export interface ObjectStat {
     readonly checksum?: ObjectChecksum;
 }
 
-export interface ObjectStatOptions {
+export interface ObjectStatOptions extends StorageRequestOptions {
     /** Opt in: provider support and additional permissions may be required. */
     readonly checksum?: boolean;
 }
@@ -61,7 +70,7 @@ export interface MultipartUpload {
     readonly uploadId: string;
 }
 
-export interface MultipartUploadOptions {
+export interface MultipartUploadOptions extends StorageRequestOptions {
     readonly contentType?: string;
     readonly checksumAlgorithm?: 'sha256';
 }

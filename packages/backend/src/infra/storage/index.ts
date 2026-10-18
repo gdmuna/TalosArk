@@ -13,6 +13,8 @@ export type {
     StreamBody,
     StreamUploadOptions,
     PresignOptions,
+    StorageRequestOptions,
+    DownloadPresignOptions,
     PresignedRequest,
     MultipartUpload,
     MultipartUploadOptions,

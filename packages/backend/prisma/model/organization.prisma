@@ -15,6 +15,7 @@ model Organization {
   facilities  Facility[]
   fileObjects FileObject[]
   fileAssets  FileAsset[]
+  fileUploads FileUploadSession[]
   auditEvents AuditEvent[]
 
   @@index([ownerUserId])

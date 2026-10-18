@@ -29,6 +29,7 @@ model User {
   alertEvents             AlertEvent[]
   notificationRecipients  NotificationRecipient[]
   uploadedFiles           FileAsset[]
+  fileUploads             FileUploadSession[]
   auditEvents             AuditEvent[]
   createdStocktakes       StocktakeSession[]         @relation("StocktakeCreator")
   confirmedStocktakes     StocktakeSession[]         @relation("StocktakeConfirmer")
