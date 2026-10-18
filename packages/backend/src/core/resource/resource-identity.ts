@@ -1,5 +1,20 @@
-/**
- * TODO: 定义通用资源身份模型。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export const RESOURCE_KINDS = [
+    'MATERIAL',
+    'MATERIAL_BATCH',
+    'MATERIAL_INSTANCE',
+    'FACILITY',
+    'STORAGE_TOPOLOGY',
+    'STORAGE_NODE',
+    'STOCK_ITEM',
+    'STOCKTAKE',
+    'APPROVAL_REQUEST',
+    'TASK',
+    'EQUIPMENT',
+] as const;
+
+export type ResourceKind = (typeof RESOURCE_KINDS)[number];
+
+export interface CreateResourceIdentity {
+    readonly organizationId: string;
+    readonly kind: ResourceKind;
+}

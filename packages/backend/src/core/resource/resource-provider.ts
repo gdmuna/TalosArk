@@ -1,5 +1,12 @@
-/**
- * TODO: 定义业务资源 Provider 扩展契约。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+import type { PermissionScope, PermissionSubject } from '@/core/permission/index.js';
+import type { ResourceDescriptor } from './resource-descriptor.js';
+
+export interface ResourceLookup {
+    readonly resourceId: string;
+    readonly subject: PermissionSubject;
+    readonly expectedScope?: PermissionScope;
+}
+
+export interface ResourceProvider {
+    describe(input: ResourceLookup): Promise<ResourceDescriptor | null>;
+}

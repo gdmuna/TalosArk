@@ -6,19 +6,33 @@ import type {
     PermissionSubject,
 } from '@/core/permission/index.js';
 
+export interface AuthorizationEntityTarget {
+    readonly kind: string;
+    readonly id: string;
+}
+
+export type AuthorizationTarget = PermissionScope | AuthorizationEntityTarget;
+
 export interface AuthorizationRequest {
     readonly subject: PermissionSubject;
     readonly permissionCode: string;
-    readonly target: PermissionScope;
+    readonly target: AuthorizationTarget;
+    /** A caller restriction, never a substitute for the target's actual ownership. */
+    readonly expectedScope?: PermissionScope;
 }
 
-/** A current-operation observation, never a reusable credential or a bypass for later checks. */
-export interface AuthorizedContext {
+export interface ResolvedContext {
     readonly subject: PermissionSubject;
     readonly permissionCode: string;
+    readonly target: AuthorizationTarget;
     readonly scope: PermissionScope;
     readonly organization: OrganizationContext;
     readonly workspace?: WorkspaceContext;
+}
+
+/** A current-operation observation, never a reusable credential or a bypass for later checks. */
+export interface AuthorizedContext extends ResolvedContext {
+    readonly authorized: true;
 }
 
 export type AuthorizationDecision =

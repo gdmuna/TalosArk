@@ -1,11 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { OrganizationContextError } from '@/core/organization-context/index.js';
-import {
-    PermissionKernel,
-    PermissionError,
-    parsePermissionCheck,
-} from '@/core/permission/index.js';
+import { PermissionKernel } from '@/core/permission/index.js';
 import type {
     AuthorizationDecision,
     AuthorizationRequest,
@@ -16,6 +11,7 @@ import type {
 import { AuthorizationError } from './authorization.error.js';
 import { AuthorizationContextResolver } from './internal/authorization.context-resolver.js';
 import { accessScope } from './internal/authorization.scope-planner.js';
+import { parseAuthorizationRequest } from './internal/authorization.input.js';
 
 @Injectable()
 export class AuthorizationKernel {
@@ -26,30 +22,23 @@ export class AuthorizationKernel {
     ) {}
 
     check(input: AuthorizationRequest): Promise<AuthorizationDecision> {
-        const check = parsePermissionCheck({
-            subject: input.subject,
-            permissionCode: input.permissionCode,
-            scope: input.target,
-        });
-        const definition = this.permission.definition(check.permissionCode);
-        if (
-            definition.scope !==
-            (check.scope.kind === 'organization' ? 'ORGANIZATION' : 'WORKSPACE')
-        )
-            throw new PermissionError({ reason: 'scope-conflict', code: check.permissionCode });
+        const request = parseAuthorizationRequest(input);
+        const definition = this.permission.definition(request.permissionCode);
         return this.database.transaction.run(
             async () => {
-                let context: AuthorizedContext;
-                try {
-                    context = await this.contexts.resolve(check);
-                } catch (error) {
-                    if (OrganizationContextError.is(error) && error.failure.reason === 'forbidden')
-                        return Object.freeze({ allowed: false, reason: 'context-unavailable' });
-                    throw error;
-                }
-                const decision = await this.permission.evaluate(check);
+                const context = await this.contexts.resolve(request, definition.scope);
+                if (!context)
+                    return Object.freeze({ allowed: false, reason: 'context-unavailable' });
+                const decision = await this.permission.evaluate({
+                    subject: context.subject,
+                    permissionCode: context.permissionCode,
+                    scope: context.scope,
+                });
                 return decision.allowed
-                    ? Object.freeze({ allowed: true, context })
+                    ? Object.freeze({
+                          allowed: true,
+                          context: Object.freeze({ ...context, authorized: true }),
+                      })
                     : Object.freeze({ allowed: false, reason: 'no-grant' });
             },
             this.database.transaction.current()

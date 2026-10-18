@@ -1,5 +1,9 @@
-/**
- * TODO: 定义资源 Provider 扩展装饰器。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+import { defineExtensionPoint } from '@/platform/extensions/index.js';
+import { createExtensionDecorator } from '@/platform/extensions/discovery/index.js';
+import type { ResourceKind } from './resource-identity.js';
+
+export const resourcePoint = defineExtensionPoint<{ readonly kind: ResourceKind }>(
+    'resource.provider'
+);
+export const ResourceExtension: (metadata: { readonly kind: ResourceKind }) => ClassDecorator =
+    createExtensionDecorator(resourcePoint);
