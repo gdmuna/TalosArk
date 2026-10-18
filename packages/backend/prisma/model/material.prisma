@@ -18,20 +18,22 @@ model MaterialType {
 
 /// A definition belongs exclusively to one workspace. It contains no stock balance.
 model Material {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  organizationId String    @db.Uuid
-  workspaceId    String    @db.Uuid
-  resourceId     String    @db.Uuid
-  typeId         String    @db.Uuid
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @db.Uuid
+  workspaceId    String         @db.Uuid
+  resourceId     String         @db.Uuid
+  typeId         String         @db.Uuid
   code           String
   name           String
   description    String?
+  branch         MaterialBranch
+  attributes     Json
   manufacturer   String?
   catalogNumber  String?
-  quantityUnit   String    @db.VarChar(32)
-  archivedAt     DateTime? @db.Timestamptz(3)
-  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+  quantityUnit   String         @db.VarChar(32)
+  archivedAt     DateTime?      @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
 
   workspace   Workspace            @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
   resource    ResourceIdentity     @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
@@ -47,6 +49,12 @@ model Material {
   @@unique([workspaceId, code])
   @@index([organizationId, workspaceId, typeId])
   @@index([workspaceId, archivedAt, name])
+}
+
+enum MaterialBranch {
+  consumable
+  chemical
+  biological
 }
 
 model MaterialAlias {

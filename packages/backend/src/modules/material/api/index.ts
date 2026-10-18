@@ -1,5 +1,1 @@
-/**
- * TODO: 定义材料 API 边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { MaterialController } from './material.controller.js';

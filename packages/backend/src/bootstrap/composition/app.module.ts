@@ -12,11 +12,19 @@ import { AuthModule } from '@/modules/auth/index.js';
 import { AuthRecoveryModule } from '@/modules/auth/auth-recovery.module.js';
 import { UserModule } from '@/modules/user/user.module.js';
 import { OrganizationModule } from '@/modules/organization/index.js';
+import { MaterialModule } from '@/modules/material/index.js';
+import { FacilityModule } from '@/modules/facility/index.js';
+import { WorkspaceConfigurationModule } from '@/modules/workspace/workspace.configuration.js';
+import { workspacePermission } from '@/core/team-governance/index.js';
+import { materialPermission } from '@/modules/material/contribution/material-authorization.contribution.js';
+import { AuthorizationConfigurationModule } from '@/core/authorization/index.js';
 
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
 import { errorProviders } from './error.provider.js';
 import { permissionConfiguration } from './permission.provider.js';
+import { fileConfiguration } from './file.provider.js';
+import { FileModule } from '@/core/file/index.js';
 import { iamOptions, mailOptions, storageOptions } from './infra.composition.js';
 import { PlatformLoggerModule } from '@/platform/observability/logger/logger.module.js';
 import { AuthGuard } from '@/platform/http/guards/auth.guard.js';
@@ -63,15 +71,27 @@ import { ZodValidationPipe } from 'nestjs-zod';
         }),
         PlatformLoggerModule.forRoot(),
         permissionConfiguration,
+        AuthorizationConfigurationModule.forRoot({ required: ['material'] }),
+        WorkspaceConfigurationModule.forRoot([
+            workspacePermission.read,
+            workspacePermission.members,
+            workspacePermission.update,
+            workspacePermission.audit,
+            ...Object.values(materialPermission),
+        ]),
+        fileConfiguration,
         IamModule.forRootAsync(iamOptions),
         MailModule.forRootAsync(mailOptions),
         StorageModule.forRootAsync(storageOptions),
+        FileModule,
         SessionModule,
         KvsModule,
         AuthModule,
         AuthRecoveryModule,
         UserModule,
         OrganizationModule,
+        MaterialModule,
+        FacilityModule,
         PlatformContextModule,
         HealthModule,
     ],

@@ -1,5 +1,2 @@
-/**
- * TODO: 定义材料模块导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { MaterialModule } from './material.module.js';
+export { MaterialService } from './application/material.service.js';

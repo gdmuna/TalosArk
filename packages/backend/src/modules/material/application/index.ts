@@ -1,5 +1,2 @@
-/**
- * TODO: 定义材料应用层导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { MaterialService } from './material.service.js';
+export { MaterialError } from './material.error.js';

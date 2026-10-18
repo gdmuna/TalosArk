@@ -7,6 +7,7 @@ import {
     RequestErrorDefinition,
     SystemErrorDefinition,
     TeamErrorDefinition,
+    MaterialErrorDefinition,
 } from '@talos-ark/contracts/backend';
 import { HttpErrorPolicy } from '@/platform/http/error/http.error.policy.js';
 import { WsErrorAdapter } from '@/platform/realtime/websocket/ws.error.adapter.js';
@@ -22,6 +23,7 @@ export const errorProviders: Provider[] = [
                 AuthErrorDefinition,
                 SystemErrorDefinition,
                 TeamErrorDefinition,
+                MaterialErrorDefinition,
             ]),
     },
     {
