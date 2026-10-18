@@ -1,5 +1,6 @@
-/**
- * TODO: 定义库存模块跨模块公开 API。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export {
+    parseInventoryQuantity,
+    formatInventoryQuantity,
+    type InventoryQuantity,
+} from '../domain/value-objects/inventory-quantity.js';
+export { InventoryQuantityError } from '../domain/value-objects/inventory-quantity.error.js';

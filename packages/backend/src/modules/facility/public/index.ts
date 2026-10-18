@@ -1,5 +1,14 @@
-/**
- * TODO: 定义设施模块跨模块公开 API。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { FacilityStorageTopologyReader } from './facility-storage-topology.reader.js';
+export { FacilityStorageTopologyWriter } from './facility-storage-topology.writer.js';
+export type {
+    StorageNodeChildrenInput,
+    StorageNodeCursorPage,
+    StorageNodeDescendantsInput,
+    StorageNodeFact,
+    StorageNodeKind,
+    StorageNodeListInput,
+    StorageNodeLookup,
+    StorageNodeMoveInput,
+    StorageNodeMutationInput,
+    StorageNodeScope,
+} from './facility-storage-topology.contract.js';

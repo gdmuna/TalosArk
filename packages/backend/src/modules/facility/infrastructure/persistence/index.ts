@@ -1,5 +1,2 @@
-/**
- * TODO: 定义设施持久化适配边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { StorageNodeReader } from './storage-node.reader.js';
+export { StorageNodeWriter } from './storage-node.writer.js';

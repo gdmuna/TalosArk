@@ -1,5 +1,2 @@
-/**
- * TODO: 定义设施模块导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { FacilityModule } from './facility.module.js';
+export * from './public/index.js';

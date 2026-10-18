@@ -1,7 +1,18 @@
-/**
- * TODO: 实现设施业务模块。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export class FacilityModule {
-    // TODO: 在首个已批准的真实用例中实现。
-}
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from '@/infra/database/database.module.js';
+import { StorageNodeReader } from './infrastructure/persistence/storage-node.reader.js';
+import { StorageNodeWriter } from './infrastructure/persistence/storage-node.writer.js';
+import { FacilityStorageTopologyReader } from './public/facility-storage-topology.reader.js';
+import { FacilityStorageTopologyWriter } from './public/facility-storage-topology.writer.js';
+
+@Module({
+    imports: [DatabaseModule],
+    providers: [
+        StorageNodeReader,
+        StorageNodeWriter,
+        { provide: FacilityStorageTopologyReader, useExisting: StorageNodeReader },
+        { provide: FacilityStorageTopologyWriter, useExisting: StorageNodeWriter },
+    ],
+    exports: [FacilityStorageTopologyReader, FacilityStorageTopologyWriter],
+})
+export class FacilityModule {}

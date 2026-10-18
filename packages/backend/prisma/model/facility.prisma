@@ -93,7 +93,7 @@ model StorageNode {
   @@unique([organizationId, topologyId, id])
   @@unique([topologyId, code])
   @@unique([parentId, rowIndex, columnIndex])
-  @@index([organizationId, topologyId, parentId, sortOrder])
+  @@index([organizationId, topologyId, parentId, sortOrder, id], map: "StorageNode_children_page_idx")
   @@index([path(ops: raw("gist_ltree_ops"))], type: Gist, map: "StorageNode_path_gist")
 }
 
