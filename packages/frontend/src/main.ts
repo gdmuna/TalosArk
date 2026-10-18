@@ -12,6 +12,7 @@ import {
     createHttpManagementDataSource,
     managementDataSourceKey,
 } from '@/module/workspace';
+import { createHttpMaterialDataSource, materialDataSourceKey } from '@/module/material';
 import { createApplicationBootstrap } from './bootstrap';
 import { applicationBootstrapKey } from './layout/startup/context';
 
@@ -31,13 +32,16 @@ const http = createHttpClient({
 const authApi = createAuthApi(http, authSession, apiRoot);
 app.provide(authApiKey, authApi);
 const teamSource = createHttpTeamDataSource(http);
+const materialSource = createHttpMaterialDataSource(http);
 app.provide(managementDataSourceKey, createHttpManagementDataSource(http, teamSource));
+app.provide(materialDataSourceKey, materialSource);
 const bootstrap = createApplicationBootstrap(
     pinia,
     {
         account: createHttpAccountDataSource(http),
         workspace: createHttpWorkspaceDataSource(http),
         team: teamSource,
+        material: materialSource,
     },
     authApi
 );

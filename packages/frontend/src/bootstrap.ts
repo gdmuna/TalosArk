@@ -6,12 +6,14 @@ import { useTeamStore, type TeamDataSource } from '@/module/workspace';
 import { useWorkbenchStore, type WorkbenchDataSource } from '@/module/workbench';
 import type { AuthApi } from '@/module/auth';
 import { HttpError } from '@/platform/http';
+import { useMaterialStore, type MaterialDataSource } from '@/module/material';
 
 export interface ApplicationDataSources {
     account: AccountDataSource;
     workspace?: WorkspaceDataSource;
     workbench?: WorkbenchDataSource;
     team?: TeamDataSource;
+    material?: MaterialDataSource;
 }
 
 export interface BootstrapState {
@@ -29,10 +31,12 @@ export function createApplicationBootstrap(
     const workspace = useWorkspaceStore(pinia);
     const workbench = useWorkbenchStore(pinia);
     const team = useTeamStore(pinia);
+    const material = useMaterialStore(pinia);
     account.connect(sources.account);
     if (sources.workspace) workspace.connect(sources.workspace);
     if (sources.workbench) workbench.connect(sources.workbench);
     if (sources.team) team.connect(sources.team);
+    if (sources.material) material.connect(sources.material);
 
     const state = shallowRef<BootstrapState>({ status: 'idle', stage: '', error: '' });
     let lifetime = new AbortController();
@@ -112,6 +116,7 @@ export function createApplicationBootstrap(
         pending = undefined;
         account.reset();
         team.reset();
+        material.reset();
         workspace.reset();
         workbench.reset();
         state.value =

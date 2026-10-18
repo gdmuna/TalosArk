@@ -12,7 +12,10 @@ const allowedLayers = {
     ui: new Set(['ui', 'shared']),
     shared: new Set(['shared']),
 };
-const moduleDependencies = { workbench: new Set(['workspace']) };
+const moduleDependencies = {
+    workbench: new Set(['workspace']),
+    material: new Set(['workspace']),
+};
 const componentDependencies = {
     'data-table': new Set(['scroll-surface', 'select-field', 'inspector']),
     breadcrumb: new Set(['view-context']),

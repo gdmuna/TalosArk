@@ -1,98 +1,183 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useQueryCommand } from '@/platform/navigation';
+import { refDebounced } from '@vueuse/core';
 import {
-    ArrowUpRight,
-    Boxes,
-    CalendarDays,
-    CircleCheck,
+    Archive,
+    ArchiveRestore,
     Eye,
     FlaskConical,
-    PackageSearch,
     Shapes,
     Tag,
+    CalendarDays,
+    Pencil,
+    ArrowUpRight,
+    Boxes,
 } from '@lucide/vue';
-import { useWorkspaceStore } from '@/module/workspace';
-import { stateTone, useResourcePreview, type Resource } from '@/module/workbench';
-import { DataTable, type DataTableColumn, type DataTableFilter } from '@/component/data-table';
+import type { Material, MaterialQuery } from '@talos-ark/contracts/material';
+import type { SortingState, PaginationState } from '@tanstack/vue-table';
+import {
+    useMaterialRead,
+    useMaterialStore,
+    materialBranches,
+    branchPresentation,
+    MaterialEditor,
+    MaterialFacts,
+    materialDate,
+} from '@/module/material';
+import { DataTable, type DataTableColumn, type DataTableFilter, type DataTableAction } from '@/component/data-table';
 import { SheetInspector, CopyableId } from '@/component/inspector';
-import { StateBadge } from '@/component/state-badge';
-import { ScrollSurface } from '@/component/scroll-surface';
 import { Badge } from '@/ui/badge';
 import { Button } from '@/ui/button';
-import ResourceFactList from '../resource/ResourceFactList.vue';
-import ResourceSection from '../resource/ResourceSection.vue';
+import { ScrollArea } from '@/ui/scroll-area';
+import { useQueryCommand } from '@/platform/navigation';
 import { useResourceQuery } from '../resource/useResourceQuery';
-import { materialBranches, materialBranch, useMaterialSummary } from './useMaterialSummary';
 
-const route = useRoute();
-const router = useRouter();
-const workspace = useWorkspaceStore();
-const { workbench, materials, instancesByMaterial, distribution, unclassified } = useMaterialSummary();
-const filters = ref<Record<string, string[]>>({});
+const route = useRoute(),
+    router = useRouter();
+const store = useMaterialStore();
 const query = useResourceQuery();
-const { resource: selected, selectedId, open } = useResourcePreview(ref<Resource | null>(null), materials);
-const selectedInstances = computed(() => instancesByMaterial.value.get(selectedId.value ?? '') ?? []);
-const columns: DataTableColumn<Resource>[] = [
-    { id: 'name', label: '材料', icon: FlaskConical, size: 280, value: (row) => row.name },
-    {
-        id: 'branch',
-        label: '业务分支',
-        icon: Shapes,
-        size: 130,
-        value: (row) => materialBranch(row)?.label ?? '未分类',
+const search = refDebounced(query, 200);
+const filters = ref<Record<string, string[]>>({ status: ['active'] });
+const sorting = ref<SortingState>([{ id: 'updatedAt', desc: true }]);
+const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
+const selectedId = ref(''),
+    editing = ref<Material>(),
+    editorOpen = ref(false);
+const request = computed<MaterialQuery>(() => ({
+    page: pagination.value.pageIndex + 1,
+    pageSize: pagination.value.pageSize,
+    q: search.value,
+    branch: filters.value.branch?.length ? (filters.value.branch as MaterialQuery['branch']) : undefined,
+    typeId: filters.value.type?.length ? filters.value.type : undefined,
+    state: filters.value.status?.length === 1 ? (filters.value.status[0] as 'active' | 'archived') : 'all',
+    sort: sorting.value.length
+        ? sorting.value.map((item) => `${item.id}:${item.desc ? 'desc' : 'asc'}`).join(',')
+        : 'updatedAt:desc',
+}));
+const { data, loading, error, reload } = useMaterialRead(
+    (context, signal) => context.source.list(context.scope, request.value, signal),
+    [request]
+);
+const total = ref(0);
+watch(data, (value) => {
+    if (!value) return;
+    total.value = value.total;
+    store.capabilities = value.capabilities;
+    if (pagination.value.pageIndex !== value.page - 1)
+        pagination.value = { ...pagination.value, pageIndex: value.page - 1 };
+});
+watch(
+    () => store.scope,
+    () => {
+        total.value = 0;
+        pagination.value = { ...pagination.value, pageIndex: 0 };
+        selectedId.value = '';
+    }
+);
+const types = useMaterialRead((context, signal) => context.source.types(context.scope, signal));
+watch(types.data, (value) => {
+    if (value) store.types = value.items;
+});
+const rows = computed(() => data.value?.items ?? []);
+const preview = useMaterialRead(
+    (context, signal) =>
+        selectedId.value ? context.source.get(context.scope, selectedId.value, signal) : Promise.resolve(undefined),
+    [selectedId]
+);
+const selected = computed(() => preview.data.value?.material);
+const open = computed({
+    get: () => !!selected.value,
+    set: (value) => {
+        if (!value) selectedId.value = '';
     },
-    { id: 'type', label: '材料类型', icon: Tag, size: 130, value: (row) => row.material?.type ?? '未加载' },
+});
+const columns: DataTableColumn<Material>[] = [
+    { id: 'name', label: '材料', icon: FlaskConical, size: 280, fill: true, value: (row) => row.name },
+    { id: 'branch', label: '业务分支', icon: Shapes, size: 130, value: (row) => branchPresentation(row.branch).label },
+    { id: 'type', label: '材料分类', icon: Tag, size: 140, value: (row) => row.type.name },
+    { id: 'quantityUnit', label: '计量单位', size: 100, value: (row) => row.quantityUnit },
     {
-        id: 'instances',
-        label: '关联实例',
+        id: 'instanceCount',
+        label: '登记实例',
         icon: Boxes,
-        size: 110,
-        value: (row) => instancesByMaterial.value.get(row.id)?.length ?? 0,
+        size: 100,
+        sortable: false,
+        value: (row) => row.instanceCount,
     },
-    { id: 'stock', label: '库存状态', icon: PackageSearch, size: 120, sortable: false, value: () => '—' },
-    { id: 'status', label: '材料状态', icon: CircleCheck, size: 110, value: (row) => row.status },
-    { id: 'updated', label: '更新时间', icon: CalendarDays, size: 180, sortable: false, value: () => '—' },
+    { id: 'status', label: '状态', size: 100, value: (row) => (row.archivedAt ? '已归档' : '有效') },
+    { id: 'updatedAt', label: '更新时间', icon: CalendarDays, size: 185, value: (row) => materialDate(row.updatedAt) },
 ];
-const filterFields = computed<DataTableFilter<Resource>[]>(() => [
+const filterFields = computed<DataTableFilter<Material>[]>(() => [
     {
         id: 'branch',
         label: '业务分支',
         mode: 'options',
-        value: (row) => row.material?.branch ?? 'unclassified',
-        options: [
-            ...distribution.value.map((branch) => ({ value: branch.id, label: branch.label, count: branch.count })),
-            ...(unclassified.value ? [{ value: 'unclassified', label: '未分类', count: unclassified.value }] : []),
-        ],
+        value: (row) => row.branch,
+        options: materialBranches.map((item) => ({ value: item.id, label: item.label })),
     },
     {
         id: 'type',
-        label: '材料类型',
+        label: '材料分类',
         mode: 'options',
-        value: (row) => row.material?.type ?? '未加载',
-        options: [...new Set(materials.value.map((item) => item.material?.type ?? '未加载'))].map((type) => ({
-            value: type,
-            label: type,
+        value: (row) => row.typeId,
+        options: store.types.map((item) => ({
+            value: item.id,
+            label: item.name + (item.archivedAt ? '（已归档）' : ''),
         })),
     },
     {
         id: 'status',
-        label: '材料状态',
+        label: '状态',
         mode: 'options',
-        value: (row) => row.status,
-        options: [...new Set(materials.value.map((item) => item.status))].map((status) => ({
-            value: status,
-            label: status,
-        })),
+        value: (row) => (row.archivedAt ? 'archived' : 'active'),
+        options: [
+            { value: 'active', label: '有效' },
+            { value: 'archived', label: '已归档' },
+        ],
+    },
+]);
+function detail(item: Material) {
+    return router.push(`/main/material/detail/${encodeURIComponent(item.id)}`);
+}
+function edit(item: Material) {
+    editing.value = item;
+    editorOpen.value = true;
+}
+const actions = computed<DataTableAction<Material>[]>(() => [
+    {
+        id: 'detail',
+        label: '详情',
+        icon: Eye,
+        primary: true,
+        run: (row) => {
+            void detail(row);
+        },
+    },
+    {
+        id: 'edit',
+        label: '编辑',
+        icon: Pencil,
+        disabled: (row) => !data.value?.capabilities.update || !!row.archivedAt || store.busy,
+        run: edit,
+    },
+    {
+        id: 'archive',
+        label: '归档 / 恢复',
+        icon: Archive,
+        disabled: (row) =>
+            !data.value?.capabilities.archive || store.busy || (!!row.archivedAt && !!row.type.archivedAt),
+        run: async (row) => {
+            await store.archive(row);
+        },
     },
 ]);
 watch(
     () => route.query.branch,
-    (branch) => {
+    (value) => {
         filters.value = {
             ...filters.value,
-            branch: materialBranches.some((item) => item.id === branch) ? [branch as string] : [],
+            branch: materialBranches.some((branch) => branch.id === value) ? [String(value)] : [],
         };
     },
     { immediate: true }
@@ -100,177 +185,138 @@ watch(
 useQueryCommand('resource', (id) => {
     selectedId.value = id;
 });
-function fullDetail(item: Resource) {
-    router.push(`/main/material/detail/${encodeURIComponent(item.id)}`);
-    selectedId.value = null;
-}
 </script>
 
 <template>
     <main aria-label="材料列表" class="w-full min-w-0 px-4 pb-6 lg:px-6">
-        <div class="mx-auto w-full min-w-0 max-w-[1200px]">
-            <SheetInspector v-model:open="open" :title="selected?.name ?? '材料详情'" description="材料与关联库存摘要">
+        <div class="mx-auto w-full min-w-0 max-w-[1200px] space-y-4">
+            <div
+                v-if="error"
+                role="alert"
+                class="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4"
+            >
+                <p class="text-sm text-destructive">{{ error }}</p>
+                <Button variant="outline" @click="reload">重新加载</Button>
+            </div>
+            <p v-if="store.error" role="alert" class="text-sm text-destructive">{{ store.error }}</p>
+            <p v-if="preview.error.value" role="alert" class="text-sm text-destructive">
+                {{ preview.error.value }}
+                <Button variant="link" size="sm" @click="preview.reload">重试</Button>
+            </p>
+            <p v-if="types.error.value" role="alert" class="text-sm text-destructive">
+                分类加载失败
+                <Button variant="link" size="sm" @click="types.reload">重试</Button>
+            </p>
+            <SheetInspector v-model:open="open" :title="selected?.name ?? '材料详情'">
                 <template #main>
                     <DataTable
                         v-model:query="query"
                         v-model:filters="filters"
-                        :data="materials"
+                        v-model:sorting="sorting"
+                        v-model:pagination="pagination"
+                        :server-total="total"
+                        :data="rows"
                         :columns="columns"
                         :filter-fields="filterFields"
-                        :active-id="selectedId"
+                        :actions="actions"
+                        :busy="loading"
                         :preview="
                             (row) => {
                                 selectedId = row.id;
                             }
                         "
-                        :busy="workbench.busy"
-                        search-label="搜索材料名称、类型或 ID"
-                        :search-text="
-                            (row) =>
-                                `${row.name} ${row.id} ${row.material?.type ?? ''} ${materialBranch(row)?.label ?? ''} ${row.description}`
-                        "
-                        empty-text="暂无符合条件的材料"
-                        :actions="[
-                            {
-                                id: 'detail',
-                                label: '详情',
-                                icon: Eye,
-                                primary: true,
-                                run: fullDetail,
-                            },
-                            {
-                                id: 'preview',
-                                label: '预览',
-                                icon: Eye,
-                                run: (row) => {
-                                    selectedId = row.id;
-                                },
-                            },
-                        ]"
+                        :active-id="selectedId"
+                        search-label="搜索材料、厂家、别名或外部标识"
+                        :empty-text="error ? '材料加载失败' : '暂无符合条件的材料'"
                     >
                         <template #cell-name="{ row }">
                             <button
                                 class="group flex w-full items-start gap-3 text-left after:absolute after:inset-0"
-                                :aria-label="`查看${row.name}`"
+                                :aria-label="`预览${row.name}`"
                                 @click="selectedId = row.id"
                             >
                                 <component
-                                    :is="materialBranch(row)?.icon ?? FlaskConical"
+                                    :is="branchPresentation(row.branch).icon"
                                     class="mt-0.5 size-5 shrink-0 text-primary"
-                                    aria-hidden="true"
                                 />
                                 <span class="min-w-0">
                                     <span class="block font-medium group-hover:underline group-focus-visible:underline">
                                         {{ row.name }}
                                     </span>
-                                    <span class="mt-1 block font-mono text-xs text-muted-foreground">{{ row.id }}</span>
+                                    <span class="mt-1 block break-all text-xs text-muted-foreground">
+                                        {{ row.code }}
+                                        <template v-if="row.catalogNumber">· {{ row.catalogNumber }}</template>
+                                    </span>
                                 </span>
                             </button>
                         </template>
                         <template #cell-branch="{ row }">
                             <Badge
                                 variant="outline"
-                                class="material-branch-badge rounded-sm font-normal"
-                                :style="{ '--material-branch-color': materialBranch(row)?.color }"
+                                class="material-branch-badge whitespace-normal rounded-sm font-normal"
+                                :style="{ '--material-branch-color': branchPresentation(row.branch).color }"
                             >
-                                {{ materialBranch(row)?.label ?? '未分类' }}
+                                {{ branchPresentation(row.branch).label }}
                             </Badge>
                         </template>
-                        <template #cell-stock>
-                            <span class="text-muted-foreground" aria-label="库存统计未加载">—</span>
-                        </template>
-                        <template #cell-updated>
-                            <span class="text-muted-foreground" aria-label="更新时间未加载">—</span>
-                        </template>
                         <template #cell-status="{ row }">
-                            <StateBadge :tone="stateTone(row.status)">{{ row.status }}</StateBadge>
+                            <Badge variant="secondary" class="rounded-sm font-normal">
+                                {{ row.archivedAt ? '已归档' : '有效' }}
+                            </Badge>
                         </template>
                     </DataTable>
                 </template>
                 <template v-if="selected">
-                    <ScrollSurface class="min-h-0 flex-1 scroll-smooth p-6">
-                        <div class="space-y-6">
-                            <div class="flex items-start gap-3 pr-7">
-                                <div
-                                    class="flex size-11 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary-soft-foreground"
-                                >
-                                    <component
-                                        :is="materialBranch(selected)?.icon ?? FlaskConical"
-                                        class="size-6"
-                                        aria-hidden="true"
-                                    />
-                                </div>
-                                <div class="min-w-0 space-y-2">
-                                    <h2 class="text-lg font-semibold">{{ selected.name }}</h2>
-                                    <CopyableId :value="selected.id" label="材料 ID" />
-                                    <StateBadge :tone="stateTone(selected.status)">{{ selected.status }}</StateBadge>
-                                </div>
+                    <ScrollArea class="min-h-0 flex-1">
+                        <div class="@container space-y-6 p-6">
+                            <div class="space-y-2 pr-7">
+                                <h2 class="break-words text-lg font-semibold">{{ selected.name }}</h2>
+                                <CopyableId :value="selected.id" label="材料 ID" />
+                                <Badge variant="secondary">{{ selected.archivedAt ? '已归档' : '有效' }}</Badge>
                             </div>
-                            <ResourceSection title="基本信息">
-                                <ResourceFactList
-                                    :fields="[
-                                        { label: '业务分支', value: materialBranch(selected)?.label },
-                                        { label: '材料类型', value: selected.material?.type },
-                                        { label: '工作区', value: workspace.current?.name },
-                                        { label: '制造商' },
-                                        { label: '目录编号' },
-                                        { label: '计量单位' },
-                                        { label: '说明', value: selected.description },
-                                    ]"
-                                />
-                            </ResourceSection>
-                            <ResourceSection
-                                v-if="materialBranch(selected)"
-                                :title="`${materialBranch(selected)?.label}属性`"
-                            >
-                                <ResourceFactList
-                                    :fields="materialBranch(selected)?.fields.map((label) => ({ label })) ?? []"
-                                />
-                            </ResourceSection>
-                            <ResourceSection title="关联库存实例">
-                                <div v-if="selectedInstances.length" class="divide-y">
-                                    <Button
-                                        v-for="instance in selectedInstances"
-                                        :key="instance.id"
-                                        variant="ghost"
-                                        class="h-auto w-full justify-start rounded-none px-0 py-3 text-left"
-                                        @click="
-                                            router.push(`/main/inventory/detail/${encodeURIComponent(instance.id)}`)
-                                        "
-                                    >
-                                        <Boxes class="shrink-0" aria-hidden="true" />
-                                        <span class="min-w-0 flex-1 whitespace-normal">
-                                            <span class="block">{{ instance.name }}</span>
-                                            <span class="mt-1 block font-mono text-xs text-muted-foreground">
-                                                {{ instance.id }}
-                                            </span>
-                                        </span>
-                                        <StateBadge :tone="stateTone(instance.status)">
-                                            {{ instance.status }}
-                                        </StateBadge>
-                                        <ArrowUpRight class="shrink-0" aria-hidden="true" />
-                                    </Button>
-                                </div>
-                                <p v-else class="py-4 text-sm text-muted-foreground">暂无关联的库存实例摘要</p>
-                            </ResourceSection>
+                            <MaterialFacts :material="selected" />
+                            <div class="border-t pt-4 text-sm">
+                                <span class="text-muted-foreground">登记实例</span>
+                                <span class="ml-4 tabular-nums">{{ selected.instanceCount }}</span>
+                            </div>
                         </div>
-                    </ScrollSurface>
-                    <div class="shrink-0 border-t p-6">
-                        <Button class="w-full" @click="fullDetail(selected)">
-                            <ArrowUpRight aria-hidden="true" />
-                            打开完整详情
+                    </ScrollArea>
+                    <div class="flex shrink-0 flex-wrap gap-2 border-t p-6">
+                        <Button class="flex-1" @click="detail(selected)">
+                            <ArrowUpRight />
+                            完整详情
+                        </Button>
+                        <Button
+                            variant="outline"
+                            :disabled="!preview.data.value?.capabilities.update || !!selected.archivedAt || store.busy"
+                            @click="edit(selected)"
+                        >
+                            <Pencil />
+                            编辑
+                        </Button>
+                        <Button
+                            variant="outline"
+                            :disabled="
+                                !preview.data.value?.capabilities.archive ||
+                                store.busy ||
+                                (!!selected.archivedAt && !!selected.type.archivedAt)
+                            "
+                            @click="store.archive(selected)"
+                        >
+                            <component :is="selected.archivedAt ? ArchiveRestore : Archive" />
+                            {{ selected.archivedAt ? '恢复' : '归档' }}
                         </Button>
                     </div>
                 </template>
             </SheetInspector>
         </div>
+        <MaterialEditor v-model:open="editorOpen" :material="editing" />
     </main>
 </template>
-
 <style scoped>
 .material-branch-badge {
-    background-color: color-mix(in oklch, var(--material-branch-color, var(--border)) 14%, var(--surface-tint-base));
-    border-color: color-mix(in oklch, var(--material-branch-color, var(--border)) 25%, var(--surface-tint-base));
-    color: oklch(from var(--material-branch-color, var(--muted-foreground)) 0.44 c h);
+    background-color: color-mix(in oklch, var(--material-branch-color) 14%, var(--surface-tint-base));
+    border-color: color-mix(in oklch, var(--material-branch-color) 25%, var(--surface-tint-base));
+    color: oklch(from var(--material-branch-color) 0.44 c h);
 }
 </style>
