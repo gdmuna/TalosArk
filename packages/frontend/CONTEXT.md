@@ -12,6 +12,16 @@
 
 `App.vue`, `router/`, `main.ts`, and `style.css` remain conventional Vite entry files. Do not recreate broad top-level `app/`, `composable/`, `event/`, `lib/`, or `util/` directories. Generic functional components belong in `component/`; business UI belongs in its module.
 
+R04-A1 adds the independent `module/audit` read-source contract and cancellable
+reader. No production audit source is registered until public read/authorization
+contracts exist; missing sources show unavailable, never fixture fallback. Audit
+pages own scope/filter/cursor URL state, Inspector and standalone detail composition.
+They do not reuse team activity as organization audit or expose raw event details.
+The cursor footer reports batch size, not total/page counts. Scope/account/query
+changes cancel and clear reads; authorization failures clear records, while same-scope
+temporary failures may retain explicitly stale results. Resource snapshots remain
+non-navigable until current read capability is confirmed. See remediation R04.
+
 Application composition selects data sources explicitly. `main.ts` supplies the real account and workspace readers; `bootstrap.ts` has no mock fallback. Retained mock adapters stay behind their explicit `data/mock.ts` entries and alone import fixtures. Composition binds sources without fetching. Each store owns `connect(source)`, cancellable `load(signal?)` and session-change `reset()`; `initialize(source)` remains connect + load. Reset/reconnection/disposal invalidate pending reads, including ignored cancellation, and prevent old mutation/synchronization results from changing a newer context. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
 
 `main.ts` owns Vue/plugin installation and HTTP/auth/Pinia disposal. The small
@@ -67,6 +77,16 @@ returned role definitions, not a member's effective authorization. Shared privat
 team UI owns row menus and searchable permission selection; original role bindings
 remain removable even when the role cannot be newly granted.
 
+Standalone member/role route pages own restorable list state in their URL:
+organization/workspace, submitted search, page/capacity, member/invitation tab,
+and role scope/list-matrix view. Their private query adapter uses replace and
+preserves unrelated query values and hash. TeamManagement accepts controlled
+list state; its search draft and dialogs stay local. Team selection receives
+the restored query before its first read. Embedded workspace details retain
+their fixed scope and local list state, independently of the surrounding URL.
+Management activity clears accumulated rows and cursors on explicit 401/403/404,
+retains successful pages on temporary read failures, and ignores obsolete errors.
+
 Management Workspace's organization filter is local to that list, not a global
 workspace switch. Previews use only known snapshot fields. Entering a different
 workspace still requires a successful server selection; creation prefers the
@@ -74,10 +94,10 @@ list's selected organization. R02 adds no object-detail contracts or routes.
 See `docs/remediation/2026-10-15/r02/README.md` for real read-only and isolated
 verification, remaining contract gaps and acceptance limits.
 
-R03 adds explicit Mock detail routes for workspace, organization membership and
-role, following the user's decision to infer frontend read models from Prisma
-without backend changes. Real management lists expose separate prototype links;
-real row IDs, bootstrap and production readers never silently select Mock data.
+R03 keeps the explicit Mock detail routes for workspace, organization membership
+and role as a review-only prototype, but production management details now use
+real HTTP sources and real IDs. Real management lists no longer expose a Mock
+detail action; bootstrap and production readers never silently select fixtures.
 `module/workspace/prototype.ts` is a separate public entry selected only by
 `page/management/detail/prototype.ts`. Detail fixtures are imported only by their
 mock adapter. They are not aggregated into the ordinary module index.
@@ -93,10 +113,12 @@ Facility sharing means FacilityWorkspaceAccess, not generic sharing or expiry.
 Resource-created charts count createdAt in an explicit fixture date window, not
 usage. Member role-source views are not effective authorization evaluators. Role
 matrices use only existing registered definitions and do not add inheritance.
-Mock edits are memory-only and reset on reload; protection/read-only flags are
-simulation scenarios, not server authorization proof. See
-`docs/remediation/2026-10-15/r03/README.md` for schema mappings, future read-model
-requirements, browser evidence and unfinished real-backend acceptance.
+Mock edits are memory-only and reset on reload; protection/read-only flags in the
+prototype are simulation scenarios, not server authorization proof. The real
+pages use independently paginated relationships and activity, server capability
+projections, `updatedAt` conflict checks, and explicit “未接入” states for
+facilities, inventory and equipment. See `docs/remediation/2026-10-15/r03/README.md`
+for the historical schema mapping and the dated real-integration boundary.
 
 `component/view-context` owns only the generic scope registry (`register` and
 its returned `dispose`). Each provider creates its own reactive state in its
@@ -235,9 +257,10 @@ Resource preview selection uses workbench's `useResourcePreview`: it resolves th
 latest summary from the caller's resource collection in the active workspace,
 clears selection on workspace/parent-context changes, resource disappearance and
 caller scope disposal, and does not reopen when a removed resource returns.
-ResourceDialog and ResourcePreview retain their existing Resource/null models;
-material/resource lists and material-detail instance previews share the same
-selection lifecycle. Preview invalidation does not mutate URL query state.
+ResourceDialog and ResourcePreview retain their existing Resource/null models.
+The real P07 material pages instead own material-ID detail reads with the same
+workspace-change/disposal invalidation boundary. Preview invalidation does not
+mutate URL query state.
 `platform/navigation` distinguishes persistent query state from one-shot commands.
 Resource, task, approval, exception and storage-selection entry commands use
 `useQueryCommand`: replace the current URL before executing, remove only the
@@ -297,17 +320,19 @@ active-workspace resource summaries are displayed. Other fields stay unloaded an
 write actions disabled. Professional culture/Bank/Batch skeletons do not expand
 backend MVP scope. See `docs/design/resource-skeleton.md`.
 
-Material now has only Overview and List as domain-level pages. Product branches
-are Consumable, Chemical Reagent and Biological Material; Culture is a capability
-within Biological Material, not a synonym for Biological Reagent or a separate
-domain page. Culture and lineage navigation requires an explicit biological
-material summary with `supportsCulture`; media, serum and plasmids do not receive
-these entries merely because they are biological. `Resource.material` is an
-optional resource-summary facet provided by the current mock adapter, not a new
-backend contract or a hierarchy for the workspace's flat MaterialType. The two
-material pages own their compositions and the private `useMaterialSummary`
-projection. Unknown QC, activity and stock-balance fields remain unloaded. See
-`docs/design/material-page-redesign.md` for naming, data and reuse boundaries.
+Material has only Overview and List as domain-level pages, plus deep-link detail.
+P07's `module/material` owns its real typed HTTP source, workspace-scoped store,
+cancellable reads, revisions and Sheet editor/classification manager. Production
+material pages do not use workbench mocks or infer branch facts from names.
+Branches are Consumable, Chemical Material and Biological Material, each with a
+finite optional attribute set. Flat classifications are separate from branches.
+List search/filter/sort/page run on the server; DataTable's optional serverTotal
+selects manual processing without changing local callers. Preview reads by ID,
+independently of the current page, and detail editing keeps a stable snapshot.
+Creation query commands are consumed once. No instance, inventory, attachment,
+QC, culture or lineage workflow is claimed by this slice; unknown data stays
+explicitly unintegrated. See `../backend/docs/design/mvp-p07-2026-10-18.md` and the
+dated override in `docs/design/material-page-redesign.md` for current boundaries.
 
 The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.

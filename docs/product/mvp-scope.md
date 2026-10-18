@@ -80,11 +80,16 @@
 | StockItem / Placement | 库存主体及位置关系；核心链为 StockItem -> Placement -> StorageNode -> StorageTopology -> Facility [S1] | Material/Batch/Instance 多态外键已经确定 |
 | Facility | 属于 Organization；Workspace 的管理/共享与租户归属分离 [S1] | 设施可见就自动获得设备、存储和材料权限 |
 | Equipment | 平台能够读取、监测或控制的数字化设备 [S2] | 普通柜子/没有接入能力的冰箱必须建成设备 |
-| ResourceIdentity | 横切权限、文件、审计等能力的业务资源引用入口 [S1] | 全部业务实体都改成同一张通用资源表 |
+| ResourceIdentity | 文件、任务、审计等跨模块能力的业务资源身份与引用入口 [S1] | 它本身就是权限图谱，或所有鉴权都必须经过资源身份 |
 | FileObject / FileAsset / FileReference | 存储对象、用户可见文件资产、文件与业务资源的绑定关系 [S1][S3] | 文件独立授权、版本、跨工作区复用规则已定案 |
 | Workbench | 查询面/读模型，不是业务事实来源 [S1] | 直接修改工作台快照就完成库存/审批业务 |
 
 权限的明确 MVP 约束为 **allow-only + deny-by-absence，不设计显式 Deny**。[S1] RBAC/ReBAC、有限 ABAC、查询权限下推属于历史架构讨论；具体权限点、授权来源和继承规则仍须落实到首发用例，不能仅凭缩写完成设计。[S3]
+
+2026-10-18 确认补充：服务端使用本地 Casbin；I04 的 Authorization 统一通过业务 Provider 解析实体的真实组织/工作区并编排鉴权，列表范围在分页/统计前下推。
+I05 仍负责资源身份与引用，不接管该解析器或复制所有权。前端消费引擎无关的 capability，不引入第二套授权事实。
+子节点可以不继承父节点授权，但这是长期规则方向，不等于已将完整节点授权纳入首发；停止继承不是显式 Deny。
+当前实现与待补项见[权限与权限上下文设计](../../packages/backend/docs/design/permission-authorization-2026-10-18.md)，不据此宣称功能完成。
 
 存储节点不应被旧 README 的 ROOT/CONTAINER/BOX/BOX_SLOT 四级结构锁死；最新概念图采用拓扑与节点。是否采用 ltree 等物理实现，不属于本次范围冻结。[S1][S3][S9]
 

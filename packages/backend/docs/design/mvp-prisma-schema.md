@@ -19,8 +19,9 @@ The user confirmed these choices during schema implementation:
    hierarchy is removed with the user's approval.
 7. StorageNode retains its parent foreign key and gains a non-null native `ltree`
    path with immutable UUID labels. A single storage write contract maintains both.
-8. Native foundation DDL is approved. Permission inheritance and tree queries /
-   cursor pagination are explicitly deferred from this implementation.
+8. Native foundation DDL is approved. The initial schema iteration deferred
+   permission inheritance and tree reads; I06 now supplies bounded tree queries
+   and cursor pagination, while permission inheritance remains deferred.
 
 Organization remains the hard tenant boundary. Facility remains
 organization-owned, with a management workspace and explicit workspace access;
@@ -34,8 +35,9 @@ workspace selector.
 `prisma.config.ts` points at `prisma`, so Prisma loads the domain files together
 and generates **one client**, not separate databases or clients per file.
 The generated output stays at `prisma/generated`; existing imports stay valid.
-There are 17 domain files and 53 models: seven existing identity/session models
-and 46 new models.
+The initial 2026-10-08 baseline had 17 domain files and 53 models: seven existing
+identity/session models and 46 new models. I08-A later adds FileUploadSession;
+the dated counts below describe the initial diff, not a fresh whole-schema inventory.
 
 | File under `prisma/model` | Responsibility |
 | --- | --- |
@@ -53,7 +55,7 @@ and 46 new models.
 | `task.prisma` | Ordinary assigned work and action history |
 | `alert.prisma` | Quantity/count/expiry thresholds and software risk history |
 | `notification.prisma` | Site notifications and per-recipient read/dismissal state |
-| `file.prisma` | Storage objects, user-facing assets and resource-bound references |
+| `file.prisma` | Storage objects, durable upload sessions, user-facing assets and resource-bound references |
 | `equipment.prisma` | Basic registry and manual inspection/maintenance records only |
 | `audit.prisma` | Tenant/acting-workspace audit and related resource snapshots |
 
@@ -82,6 +84,18 @@ behaviors, not schema guarantees. An OIDC-only account must not gain a password
 through an unreviewed reset policy. No phone or configurable IdP models are added.
 
 ### Material, Stock and Position
+
+P07 (2026-10-18) adds required `Material.branch` using the `MaterialBranch`
+enum (`consumable`, `chemical`, `biological`) and required JSON `attributes`.
+Shared discriminated schemas validate a finite set of optional branch-wide
+properties; this is not EAV, user-defined schemas or professional subtypes.
+Workspace-flat `MaterialType` remains independent of the branch. Material and
+classification codes are workspace-unique; names and external identifiers may
+repeat across materials, while aliases/identifiers are unique per material.
+Materials and classifications archive/restore, with no hard-delete route.
+Existing instances prevent changing either the branch or quantity unit.
+The P07 acceptance applied only these additions to the empty test Material table;
+it did not synchronize development/production or the concurrent file schema.
 
 The definition supplies the quantity unit; batches supply optional lot metadata;
 instances supply identity, initial quantity, opening time and optional expiry.
@@ -121,8 +135,9 @@ locks that row before reading nodes, rejects positions/archived parents and
 cycles, and rewrites all descendant paths in the caller's transaction. Renaming
 does not rewrite paths. Same-topology foreign keys still express direct parentage.
 
-The facility-local writer accepts a Prisma transaction; it does not introduce
-controllers, authorization, audit emission or inventory execution. Deferred
+The facility-local writer now joins an active managed DatabaseRuntime transaction
+through its public capability port; it does not require a native TransactionClient
+or introduce controllers, authorization, audit emission or inventory execution. Deferred
 constraints must stay deferred while a subtree is rewritten. Native errors abort
 the transaction; use-case retry policy remains unimplemented.
 
@@ -132,9 +147,12 @@ history independently of the mutable tree. Those nullable fields do not invent
 paths for old history, and execution still must populate them when applicable.
 
 Path consistency is not permission inheritance. There are no node-level grants,
-inheritance switches, TypedSQL generators, ancestor/subtree read APIs or cursor
-pagination in this change. The user confirmed that a future node may explicitly
-stop inheriting parent grants; this does not introduce an explicit Deny rule.
+inheritance switches or TypedSQL generators. I06 adds parameterized ancestor,
+children and descendant reads with explicit SQL read ceilings, bounded keyset
+cursors and the child-page index's unique id suffix. Its schema change has not
+been applied to an existing database. See [I06](mvp-i06-2026-10-18.md) for current
+interfaces and validation limits. The user confirmed that a future node may
+explicitly stop inheriting parent grants; this does not introduce an explicit Deny rule.
 
 ### Approval and Workbench
 
@@ -155,12 +173,47 @@ Workbench snapshot, aggregate KPI table, or fake equipment telemetry.
 
 ### Files, Alerts and Audit
 
+`ResourceIdentity` is a stable cross-domain reference, not an authorization graph.
+`FileReference.resourceId` references this identity; tasks and audit can use the same
+reference boundary. Actual ownership and lifecycle remain in the concrete domain.
+The I04 Authorization resolver will load business-target facts through domain-owned
+providers; I05 Resource providers can reuse the same facts without duplicating ownership.
+Authorization by a known business ID does not require a ResourceIdentity round trip.
+The Resource core and material Provider implementation are recorded in
+[`mvp-i05-resource-2026-10-18.md`](mvp-i05-resource-2026-10-18.md).
+See the [current permission/context design](permission-authorization-2026-10-18.md).
+This design clarification changes no Prisma fields and adds no node grants or inheritance model.
+
 `FileObject` describes a bucket/key and verification lifecycle. `FileAsset`
 describes a named upload. `FileReference` binds it to a real resource with a
 module-defined `purposeKey`; it is not a generic file-type permission enum.
 Unbound uploads are private to their uploader until authorized binding. Download
 checks the current resource owner's permission, not merely the asset or object ID.
-Restoring a removed reference reuses its unique binding and clears `removedAt`.
+D10 (2026-10-18) does not offer reference restoration: unlinking retains reference
+history and logically retires the asset, without reopening uploader access. Adding
+the file again requires a new upload. One asset binds to one material in the first
+release; the existing three-column unique constraint alone does not enforce this
+cross-resource invariant. I08-B must serialize binding and cleanup and enforce it
+under the shared object/asset locks. These are approved application rules, not
+new schema fields or already implemented behavior. See the
+[attachment contract](../../../../docs/product/mvp-attachment-contract.md).
+
+I08-A (2026-10-18) adds `FileUploadSession` for single/multipart intent, expected
+size/full SHA-256, provider upload ID, completion manifest, expiry, leases and
+the completed asset. Unique organization/uploader/idempotency-key constraints
+support replay; the completed asset relation includes organization consistency.
+`FileObject.uploadSessionId/lastCleanupAt` and `FileAsset.unboundExpiresAt` are nullable
+additions. Existing assets are not expired or deleted by a backfill. Reverse relations
+on User/Organization add no columns. FileReference itself is unchanged.
+
+File currently implements only unbound owner access, not the resource-authorized
+binding/download requirements above. Candidates are copied to a different private
+key and fully verified before atomic publication, with storage I/O outside the
+database transaction. Cleanup and future binding must share FileObject -> FileAsset
+locks and recheck lifecycle/references under those locks. Type detection and malware
+scanning remain deferred. The [I08-A implementation record](mvp-i08a-2026-10-18.md)
+documents APIs, retention and verification limits; this additive schema has not
+been synchronized to an existing database.
 
 Alerts cover low stock, impending/actual expiry and overdue tasks. A dedupe key
 identifies the same source/rule; later recurrence reopens the alert and appends an
@@ -192,6 +245,9 @@ The service layer must also enforce:
 - State consistency: checked-out custody, depleted quantities, completed task
   metadata, invitation acceptance/expiry, verified uploads and approval decisions.
 - Role scope matching its binding, active memberships and permission checks.
+- Resolving business-target ownership from domain facts, comparing it against the
+  request's expected scope, then authorizing. A supplied workspace ID, a resource
+  foreign key or successful context resolution alone is not an access grant.
 - `ResourceIdentity.kind` matching exactly one concrete owner, atomically created;
   workspace ownership is resolved from that owner for files, tasks and alerts.
 - Execution matching the approved type, stock items, amounts and destinations;
@@ -265,3 +321,8 @@ The offline diff for this iteration affects only StorageNode, MaterialType and
 InventoryTransactionLine: it adds native path/GiST and nullable history snapshots,
 and removes the approved classification hierarchy. No existing identity/session
 columns change. Full review: [MVP schema readiness](../reviews/mvp-prisma-schema-2026-10-08.md).
+
+For I08-A on 2026-10-18, offline format/validate/client generation, backend build,
+targeted lint, 153 in-memory dependency assertions and 16 Nest/SDK-local assertions
+passed. These are not live PostgreSQL/S3 concurrency or business-route evidence.
+No db push, native DDL or real environment update was performed for this addition.

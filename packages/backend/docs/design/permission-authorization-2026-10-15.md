@@ -1,5 +1,9 @@
 # Permission and Authorization foundation
 
+Historical implementation record, 2026-10-15. The current design and I04 business-target
+resolver supplement are in [Permission and authorization design, 2026-10-18](permission-authorization-2026-10-18.md).
+The interfaces and verification below describe the original foundation, not that supplement.
+
 ## Scope
 
 This is the pre-P06 foundation, not completion of P06 member, invitation or role-management endpoints.
@@ -81,8 +85,11 @@ old WorkspaceContext.requireContext permission check becomes facts-only requireM
 callers are migrated together. Core TODO placeholders superseded by real contracts/engine are removed.
 Current uncommitted organization-context/workspace-context naming changes are preserved.
 
-P06 still owns member/invitation lifecycle, delegation rules, management HTTP/UI and their acceptance.
-P07 adds actual resource ownership providers when a real resource use case needs them. Node inheritance,
+At delivery, P06 still owned the pending member/invitation lifecycle, delegation rules and management
+HTTP/UI acceptance; its later completion is recorded in [P06](mvp-p06-2026-10-15.md).
+The confirmed I04 supplement extends AuthorizationContextResolver with business-owned target facts;
+P07 supplies the first concrete provider. This is separate from I05 ResourceIdentity/reference providers.
+Node inheritance,
 stop-inheritance, cross-request caching/versions, distributed invalidation and general query compilation
 are not activated by this foundation. Extending the policy model must also extend the query-scope planner;
 it must not silently broaden list visibility.

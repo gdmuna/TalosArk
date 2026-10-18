@@ -82,11 +82,55 @@ queued only after commit, with no retry or durability promise. Removed members a
 bindings lose access on the next authorization snapshot; historical membership rows
 remain. See docs/design/mvp-p06-2026-10-15.md for rules and verification limits.
 
+R03 management details reuse those P06 capabilities rather than creating a second
+management authorization layer. TeamDetailService and WorkspaceManagementService
+provide scoped workspace/member/role reads, independent relationship and activity
+pagination, safe audit projections, workspace updates and role revision checks.
+The services authorize before search/count/pagination and preserve canonical
+OrganizationMember IDs. Material counts and four-week creation aggregates come
+from the P07 material reader; facilities, inventory and equipment remain outside
+this slice. See the dated frontend R03 record for the remaining browser and
+real-session verification limits.
+
 Initial permissions/roles are explicit business writes, not startup Discovery or
 automatic remote Casbin synchronization. I03 now supplies code-definition assembly;
 P06 verifies the bounded Web member/invitation/role workflow, not future resource
 or facility-node authorization. Wire contracts
 live in contracts/team; unknown/unavailable organization contexts share a non-disclosing 403. See docs/design/mvp-p04-2026-10-15.md for exact boundaries and evidence.
+
+## Team governance
+
+Team governance determines whether an effective organization member may manage
+organization members, edit role definitions, manage invitations, or manage members
+inside a particular workspace. Organization ownership and an explicit governance
+grant are both required for organization governance. Workspace entry and workspace
+governance are separate qualifications; organization governance does not grant
+workspace entry. Editing a role definition is distinct from assigning roles to a member.
+
+## Materials and resource references (P07)
+
+MaterialModule provides real workspace-scoped material/classification reads and
+writes, three coarse branches and finite optional branch attributes. Shared
+contracts validate both input and explicit output projections; JSON attributes
+are not a custom-schema or specialized-subtype mechanism. Codes are unique within
+a workspace, while names and external identifiers may repeat between materials.
+Archive/restore retains history; existing instances freeze branch and quantity unit.
+
+Material writes serialize with team governance through the organization row lock,
+then update the material, ResourceIdentity and audit in one managed transaction.
+Lists apply authorization before pagination/counts; direct detail/resource reads
+resolve the real material scope. The target and resource providers share the
+public facts reader, not permission evaluation or a recursive resource lookup.
+ResourceProviderRegistry freezes discovered providers once; ResourceKernel creation
+requires a registered kind and an ambient transaction.
+
+Composition configures permissions only when a workspace-manager role is first
+created. Reused existing roles, including those bound to newly created workspaces,
+keep their existing grants; P06 must explicitly bind any additional material role.
+No read/startup path repairs grants. P07 does not activate inventory, attachments,
+QC or culture. Real test-database service acceptance and synthetic-HTTP browser
+acceptance, not full live Web end-to-end acceptance, are recorded in
+docs/design/mvp-p07-2026-10-18.md.
 
 ## Business audit
 
@@ -131,7 +175,7 @@ for its isolated Casbin evaluator. Declaration alone grants no access. Applicati
 explicitly invoke transaction-mandatory permission writes; discovery never writes the DB.
 PermissionModule retains ordinary imports and exports only Kernel to Nest consumers.
 
-## Authorization foundation (pre-P06)
+## Authorization foundation
 
 core/authorization resolves trusted organization/workspace membership facts and coordinates
 Permission checks through check/require/scope. Neither core reads request ALS. Scope results
@@ -148,7 +192,24 @@ RepeatableRead; ambient reads/writes join the existing DatabaseRuntime transacti
 Catalog synchronization is explicit. Replacement updates the parent Role before replacing
 permissions so competing snapshots cannot silently merge grants. Details, internal API
 changes and verification limits: docs/design/permission-authorization-2026-10-15.md.
-This is not completion of P06 invitation/member/role management or node inheritance.
+The dated foundation record predates P06; P06 member/invitation/role management is
+recorded separately above. Neither implementation includes node inheritance.
+
+Permission context resolution belongs to Authorization (I04), not Resource (I05).
+Business targets must resolve to their actual organization/workspace through
+domain-owned fact providers before policy evaluation. ResolvedContext means facts
+have been checked; AuthorizedContext additionally means the current action passed.
+The resolver now accepts supplied organization/workspace scopes or UUID business targets,
+checks expectedScope against domain facts, and produces resolved facts before policy evaluation.
+Only successful checks add authorized: true. Target providers use the I03 immutable index;
+static singleton discovery is enabled by default, with optional explicit configuration
+and required-kind startup checks. Provider failures propagate outside the membership-denial
+conversion. P07 now supplies the first real material provider and bounded
+lifecycle/query acceptance. ResourceIdentity remains a cross-domain identity/reference,
+not an authorization graph or mandatory route for every permission check. Current
+design, transaction/query boundaries and the P07 handoff live in
+docs/design/permission-authorization-2026-10-18.md. Implementation, contribution examples
+and isolated verification limits live in docs/design/mvp-i04-2026-10-18.md.
 
 ErrorResolver retains explicit assembly and error allowlists. Logger uses static
 LoggerExtension declarations on owner modules (and the existing performance
@@ -576,6 +637,50 @@ changes. P02 adds a pinned Mailpit receiver and an independent RSA provider key 
 the export fixture; it never uses real SMTP or publishes receiver ports. Deployment and document verification are recorded in
 docs/design/backend-w04-2026-10-11.md.
 
+## Storage topology support (I06)
+
+FacilityModule exports FacilityStorageTopologyReader/Writer as public DI ports;
+useExisting binds their private persistence implementations without forwarding
+services. Other business owners consume these ports, never Facility's SQL. Generic
+task infrastructure must not import Facility; owner-provided handlers may consume
+its public capability. Object storage remains infra/storage, not this physical tree.
+
+Create/move require an active managed transaction through mandatory propagation;
+validation is inside that boundary. Queries use queryClient and parameterized SQL,
+retaining existing DDL topology locks/path constraints without native-client casts.
+Reader supports scoped lookup, children, descendants and visible ancestors. Explicit
+none/topology/subtree read ceilings intersect organization/topology and active-state
+conditions before pagination; they are trusted caller input, not authorization proof
+or node inheritance. P08 must still define facility-use and node-access policy.
+Reads are single statements; callers needing consistent policy/data snapshots wrap
+authorization and reads in one suitable managed transaction.
+
+Children use (sortOrder,id) keysets; descendants use native (path,id), resolving the
+cursor node's current path inside SQL. Cursors bind the query context, not authority,
+and do not promise cross-page snapshots during structural changes. The child-page
+index adds id; it has not been applied to an existing database. Inventory owns exact
+Decimal(20,6) string parsing/formatting helpers, not stock/unit business decisions.
+No P08 HTTP routes, resource providers or P09 stock execution are activated. Current
+verification limits and handoff live in docs/design/mvp-i06-2026-10-18.md.
+
+## Idempotency foundation (I07)
+
+`core/idempotency` provides a business-independent `IdempotencyKernel` and a typed
+`IdempotencyRepository` Port. Callers prepare a normalized request, then call `run`
+inside an existing managed transaction; the kernel uses mandatory propagation and
+never creates an independent transaction. Claim, business work and completion remain
+in one transaction, so caught failures mark the outer transaction rollback-only.
+
+The repository owns the existing business uniqueness namespace and must implement
+atomic claim/conditional completion with `DatabaseRuntime.queryClient`. Operation is
+part of the fingerprint, not an implicit namespace. Results use bounded canonical JSON
+snapshots and caller-owned typed codecs; replay still requires the caller's current
+identity and authorization. The ULID lease is transaction-bound, not a timed
+distributed lock. No schema, cache, retry, HTTP interceptor, business adapter or
+Bootstrap registration is included yet. P09 must provide the first real adapter and
+verify PostgreSQL concurrency, rollback and committed-response-loss behavior. See
+docs/design/mvp-i07-2026-10-18.md.
+
 ## MVP database vocabulary
 
 - First-party MVP identity uses account/password login and email password reset,
@@ -583,7 +688,12 @@ docs/design/backend-w04-2026-10-11.md.
   stores only a hashed, expiring credential and its consumption/revocation state.
 - Material is a definition owned exclusively by one workspace. MVP does not
   share materials across workspaces.
-- MaterialType is a flat classification owned by one workspace, not a category tree.
+- MaterialBranch is the coarse business distinction between chemical materials,
+  biological materials and general consumables. MVP uses shared material
+  attributes plus a finite set of branch-wide attributes, without specialized
+  subtypes such as culture medium or serum; later specialization remains possible.
+- MaterialType is a flat classification owned by one workspace, not a category
+  tree or a specialized professional subtype model.
 - MaterialBatch is optional lot metadata. MaterialInstance is one physical
   bottle or tube; StockItem is its current remaining quantity and stock state.
 - Placement is a current, exclusive occupancy of one physical POSITION node.
@@ -593,7 +703,12 @@ docs/design/backend-w04-2026-10-11.md.
 - Task is ordinary work. Approval todos and overdue presentation states are
   derived queries, not a second writable workflow or stored OVERDUE status.
 - ResourceIdentity bridges attachments, audit and other cross-cutting references.
-  Its concrete owner decides workspace ownership and authorization.
+  `core/resource` now provides mandatory-transaction identity creation, startup
+  Provider discovery and authorization-aware descriptor reads. The material Provider
+  reuses the material facts reader and AuthorizationKernel; missing or unauthorized
+  descriptions return null without labels or links. Its concrete owner still decides
+  workspace ownership and authorization. Facilities, storage nodes, inventory and
+  tasks do not acquire Resource Providers until their business rules are implemented.
 - A storage-node permission inheritance boundary is a node's explicit choice
   not to inherit parent-node grants. Missing local grants alone do not express
   this choice; opting out is not an explicit Deny rule.
@@ -611,13 +726,39 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
   own File upload sessions. StorageModule requires explicit forRootAsync configuration
   once in Web composition, globally exports only StorageService and owns SDK-client
   destruction.
-  Bucket deployment configuration remains available to the future File capability.
+  Bucket deployment configuration is mapped explicitly into File configuration.
   W06 implementation, breaking internal interfaces and verification limits live in
-  docs/design/storage-2026-10-12.md. File remains unimplemented; copy/delete/upload
-  success is not evidence of an authorized, verified or committed file asset.
+  docs/design/storage-2026-10-12.md. Copy/delete/upload success alone is not evidence
+  of an authorized, verified or committed file asset.
+- I08-A implements core/file with durable single/multipart upload sessions, immutable
+  private candidates, streaming byte-count/full-SHA-256 verification, unbound owner
+  reads/downloads/removal and explicit bounded cleanup. FileKernel takes a trusted
+  explicit organization/user actor, rechecks membership and rejects ambient database
+  transactions. Storage I/O runs outside SQL transactions; short managed writes use
+  leases and session locks to fence publication. FileObject -> FileAsset locking
+  protects retirement against active assets/references; future binding writers must
+  share that protocol. FileModule is ordinarily imported; only its configuration
+  token is global. Bootstrap maps existing staging/private bucket config, without
+  new env switches, HTTP routes or startup storage operations.
+  Purpose contributions, resource binding and authorized bound downloads await
+  I08-B/P10. Actual MIME detection and virus scanning remain deferred beyond this
+  first attachment slice. No scheduler is activated:
+  cleanup must be invoked by trusted maintenance, and unknown multipart upload IDs
+  require staging lifecycle rules. Schema changes have not been synchronized to a
+  real database. APIs, options, deployment prerequisites and isolated verification
+  live in docs/design/mvp-i08a-2026-10-18.md.
 - The file kernel has no IMAGE, DOCUMENT, or VIDEO upload-purpose enumeration.
   Future modules contribute concrete file-purpose definitions through the
-  FileKernel extension boundary.
+  FileKernel extension boundary in I08-B; its TODO skeleton is not a delivered registry.
+- D10 defines the first material attachment purpose as `material.attachment`:
+  approved document/image/spreadsheet formats, at most 100 MiB, one material per
+  asset, and no existing-attachment reuse. Reading/downloading follows current
+  `material.read`; binding/unbinding follows current `material.update`. Archived
+  materials retain read-only attachments. Unlinking retains reference history but
+  retires the asset: it neither restores uploader access nor allows reference
+  restoration. These are confirmed business rules, not delivered I08-B/P10 behavior.
+  The approved format list, lifecycle and interface constraints live in
+  docs/product/mvp-attachment-contract.md at the repository root.
 - Platform-level Casdoor OIDC remains the current identity-provider model.
   TalosArk-owned identity and session behavior belongs to core/identity and
   core/session, not Casdoor SDK code.

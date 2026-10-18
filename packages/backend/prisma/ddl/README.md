@@ -126,10 +126,12 @@ The new DDL has not been applied to an existing database in this change.
 - Native paths are absent from generated Prisma result/input types. In the
   installed Prisma 7.10 client, create/upsert are omitted, while scalar update
   methods remain. Do not use a scalar `parentId` update to reparent a node.
-- `createStorageNode` and `moveStorageNode` live in the facility persistence
-  adapter and accept the caller's Prisma transaction. Creation derives the path;
-  moving calls `storage_node_move` and rewrites the entire subtree in that same
-  transaction. Resource identity, authorization and audit remain the caller's
+- Facility's private `StorageNodeWriter` exposes create/move through the public
+  `FacilityStorageTopologyWriter` port. It joins the caller's active managed
+  DatabaseRuntime transaction with mandatory propagation and uses queryClient;
+  callers never cast to a native Prisma TransactionClient. Creation derives the
+  path; moving calls `storage_node_move` and rewrites the entire subtree in that
+  same transaction. Resource identity, authorization and audit remain the caller's
   responsibilities. There is no new controller or business use case.
 - Structural writes serialize on their topology row. The move function locks it
   before reading nodes; the guard also updates it on creation, deletion, parent
@@ -146,8 +148,11 @@ The new DDL has not been applied to an existing database in this change.
 These invariants do not enforce every inventory policy. In particular, placement
 insertion still needs an authorized write path that verifies POSITION kind, and
 archiving/repurposing occupied nodes needs its own business rules. Permission
-inheritance, ancestor/subtree read APIs, TypedSQL and cursor pagination are
-explicitly not implemented here.
+inheritance remains outside this DDL. I06 now provides parameterized lookup,
+ancestor/children/descendant reads and context-bound cursor pagination in Facility,
+without introducing TypedSQL generation. Its explicit read ceilings are not
+authorization credentials. See [I06](../../docs/design/mvp-i06-2026-10-18.md) for
+query, transaction and verification boundaries.
 
 Prisma recommends native SQL for extension types and unsupported database
 features: [PostgreSQL extensions](https://www.prisma.io/docs/orm/v7/prisma-schema/postgresql-extensions),
