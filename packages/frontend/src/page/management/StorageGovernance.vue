@@ -1,90 +1,121 @@
 <script setup lang="ts">
-import { Plus, Search, Pencil } from '@lucide/vue';
+import { computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Network, RotateCw, ExternalLink } from '@lucide/vue';
+import { useFacilityDataSource, useFacilityRead, assertFacilityDetail, assertFacilityPage } from '@/module/facility';
+import { SelectField } from '@/component/select-field';
 import { Button } from '@/ui/button';
-import { Input } from '@/ui/input';
-import { DataTable } from '@/component/data-table';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/ui/empty';
 import ManagementPage from './component/ManagementPage.vue';
-import ManagementSection from './component/ManagementSection.vue';
-import ManagementField from './component/ManagementField.vue';
-import ManagementEmpty from './component/ManagementEmpty.vue';
 import ManagementViewNav from './component/ManagementViewNav.vue';
+import DetailPicker from './detail/DetailPicker.vue';
+import { StorageBrowser } from '@/module/facility/ui';
+import GovernanceRead from './facility/GovernanceRead.vue';
+import ReadFeedback from './facility/ReadFeedback.vue';
+import { facilityPath, governancePath, useFacilityContext } from './facility/context';
 import { useManagementView } from './useManagementView';
-import { column, type ManagementRow } from './table';
 
+const route = useRoute(),
+    router = useRouter(),
+    source = useFacilityDataSource();
+const { scope, organization, invalid, key: contextKey, options, organizationId, update } = useFacilityContext();
+const id = computed(() => (typeof route.query.facility === 'string' ? route.query.facility : ''));
+const key = computed(() =>
+    source && contextKey.value && route.path === governancePath && id.value
+        ? JSON.stringify([contextKey.value, id.value])
+        : ''
+);
+const { data, loading, error, refresh } = useFacilityRead(key, async (signal) => {
+    if (!source) return;
+    const requestedScope = scope.value,
+        requestedId = id.value;
+    const result = await source.detail(requestedScope, requestedId, signal);
+    assertFacilityDetail(requestedScope, requestedId, result);
+    return result;
+});
 const views = [
     { value: 'structure', label: '设施结构' },
     { value: 'rule', label: '治理规则' },
     { value: 'template', label: '模板管理' },
 ];
 const view = useManagementView(views);
-const templates: ManagementRow[] = [];
-const templateColumns = [
-    column('name', '模板名称', 260),
-    column('version', '版本', 130),
-    column('nodeTypes', '适用节点类型', 260),
-    column('state', '状态', 140),
-    column('updatedAt', '最近更新', 200),
-];
+async function search(query: string, page: number, signal: AbortSignal) {
+    if (!source || !contextKey.value) return { items: [], total: 0 };
+    const requestedScope = scope.value;
+    const request = { q: query || undefined, page, pageSize: 20 };
+    const result = await source.list(requestedScope, request, signal);
+    assertFacilityPage(requestedScope, request, result);
+    return { items: result.items.map((item) => ({ id: item.id, name: item.name })), total: result.total };
+}
+function select(next: string) {
+    void update({ facility: next, topology: undefined, node: undefined, template: undefined });
+}
 </script>
-
 <template>
-    <ManagementPage title="存储设施治理" :layout="view === 'rule' ? 'form' : view === 'template' ? 'table' : 'tool'">
+    <ManagementPage title="存储设施治理" layout="tool" :context="organization?.name ?? '组织不可用'">
+        <template #navigation><ManagementViewNav v-model="view" :items="views" label="存储设施治理视图" /></template>
         <template #actions>
-            <Button variant="outline" disabled>
-                <Pencil aria-hidden="true" />
-                编辑规则
-            </Button>
-            <Button disabled>
-                <Plus aria-hidden="true" />
-                新增节点
+            <SelectField v-model="organizationId" :options="options" label="组织" hide-title class="w-56 max-w-full" />
+            <Button v-if="source && id" variant="outline" :disabled="loading || !key" @click="refresh">
+                <RotateCw aria-hidden="true" />
+                刷新
             </Button>
         </template>
-        <template #navigation><ManagementViewNav v-model="view" :items="views" label="存储设施治理视图" /></template>
-        <div v-if="view === 'structure'" class="grid gap-6 @5xl:grid-cols-[220px_minmax(0,1fr)_220px]">
-            <ManagementSection title="设施结构">
-                <div class="relative">
-                    <Search
-                        class="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground"
-                        aria-hidden="true"
+        <p v-if="invalid" role="alert" class="text-sm text-destructive">{{ invalid }}</p>
+        <Empty v-else-if="!source" class="min-h-72 border-0">
+            <EmptyHeader>
+                <EmptyMedia variant="icon"><Network aria-hidden="true" /></EmptyMedia>
+                <EmptyTitle>设施治理暂不可用</EmptyTitle>
+                <EmptyDescription>设施与存储节点查询服务尚未开放，不影响既有组织资料。</EmptyDescription>
+            </EmptyHeader>
+            <Button variant="outline" as-child>
+                <RouterLink :to="{ path: facilityPath, query: { organization: scope.organizationId } }">
+                    查看设施
+                </RouterLink>
+            </Button>
+        </Empty>
+        <template v-else>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="shrink-0 text-sm text-muted-foreground">设施</span>
+                    <DetailPicker
+                        :key="contextKey"
+                        :label="data?.name ?? '选择设施'"
+                        :active-id="id"
+                        :search="search"
+                        @select="select"
                     />
-                    <Input class="bg-card pl-9" placeholder="搜索设施或节点" aria-label="搜索设施或节点" disabled />
                 </div>
-                <ManagementEmpty text="设施结构尚未加载" />
-            </ManagementSection>
-            <ManagementSection title="节点规则">
-                <p class="text-muted-foreground">未选择节点</p>
-                <div class="grid grid-cols-2 gap-4">
-                    <ManagementField label="节点名称" placeholder="未选择节点" />
-                    <ManagementField label="节点编码" placeholder="未选择节点" />
-                    <ManagementField label="节点类型" :options="['存储设施', '存储分区', '存储容器', '存储位置']" />
-                    <ManagementField label="容量" type="number" placeholder="未选择节点" />
-                    <ManagementField label="允许的子节点类型" placeholder="未选择节点" />
-                    <ManagementField label="规则继承" :options="['继承父节点', '独立规则']" />
-                    <ManagementField label="模板版本" placeholder="未选择节点" />
-                    <ManagementField label="管理工作区" placeholder="未选择节点" />
-                </div>
-            </ManagementSection>
-            <ManagementSection title="层级预览"><ManagementEmpty text="未选择节点" /></ManagementSection>
-        </div>
-        <ManagementSection v-else-if="view === 'rule'" title="治理规则">
-            <ManagementField label="适用设施或节点" placeholder="未选择节点" />
-            <div class="grid grid-cols-2 gap-4">
-                <ManagementField label="允许的子节点类型" />
-                <ManagementField label="容量上限" type="number" />
-                <ManagementField label="编码规则" />
-                <ManagementField label="权限继承" :options="['继承父节点', '独立规则']" />
+                <Button
+                    v-if="data"
+                    variant="outline"
+                    size="sm"
+                    @click="
+                        router.push({
+                            path: `${facilityPath}/${encodeURIComponent(data.id)}`,
+                            query: { organization: scope.organizationId },
+                        })
+                    "
+                >
+                    <ExternalLink aria-hidden="true" />
+                    设施详情
+                </Button>
             </div>
-            <div class="flex justify-end gap-2">
-                <Button variant="outline" disabled>取消</Button>
-                <Button disabled>保存规则</Button>
-            </div>
-        </ManagementSection>
-        <DataTable
-            v-else
-            :data="templates"
-            :columns="templateColumns"
-            search-label="搜索模板名称或节点类型"
-            empty-text="治理模板尚未加载"
-        />
+            <ReadFeedback :error="error" :loading="loading" :stale="!!data" @retry="refresh" />
+            <p v-if="loading" role="status" class="text-sm text-muted-foreground">正在读取设施</p>
+            <p v-if="!id" class="py-12 text-center text-sm text-muted-foreground">
+                选择设施查看存储结构、治理规则和模板
+            </p>
+            <template v-if="data">
+                <StorageBrowser
+                    v-if="view === 'structure'"
+                    :facility="data"
+                    :context-key="key"
+                    @changed="refresh"
+                    @relocated="(facility, node) => update({ facility, node, topology: undefined })"
+                />
+                <GovernanceRead v-else :facility="data" :context-key="key" :view="view" />
+            </template>
+        </template>
     </ManagementPage>
 </template>

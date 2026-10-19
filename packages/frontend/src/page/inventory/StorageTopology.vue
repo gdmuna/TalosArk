@@ -1,119 +1,114 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useQueryCommand } from '@/platform/navigation';
-import { Building2, Grid2X2, Network, Plus } from '@lucide/vue';
-import { useWorkbenchStore } from '@/module/workbench';
+import { useRoute, useRouter } from 'vue-router';
+import { useAccountStore } from '@/module/account';
 import { useWorkspaceStore } from '@/module/workspace';
+import { useFacilityDataSource, useFacilityRead, type StorageNodeDetail } from '@/module/facility';
+import { FacilityPicker, StorageBrowser, FacilityReadFeedback as ReadFeedback } from '@/module/facility/ui';
+import { CopyableId } from '@/component/inspector';
 import { Button } from '@/ui/button';
-import { ScrollSurface } from '@/component/scroll-surface';
+import { X } from '@lucide/vue';
 import ResourcePage from '../resource/ResourcePage.vue';
-import ResourceSection from '../resource/ResourceSection.vue';
-import ResourceEmpty from '../resource/ResourceEmpty.vue';
-import ResourceFactList from '../resource/ResourceFactList.vue';
-const workbench = useWorkbenchStore();
-const workspace = useWorkspaceStore();
-const facilities = computed(() => workbench.currentResources.filter((item) => item.kind === '设施'));
-const selectedId = ref<string | null>(null);
-const mode = ref<'structure' | 'position'>('structure');
-const selected = computed(() => facilities.value.find((item) => item.id === selectedId.value));
-watch(
-    () => workspace.activeId,
-    () => {
-        selectedId.value = null;
-    }
+const route = useRoute(),
+    router = useRouter(),
+    workspace = useWorkspaceStore(),
+    account = useAccountStore(),
+    source = useFacilityDataSource();
+const scope = computed(() => ({ organizationId: workspace.organization?.id ?? '', workspaceId: workspace.activeId }));
+const context = computed(() =>
+    account.profile?.id && scope.value.organizationId && scope.value.workspaceId
+        ? JSON.stringify([account.profile.id, scope.value])
+        : ''
 );
-useQueryCommand('resource', (id) => {
-    selectedId.value = id;
+const facilityId = computed({
+    get: () => (typeof route.query.facility === 'string' ? route.query.facility : ''),
+    set: (id: string) => {
+        void router.replace({
+            query: { ...route.query, facility: id || undefined, node: undefined, topology: undefined },
+            hash: route.hash,
+        });
+    },
 });
+const key = computed(() =>
+    source && context.value && facilityId.value ? JSON.stringify([context.value, facilityId.value]) : ''
+);
+const { data, loading, error, refresh } = useFacilityRead(
+    key,
+    (signal) => source?.detail(scope.value, facilityId.value, signal) ?? Promise.resolve(undefined)
+);
+const selectedPosition = ref<StorageNodeDetail>();
+watch(
+    key,
+    () => {
+        selectedPosition.value = undefined;
+    },
+    { flush: 'sync' }
+);
+watch(
+    data,
+    () => {
+        selectedPosition.value = undefined;
+    },
+    { flush: 'sync' }
+);
+function relocate(id: string, node: string) {
+    void router.replace({ query: { ...route.query, facility: id, node, topology: undefined }, hash: route.hash });
+}
 </script>
 <template>
     <ResourcePage label="存储浏览" layout="tool">
-        <div class="grid min-h-[520px] min-w-0 gap-6 @4xl:grid-cols-[220px_minmax(0,1fr)_260px]">
-            <aside aria-label="存储结构" class="min-w-0 border-b pb-5 @4xl:border-r @4xl:border-b-0 @4xl:pr-5">
-                <div class="mb-4 flex items-center justify-between">
-                    <h2 class="font-semibold">存储结构</h2>
-                    <Button variant="ghost" size="icon-sm" use-tooltip title="添加存储节点" disabled>
-                        <Plus aria-hidden="true" />
-                    </Button>
-                </div>
-                <ScrollSurface class="max-h-[480px]">
-                    <div class="space-y-1">
-                        <Button
-                            v-for="item in facilities"
-                            :key="item.id"
-                            variant="ghost"
-                            class="h-auto min-h-10 w-full justify-start whitespace-normal text-left"
-                            :class="{ 'bg-primary-soft text-primary': selectedId === item.id }"
-                            :aria-pressed="selectedId === item.id"
-                            @click="selectedId = item.id"
-                        >
-                            <Building2 class="shrink-0" aria-hidden="true" />
-                            <span>{{ item.name }}</span>
-                        </Button>
-                        <p v-if="!facilities.length" class="p-2 text-sm text-muted-foreground">设施未加载</p>
-                    </div>
-                </ScrollSurface>
-            </aside>
-            <section aria-label="存储视图" class="flex min-w-0 flex-col gap-5">
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                    <h2 class="font-semibold">{{ selected?.name ?? '存储视图' }}</h2>
-                    <div class="inline-flex gap-1 rounded-md border p-1" role="group" aria-label="存储视图模式">
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            use-tooltip
-                            title="结构视图"
-                            :aria-pressed="mode === 'structure'"
-                            :class="{ 'bg-muted': mode === 'structure' }"
-                            @click="mode = 'structure'"
-                        >
-                            <Network aria-hidden="true" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            use-tooltip
-                            title="孔位视图"
-                            :aria-pressed="mode === 'position'"
-                            :class="{ 'bg-muted': mode === 'position' }"
-                            @click="mode = 'position'"
-                        >
-                            <Grid2X2 aria-hidden="true" />
-                        </Button>
-                    </div>
-                </div>
-                <div class="flex min-h-80 flex-1 items-center justify-center rounded-md border bg-muted/20">
-                    <ResourceEmpty
-                        :text="
-                            !selected
-                                ? '选择存储节点'
-                                : mode === 'position'
-                                  ? '孔位布局与占用未加载'
-                                  : '子节点与存储布局未加载'
-                        "
-                    />
-                </div>
-            </section>
-            <aside
-                class="min-w-0 border-t pt-5 @4xl:border-t-0 @4xl:border-l @4xl:pt-0 @4xl:pl-5"
-                aria-label="存储节点详情"
+        <FacilityPicker
+            v-if="source && context"
+            :key="context"
+            v-model="facilityId"
+            :scope="scope"
+            :context-key="context"
+            :label="data?.name"
+            class="max-w-xl"
+        />
+        <p v-if="!source || !context" class="py-8 text-sm text-muted-foreground">请先选择有效工作区后查看存储设施。</p>
+        <ReadFeedback :error="error" :loading="loading" :stale="!!data" @retry="refresh" />
+        <p v-if="loading" role="status" class="text-sm text-muted-foreground">正在读取设施</p>
+        <div
+            v-if="selectedPosition"
+            role="status"
+            class="flex flex-wrap items-center justify-between gap-3 border-y py-3"
+        >
+            <div class="min-w-0 space-y-1 text-sm">
+                <p class="break-words">
+                    已选择位置：{{
+                        [
+                            data?.name,
+                            ...selectedPosition.ancestors.map((item) => item.name),
+                            selectedPosition.name,
+                        ].join(' / ')
+                    }}
+                </p>
+                <CopyableId :value="selectedPosition.id" label="位置 ID" />
+            </div>
+            <Button
+                variant="ghost"
+                size="icon-sm"
+                use-tooltip
+                title="取消位置选择"
+                @click="selectedPosition = undefined"
             >
-                <ResourceSection title="节点详情">
-                    <ResourceFactList
-                        v-if="selected"
-                        :fields="[
-                            { label: '名称', value: selected.name },
-                            { label: '设施 ID', value: selected.id },
-                            { label: '说明', value: selected.description },
-                            { label: '容量' },
-                            { label: '占用' },
-                            { label: '绑定设备' },
-                        ]"
-                    />
-                    <ResourceEmpty v-else text="尚未选择节点" />
-                    <Button variant="outline" class="w-full" disabled>位置转移</Button>
-                </ResourceSection>
-            </aside>
+                <X aria-hidden="true" />
+            </Button>
         </div>
+        <StorageBrowser
+            v-if="data"
+            :key="JSON.stringify([context, facilityId])"
+            :facility="data"
+            :context-key="key"
+            :workspace-id="scope.workspaceId"
+            selectable
+            @changed="refresh"
+            @relocated="relocate"
+            @select-position="selectedPosition = $event"
+        />
+        <p v-else-if="!facilityId && context" class="py-12 text-center text-sm text-muted-foreground">
+            选择设施浏览存储结构和位置。
+        </p>
     </ResourcePage>
 </template>
