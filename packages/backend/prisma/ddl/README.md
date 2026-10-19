@@ -15,6 +15,7 @@ ddl/
     extension.sql
   schema/
     identity.sql
+    inventory.sql
     storage-node.sql
   upgrade/
     README.md
@@ -23,14 +24,15 @@ ddl/
 
 - `init/` prepares database-wide prerequisites without depending on business tables.
 - `schema/` installs native schema objects that supplement Prisma-managed tables.
-- `upgrade/` is reserved for future reviewed operational policy. It currently
-  contains no executable SQL and is not part of new-database initialization.
+- `upgrade/` contains explicitly reviewed operator-run changes, including the
+  additive system-administrator field. It is not part of new-database initialization.
 
 | File                                                           | Execution point                                             | Ownership                                             |
 | -------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
 | [init/extension.sql](init/extension.sql)                       | Before schema synchronization                               | Native database prerequisites; currently only `ltree` |
 | [schema/storage-node.sql](schema/storage-node.sql)             | After schema synchronization                                | Storage-node write invariants and subtree moves       |
 | [schema/identity.sql](schema/identity.sql)                     | After synchronization, before account writes                | Canonical email CHECK; Prisma owns uniqueness         |
+| [schema/inventory.sql](schema/inventory.sql) | After P09 schema synchronization, before inventory writes | Quantity precision/nonnegative balances and explicit expiry-state CHECKs |
 
 Do not execute all DDL stages recursively or alphabetically. Prisma schema
 synchronization belongs between `init/` and `schema/`. `db:init` executes regular
@@ -42,6 +44,11 @@ storage-only `db:apply-ddl`. It validates canonical email storage with a CHECK,
 then removes the old expression index. Prisma's ordinary email unique constraint
 remains the only email uniqueness index. Existing noncanonical rows reject the
 DDL transaction; no account values are silently rewritten.
+P09 adds `db:apply-inventory-ddl` for inventory.sql after schema synchronization.
+It reinstalls quantity/expiry/operation-scope CHECKs in one transaction and rejects
+invalid existing values without silently repairing them. It neither creates tables
+nor migrates old timestamp/idempotency columns. It is also separate from the
+storage-only `db:apply-ddl` command.
 
 Without an explicit environment selector, database commands prompt in an
 interactive terminal. CI/non-interactive calls require `--env` or `--env-file`.
@@ -63,6 +70,7 @@ pnpm --filter @talos-ark/backend db:init --env dev.local
 pnpm --filter @talos-ark/backend db:push --env dev.local
 pnpm --filter @talos-ark/backend db:apply-identity-ddl --env dev.local
 pnpm --filter @talos-ark/backend db:apply-ddl --env dev.local
+pnpm --filter @talos-ark/backend db:apply-inventory-ddl --env dev.local
 pnpm --filter @talos-ark/backend db:gen-client --env dev.local
 ```
 
@@ -77,8 +85,8 @@ replace the table. `db:push` alone is not the complete database setup.
 ## Upgrade Policy
 
 Legacy upgrade scripts are not retained during the current reset phase.
-[upgrade/](upgrade/README.md) remains a placeholder for future operational policy;
-there is no approved automatic upgrade path for populated databases.
+[upgrade/](upgrade/README.md) documents the narrowly approved additive changes;
+there is no automatic upgrade path for populated databases.
 Review an explicit plan before changing existing data. Do not automatically
 accept data-loss warnings or reset an existing database.
 
@@ -140,8 +148,9 @@ The new DDL has not been applied to an existing database in this change.
 - A deferred constraint trigger checks the final parent/path relationship and
   prevents POSITION nodes from becoming parents. Keep it deferred during subtree
   moves; forcing immediate validation would inspect intermediate row states.
-- A move cannot change IDs, organizations, topologies, or move into its own
-  subtree. Current inventory placements retain their stable node IDs. Inventory
+- A move cannot change IDs or organizations, or move into its own subtree.
+  The P08 move supports same-organization topology changes while retaining final
+  parent/path consistency. Current inventory placements retain their stable node IDs. Inventory
   execution captures before/after paths as text in journal lines; topology moves
   never rewrite those historical snapshots.
 
@@ -153,6 +162,21 @@ ancestor/children/descendant reads and context-bound cursor pagination in Facili
 without introducing TypedSQL generation. Its explicit read ceilings are not
 authorization credentials. See [I06](../../docs/design/mvp-i06-2026-10-18.md) for
 query, transaction and verification boundaries.
+
+## Inventory Write Contract
+
+P09 adds native CHECKs for material quantityScale (0..6), nonnegative instance and
+stock quantities, explicit expiry-state/date consistency and allowed operation
+scope kinds. Prisma owns the ordinary unique/FK constraints for instance codes,
+batch numbers, position occupancy and operation/journal relationships.
+
+These checks are not permission enforcement or replacements for transactional
+receipt/relocation rules. Unknown database/CHECK failures remain technical errors;
+Inventory maps only known uniqueness and transaction/idempotency conflicts.
+Applied only to test.local after a scoped P09 schema update on 2026-10-19; twelve
+synthetic acceptance groups passed and their records were removed. This is not a
+populated-database migration or dev/prod synchronization. Full details:
+[P09 delivery](../../docs/design/mvp-p09-2026-10-19.md).
 
 Prisma recommends native SQL for extension types and unsupported database
 features: [PostgreSQL extensions](https://www.prisma.io/docs/orm/v7/prisma-schema/postgresql-extensions),

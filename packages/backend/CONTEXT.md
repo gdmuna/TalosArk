@@ -107,6 +107,32 @@ grant are both required for organization governance. Workspace entry and workspa
 governance are separate qualifications; organization governance does not grant
 workspace entry. Editing a role definition is distinct from assigning roles to a member.
 
+## Organization write coordination
+
+OrganizationWriteKernel coordinates the MVP organization-scoped write protocol:
+a managed ReadCommitted transaction, an active organization row lock, an explicit
+authorize callback, then an execute callback receiving its authorization result.
+Team management, material/classification writes, workspace creation and workspace
+updates share this entry. Existing transactions must explicitly use ReadCommitted;
+OrganizationService declares it so first-workspace creation joins the same physical
+transaction. Incompatible outer options reject before either callback runs.
+
+TeamOperations adds the verified actor and effective membership check inside the
+lock. Invitation acceptance has a named entry with token revalidation instead of
+an existing-membership requirement. Target state, role delegation, conditional
+writes and audit content remain business-owned; AuditKernel's mandatory boundary
+retains transaction enforcement. The coordinator guarantees ordering, not the
+semantic completeness of user-provided callbacks or that every successful no-op
+must produce an audit event.
+
+FilePurposeProvider management authorization remains a composition exception:
+File owns its ambient write transaction and subsequent file locking; Material's
+provider keeps the organization then material lock before returning authorization
+facts. It does not use the complete-use-case coordinator for an authorization-only
+callback. Both paths retain the same MVP organization lock and must be considered
+by the required pre-1.0 concurrency redesign. See
+docs/design/organization-write-protocol-2026-10-19.md for scope and verification.
+
 ## Materials and resource references (P07)
 
 MaterialModule provides real workspace-scoped material/classification reads and
@@ -116,8 +142,11 @@ are not a custom-schema or specialized-subtype mechanism. Codes are unique withi
 a workspace, while names and external identifiers may repeat between materials.
 Archive/restore retains history; existing instances freeze branch and quantity unit.
 
-Material writes serialize with team governance through the organization row lock,
-then update the material, ResourceIdentity and audit in one managed transaction.
+Material writes acquire the organization row lock before checking both material
+read and mutation permissions, then update the material, ResourceIdentity and audit
+in one managed transaction. This coarse serialization is accepted only for MVP;
+finer concurrency control is required before 1.0, as recorded in the foundation
+work plan. The TODO-only Lock Core does not yet provide this capability.
 Lists apply authorization before pagination/counts; direct detail/resource reads
 resolve the real material scope. The target and resource providers share the
 public facts reader, not permission evaluation or a recursive resource lookup.
@@ -176,6 +205,18 @@ explicitly invoke transaction-mandatory permission writes; discovery never write
 PermissionModule retains ordinary imports and exports only Kernel to Nest consumers.
 
 ## Authorization foundation
+
+System administrator access is the explicit account-level exception approved
+after P09 access diagnosis. `User.isSuperAdmin` defaults to false and is managed
+only through the operator CLI, not ordinary roles or request input. PermissionKernel
+permits registered actions and enumerates active scopes for these accounts;
+Organization/Workspace requireAccess resolves real targets without requiring
+membership or manufacturing member IDs. requireMembership retains its original
+facts-only meaning. Owner-gated governance and capability projections recognize
+system administrators without changing the actual organization owner. Ordinary
+users retain all existing membership and grant requirements. Authentication,
+target/scope integrity, business invariants and transactional audit still apply.
+See docs/design/system-super-admin.md for grant/revoke commands and boundaries.
 
 core/authorization resolves trusted organization/workspace membership facts and coordinates
 Permission checks through check/require/scope. Neither core reads request ALS. Scope results
@@ -660,8 +701,24 @@ cursor node's current path inside SQL. Cursors bind the query context, not autho
 and do not promise cross-page snapshots during structural changes. The child-page
 index adds id; it has not been applied to an existing database. Inventory owns exact
 Decimal(20,6) string parsing/formatting helpers, not stock/unit business decisions.
-No P08 HTTP routes, resource providers or P09 stock execution are activated. Current
-verification limits and handoff live in docs/design/mvp-i06-2026-10-18.md.
+The original I06 verification limits live in docs/design/mvp-i06-2026-10-18.md.
+P08/P09 now activate their own HTTP routes and resource providers; their delivery
+records below supersede that earlier foundation-only status.
+
+## Facilities and storage (P08)
+
+P08 now provides Facility registration and whole-facility workspace access,
+organization governance and explicit owner grant initialization, arbitrary-depth
+container/position maintenance, bounded grid creation, authorized queries and
+atomic empty-subtree transfers between facilities in the same organization.
+FacilityOperations shares the organization-write protocol and transaction audit;
+position availability observes lifecycle and occupancy without reserving a position.
+P09 acquires the organization write lock before rechecking and placing stock.
+Resource descriptions retain organization ownership and validate a separate
+accessContext. Batch resource creation is homogeneous and transaction-mandatory.
+P08 schema objects were applied to test.local. P09 subsequently integrated stocked
+relocation there; frontend integration remains separate. P08 evidence and wire
+handoff: docs/design/mvp-p08-2026-10-19.md.
 
 ## Idempotency foundation (I07)
 
@@ -676,10 +733,50 @@ atomic claim/conditional completion with `DatabaseRuntime.queryClient`. Operatio
 part of the fingerprint, not an implicit namespace. Results use bounded canonical JSON
 snapshots and caller-owned typed codecs; replay still requires the caller's current
 identity and authorization. The ULID lease is transaction-bound, not a timed
-distributed lock. No schema, cache, retry, HTTP interceptor, business adapter or
-Bootstrap registration is included yet. P09 must provide the first real adapter and
-verify PostgreSQL concurrency, rollback and committed-response-loss behavior. See
-docs/design/mvp-i07-2026-10-18.md.
+distributed lock. The core adds no global table, cache, retry or HTTP interceptor.
+P09 now supplies the first business adapter through InventoryOperation and binds
+its kernel locally in InventoryModule. Receipt replay, conflicts, competing writes,
+late-failure rollback and unavailable results were verified on test.local. See
+docs/design/mvp-i07-2026-10-18.md and docs/design/mvp-p09-2026-10-19.md.
+
+## Physical inventory (P09)
+
+InventoryModule now owns receipt, physical-instance fact correction, authorized
+stock/journal reads and stocked-container relocation. It consumes only Material
+and Facility public APIs, plus existing Core capabilities. Material still owns
+batch metadata and revision/archive rules; Facility owns structural validation.
+All mutations join OrganizationWriteKernel; resources, placement, journals,
+audit and InventoryOperation completion commit or roll back together.
+
+Material.quantityScale is 0..6 (default 6), frozen with unit and branch after any
+instance exists. Exact decimal strings never pass through number. Zero receives
+DEPLETED stock but retains occupancy. Calendar production/arrival/expiry dates,
+UNKNOWN/NONE/DATED expiry and instance-confirmed dates replace live batch-expiry
+inheritance. InventoryCalendar uses INVENTORY_BUSINESS_TIME_ZONE (Asia/Shanghai
+default, validated typed config, defaults in every application env).
+
+New workspace-manager defaults include inventory permissions and batch management;
+existing organizations require explicit owner-driven inventory/initialize. No
+startup or read repair occurs. Reads require inventory.read plus material.read;
+unreadable facility locations are null with locationRestricted=true, not absent
+inventory. Resource providers resolve actual stock/instance workspace ownership.
+
+Stocked relocation requires source/target structure management, effective membership
+and read/transfer/material permissions in every affected workspace, and destination
+facility use relationships for all of them. Preview fingerprints are rechecked
+inside the organization/topology locks. All placements, including depleted or
+expired items, move together without changing stock ownership or node identity;
+per-workspace journals preserve old/new human location snapshots. Ordinary P08
+movement still rejects occupied subtrees. Synchronous limits are 10,000 nodes and
+1,000 occupied items, not benchmark claims.
+
+Only P09 schema differences and inventory.sql checks were applied to empty affected
+test.local tables; parallel file schema changes were not synchronized. Twelve
+focused real-PG/synthetic-HTTP groups passed and synthetic records were removed.
+Frontend pages, JWT/Cookie Web acceptance and Tauri remain pending. No permanent
+test files were added. Interfaces, configuration, schema and evidence:
+docs/design/mvp-p09-2026-10-19.md. P11 individual movements/quantity changes and P13
+multi-receipt behavior remain unimplemented.
 
 ## MVP database vocabulary
 
@@ -694,10 +791,34 @@ docs/design/mvp-i07-2026-10-18.md.
   subtypes such as culture medium or serum; later specialization remains possible.
 - MaterialType is a flat classification owned by one workspace, not a category
   tree or a specialized professional subtype model.
-- MaterialBatch is optional lot metadata. MaterialInstance is one physical
-  bottle or tube; StockItem is its current remaining quantity and stock state.
+- MaterialBatch is optional manufacturer/source lot metadata for one material;
+  the same batch may be received more than once. MaterialInstance is one physical
+  item that can be stored and moved independently, including a bottle, tube,
+  bag or box; StockItem is its current remaining quantity and stock state.
+- Initial inventory quantity is the actual amount remaining when an instance
+  is first registered, including zero, not its original package amount or a
+  reconstruction of consumption before registration.
+- Material quantity precision is the maximum number of fractional digits for
+  that material, from zero to six; zero means whole-number quantities only.
+- An instance's production and expiry dates are confirmed on registration;
+  batch dates supply defaults, not a live inheritance relationship. An expiry
+  date remains valid through that calendar day in the business time zone.
+  Unknown expiry and an explicitly indefinite shelf life are distinct facts.
+- Actual arrival date is optional historical receipt information, not the time
+  the system registered inventory or an instruction to replay past balances.
+- Inventory receipt registers one physical item at an authorized empty position.
+  Correcting descriptive facts is distinct from changing quantity or location;
+  a receipt's initial quantity and committed journal are not rewritten by editing.
+- Facility is an organization-owned storage place, such as a room, storeroom
+  or managed storage area, with a designated management workspace.
+- StorageTopology is a facility's storage layout. StorageNode represents a
+  container or a final storage position within that layout; a named logical
+  partition can be a container without being a separately registered device.
 - Placement is a current, exclusive occupancy of one physical POSITION node.
   InventoryTransactionLine preserves previous and resulting states/locations.
+- Storage relocation moves a container subtree within one organization and may
+  change the facility governing its structure. It does not transfer organization
+  ownership or the workspace ownership of the material and stock it contains.
 - ApprovalRequest grants eligibility to execute. Approval does not reserve or
   change stock; execution confirms an InventoryTransaction.
 - Task is ordinary work. Approval todos and overdue presentation states are
@@ -707,8 +828,8 @@ docs/design/mvp-i07-2026-10-18.md.
   Provider discovery and authorization-aware descriptor reads. The material Provider
   reuses the material facts reader and AuthorizationKernel; missing or unauthorized
   descriptions return null without labels or links. Its concrete owner still decides
-  workspace ownership and authorization. Facilities, storage nodes, inventory and
-  tasks do not acquire Resource Providers until their business rules are implemented.
+  workspace ownership and authorization. Facilities/storage nodes (P08), batches
+  and stock/instances (P09) now have providers; tasks still await their business slice.
 - A storage-node permission inheritance boundary is a node's explicit choice
   not to inherit parent-node grants. Missing local grants alone do not express
   this choice; opting out is not an explicit Deny rule.
@@ -740,23 +861,41 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
   share that protocol. FileModule is ordinarily imported; only its configuration
   token is global. Bootstrap maps existing staging/private bucket config, without
   new env switches, HTTP routes or startup storage operations.
-  Purpose contributions, resource binding and authorized bound downloads await
-  I08-B/P10. Actual MIME detection and virus scanning remain deferred beyond this
+  I08-B now adds purpose contributions, resource binding and authorized bound downloads;
+  P10 now adds material attachment contracts, HTTP upload/bind/list/download/unbind
+  routes and the material-owned FileKernel adapter. Frontend integration and real object
+  storage deployment acceptance remain pending. Actual MIME detection and virus scanning remain deferred beyond this
   first attachment slice. No scheduler is activated:
   cleanup must be invoked by trusted maintenance, and unknown multipart upload IDs
-  require staging lifecycle rules. Schema changes have not been synchronized to a
-  real database. APIs, options, deployment prerequisites and isolated verification
+  require staging lifecycle rules. The approved test.local database is synchronized
+  to the current Prisma schema; dev/prod and real deployment acceptance remain untouched.
+  APIs, options, deployment prerequisites and isolated verification
   live in docs/design/mvp-i08a-2026-10-18.md.
 - The file kernel has no IMAGE, DOCUMENT, or VIDEO upload-purpose enumeration.
-  Future modules contribute concrete file-purpose definitions through the
-  FileKernel extension boundary in I08-B; its TODO skeleton is not a delivered registry.
+  I08-B's FilePurposeExtension uses existing singleton Discovery to freeze owner-contributed
+  definitions/providers at application bootstrap. Definitions own extension/MIME pairs and
+  size limits; providers own current read/manage authorization, governance/lifecycle locks
+  and same-transaction change audit. File Core does not read ALS or hardcode owner permissions.
+  Invalid/duplicate/non-singleton contributions abort startup, without database writes.
+  Upload sessions now persist nullable purpose/resource intent; replay cannot retarget it.
+  Generic uploads remain available, but first binding rechecks purpose admission.
+  Binding/unbinding require ReadCommitted, including an explicitly compatible ambient
+  transaction, and share FileObject -> FileAsset locks with cleanup. A joined old snapshot
+  is rejected rather than used to authorize writes after a governance change.
+  Bound uploader reads are denied; completion replay rechecks reference authorization.
+  Reference pages use scope-bound (sortOrder,id) cursors, and download signing runs outside
+  SQL transactions with a second current-authorization/reference check before return.
+  Signing also rechecks upload session state after signing. Details, additive schema and
+  isolated verification limits live in docs/design/mvp-i08b-2026-10-18.md.
 - D10 defines the first material attachment purpose as `material.attachment`:
   approved document/image/spreadsheet formats, at most 100 MiB, one material per
   asset, and no existing-attachment reuse. Reading/downloading follows current
   `material.read`; binding/unbinding follows current `material.update`. Archived
   materials retain read-only attachments. Unlinking retains reference history but
   retires the asset: it neither restores uploader access nor allows reference
-  restoration. These are confirmed business rules, not delivered I08-B/P10 behavior.
+  restoration. I08-B implements these rules through the material purpose Provider, and
+  P10 exposes the public HTTP contracts and material service adapter. Frontend attachment
+  UI and real object-storage acceptance remain pending.
   The approved format list, lifecycle and interface constraints live in
   docs/product/mvp-attachment-contract.md at the repository root.
 - Platform-level Casdoor OIDC remains the current identity-provider model.

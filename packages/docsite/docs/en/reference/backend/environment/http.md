@@ -194,10 +194,10 @@ Control how long the global TimeoutInterceptor waits for an HTTP processing resu
 A shorter timeout ends the wait sooner; a longer value permits more processing time. The interceptor maps RxJS TimeoutError to a request processing timeout error.
 
 ::: warning Timeout does not prove downstream effects were rolled back
-An HTTP wait timeout does not automatically establish cancellation of database work, email sending, or outbound HTTP. Confirm cancellation signals passed by the use case or adapter-specific deadlines.
+An HTTP wait timeout does not establish that database work, email sending, or outbound HTTP was canceled or rolled back. A `504`, client timeout, connection break, or cancellation signal alone cannot prove that a write had no effect. For writes without a receipt or idempotency protocol, read and inspect current state before deciding whether to submit again. Inventory P09 operations should reuse the original idempotency key or query the operation receipt.
 :::
 
-This is not the reverse proxy's connection timeout or shutdown's `HTTP_DRAIN_TIMEOUT_MS`. Verify a known slow request in an isolated environment, inspecting both the response and downstream results.
+This is not the reverse proxy's connection timeout or shutdown's `HTTP_DRAIN_TIMEOUT_MS`. A cancellation signal requests cancellation; it does not guarantee that an arbitrary Promise, database transaction, or committed write has stopped.
 
 ### REQUEST_ID_HEADER {#request-id-header}
 

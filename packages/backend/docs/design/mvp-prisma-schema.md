@@ -93,7 +93,7 @@ Workspace-flat `MaterialType` remains independent of the branch. Material and
 classification codes are workspace-unique; names and external identifiers may
 repeat across materials, while aliases/identifiers are unique per material.
 Materials and classifications archive/restore, with no hard-delete route.
-Existing instances prevent changing either the branch or quantity unit.
+Existing instances prevent changing the branch, quantity unit or quantityScale.
 The P07 acceptance applied only these additions to the empty test Material table;
 it did not synchronize development/production or the concurrent file schema.
 
@@ -103,9 +103,17 @@ instances supply identity, initial quantity, opening time and optional expiry.
 There is no second writable aggregate balance. Item count and remaining quantity
 are different queries; a bottle with 10 mL is one item, not ten bottles.
 
-An instance's effective expiry is its override, otherwise its batch expiry.
-Expiry and task overdue are derived from timestamps and current lifecycle states,
-not duplicate persisted status flags. The material unit must not change after
+P09 business alignment (2026-10-19) replaces dynamic batch-expiry inheritance:
+batch production/expiry dates supply receipt defaults, but each instance stores
+the dates confirmed on registration. Later batch edits do not silently change
+existing instances. Production and expiry are calendar dates; expiry remains valid
+through that date in the deployment business time zone (default Asia/Shanghai,
+configurable). P09 has implemented these rules: batches and instances use native
+date fields and UNKNOWN/NONE/DATED expiry; instances also retain an optional
+arrival date. Material.quantityScale is 0..6 (default 6). An initial zero quantity
+creates DEPLETED stock while retaining physical position occupancy.
+Expiry and task overdue are derived, not duplicate persisted status flags.
+The material unit must not change after
 instances exist. MVP does not convert units or split a physical instance across
 positions. Transfer moves a whole tracked instance; partial consumption changes
 that instance's remaining quantity, not its ownership or physical identity.
@@ -129,11 +137,14 @@ the validated final label is already a globally unique node ID, and PostgreSQL
 limits the size of a B-tree entry. See [PostgreSQL B-tree documentation](https://www.postgresql.org/docs/18/btree.html).
 
 The foundation DDL installs only `ltree`. The post-schema DDL owns path creation,
-immutable identity/topology, deferred final-state validation and atomic subtree
-moves. Creation/deletion/structural changes serialize on the topology row. A move
-locks that row before reading nodes, rejects positions/archived parents and
+immutable node/organization identity, deferred final-state validation and atomic subtree
+moves. P08 permits controlled topology transfers within one organization. Creation/deletion/structural changes serialize on topology rows. A move
+locks source and target rows in stable order before reading nodes, rejects positions/archived parents and
 cycles, and rewrites all descendant paths in the caller's transaction. Renaming
-does not rewrite paths. Same-topology foreign keys still express direct parentage.
+does not rewrite paths. Same-topology foreign keys still express final direct parentage;
+their NO ACTION checks are deferred during an atomic cross-topology transfer.
+P08 fields, sibling/root code uniqueness and verification limits are recorded in
+[the P08 handoff](mvp-p08-2026-10-19.md).
 
 The facility-local writer now joins an active managed DatabaseRuntime transaction
 through its public capability port; it does not require a native TransactionClient
@@ -163,9 +174,13 @@ withdrawal eligibility and resubmission policy remain use-case decisions.
 Approval decision is distinct from execution. `InventoryTransaction` optionally
 links the approved request through a unique tenant/workspace foreign key, so a
 request cannot have two successful execution transactions. A unique
-workspace/idempotency key plus request hash supports safe replay; it does not
-make a non-transactional handler safe. A retry must compare the same canonical
-payload before returning the original result.
+InventoryOperation scope/idempotency key plus request hash supports safe replay;
+the old journal-head idempotency fields have been removed. Receipt uses workspace
+scope; mixed-workspace relocation uses organization-user scope. A single operation
+may have one journal head per actual workspace, with an organization-consistent
+foreign key and operation/workspace uniqueness. Claim, execution and completion
+share the managed transaction; retry also reauthorizes current access. Location
+lines retain historical facility/topology IDs and human paths across relocation.
 
 Approval todos query requests; ordinary task completion cannot approve a request.
 Workbench totals and lists query authorized domain facts. There is no writable
@@ -193,9 +208,9 @@ D10 (2026-10-18) does not offer reference restoration: unlinking retains referen
 history and logically retires the asset, without reopening uploader access. Adding
 the file again requires a new upload. One asset binds to one material in the first
 release; the existing three-column unique constraint alone does not enforce this
-cross-resource invariant. I08-B must serialize binding and cleanup and enforce it
-under the shared object/asset locks. These are approved application rules, not
-new schema fields or already implemented behavior. See the
+cross-resource invariant. I08-B now serializes binding and cleanup and enforces it
+under the shared object/asset locks. These are application invariants, not guarantees
+provided by that unique constraint. See the
 [attachment contract](../../../../docs/product/mvp-attachment-contract.md).
 
 I08-A (2026-10-18) adds `FileUploadSession` for single/multipart intent, expected
@@ -206,10 +221,17 @@ support replay; the completed asset relation includes organization consistency.
 additions. Existing assets are not expired or deleted by a backfill. Reverse relations
 on User/Organization add no columns. FileReference itself is unchanged.
 
-File currently implements only unbound owner access, not the resource-authorized
-binding/download requirements above. Candidates are copied to a different private
+I08-B (2026-10-18) adds nullable `FileUploadSession.purposeKey/resourceId`, a
+same-organization ResourceIdentity foreign key/reverse relation and a supporting
+index. Purpose and target join the immutable upload idempotency intent; generic
+sessions keep both null. The FileReference paging index now ends in id.
+Binding/unbinding, material-purpose admission/current authorization, same-transaction
+audit and bound downloads are implemented; public HTTP/wire contracts and frontend
+integration still belong to P10. See the [I08-B record](mvp-i08b-2026-10-18.md).
+
+Candidates are copied to a different private
 key and fully verified before atomic publication, with storage I/O outside the
-database transaction. Cleanup and future binding must share FileObject -> FileAsset
+database transaction. Cleanup and binding share FileObject -> FileAsset
 locks and recheck lifecycle/references under those locks. Type detection and malware
 scanning remain deferred. The [I08-A implementation record](mvp-i08a-2026-10-18.md)
 documents APIs, retention and verification limits; this additive schema has not
@@ -280,8 +302,9 @@ cell culture/QC lineage, billing, file versions/online editing or generic job
 platform is modeled. Standard exports need not introduce an export-job table.
 Basic equipment records do not imply hardware capabilities or a mandatory UI.
 
-Destructive retention policies, detailed issue/return rules and batch API atomicity
-still need their own approved slices.
+Destructive retention policies and detailed issue/return rules still need their
+own approved slices. P09 now implements batch/receipt atomicity; delivery and
+test.local-only schema changes: [P09](mvp-p09-2026-10-19.md).
 The existing seven identity/session tables retain scalar fields, defaults, native
 types, unique constraints and relations. New reverse relations add no columns.
 

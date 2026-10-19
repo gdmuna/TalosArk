@@ -96,6 +96,11 @@ invalid request `400`, forbidden/CORS `403`, rate limiting `429`, payload too
 large `413`, unsupported content `415`, processing timeout `504`, and internal
 failure `500`.
 
+A processing-timeout `504` ends the HTTP response wait; it does not prove that the
+handler, database transaction, or downstream side effect was canceled or rolled
+back. A write with an unconfirmed response must be checked through its business
+read/receipt protocol before it is submitted again.
+
 | Authentication | Guard behavior                                                    | Additional default errors                                            | OpenAPI security      |
 | -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------- |
 | public         | Does not verify the token                                         | None                                                                 | No bearer requirement |
