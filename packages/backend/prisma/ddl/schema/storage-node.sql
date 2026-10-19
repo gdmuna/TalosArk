@@ -4,6 +4,28 @@
 BEGIN;
 SET LOCAL search_path = public, pg_temp;
 
+CREATE UNIQUE INDEX IF NOT EXISTS "StorageNode_root_code_key"
+ON "StorageNode" ("topologyId", code) WHERE "parentId" IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "StorageTopology_active_facility_key"
+ON "StorageTopology" ("facilityId") WHERE "archivedAt" IS NULL;
+
+-- A subtree changes composite parent keys together; validate their final state.
+DO $$
+DECLARE constraint_name text;
+BEGIN
+    FOR constraint_name IN SELECT conname FROM pg_constraint
+        WHERE conrelid = 'public."StorageNode"'::regclass
+          AND confrelid = 'public."StorageNode"'::regclass AND contype = 'f'
+    LOOP
+        EXECUTE format('ALTER TABLE public."StorageNode" DROP CONSTRAINT %I', constraint_name);
+    END LOOP;
+    ALTER TABLE "StorageNode" ADD CONSTRAINT "StorageNode_organizationId_topologyId_parentId_fkey"
+        FOREIGN KEY ("organizationId", "topologyId", "parentId")
+        REFERENCES "StorageNode" ("organizationId", "topologyId", id)
+        ON DELETE RESTRICT ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.storage_node_guard()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -18,12 +40,17 @@ BEGIN
     IF TG_OP = 'UPDATE' AND (
         NEW.id IS DISTINCT FROM OLD.id
         OR NEW."organizationId" IS DISTINCT FROM OLD."organizationId"
-        OR NEW."topologyId" IS DISTINCT FROM OLD."topologyId"
     ) THEN
-        RAISE EXCEPTION 'Storage node identity and topology are immutable'
+        RAISE EXCEPTION 'Storage node identity and organization are immutable'
             USING ERRCODE = '23514';
     END IF;
 
+    IF TG_OP = 'UPDATE' AND NEW.kind IS DISTINCT FROM OLD.kind THEN
+        RAISE EXCEPTION 'Storage node kind is immutable' USING ERRCODE = '23514';
+    END IF;
+    IF TG_OP = 'UPDATE' THEN
+        PERFORM id FROM "StorageTopology" WHERE id IN (OLD."topologyId", NEW."topologyId") ORDER BY id FOR UPDATE;
+    END IF;
     -- Mutating the topology row also detects stale repeatable-read snapshots.
     IF TG_OP = 'DELETE' THEN
         UPDATE "StorageTopology" SET "updatedAt" = clock_timestamp()
@@ -31,6 +58,7 @@ BEGIN
         RETURN OLD;
     ELSIF TG_OP = 'INSERT'
         OR NEW."parentId" IS DISTINCT FROM OLD."parentId"
+        OR NEW."topologyId" IS DISTINCT FROM OLD."topologyId"
         OR NEW.kind IS DISTINCT FROM OLD.kind THEN
         UPDATE "StorageTopology" SET "updatedAt" = clock_timestamp()
         WHERE id = NEW."topologyId" AND "organizationId" = NEW."organizationId";
@@ -99,6 +127,28 @@ BEGIN
         RAISE EXCEPTION 'Storage node path and parent are inconsistent'
             USING ERRCODE = '23514';
     END IF;
+    IF (node."rowIndex" IS NULL) <> (node."columnIndex" IS NULL)
+        OR (node."rowCount" IS NULL) <> (node."columnCount" IS NULL)
+        OR node."rowIndex" < 1 OR node."columnIndex" < 1
+        OR node."rowCount" < 1 OR node."columnCount" < 1
+        OR (node."parentId" IS NULL AND node."rowIndex" IS NOT NULL)
+        OR (node.kind = 'POSITION' AND (node."containerType" IS NOT NULL OR node."rowCount" IS NOT NULL))
+        OR (node.kind = 'CONTAINER' AND node."containerType" IS NULL) THEN
+        RAISE EXCEPTION 'Invalid storage node shape' USING ERRCODE = '23514';
+    END IF;
+    IF node."parentId" IS NOT NULL AND EXISTS (
+        SELECT 1 FROM "StorageNode" parent WHERE parent.id = node."parentId"
+        AND ((node."rowIndex" IS NOT NULL AND (parent."rowCount" IS NULL
+             OR node."rowIndex" > parent."rowCount" OR node."columnIndex" > parent."columnCount"))
+          OR (node."rowIndex" IS NULL AND parent."rowCount" IS NOT NULL))
+    ) THEN
+        RAISE EXCEPTION 'Storage coordinate is outside its parent layout' USING ERRCODE = '23514';
+    END IF;
+    IF EXISTS (SELECT 1 FROM "StorageNode" child WHERE child."parentId" = node.id
+        AND ((node."rowCount" IS NULL AND child."rowIndex" IS NOT NULL)
+          OR (node."rowCount" IS NOT NULL AND (child."rowIndex" IS NULL OR child."rowIndex" > node."rowCount" OR child."columnIndex" > node."columnCount")))) THEN
+        RAISE EXCEPTION 'Existing children do not fit the new layout' USING ERRCODE = '23514';
+    END IF;
     IF EXISTS (
         SELECT 1 FROM "StorageNode" child
         WHERE child."organizationId" = node."organizationId"
@@ -130,8 +180,10 @@ AFTER INSERT OR UPDATE ON "StorageNode"
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION public.storage_node_validate();
 
+DROP FUNCTION IF EXISTS public.storage_node_move(uuid, uuid, uuid, uuid);
 CREATE OR REPLACE FUNCTION public.storage_node_move(
-    organization_id uuid, topology_id uuid, node_id uuid, parent_id uuid
+    organization_id uuid, topology_id uuid, target_topology_id uuid, node_id uuid,
+    parent_id uuid, target_code text, target_row integer, target_column integer
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -144,6 +196,13 @@ DECLARE
     parent_kind "StorageNodeKind";
     parent_archived_at timestamptz;
 BEGIN
+    PERFORM id FROM "StorageTopology" WHERE id IN (topology_id, target_topology_id)
+        AND "organizationId" = organization_id ORDER BY id FOR UPDATE;
+    IF NOT EXISTS (SELECT 1 FROM "StorageTopology" topology JOIN "Facility" facility ON facility.id = topology."facilityId"
+        WHERE topology.id = target_topology_id AND topology."organizationId" = organization_id
+          AND topology."archivedAt" IS NULL AND facility."archivedAt" IS NULL) THEN
+        RAISE EXCEPTION 'Active target topology does not exist' USING ERRCODE = '23503';
+    END IF;
     -- Lock before any node read or write; every topology mutation uses this row.
     UPDATE "StorageTopology" SET "updatedAt" = clock_timestamp()
     WHERE id = topology_id AND "organizationId" = organization_id
@@ -163,23 +222,24 @@ BEGIN
     IF parent_id IS NOT NULL THEN
         SELECT path, kind, "archivedAt" INTO parent_path, parent_kind, parent_archived_at
         FROM "StorageNode" WHERE id = parent_id AND "organizationId" = organization_id
-          AND "topologyId" = topology_id;
+          AND "topologyId" = target_topology_id;
         IF NOT FOUND THEN
             RAISE EXCEPTION 'Parent storage node does not exist in this topology'
                 USING ERRCODE = '23503';
         END IF;
         IF parent_kind <> 'CONTAINER' OR parent_archived_at IS NOT NULL
-            OR parent_path <@ old_path THEN
+            OR (topology_id = target_topology_id AND parent_path <@ old_path) THEN
             RAISE EXCEPTION 'Cannot move a node into a position, archived node, or its own subtree'
                 USING ERRCODE = '23514';
         END IF;
         new_path := parent_path || new_path;
     END IF;
-    IF new_path = old_path THEN
-        RETURN;
-    END IF;
     UPDATE "StorageNode" SET
+        "topologyId" = target_topology_id,
         "parentId" = CASE WHEN id = node_id THEN parent_id ELSE "parentId" END,
+        code = CASE WHEN id = node_id THEN coalesce(target_code, code) ELSE code END,
+        "rowIndex" = CASE WHEN id = node_id THEN target_row ELSE "rowIndex" END,
+        "columnIndex" = CASE WHEN id = node_id THEN target_column ELSE "columnIndex" END,
         path = CASE WHEN id = node_id THEN new_path
                     ELSE new_path || subpath(path, nlevel(old_path)) END,
         "updatedAt" = clock_timestamp()

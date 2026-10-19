@@ -68,6 +68,19 @@ export interface StorageNodeMutationInput {
     readonly code: string;
     readonly name: string;
     readonly kind: StorageNodeKind;
+    readonly containerType?:
+        | 'FREEZER'
+        | 'LIQUID_NITROGEN_TANK'
+        | 'CABINET'
+        | 'SHELF'
+        | 'RACK'
+        | 'DRAWER'
+        | 'BOX'
+        | 'PARTITION'
+        | 'OTHER';
+    readonly description?: string;
+    readonly rowCount?: number;
+    readonly columnCount?: number;
     readonly rowIndex?: number;
     readonly columnIndex?: number;
     readonly sortOrder?: number;
@@ -76,6 +89,10 @@ export interface StorageNodeMutationInput {
 export interface StorageNodeMoveInput {
     readonly organizationId: string;
     readonly topologyId: string;
+    readonly targetTopologyId: string;
     readonly nodeId: string;
     readonly parentId: string | null;
+    readonly code?: string;
+    readonly rowIndex?: number;
+    readonly columnIndex?: number;
 }

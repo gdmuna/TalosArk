@@ -12,3 +12,5 @@ export type {
     StorageNodeMutationInput,
     StorageNodeScope,
 } from './facility-storage-topology.contract.js';
+export { FacilityPositionReader, type FacilityPositionLookup } from './facility-position.reader.js';
+export { FacilityRelocation, type PreparedStorageRelocation } from './facility-relocation.js';

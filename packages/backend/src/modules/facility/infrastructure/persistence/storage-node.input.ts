@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { StorageContainerTypeSchema } from '@talos-ark/contracts/facility';
 import { validationDiagnostics } from '@/platform/error/error.validation.js';
 import { FacilityError } from '../../facility.error.js';
 
@@ -59,14 +60,22 @@ export const storageNodeCreateSchema = z.strictObject({
         .min(1)
         .refine((value) => !value.includes('\u0000')),
     kind: z.enum(['CONTAINER', 'POSITION']),
+    containerType: StorageContainerTypeSchema.optional(),
+    description: z.string().max(2000).optional(),
+    rowCount: z.number().int().min(1).max(10000).optional(),
+    columnCount: z.number().int().min(1).max(10000).optional(),
     rowIndex: int32.optional(),
     columnIndex: int32.optional(),
     sortOrder: int32.default(0),
 });
 export const storageNodeMoveSchema = z.strictObject({
     ...context,
+    targetTopologyId: storageNodeIdSchema,
     nodeId: storageNodeIdSchema,
     parentId: storageNodeIdSchema.nullable(),
+    code: z.string().trim().min(1).max(160).optional(),
+    rowIndex: z.number().int().min(1).max(10000).optional(),
+    columnIndex: z.number().int().min(1).max(10000).optional(),
 });
 
 export function parseStorageNodeInput<Schema extends z.ZodType>(
