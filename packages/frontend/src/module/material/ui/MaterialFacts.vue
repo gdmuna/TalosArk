@@ -10,6 +10,7 @@ const facts = computed(() => [
     { label: '业务分支', value: branchPresentation(props.material.branch).label },
     { label: '材料分类', value: props.material.type.name + (props.material.type.archivedAt ? '（已归档）' : '') },
     { label: '计量单位', value: props.material.quantityUnit },
+    { label: '数量小数位数', value: `${props.material.quantityScale} 位` },
     { label: '厂家', value: props.material.manufacturer },
     { label: '货号', value: props.material.catalogNumber },
     { label: '创建时间', value: materialDate(props.material.createdAt) },

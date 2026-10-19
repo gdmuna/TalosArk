@@ -24,6 +24,7 @@ const form = reactive({
     manufacturer: '',
     catalogNumber: '',
     quantityUnit: '',
+    quantityScale: 6,
 });
 const attributes = reactive<Record<string, string>>({});
 const aliases = ref('');
@@ -60,6 +61,7 @@ watch(open, (value) => {
                   manufacturer: material.manufacturer,
                   catalogNumber: material.catalogNumber,
                   quantityUnit: material.quantityUnit,
+                  quantityScale: material.quantityScale,
               }
             : {
                   code: '',
@@ -70,6 +72,7 @@ watch(open, (value) => {
                   manufacturer: '',
                   catalogNumber: '',
                   quantityUnit: '',
+                  quantityScale: 6,
               }
     );
     for (const key of Object.keys(attributes)) delete attributes[key];
@@ -162,6 +165,18 @@ async function submit() {
                                 <label class="space-y-2 text-sm">
                                     <span>计量单位 *</span>
                                     <Input v-model="form.quantityUnit" maxlength="32" :disabled="locked" required />
+                                </label>
+                                <label class="space-y-2 text-sm">
+                                    <span>数量小数位数 *</span>
+                                    <Input
+                                        v-model.number="form.quantityScale"
+                                        type="number"
+                                        min="0"
+                                        max="6"
+                                        step="1"
+                                        :disabled="locked"
+                                        required
+                                    />
                                 </label>
                                 <label class="space-y-2 text-sm">
                                     <span>厂家</span>

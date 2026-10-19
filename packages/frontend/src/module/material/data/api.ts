@@ -5,14 +5,33 @@ import {
     MaterialDetailSchema,
     MaterialTypeListSchema,
     MaterialTypeSchema,
+    BatchArchiveSchema,
+    BatchQuerySchema,
+    BatchUpdateSchema,
+    BatchWriteSchema,
+    BatchPageSchema,
+    BatchSchema,
+    type MaterialScope,
 } from '@talos-ark/contracts/material';
-import type { HttpClient } from '@/platform/http';
-import type { MaterialDataSource } from './source';
+import { HttpError, type HttpClient } from '@/platform/http';
+import type { MaterialDataSource, MaterialBatch } from './source';
+import { createHttpMaterialAttachmentDataSource } from './attachment-api';
+
+function assertBatch(scope: MaterialScope, materialId: string, value: MaterialBatch, id?: string) {
+    if (
+        value.organizationId !== scope.organizationId ||
+        value.workspaceId !== scope.workspaceId ||
+        value.materialId !== materialId ||
+        (id && value.id !== id)
+    )
+        throw new HttpError('批次响应范围或身份不匹配', 'protocol');
+}
 
 export function createHttpMaterialDataSource(http: HttpClient): MaterialDataSource {
     const root = (scope: { organizationId: string; workspaceId: string }) =>
         `/organization/${encodeURIComponent(scope.organizationId)}/workspace/${encodeURIComponent(scope.workspaceId)}/material`;
     return {
+        attachments: createHttpMaterialAttachmentDataSource(http),
         list: (scope, query, signal) =>
             http.request({
                 method: 'GET',
@@ -26,14 +45,24 @@ export function createHttpMaterialDataSource(http: HttpClient): MaterialDataSour
                 signal,
                 retry: false,
             }),
-        overview: (scope, signal) =>
-            http.request({
+        async overview(scope, signal) {
+            const result = await http.request({
                 method: 'GET',
                 path: root(scope) + '/overview',
                 schema: MaterialOverviewSchema,
                 signal,
                 retry: false,
-            }),
+            });
+            if (
+                result.recent.some(
+                    (item) =>
+                        item.organizationId !== scope.organizationId ||
+                        item.workspaceId !== scope.workspaceId
+                )
+            )
+                throw new HttpError('材料概览响应范围不匹配', 'protocol');
+            return result;
+        },
         get: (scope, id, signal) =>
             http.request({
                 method: 'GET',
@@ -104,5 +133,72 @@ export function createHttpMaterialDataSource(http: HttpClient): MaterialDataSour
                 signal,
                 retry: false,
             }),
+        async listBatches(scope, materialId, query, signal) {
+            const result = await http.request({
+                method: 'GET',
+                path: `${root(scope)}/${encodeURIComponent(materialId)}/batch`,
+                params: BatchQuerySchema.parse(query),
+                schema: BatchPageSchema,
+                signal,
+                retry: false,
+            });
+            if (
+                result.page !== query.page ||
+                result.pageSize !== query.pageSize ||
+                result.items.length > query.pageSize ||
+                result.total < result.items.length ||
+                new Set(result.items.map((item) => item.id)).size !== result.items.length
+            )
+                throw new HttpError('批次响应分页不一致', 'protocol');
+            result.items.forEach((item) => assertBatch(scope, materialId, item));
+            return result;
+        },
+        async getBatch(scope, materialId, batchId, signal) {
+            const result = await http.request({
+                method: 'GET',
+                path: `${root(scope)}/${encodeURIComponent(materialId)}/batch/${encodeURIComponent(batchId)}`,
+                schema: BatchSchema,
+                signal,
+                retry: false,
+            });
+            assertBatch(scope, materialId, result, batchId);
+            return result;
+        },
+        async createBatch(scope, materialId, body, signal) {
+            const result = await http.request({
+                method: 'POST',
+                path: `${root(scope)}/${encodeURIComponent(materialId)}/batch`,
+                body: BatchWriteSchema.parse(body),
+                schema: BatchSchema,
+                signal,
+                retry: false,
+            });
+            assertBatch(scope, materialId, result);
+            return result;
+        },
+        async updateBatch(scope, materialId, batchId, body, signal) {
+            const result = await http.request({
+                method: 'PATCH',
+                path: `${root(scope)}/${encodeURIComponent(materialId)}/batch/${encodeURIComponent(batchId)}`,
+                body: BatchUpdateSchema.parse(body),
+                schema: BatchSchema,
+                signal,
+                retry: false,
+            });
+            assertBatch(scope, materialId, result, batchId);
+            return result;
+        },
+        async archiveBatch(scope, materialId, batchId, body, signal) {
+            const result = await http.request({
+                method: 'POST',
+                path: `${root(scope)}/${encodeURIComponent(materialId)}/batch/${encodeURIComponent(batchId)}/archive`,
+                body: BatchArchiveSchema.parse(body),
+                schema: BatchSchema,
+                signal,
+                retry: false,
+            });
+            assertBatch(scope, materialId, result, batchId);
+            return result;
+        },
     };
 }
