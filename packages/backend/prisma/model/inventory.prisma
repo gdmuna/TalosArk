@@ -44,6 +44,28 @@ model Placement {
   @@unique([organizationId, storageNodeId])
 }
 
+/// Transaction-bound reservation and durable receipt for one complete business operation.
+model InventoryOperation {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  organizationId     String    @db.Uuid
+  scopeKind          String    @db.VarChar(32)
+  scopeId            String    @db.Uuid
+  actorUserId        String    @db.Uuid
+  operation          String    @db.VarChar(96)
+  idempotencyKey     String    @db.VarChar(255)
+  requestHash        String    @db.VarChar(64)
+  fingerprintVersion Int
+  leaseId            String    @db.VarChar(26)
+  completedAt        DateTime? @db.Timestamptz(3)
+  result             Json?
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+
+  transactions InventoryTransaction[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, scopeKind, scopeId, idempotencyKey], map: "InventoryOperation_scope_key")
+}
+
 /// Insert only on execution, together with balances, placements and audit in one transaction.
 model InventoryTransaction {
   id                String                   @id @default(uuid(7)) @db.Uuid
@@ -52,8 +74,7 @@ model InventoryTransaction {
   type              InventoryTransactionType
   actorUserId       String                   @db.Uuid
   approvalRequestId String?                  @db.Uuid
-  idempotencyKey    String
-  requestHash       String
+  operationId       String                   @db.Uuid
   reason            String?
   occurredAt        DateTime                 @default(now()) @db.Timestamptz(3)
 
@@ -61,34 +82,39 @@ model InventoryTransaction {
   actor     User                       @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
   approval  ApprovalRequest?           @relation(fields: [organizationId, workspaceId, approvalRequestId], references: [organizationId, workspaceId, id], onDelete: Restrict)
   lines     InventoryTransactionLine[]
+  operation InventoryOperation         @relation(fields: [organizationId, operationId], references: [organizationId, id], onDelete: Restrict)
 
   @@unique([organizationId, workspaceId, id])
   @@unique([organizationId, workspaceId, approvalRequestId])
-  @@unique([workspaceId, idempotencyKey])
+  @@unique([operationId, workspaceId])
   @@index([workspaceId, occurredAt])
   @@index([actorUserId])
 }
 
 model InventoryTransactionLine {
-  id                   String       @id @default(uuid(7)) @db.Uuid
-  organizationId       String       @db.Uuid
-  workspaceId          String       @db.Uuid
-  transactionId        String       @db.Uuid
-  stockItemId          String       @db.Uuid
-  lineNumber           Int
-  unitSnapshot         String       @db.VarChar(32)
-  quantityBefore       Decimal      @db.Decimal(20, 6)
-  quantityAfter        Decimal      @db.Decimal(20, 6)
-  statusBefore         StockStatus?
-  statusAfter          StockStatus
-  fromNodeId           String?      @db.Uuid
-  toNodeId             String?      @db.Uuid
+  id                     String       @id @default(uuid(7)) @db.Uuid
+  organizationId         String       @db.Uuid
+  workspaceId            String       @db.Uuid
+  transactionId          String       @db.Uuid
+  stockItemId            String       @db.Uuid
+  lineNumber             Int
+  unitSnapshot           String       @db.VarChar(32)
+  quantityBefore         Decimal      @db.Decimal(20, 6)
+  quantityAfter          Decimal      @db.Decimal(20, 6)
+  statusBefore           StockStatus?
+  statusAfter            StockStatus
+  fromNodeId             String?      @db.Uuid
+  toNodeId               String?      @db.Uuid
   /// Immutable text snapshots; moving a container must not rewrite journal history.
-  fromNodePathSnapshot String?
-  toNodePathSnapshot   String?
-  fromCustodianUserId  String?      @db.Uuid
-  toCustodianUserId    String?      @db.Uuid
-  note                 String?
+  fromNodePathSnapshot   String?
+  toNodePathSnapshot     String?
+  fromFacilityIdSnapshot String?      @db.Uuid
+  toFacilityIdSnapshot   String?      @db.Uuid
+  fromTopologyIdSnapshot String?      @db.Uuid
+  toTopologyIdSnapshot   String?      @db.Uuid
+  fromCustodianUserId    String?      @db.Uuid
+  toCustodianUserId      String?      @db.Uuid
+  note                   String?
 
   transaction    InventoryTransaction @relation(fields: [organizationId, workspaceId, transactionId], references: [organizationId, workspaceId, id], onDelete: Restrict)
   stockItem      StockItem            @relation(fields: [organizationId, workspaceId, stockItemId], references: [organizationId, workspaceId, id], onDelete: Restrict)
@@ -121,4 +147,5 @@ enum InventoryTransactionType {
   RETURN
   TRANSFER
   ADJUSTMENT
+  CONTAINER_RELOCATION
 }

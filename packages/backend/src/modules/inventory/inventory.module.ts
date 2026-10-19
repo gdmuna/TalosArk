@@ -1,7 +1,58 @@
-/**
- * TODO: 实现库存业务模块。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export class InventoryModule {
-    // TODO: 在首个已批准的真实用例中实现。
-}
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from '@/infra/database/database.module.js';
+import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
+import { OrganizationWriteModule } from '@/core/organization-write/index.js';
+import { AuthorizationModule } from '@/core/authorization/index.js';
+import { PermissionModule } from '@/core/permission/index.js';
+import { AuditModule } from '@/core/audit/index.js';
+import { ResourceModule } from '@/core/resource/index.js';
+import { IdempotencyKernel } from '@/core/idempotency/index.js';
+import { PlatformContextModule } from '@/platform/context/context.module.js';
+import { MaterialModule } from '../material/material.module.js';
+import { FacilityModule } from '../facility/facility.module.js';
+import { InventoryController, InventoryOperationController } from './api/inventory.controller.js';
+import { InventoryService } from './application/inventory.service.js';
+import { InventoryAccessService } from './application/inventory-access.service.js';
+import { InventoryRelocationService } from './application/inventory-relocation.service.js';
+import { InventoryGovernanceService } from './application/inventory-governance.service.js';
+import { InventoryCalendar } from './domain/inventory-calendar.js';
+import { InventoryIdempotencyRepository } from './infrastructure/persistence/inventory-idempotency.repository.js';
+import {
+    StockTargetProvider,
+    InstanceTargetProvider,
+    StockResourceProvider,
+    InstanceResourceProvider,
+} from './extensions/inventory-resource.provider.js';
+@Module({
+    imports: [
+        DatabaseModule,
+        OrganizationWriteModule,
+        AuthorizationModule,
+        PermissionModule,
+        AuditModule,
+        ResourceModule,
+        PlatformContextModule,
+        MaterialModule,
+        FacilityModule,
+    ],
+    controllers: [InventoryController, InventoryOperationController],
+    providers: [
+        InventoryService,
+        InventoryAccessService,
+        InventoryRelocationService,
+        InventoryGovernanceService,
+        InventoryCalendar,
+        InventoryIdempotencyRepository,
+        StockTargetProvider,
+        InstanceTargetProvider,
+        StockResourceProvider,
+        InstanceResourceProvider,
+        {
+            provide: IdempotencyKernel,
+            inject: [DatabaseRuntime, InventoryIdempotencyRepository],
+            useFactory: (database: DatabaseRuntime, repository: InventoryIdempotencyRepository) =>
+                new IdempotencyKernel(database, repository),
+        },
+    ],
+})
+export class InventoryModule {}

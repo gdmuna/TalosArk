@@ -14,9 +14,12 @@ import { UserModule } from '@/modules/user/user.module.js';
 import { OrganizationModule } from '@/modules/organization/index.js';
 import { MaterialModule } from '@/modules/material/index.js';
 import { FacilityModule } from '@/modules/facility/index.js';
+import { InventoryModule } from '@/modules/inventory/inventory.module.js';
+import { inventoryPermission } from '@/modules/inventory/contribution/inventory-authorization.contribution.js';
 import { WorkspaceConfigurationModule } from '@/modules/workspace/workspace.configuration.js';
 import { workspacePermission } from '@/core/team-governance/index.js';
 import { materialPermission } from '@/modules/material/contribution/material-authorization.contribution.js';
+import { facilityPermission } from '@/modules/facility/contribution/facility-authorization.contribution.js';
 import { AuthorizationConfigurationModule } from '@/core/authorization/index.js';
 
 import { PlatformContextModule } from '@/platform/context/context.module.js';
@@ -71,13 +74,19 @@ import { ZodValidationPipe } from 'nestjs-zod';
         }),
         PlatformLoggerModule.forRoot(),
         permissionConfiguration,
-        AuthorizationConfigurationModule.forRoot({ required: ['material'] }),
+        AuthorizationConfigurationModule.forRoot({
+            required: ['material', 'stock-item', 'material-instance'],
+        }),
         WorkspaceConfigurationModule.forRoot([
             workspacePermission.read,
             workspacePermission.members,
             workspacePermission.update,
             workspacePermission.audit,
             ...Object.values(materialPermission),
+            ...Object.values(inventoryPermission),
+            facilityPermission.read,
+            facilityPermission.use,
+            facilityPermission.manage,
         ]),
         fileConfiguration,
         IamModule.forRootAsync(iamOptions),
@@ -92,6 +101,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         OrganizationModule,
         MaterialModule,
         FacilityModule,
+        InventoryModule,
         PlatformContextModule,
         HealthModule,
     ],
