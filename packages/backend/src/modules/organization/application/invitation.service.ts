@@ -26,131 +26,140 @@ export class OrganizationInvitationService {
         input: { email?: string; id?: string; workspaceId?: string }
     ) {
         let delivery: 'queued' | 'unavailable' = 'unavailable';
-        await this.operations.write(organizationId, async () => {
-            await this.team.owner(organizationId, op.invitations);
-            const previous = input.id
-                ? await this.database.queryClient.organizationInvitation.findFirst({
-                      where: { id: input.id, organizationId },
-                      select: {
-                          id: true,
-                          email: true,
-                          workspaceId: true,
-                          acceptedAt: true,
-                          revokedAt: true,
-                      },
-                  })
-                : null;
-            if (input.id && (!previous || previous.acceptedAt || previous.revokedAt))
-                throw new TeamError({ reason: 'invitation-invalid' });
-            const email = previous?.email ?? input.email;
-            const workspaceId = previous?.workspaceId ?? input.workspaceId;
-            if (!email) throw new TeamError({ reason: 'account-unavailable' });
-            const user = await this.database.queryClient.user.findUnique({
-                where: { email },
-                select: { id: true },
-            });
-            if (!user) throw new TeamError({ reason: 'account-unavailable' });
-            if (
-                workspaceId &&
-                !(await this.database.queryClient.workspace.findFirst({
-                    where: { id: workspaceId, organizationId, archivedAt: null },
+        await this.operations.write(
+            organizationId,
+            () => this.team.owner(organizationId, op.invitations),
+            async () => {
+                const previous = input.id
+                    ? await this.database.queryClient.organizationInvitation.findFirst({
+                          where: { id: input.id, organizationId },
+                          select: {
+                              id: true,
+                              email: true,
+                              workspaceId: true,
+                              acceptedAt: true,
+                              revokedAt: true,
+                          },
+                      })
+                    : null;
+                if (input.id && (!previous || previous.acceptedAt || previous.revokedAt))
+                    throw new TeamError({ reason: 'invitation-invalid' });
+                const email = previous?.email ?? input.email;
+                const workspaceId = previous?.workspaceId ?? input.workspaceId;
+                if (!email) throw new TeamError({ reason: 'account-unavailable' });
+                const user = await this.database.queryClient.user.findUnique({
+                    where: { email },
                     select: { id: true },
-                }))
-            )
-                throw new TeamError({ reason: 'forbidden' });
-            const membership = await this.database.queryClient.organizationMember.findUnique({
-                where: { organizationId_userId: { organizationId, userId: user.id } },
-                select: { id: true, status: true },
-            });
-            if (membership?.status === 'SUSPENDED') throw new TeamError({ reason: 'conflict' });
-            if (membership?.status === 'ACTIVE') {
+                });
+                if (!user) throw new TeamError({ reason: 'account-unavailable' });
                 if (
-                    !workspaceId ||
-                    (await this.database.queryClient.workspaceMember.findFirst({
-                        where: {
-                            organizationId,
-                            workspaceId,
-                            organizationMemberId: membership.id,
-                            status: 'ACTIVE',
-                        },
+                    workspaceId &&
+                    !(await this.database.queryClient.workspace.findFirst({
+                        where: { id: workspaceId, organizationId, archivedAt: null },
                         select: { id: true },
                     }))
                 )
-                    throw new TeamError({ reason: 'conflict' });
-            }
-            const token = randomBytes(32).toString('base64url');
-            const now = new Date();
-            const expiresAt = new Date(
-                now.getTime() + this.config.get('team.invitationTtlSeconds', { infer: true }) * 1000
-            );
-            // A fresh invitation supersedes all unconsumed invitations to the same target scope.
-            await this.database.queryClient.organizationInvitation.updateMany({
-                where: {
+                    throw new TeamError({ reason: 'forbidden' });
+                const membership = await this.database.queryClient.organizationMember.findUnique({
+                    where: { organizationId_userId: { organizationId, userId: user.id } },
+                    select: { id: true, status: true },
+                });
+                if (membership?.status === 'SUSPENDED') throw new TeamError({ reason: 'conflict' });
+                if (membership?.status === 'ACTIVE') {
+                    if (
+                        !workspaceId ||
+                        (await this.database.queryClient.workspaceMember.findFirst({
+                            where: {
+                                organizationId,
+                                workspaceId,
+                                organizationMemberId: membership.id,
+                                status: 'ACTIVE',
+                            },
+                            select: { id: true },
+                        }))
+                    )
+                        throw new TeamError({ reason: 'conflict' });
+                }
+                const token = randomBytes(32).toString('base64url');
+                const now = new Date();
+                const expiresAt = new Date(
+                    now.getTime() +
+                        this.config.get('team.invitationTtlSeconds', { infer: true }) * 1000
+                );
+                // A fresh invitation supersedes all unconsumed invitations to the same target scope.
+                await this.database.queryClient.organizationInvitation.updateMany({
+                    where: {
+                        organizationId,
+                        email,
+                        workspaceId: workspaceId ?? null,
+                        acceptedAt: null,
+                        revokedAt: null,
+                        ...(previous ? { id: { not: previous.id } } : {}),
+                    },
+                    data: { revokedAt: now },
+                });
+                const invitation = previous
+                    ? await this.database.queryClient.organizationInvitation.update({
+                          where: { id: previous.id },
+                          data: {
+                              tokenHash: invitationHash(token),
+                              expiresAt,
+                              invitedById: this.operations.actor(),
+                          },
+                          select: { id: true },
+                      })
+                    : await this.database.queryClient.organizationInvitation.create({
+                          data: {
+                              organizationId,
+                              workspaceId,
+                              email,
+                              tokenHash: invitationHash(token),
+                              expiresAt,
+                              invitedById: this.operations.actor(),
+                          },
+                          select: { id: true },
+                      });
+                await this.operations.record(
                     organizationId,
+                    previous ? 'invitation.resend' : 'invitation.create',
+                    { invitationId: invitation.id },
+                    workspaceId ?? undefined
+                );
+                const organization = await this.database.queryClient.organization.findUniqueOrThrow(
+                    {
+                        where: { id: organizationId },
+                        select: { name: true },
+                    }
+                );
+                const mail: InvitationMail = {
+                    id: invitation.id,
                     email,
-                    workspaceId: workspaceId ?? null,
-                    acceptedAt: null,
-                    revokedAt: null,
-                    ...(previous ? { id: { not: previous.id } } : {}),
-                },
-                data: { revokedAt: now },
-            });
-            const invitation = previous
-                ? await this.database.queryClient.organizationInvitation.update({
-                      where: { id: previous.id },
-                      data: {
-                          tokenHash: invitationHash(token),
-                          expiresAt,
-                          invitedById: this.operations.actor(),
-                      },
-                      select: { id: true },
-                  })
-                : await this.database.queryClient.organizationInvitation.create({
-                      data: {
-                          organizationId,
-                          workspaceId,
-                          email,
-                          tokenHash: invitationHash(token),
-                          expiresAt,
-                          invitedById: this.operations.actor(),
-                      },
-                      select: { id: true },
-                  });
-            await this.operations.record(
-                organizationId,
-                previous ? 'invitation.resend' : 'invitation.create',
-                { invitationId: invitation.id },
-                workspaceId ?? undefined
-            );
-            const organization = await this.database.queryClient.organization.findUniqueOrThrow({
-                where: { id: organizationId },
-                select: { name: true },
-            });
-            const mail: InvitationMail = {
-                id: invitation.id,
-                email,
-                token,
-                organizationName: organization.name,
-            };
-            this.database.transaction.afterCommit(() => {
-                delivery = this.delivery.enqueue(mail) ? 'queued' : 'unavailable';
-            });
-        });
+                    token,
+                    organizationName: organization.name,
+                };
+                this.database.transaction.afterCommit(() => {
+                    delivery = this.delivery.enqueue(mail) ? 'queued' : 'unavailable';
+                });
+            }
+        );
         return { delivery };
     }
 
     revoke(organizationId: string, id: string): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            await this.team.owner(organizationId, op.invitations);
-            const result = await this.database.queryClient.organizationInvitation.updateMany({
-                where: { id, organizationId, acceptedAt: null, revokedAt: null },
-                data: { revokedAt: new Date() },
-            });
-            if (result.count)
-                await this.operations.record(organizationId, 'invitation.revoke', {
-                    invitationId: id,
+        return this.operations.write(
+            organizationId,
+            () => this.team.owner(organizationId, op.invitations),
+            async () => {
+                const result = await this.database.queryClient.organizationInvitation.updateMany({
+                    where: { id, organizationId, acceptedAt: null, revokedAt: null },
+                    data: { revokedAt: new Date() },
                 });
-        });
+                if (result.count)
+                    await this.operations.record(organizationId, 'invitation.revoke', {
+                        invitationId: id,
+                    });
+            }
+        );
     }
 
     private async valid(token: string) {
@@ -204,10 +213,10 @@ export class OrganizationInvitationService {
     async accept(token: string) {
         const observed = await this.valid(token);
         const organizationId = observed.invitation.organizationId;
-        return this.operations.write(
+        return this.operations.acceptInvitation(
             organizationId,
-            async () => {
-                const { invitation, user } = await this.valid(token);
+            () => this.valid(token),
+            async ({ invitation, user }) => {
                 const current = await this.database.queryClient.organizationMember.findUnique({
                     where: { organizationId_userId: { organizationId, userId: user.id } },
                     select: { id: true, status: true },
@@ -265,8 +274,7 @@ export class OrganizationInvitationService {
                     invitation.workspaceId ?? undefined
                 );
                 return { organizationId, workspaceId: invitation.workspaceId };
-            },
-            true
+            }
         );
     }
 }

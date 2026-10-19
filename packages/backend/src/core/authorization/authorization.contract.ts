@@ -1,5 +1,5 @@
-import type { OrganizationContext } from '@/core/organization-context/index.js';
-import type { WorkspaceContext } from '@/core/workspace-context/index.js';
+import type { OrganizationAccessContext } from '@/core/organization-context/index.js';
+import type { WorkspaceAccessContext } from '@/core/workspace-context/index.js';
 import type {
     PermissionScope,
     PermissionScopeQuery,
@@ -26,8 +26,8 @@ export interface ResolvedContext {
     readonly permissionCode: string;
     readonly target: AuthorizationTarget;
     readonly scope: PermissionScope;
-    readonly organization: OrganizationContext;
-    readonly workspace?: WorkspaceContext;
+    readonly organization: OrganizationAccessContext;
+    readonly workspace?: WorkspaceAccessContext;
 }
 
 /** A current-operation observation, never a reusable credential or a bypass for later checks. */

@@ -12,6 +12,7 @@ import { AuditKernel } from '@/core/audit/index.js';
 import { WorkspaceService } from '@/modules/workspace/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 import { organizationPermission, workspacePermission } from '@/core/team-governance/index.js';
+import { facilityPermission } from '@/modules/facility/contribution/facility-authorization.contribution.js';
 
 @Injectable()
 export class OrganizationService {
@@ -27,41 +28,49 @@ export class OrganizationService {
 
     create(input: CreateOrganizationBody): Promise<CreateOrganizationResponse> {
         const { userId } = this.actor.requireActor();
-        return this.database.transaction.run(async () => {
-            await this.organizationContext.requireUser(userId);
-            const organization = await this.database.queryClient.organization.create({
-                data: { name: input.name, ownerUserId: userId },
-                select: { id: true, name: true },
-            });
-            const role = await this.permission.createRole({
-                organizationId: organization.id,
-                code: 'organization-owner',
-                name: 'Organization owner',
-                scope: 'ORGANIZATION',
-                permissions: [organizationPermission.read, workspacePermission.create],
-            });
-            const member = await this.database.queryClient.organizationMember.create({
-                data: { organizationId: organization.id, userId },
-                select: { id: true },
-            });
-            await this.permission.bindRole({
-                scope: { kind: 'organization', organizationId: organization.id },
-                memberId: member.id,
-                roleId: role.id,
-            });
-            await this.audit.record({
-                organizationId: organization.id,
-                actorUserId: userId,
-                action: 'organization.create',
-                occurredAt: new Date(),
-                requestId: this.actor.get()?.requestId,
-                details: { organizationId: organization.id, name: organization.name },
-            });
-            const workspace = await this.workspace.create(organization.id, {
-                name: input.workspaceName,
-            });
-            return { organization: { ...organization, canCreateWorkspace: true }, workspace };
-        });
+        return this.database.transaction.run(
+            async () => {
+                await this.organizationContext.requireUser(userId);
+                const organization = await this.database.queryClient.organization.create({
+                    data: { name: input.name, ownerUserId: userId },
+                    select: { id: true, name: true },
+                });
+                const role = await this.permission.createRole({
+                    organizationId: organization.id,
+                    code: 'organization-owner',
+                    name: 'Organization owner',
+                    scope: 'ORGANIZATION',
+                    permissions: [
+                        organizationPermission.read,
+                        workspacePermission.create,
+                        facilityPermission.create,
+                        facilityPermission.govern,
+                    ],
+                });
+                const member = await this.database.queryClient.organizationMember.create({
+                    data: { organizationId: organization.id, userId },
+                    select: { id: true },
+                });
+                await this.permission.bindRole({
+                    scope: { kind: 'organization', organizationId: organization.id },
+                    memberId: member.id,
+                    roleId: role.id,
+                });
+                await this.audit.record({
+                    organizationId: organization.id,
+                    actorUserId: userId,
+                    action: 'organization.create',
+                    occurredAt: new Date(),
+                    requestId: this.actor.get()?.requestId,
+                    details: { organizationId: organization.id, name: organization.name },
+                });
+                const workspace = await this.workspace.create(organization.id, {
+                    name: input.workspaceName,
+                });
+                return { organization: { ...organization, canCreateWorkspace: true }, workspace };
+            },
+            { isolationLevel: 'ReadCommitted' }
+        );
     }
 
     snapshot(): Promise<TeamSnapshotResponse> {
@@ -69,6 +78,7 @@ export class OrganizationService {
         return this.database.transaction.run(
             async () => {
                 const subject = { kind: 'user' as const, userId };
+                const isSuperAdmin = await this.permission.isSuperAdmin(userId);
                 const readable = await this.authorization.scope({
                     subject,
                     permissionCode: organizationPermission.read,
@@ -104,7 +114,8 @@ export class OrganizationService {
                     organizations: organizations.map(({ id, name, ownerUserId }) => ({
                         id,
                         name,
-                        canCreateWorkspace: ownerUserId === userId && createIds.has(id),
+                        canCreateWorkspace:
+                            (ownerUserId === userId || isSuperAdmin) && createIds.has(id),
                     })),
                     workspaces: workspaces.map((workspace) => ({
                         ...workspace,

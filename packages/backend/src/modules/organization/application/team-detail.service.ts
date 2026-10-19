@@ -58,7 +58,7 @@ export class TeamDetailService {
             userId,
             subject,
             org,
-            owner: governance.organization.isOwner,
+            owner: governance.organization.isOwner || governance.organization.isSuperAdmin,
             canManageMembers: governance.canManageOrganizationMembers,
             canManageRoles: governance.canEditRoleDefinitions,
             workspaceManager: governance.memberVisibility.kind === 'workspace',

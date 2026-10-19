@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@/infra/database/database.module.js';
 import { OrganizationContextModule } from '@/core/organization-context/index.js';
+import { OrganizationWriteModule } from '@/core/organization-write/index.js';
 import { PermissionModule } from '@/core/permission/index.js';
 import { AuthorizationModule } from '@/core/authorization/index.js';
 import { TeamGovernanceModule } from '@/core/team-governance/index.js';
@@ -22,6 +23,7 @@ import { TeamDetailService } from './application/team-detail.service.js';
     imports: [
         DatabaseModule,
         OrganizationContextModule,
+        OrganizationWriteModule,
         PermissionModule,
         AuthorizationModule,
         TeamGovernanceModule,

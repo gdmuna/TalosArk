@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
+import { OrganizationWriteKernel } from '@/core/organization-write/index.js';
 import { OrganizationContextKernel } from '@/core/organization-context/index.js';
 import { AuditKernel, type AuditValue } from '@/core/audit/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
-import { TeamError } from './team.error.js';
 
 export const protectedRoleCodes = new Set([
     'organization-owner',
@@ -16,7 +15,7 @@ export const protectedRoleCodes = new Set([
 @Injectable()
 export class TeamOperations {
     constructor(
-        private readonly database: DatabaseRuntime,
+        private readonly writes: OrganizationWriteKernel,
         private readonly organization: OrganizationContextKernel,
         private readonly audit: AuditKernel,
         private readonly context: AlsContextAdapter
@@ -26,23 +25,27 @@ export class TeamOperations {
         return this.context.requireActor().userId;
     }
 
-    write<T>(
+    write<TAuthorization, TResult>(
         organizationId: string,
-        work: () => Promise<T>,
-        acceptingInvitation = false
-    ): Promise<T> {
-        return this.database.transaction.run(
-            async () => {
-                if (!acceptingInvitation)
-                    await this.organization.requireMembership(this.actor(), organizationId);
-                // All team mutations take the same organization lock before rechecking authority.
-                const rows = await this.database.queryClient.$queryRaw<{ id: string }[]>`
-                SELECT "id" FROM public."Organization" WHERE "id" = ${organizationId}::uuid AND "archivedAt" IS NULL FOR UPDATE`;
-                if (!rows.length) throw new TeamError({ reason: 'forbidden' });
-                return work();
+        authorize: () => Promise<TAuthorization>,
+        execute: (authorization: TAuthorization) => Promise<TResult>
+    ): Promise<TResult> {
+        return this.writes.run({
+            organizationId,
+            authorize: async () => {
+                await this.organization.requireAccess(this.actor(), organizationId);
+                return authorize();
             },
-            { isolationLevel: 'ReadCommitted' }
-        );
+            execute,
+        });
+    }
+
+    acceptInvitation<TAuthorization, TResult>(
+        organizationId: string,
+        authorize: () => Promise<TAuthorization>,
+        execute: (authorization: TAuthorization) => Promise<TResult>
+    ): Promise<TResult> {
+        return this.writes.run({ organizationId, authorize, execute });
     }
 
     record(

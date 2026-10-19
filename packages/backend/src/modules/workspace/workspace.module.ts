@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@/infra/database/database.module.js';
 import { PermissionModule } from '@/core/permission/index.js';
 import { AuthorizationModule } from '@/core/authorization/index.js';
+import { OrganizationWriteModule } from '@/core/organization-write/index.js';
 import { TeamGovernanceModule } from '@/core/team-governance/index.js';
 import { AuditModule } from '@/core/audit/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
@@ -14,6 +15,7 @@ import { WorkspaceManagementService } from './application/workspace-management.s
         DatabaseModule,
         PermissionModule,
         AuthorizationModule,
+        OrganizationWriteModule,
         TeamGovernanceModule,
         AuditModule,
         PlatformContextModule,

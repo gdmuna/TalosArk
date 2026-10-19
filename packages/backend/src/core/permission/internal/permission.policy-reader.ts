@@ -1,12 +1,49 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import type { AuthorizationScope } from '../authorization-definition.js';
-import type { PermissionCheck, PermissionScopeQuery } from '../permission.contract.js';
+import type {
+    PermissionCheck,
+    PermissionScope,
+    PermissionScopeQuery,
+} from '../permission.contract.js';
 import type { PermissionGrant } from './permission.engine.js';
 
 @Injectable()
 export class PermissionPolicyReader {
     constructor(private readonly database: DatabaseRuntime) {}
+
+    async allScopes(
+        query: PermissionScopeQuery,
+        kind: AuthorizationScope
+    ): Promise<readonly PermissionScope[]> {
+        const scopes: PermissionScope[] =
+            kind === 'ORGANIZATION'
+                ? (
+                      await this.database.queryClient.organization.findMany({
+                          where: { id: query.within?.organizationId, archivedAt: null },
+                          select: { id: true },
+                      })
+                  ).map(({ id }) => ({ kind: 'organization', organizationId: id }))
+                : (
+                      await this.database.queryClient.workspace.findMany({
+                          where: {
+                              id:
+                                  query.within?.kind === 'workspace'
+                                      ? query.within.workspaceId
+                                      : undefined,
+                              organizationId: query.within?.organizationId,
+                              archivedAt: null,
+                              organization: { archivedAt: null },
+                          },
+                          select: { id: true, organizationId: true },
+                      })
+                  ).map(({ id, organizationId }) => ({
+                      kind: 'workspace',
+                      organizationId,
+                      workspaceId: id,
+                  }));
+        return Object.freeze(scopes.map((scope) => Object.freeze(scope)));
+    }
 
     async readMany(checks: readonly PermissionCheck[]): Promise<PermissionGrant[]> {
         const grants: PermissionGrant[] = [];

@@ -7,6 +7,7 @@ import type {
 } from '@talos-ark/contracts/team';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { TeamGovernanceKernel } from '@/core/team-governance/index.js';
+import { OrganizationWriteKernel } from '@/core/organization-write/index.js';
 import { AuditKernel, AuditError } from '@/core/audit/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 import { WorkspaceManagementError } from './workspace-management.error.js';
@@ -17,7 +18,8 @@ export class WorkspaceManagementService {
         private readonly database: DatabaseRuntime,
         private readonly governance: TeamGovernanceKernel,
         private readonly audit: AuditKernel,
-        private readonly actor: AlsContextAdapter
+        private readonly actor: AlsContextAdapter,
+        private readonly writes: OrganizationWriteKernel
     ) {}
 
     private access(organizationId: string, workspaceId: string) {
@@ -131,14 +133,14 @@ export class WorkspaceManagementService {
     }
 
     update(organizationId: string, workspaceId: string, input: WorkspaceUpdate): Promise<void> {
-        return this.database.transaction.run(
-            async () => {
-                const rows = await this.database.queryClient.$queryRaw<
-                    { id: string }[]
-                >`SELECT "id" FROM public."Organization" WHERE "id" = ${organizationId}::uuid AND "archivedAt" IS NULL FOR UPDATE`;
-                if (!rows.length) throw new WorkspaceManagementError({ reason: 'forbidden' });
+        return this.writes.run({
+            organizationId,
+            authorize: async () => {
                 const access = await this.access(organizationId, workspaceId);
                 if (!access.canUpdate) throw new WorkspaceManagementError({ reason: 'forbidden' });
+                return access;
+            },
+            execute: async (access) => {
                 const current = await this.database.queryClient.workspace.findUniqueOrThrow({
                     where: { id: workspaceId },
                     select: { updatedAt: true },
@@ -168,8 +170,7 @@ export class WorkspaceManagementService {
                     details: { workspaceId, name: input.name },
                 });
             },
-            { isolationLevel: 'ReadCommitted' }
-        );
+        });
     }
 
     activity(

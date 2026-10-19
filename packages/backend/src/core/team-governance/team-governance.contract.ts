@@ -1,4 +1,4 @@
-import type { OrganizationContext } from '@/core/organization-context/index.js';
+import type { OrganizationAccessContext } from '@/core/organization-context/index.js';
 import type { PermissionSubject } from '@/core/permission/index.js';
 
 export interface OrganizationGovernanceInput {
@@ -25,7 +25,7 @@ export type TeamMemberVisibility =
 
 /** An observation for the current operation, never a reusable authorization credential. */
 export interface TeamGovernanceSnapshot {
-    readonly organization: OrganizationContext;
+    readonly organization: OrganizationAccessContext;
     readonly canManageOrganizationMembers: boolean;
     readonly canEditRoleDefinitions: boolean;
     readonly canInvite: boolean;

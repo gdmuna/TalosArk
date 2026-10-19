@@ -31,7 +31,7 @@ export class TeamGovernanceKernel {
         return this.read(async () => {
             const { subject, organizationId, workspaceId } = input;
             const target = { kind: 'organization' as const, organizationId };
-            const membership = await this.organization.requireMembership(
+            const membership = await this.organization.requireAccess(
                 subject.userId,
                 organizationId
             );
@@ -43,7 +43,8 @@ export class TeamGovernanceKernel {
                     scope: target,
                 }))
             );
-            const canManageOrganizationMembers = membership.isOwner && grants[0].allowed;
+            const ownerOrAdministrator = membership.isOwner || membership.isSuperAdmin;
+            const canManageOrganizationMembers = ownerOrAdministrator && grants[0].allowed;
             let workspaceManager = false;
             if (workspaceId) {
                 await this.requireWorkspace(organizationId, workspaceId);
@@ -71,8 +72,8 @@ export class TeamGovernanceKernel {
             return Object.freeze({
                 organization: Object.freeze({ ...membership }),
                 canManageOrganizationMembers,
-                canEditRoleDefinitions: membership.isOwner && grants[1].allowed,
-                canInvite: membership.isOwner && grants[2].allowed,
+                canEditRoleDefinitions: ownerOrAdministrator && grants[1].allowed,
+                canInvite: ownerOrAdministrator && grants[2].allowed,
                 memberVisibility,
             });
         });
@@ -101,7 +102,9 @@ export class TeamGovernanceKernel {
             return Object.freeze({
                 userId: subject.userId,
                 canViewMembers:
-                    grants[0].allowed || (context.organization.isOwner && grants[3].allowed),
+                    grants[0].allowed ||
+                    ((context.organization.isOwner || context.organization.isSuperAdmin) &&
+                        grants[3].allowed),
                 canUpdate: grants[1].allowed,
                 canReadActivity: grants[2].allowed,
             });
@@ -119,7 +122,7 @@ export class TeamGovernanceKernel {
             if (permissionCode !== op.read)
                 await this.authorization.require({ subject, permissionCode: op.read, target });
             const context = await this.authorization.require({ subject, permissionCode, target });
-            if (!context.organization.isOwner)
+            if (!context.organization.isOwner && !context.organization.isSuperAdmin)
                 throw new TeamGovernanceError({ reason: 'forbidden' });
         });
     }
@@ -144,13 +147,10 @@ export class TeamGovernanceKernel {
     ): Promise<'organization' | 'workspace'> {
         const { subject, organizationId, workspaceId } = input;
         const target = { kind: 'organization' as const, organizationId };
-        const membership = await this.organization.requireMembership(
-            subject.userId,
-            organizationId
-        );
+        const membership = await this.organization.requireAccess(subject.userId, organizationId);
         await this.authorization.require({ subject, permissionCode: op.read, target });
         const organizationManager =
-            membership.isOwner &&
+            (membership.isOwner || membership.isSuperAdmin) &&
             (await this.permission.evaluate({ subject, permissionCode: op.members, scope: target }))
                 .allowed;
         if (workspaceId) await this.requireWorkspace(organizationId, workspaceId);

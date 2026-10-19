@@ -4,6 +4,7 @@ import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { OrganizationContextError } from '@/core/organization-context/index.js';
 import { AuthorizationExtension, PermissionKernel } from '@/core/permission/index.js';
 import { AuthorizationKernel } from '@/core/authorization/index.js';
+import { OrganizationWriteKernel } from '@/core/organization-write/index.js';
 import { AuditKernel } from '@/core/audit/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 import { WORKSPACE_MANAGER_PERMISSIONS } from '../workspace.configuration.js';
@@ -20,64 +21,79 @@ export class WorkspaceService {
         private readonly audit: AuditKernel,
         private readonly actor: AlsContextAdapter,
         @Inject(WORKSPACE_MANAGER_PERMISSIONS)
-        private readonly managerPermissions: readonly string[]
+        private readonly managerPermissions: readonly string[],
+        private readonly writes: OrganizationWriteKernel
     ) {}
 
     create(organizationId: string, input: CreateWorkspaceBody): Promise<WorkspaceSummary> {
         const { userId } = this.actor.requireActor();
-        return this.database.transaction.run(async () => {
-            const { organization: organizationContext } = await this.authorization.require({
-                subject: { kind: 'user', userId },
-                permissionCode: workspacePermission.create,
-                target: { kind: 'organization', organizationId },
-            });
-            if (!organizationContext.isOwner)
-                throw new OrganizationContextError({ reason: 'forbidden' });
-
-            // A scoped role is shared within the organization, never rebound across tenants.
-            let role = await this.permission.findRole({
-                organizationId,
-                scope: 'WORKSPACE',
-                code: 'workspace-manager',
-            });
-            if (role && (role.archivedAt || !role.permissions.includes(workspacePermission.read)))
-                throw new OrganizationContextError({ reason: 'forbidden' });
-            if (!role) {
-                role = await this.permission.createRole({
+        return this.writes.run({
+            organizationId,
+            authorize: async () => {
+                const { organization: organizationContext } = await this.authorization.require({
+                    subject: { kind: 'user', userId },
+                    permissionCode: workspacePermission.create,
+                    target: { kind: 'organization', organizationId },
+                });
+                if (!organizationContext.isOwner && !organizationContext.isSuperAdmin)
+                    throw new OrganizationContextError({ reason: 'forbidden' });
+                return organizationContext;
+            },
+            execute: async (organizationContext) => {
+                // A scoped role is shared within the organization, never rebound across tenants.
+                let role = await this.permission.findRole({
                     organizationId,
                     scope: 'WORKSPACE',
                     code: 'workspace-manager',
-                    name: 'Workspace manager',
-                    permissions: this.managerPermissions,
                 });
-            }
-            const workspace = await this.database.queryClient.workspace.create({
-                data: { organizationId, name: input.name, description: input.description ?? null },
-                select: { id: true, organizationId: true, name: true, description: true },
-            });
-            const member = await this.database.queryClient.workspaceMember.create({
-                data: {
+                if (
+                    role &&
+                    (role.archivedAt || !role.permissions.includes(workspacePermission.read))
+                )
+                    throw new OrganizationContextError({ reason: 'forbidden' });
+                if (!role) {
+                    role = await this.permission.createRole({
+                        organizationId,
+                        scope: 'WORKSPACE',
+                        code: 'workspace-manager',
+                        name: 'Workspace manager',
+                        permissions: this.managerPermissions,
+                    });
+                }
+                const workspace = await this.database.queryClient.workspace.create({
+                    data: {
+                        organizationId,
+                        name: input.name,
+                        description: input.description ?? null,
+                    },
+                    select: { id: true, organizationId: true, name: true, description: true },
+                });
+                if (organizationContext.organizationMemberId) {
+                    const member = await this.database.queryClient.workspaceMember.create({
+                        data: {
+                            organizationId,
+                            workspaceId: workspace.id,
+                            organizationMemberId: organizationContext.organizationMemberId,
+                        },
+                        select: { id: true },
+                    });
+                    await this.permission.bindRole({
+                        scope: { kind: 'workspace', organizationId, workspaceId: workspace.id },
+                        memberId: member.id,
+                        roleId: role.id,
+                    });
+                }
+                await this.audit.record({
                     organizationId,
                     workspaceId: workspace.id,
-                    organizationMemberId: organizationContext.organizationMemberId,
-                },
-                select: { id: true },
-            });
-            await this.permission.bindRole({
-                scope: { kind: 'workspace', organizationId, workspaceId: workspace.id },
-                memberId: member.id,
-                roleId: role.id,
-            });
-            await this.audit.record({
-                organizationId,
-                workspaceId: workspace.id,
-                actorUserId: userId,
-                action: 'workspace.create',
-                occurredAt: new Date(),
-                requestId: this.actor.get()?.requestId,
-                details: { workspaceId: workspace.id, name: workspace.name },
-            });
-            return { ...workspace, description: workspace.description ?? '' };
+                    actorUserId: userId,
+                    action: 'workspace.create',
+                    occurredAt: new Date(),
+                    requestId: this.actor.get()?.requestId,
+                    details: { workspaceId: workspace.id, name: workspace.name },
+                });
+                return { ...workspace, description: workspace.description ?? '' };
+            },
         });
     }
 

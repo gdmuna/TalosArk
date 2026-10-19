@@ -58,50 +58,59 @@ export class OrganizationTeamService {
     }
 
     initialize(organizationId: string): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            await this.owner(organizationId, op.read);
-            const existing = await this.permission.findRole({
-                organizationId,
-                scope: 'ORGANIZATION',
-                code: 'organization-governance',
-            });
-            if (existing) return;
-            const member = await this.organization.requireMembership(
-                this.operations.actor(),
-                organizationId
-            );
-            const role = await this.permission.createRole({
-                organizationId,
-                code: 'organization-governance',
-                name: '组织管理',
-                scope: 'ORGANIZATION',
-                permissions: [op.members, op.roles, op.invitations],
-            });
-            await this.permission.bindRole({
-                scope: this.target(organizationId),
-                memberId: member.organizationMemberId,
-                roleId: role.id,
-            });
-            const manager = await this.permission.findRole({
-                organizationId,
-                scope: 'WORKSPACE',
-                code: 'workspace-manager',
-            });
-            if (
-                manager &&
-                !manager.archivedAt &&
-                manager.permissions.includes(wp.read) &&
-                !manager.permissions.includes(wp.members)
-            )
-                await this.permission.setRolePermissions({
+        return this.operations.write(
+            organizationId,
+            () => this.owner(organizationId, op.read),
+            async () => {
+                const existing = await this.permission.findRole({
                     organizationId,
-                    roleId: manager.id,
-                    permissions: [...manager.permissions, wp.members],
+                    scope: 'ORGANIZATION',
+                    code: 'organization-governance',
                 });
-            await this.operations.record(organizationId, 'organization.management.initialize', {
-                roleId: role.id,
-            });
-        });
+                if (existing) return;
+                const organization = await this.database.queryClient.organization.findUniqueOrThrow(
+                    {
+                        where: { id: organizationId },
+                        select: { ownerUserId: true },
+                    }
+                );
+                const member = await this.organization.requireMembership(
+                    organization.ownerUserId,
+                    organizationId
+                );
+                const role = await this.permission.createRole({
+                    organizationId,
+                    code: 'organization-governance',
+                    name: '组织管理',
+                    scope: 'ORGANIZATION',
+                    permissions: [op.members, op.roles, op.invitations],
+                });
+                await this.permission.bindRole({
+                    scope: this.target(organizationId),
+                    memberId: member.organizationMemberId,
+                    roleId: role.id,
+                });
+                const manager = await this.permission.findRole({
+                    organizationId,
+                    scope: 'WORKSPACE',
+                    code: 'workspace-manager',
+                });
+                if (
+                    manager &&
+                    !manager.archivedAt &&
+                    manager.permissions.includes(wp.read) &&
+                    !manager.permissions.includes(wp.members)
+                )
+                    await this.permission.setRolePermissions({
+                        organizationId,
+                        roleId: manager.id,
+                        permissions: [...manager.permissions, wp.members],
+                    });
+                await this.operations.record(organizationId, 'organization.management.initialize', {
+                    roleId: role.id,
+                });
+            }
+        );
     }
 
     snapshot(organizationId: string, query: TeamManagementQuery): Promise<TeamManagement> {
@@ -114,7 +123,8 @@ export class OrganizationTeamService {
                     workspaceId: query.workspaceId,
                 });
                 const scope = this.target(organizationId, query.workspaceId);
-                const owner = governance.organization.isOwner;
+                const owner =
+                    governance.organization.isOwner || governance.organization.isSuperAdmin;
                 const organizationManager = governance.canManageOrganizationMembers;
                 const canManageMembers = governance.memberVisibility.kind !== 'self';
                 const roles =
@@ -303,7 +313,7 @@ export class OrganizationTeamService {
                 return {
                     organizationId,
                     workspaceId: query.workspaceId ?? null,
-                    isOwner: owner,
+                    isOwner: governance.organization.isOwner,
                     initialized,
                     canInitialize: owner && !initialized,
                     canManageMembers,
@@ -341,27 +351,32 @@ export class OrganizationTeamService {
     }
 
     addMember(organizationId: string, workspaceId: string, email: string): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            const ownerManager = await this.manage(organizationId, workspaceId);
-            if (!ownerManager)
-                await this.authorization.require({
-                    subject: { kind: 'user', userId: this.operations.actor() },
-                    permissionCode: wp.read,
-                    target: this.target(organizationId, workspaceId),
+        return this.operations.write(
+            organizationId,
+            async () => {
+                const ownerManager = await this.manage(organizationId, workspaceId);
+                if (!ownerManager)
+                    await this.authorization.require({
+                        subject: { kind: 'user', userId: this.operations.actor() },
+                        permissionCode: wp.read,
+                        target: this.target(organizationId, workspaceId),
+                    });
+            },
+            async () => {
+                const member = await this.database.queryClient.organizationMember.findFirst({
+                    where: { organizationId, status: 'ACTIVE', user: { email } },
+                    select: { id: true, userId: true },
                 });
-            const member = await this.database.queryClient.organizationMember.findFirst({
-                where: { organizationId, status: 'ACTIVE', user: { email } },
-                select: { id: true, userId: true },
-            });
-            if (!member) throw new TeamError({ reason: 'account-unavailable' });
-            await this.joinWorkspace(organizationId, workspaceId, member.id);
-            await this.operations.record(
-                organizationId,
-                'workspace.member.add',
-                { userId: member.userId, organizationMemberId: member.id },
-                workspaceId
-            );
-        });
+                if (!member) throw new TeamError({ reason: 'account-unavailable' });
+                await this.joinWorkspace(organizationId, workspaceId, member.id);
+                await this.operations.record(
+                    organizationId,
+                    'workspace.member.add',
+                    { userId: member.userId, organizationMemberId: member.id },
+                    workspaceId
+                );
+            }
+        );
     }
 
     async joinWorkspace(
@@ -424,69 +439,78 @@ export class OrganizationTeamService {
         roleIds: string[],
         workspaceId?: string
     ): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            const ownerManager = await this.manage(organizationId, workspaceId);
-            const target = await this.member(organizationId, memberId, workspaceId);
-            if (target.status !== 'ACTIVE') throw new TeamError({ reason: 'conflict' });
-            const roles = await this.database.queryClient.role.findMany({
-                where: {
-                    organizationId,
-                    id: { in: [...new Set(roleIds)] },
-                    archivedAt: null,
-                    scope: workspaceId ? 'WORKSPACE' : 'ORGANIZATION',
-                },
-                select: { id: true, code: true, permissions: { select: { permissionCode: true } } },
-            });
-            if (
-                roles.length !== new Set(roleIds).size ||
-                roles.some((role) =>
-                    ['organization-owner', 'organization-governance'].includes(role.code)
+        return this.operations.write(
+            organizationId,
+            () => this.manage(organizationId, workspaceId),
+            async (ownerManager) => {
+                const target = await this.member(organizationId, memberId, workspaceId);
+                if (target.status !== 'ACTIVE') throw new TeamError({ reason: 'conflict' });
+                const roles = await this.database.queryClient.role.findMany({
+                    where: {
+                        organizationId,
+                        id: { in: [...new Set(roleIds)] },
+                        archivedAt: null,
+                        scope: workspaceId ? 'WORKSPACE' : 'ORGANIZATION',
+                    },
+                    select: {
+                        id: true,
+                        code: true,
+                        permissions: { select: { permissionCode: true } },
+                    },
+                });
+                if (
+                    roles.length !== new Set(roleIds).size ||
+                    roles.some((role) =>
+                        ['organization-owner', 'organization-governance'].includes(role.code)
+                    )
                 )
-            )
-                throw new TeamError({ reason: 'forbidden' });
-            if (!ownerManager) {
-                const existing = await this.database.queryClient.workspaceRoleBinding.findMany({
-                    where: { organizationId, workspaceId, workspaceMemberId: memberId },
-                    select: { roleId: true },
-                });
-                const retained = new Set(existing.map((binding) => binding.roleId));
-                const checks = roles
-                    .filter((role) => !retained.has(role.id))
-                    .flatMap((role) =>
-                        role.permissions.map((value) => ({
-                            subject: { kind: 'user' as const, userId: this.operations.actor() },
-                            permissionCode: value.permissionCode,
-                            scope: this.target(organizationId, workspaceId),
-                        }))
-                    );
-                if ((await this.permission.evaluateMany(checks)).some((value) => !value.allowed))
                     throw new TeamError({ reason: 'forbidden' });
+                if (!ownerManager) {
+                    const existing = await this.database.queryClient.workspaceRoleBinding.findMany({
+                        where: { organizationId, workspaceId, workspaceMemberId: memberId },
+                        select: { roleId: true },
+                    });
+                    const retained = new Set(existing.map((binding) => binding.roleId));
+                    const checks = roles
+                        .filter((role) => !retained.has(role.id))
+                        .flatMap((role) =>
+                            role.permissions.map((value) => ({
+                                subject: { kind: 'user' as const, userId: this.operations.actor() },
+                                permissionCode: value.permissionCode,
+                                scope: this.target(organizationId, workspaceId),
+                            }))
+                        );
+                    if (
+                        (await this.permission.evaluateMany(checks)).some((value) => !value.allowed)
+                    )
+                        throw new TeamError({ reason: 'forbidden' });
+                }
+                if (workspaceId)
+                    await this.database.queryClient.workspaceRoleBinding.deleteMany({
+                        where: { organizationId, workspaceId, workspaceMemberId: memberId },
+                    });
+                else
+                    await this.database.queryClient.organizationRoleBinding.deleteMany({
+                        where: { organizationId, organizationMemberId: memberId },
+                    });
+                for (const role of roles)
+                    await this.permission.bindRole({
+                        scope: this.target(organizationId, workspaceId),
+                        memberId,
+                        roleId: role.id,
+                    });
+                await this.operations.record(
+                    organizationId,
+                    'member.roles.replace',
+                    {
+                        memberId,
+                        organizationMemberId: target.organizationMemberId,
+                        roleIds: roles.map((role) => role.id),
+                    },
+                    workspaceId
+                );
             }
-            if (workspaceId)
-                await this.database.queryClient.workspaceRoleBinding.deleteMany({
-                    where: { organizationId, workspaceId, workspaceMemberId: memberId },
-                });
-            else
-                await this.database.queryClient.organizationRoleBinding.deleteMany({
-                    where: { organizationId, organizationMemberId: memberId },
-                });
-            for (const role of roles)
-                await this.permission.bindRole({
-                    scope: this.target(organizationId, workspaceId),
-                    memberId,
-                    roleId: role.id,
-                });
-            await this.operations.record(
-                organizationId,
-                'member.roles.replace',
-                {
-                    memberId,
-                    organizationMemberId: target.organizationMemberId,
-                    roleIds: roles.map((role) => role.id),
-                },
-                workspaceId
-            );
-        });
+        );
     }
 
     removeMember(
@@ -495,61 +519,66 @@ export class OrganizationTeamService {
         workspaceId?: string,
         self = false
     ): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            if (!self) await this.manage(organizationId, workspaceId);
-            const target = await this.member(organizationId, memberId, workspaceId);
-            if (self && target.userId !== this.operations.actor())
-                throw new TeamError({ reason: 'forbidden' });
-            if (target.status === 'LEFT') return;
-            if (workspaceId) {
-                await this.database.queryClient.workspaceMember.update({
-                    where: { id: memberId },
-                    data: { status: 'LEFT', leftAt: new Date() },
+        return this.operations.write(
+            organizationId,
+            async () => {
+                if (!self) await this.manage(organizationId, workspaceId);
+            },
+            async () => {
+                const target = await this.member(organizationId, memberId, workspaceId);
+                if (self && target.userId !== this.operations.actor())
+                    throw new TeamError({ reason: 'forbidden' });
+                if (target.status === 'LEFT') return;
+                if (workspaceId) {
+                    await this.database.queryClient.workspaceMember.update({
+                        where: { id: memberId },
+                        data: { status: 'LEFT', leftAt: new Date() },
+                    });
+                    await this.database.queryClient.workspaceRoleBinding.deleteMany({
+                        where: { workspaceMemberId: memberId },
+                    });
+                } else {
+                    await this.database.queryClient.organizationMember.update({
+                        where: { id: memberId },
+                        data: { status: 'LEFT', leftAt: new Date() },
+                    });
+                    const children = await this.database.queryClient.workspaceMember.findMany({
+                        where: { organizationMemberId: memberId },
+                        select: { id: true },
+                    });
+                    await this.database.queryClient.workspaceRoleBinding.deleteMany({
+                        where: { workspaceMemberId: { in: children.map((child) => child.id) } },
+                    });
+                    await this.database.queryClient.workspaceMember.updateMany({
+                        where: { organizationMemberId: memberId },
+                        data: { status: 'LEFT', leftAt: new Date() },
+                    });
+                    await this.database.queryClient.organizationRoleBinding.deleteMany({
+                        where: { organizationMemberId: memberId },
+                    });
+                }
+                await this.database.queryClient.organizationInvitation.updateMany({
+                    where: {
+                        organizationId,
+                        email: target.email,
+                        ...(workspaceId ? { workspaceId } : {}),
+                        acceptedAt: null,
+                        revokedAt: null,
+                    },
+                    data: { revokedAt: new Date() },
                 });
-                await this.database.queryClient.workspaceRoleBinding.deleteMany({
-                    where: { workspaceMemberId: memberId },
-                });
-            } else {
-                await this.database.queryClient.organizationMember.update({
-                    where: { id: memberId },
-                    data: { status: 'LEFT', leftAt: new Date() },
-                });
-                const children = await this.database.queryClient.workspaceMember.findMany({
-                    where: { organizationMemberId: memberId },
-                    select: { id: true },
-                });
-                await this.database.queryClient.workspaceRoleBinding.deleteMany({
-                    where: { workspaceMemberId: { in: children.map((child) => child.id) } },
-                });
-                await this.database.queryClient.workspaceMember.updateMany({
-                    where: { organizationMemberId: memberId },
-                    data: { status: 'LEFT', leftAt: new Date() },
-                });
-                await this.database.queryClient.organizationRoleBinding.deleteMany({
-                    where: { organizationMemberId: memberId },
-                });
-            }
-            await this.database.queryClient.organizationInvitation.updateMany({
-                where: {
+                await this.operations.record(
                     organizationId,
-                    email: target.email,
-                    ...(workspaceId ? { workspaceId } : {}),
-                    acceptedAt: null,
-                    revokedAt: null,
-                },
-                data: { revokedAt: new Date() },
-            });
-            await this.operations.record(
-                organizationId,
-                self ? 'member.leave' : 'member.remove',
-                {
-                    memberId,
-                    organizationMemberId: target.organizationMemberId,
-                    userId: target.userId,
-                },
-                workspaceId
-            );
-        });
+                    self ? 'member.leave' : 'member.remove',
+                    {
+                        memberId,
+                        organizationMemberId: target.organizationMemberId,
+                        userId: target.userId,
+                    },
+                    workspaceId
+                );
+            }
+        );
     }
 
     async leave(organizationId: string, workspaceId?: string): Promise<void> {
@@ -612,66 +641,76 @@ export class OrganizationTeamService {
     }
 
     createRole(organizationId: string, body: TeamRoleBody): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            await this.owner(organizationId, op.roles);
-            if (protectedRoleCodes.has(body.code)) throw new TeamError({ reason: 'conflict' });
-            this.validatePermissions(body.permissions, body.scope);
-            if (
-                await this.permission.findRole({
-                    organizationId,
-                    scope: body.scope,
-                    code: body.code,
-                })
-            )
-                throw new TeamError({ reason: 'conflict' });
-            const role = await this.permission.createRole({ organizationId, ...body });
-            await this.operations.record(organizationId, 'role.create', {
-                roleId: role.id,
-                name: role.name,
-                permissions: body.permissions,
-            });
-        });
+        return this.operations.write(
+            organizationId,
+            () => this.owner(organizationId, op.roles),
+            async () => {
+                if (protectedRoleCodes.has(body.code)) throw new TeamError({ reason: 'conflict' });
+                this.validatePermissions(body.permissions, body.scope);
+                if (
+                    await this.permission.findRole({
+                        organizationId,
+                        scope: body.scope,
+                        code: body.code,
+                    })
+                )
+                    throw new TeamError({ reason: 'conflict' });
+                const role = await this.permission.createRole({ organizationId, ...body });
+                await this.operations.record(organizationId, 'role.create', {
+                    roleId: role.id,
+                    name: role.name,
+                    permissions: body.permissions,
+                });
+            }
+        );
     }
 
     updateRole(organizationId: string, roleId: string, body: TeamRoleUpdate | null): Promise<void> {
-        return this.operations.write(organizationId, async () => {
-            await this.owner(organizationId, op.roles);
-            const role = await this.database.queryClient.role.findFirst({
-                where: { id: roleId, organizationId, archivedAt: null },
-                select: { id: true, code: true, updatedAt: true },
-            });
-            if (!role || protectedRoleCodes.has(role.code))
-                throw new TeamError({ reason: 'conflict' });
-            if (body) {
-                if (role.updatedAt.toISOString() !== body.expectedUpdatedAt)
+        return this.operations.write(
+            organizationId,
+            () => this.owner(organizationId, op.roles),
+            async () => {
+                const role = await this.database.queryClient.role.findFirst({
+                    where: { id: roleId, organizationId, archivedAt: null },
+                    select: { id: true, code: true, updatedAt: true },
+                });
+                if (!role || protectedRoleCodes.has(role.code))
                     throw new TeamError({ reason: 'conflict' });
-                const definition = await this.database.queryClient.role.findUniqueOrThrow({
-                    where: { id: roleId },
-                    select: { scope: true },
-                });
-                this.validatePermissions(body.permissions, definition.scope);
-                await this.permission.setRolePermissions({
+                if (body) {
+                    if (role.updatedAt.toISOString() !== body.expectedUpdatedAt)
+                        throw new TeamError({ reason: 'conflict' });
+                    const definition = await this.database.queryClient.role.findUniqueOrThrow({
+                        where: { id: roleId },
+                        select: { scope: true },
+                    });
+                    this.validatePermissions(body.permissions, definition.scope);
+                    await this.permission.setRolePermissions({
+                        organizationId,
+                        roleId,
+                        permissions: body.permissions,
+                    });
+                    await this.database.queryClient.role.update({
+                        where: { id: roleId },
+                        data: {
+                            name: body.name,
+                            updatedAt: new Date(Math.max(Date.now(), role.updatedAt.getTime() + 1)),
+                        },
+                    });
+                } else
+                    await this.database.queryClient.role.update({
+                        where: { id: roleId },
+                        data: { archivedAt: new Date() },
+                    });
+                await this.operations.record(
                     organizationId,
-                    roleId,
-                    permissions: body.permissions,
-                });
-                await this.database.queryClient.role.update({
-                    where: { id: roleId },
-                    data: {
-                        name: body.name,
-                        updatedAt: new Date(Math.max(Date.now(), role.updatedAt.getTime() + 1)),
-                    },
-                });
-            } else
-                await this.database.queryClient.role.update({
-                    where: { id: roleId },
-                    data: { archivedAt: new Date() },
-                });
-            await this.operations.record(organizationId, body ? 'role.update' : 'role.archive', {
-                roleId,
-                ...(body ? { name: body.name, permissions: body.permissions } : {}),
-            });
-        });
+                    body ? 'role.update' : 'role.archive',
+                    {
+                        roleId,
+                        ...(body ? { name: body.name, permissions: body.permissions } : {}),
+                    }
+                );
+            }
+        );
     }
 
     private validatePermissions(codes: string[], scope: 'ORGANIZATION' | 'WORKSPACE'): void {

@@ -51,7 +51,7 @@ export class AuthorizationContextResolver {
         try {
             const base = { target, subject, permissionCode, scope };
             if (scope.kind === 'workspace') {
-                const context = await this.workspace.requireMembership(
+                const context = await this.workspace.requireAccess(
                     subject.userId,
                     scope.organizationId,
                     scope.workspaceId
@@ -67,7 +67,7 @@ export class AuthorizationContextResolver {
                     workspace: context,
                 });
             }
-            const organization = await this.organization.requireMembership(
+            const organization = await this.organization.requireAccess(
                 subject.userId,
                 scope.organizationId
             );
