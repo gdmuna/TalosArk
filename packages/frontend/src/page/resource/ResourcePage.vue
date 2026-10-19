@@ -1,5 +1,7 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ label: string; layout?: 'wide' | 'table' | 'tool' | 'data' }>(), { layout: 'wide' });
+withDefaults(defineProps<{ label: string; layout?: 'wide' | 'table' | 'tool' | 'data' | 'fluid' }>(), {
+    layout: 'wide',
+});
 </script>
 
 <template>

@@ -4,6 +4,7 @@ import MaterialList from '@/page/material/List.vue';
 import MaterialDetail from '@/page/material/detail/Detail.vue';
 import MaterialBank from '@/page/material/detail/Bank.vue';
 import MaterialBatch from '@/page/material/detail/Batch.vue';
+import MaterialBankBatch from '@/page/material/detail/BankBatch.vue';
 import InventoryOverview from '@/page/inventory/Overview.vue';
 import InventoryLedger from '@/page/inventory/Ledger.vue';
 import StorageTopology from '@/page/inventory/StorageTopology.vue';
@@ -44,8 +45,9 @@ export const materialRoutes: RouteRecordRaw[] = [
     page('material', 'overview', MaterialOverview),
     page('material', 'list', MaterialList),
     detail('detail/:resourceId', '材料详情', MaterialDetail),
+    detail('detail/:resourceId/batch/:batchId', '批次详情', MaterialBatch),
     detail('detail/:resourceId/bank/:bankId', 'Cell Bank', MaterialBank),
-    detail('detail/:resourceId/bank/:bankId/batch/:batchId', 'Batch', MaterialBatch),
+    detail('detail/:resourceId/bank/:bankId/batch/:batchId', 'Batch', MaterialBankBatch),
 ];
 export const inventoryRoutes: RouteRecordRaw[] = [
     page('inventory', 'overview', InventoryOverview),

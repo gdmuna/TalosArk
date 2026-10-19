@@ -15,6 +15,7 @@ const allowedLayers = {
 const moduleDependencies = {
     workbench: new Set(['workspace']),
     material: new Set(['workspace']),
+    inventory: new Set(['workspace']),
 };
 const componentDependencies = {
     'data-table': new Set(['scroll-surface', 'select-field', 'inspector']),

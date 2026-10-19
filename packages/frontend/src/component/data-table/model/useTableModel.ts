@@ -199,7 +199,16 @@ export function useTableModel<T extends { id: string }>(
     );
     const primaryActions = computed(() => props.actions.filter((action) => action.primary));
     const resolvedFilterFields = computed(() =>
-        props.filtering === false ? [] : resolveFilterFields(props.columns, props.filterFields)
+        props.filtering === false
+            ? []
+            : resolveFilterFields(
+                  props.serverTotal === undefined
+                      ? props.columns
+                      : props.columns.filter((column) =>
+                            props.filterFields.some((field) => field.id === column.id)
+                        ),
+                  props.filterFields
+              )
     );
     const filterById = computed(
         () => new Map(resolvedFilterFields.value.map((field) => [field.id, field]))

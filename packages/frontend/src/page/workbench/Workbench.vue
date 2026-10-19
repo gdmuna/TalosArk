@@ -1,6 +1,6 @@
 <template>
     <RouterTabBar>
-        <template v-if="workbench.loaded && route.path === workbenchPage.overview.path" #actions>
+        <template v-if="workbench.loaded && isOverview" #actions>
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button type="button" class="h-10 gap-3 px-4 text-base shadow-none">
@@ -27,16 +27,10 @@
             </DropdownMenu>
         </template>
     </RouterTabBar>
-    <ScrollArea v-if="workbench.loaded" type="auto" class="min-h-0 flex-1 scroll-smooth">
-        <RouterView />
+    <ScrollArea type="auto" class="min-h-0 flex-1 scroll-smooth">
+        <RouterView v-if="workbench.loaded || isOverview" />
+        <WorkbenchQueueUnavailable v-else />
     </ScrollArea>
-    <div v-else class="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-        <ListTodo class="size-8 text-muted-foreground" aria-hidden="true" />
-        <h1 class="text-lg font-medium">工作台暂不可用</h1>
-        <Button as-child variant="outline">
-            <RouterLink to="/main/management/workspace">管理工作区</RouterLink>
-        </Button>
-    </div>
 </template>
 
 <script setup lang="ts">
@@ -51,12 +45,15 @@ import {
     DropdownMenuTrigger,
 } from '@/ui/dropdown-menu';
 import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
-import { ChevronDown, FlaskConical, ListTodo, Plus, Wrench } from '@lucide/vue';
+import { FlaskConical, ListTodo, Plus, Wrench } from '@lucide/vue';
 import { useRoute } from 'vue-router';
+import { computed } from 'vue';
 import { workbenchPage } from '@/module/workbench/navigation';
 import { useWorkbenchStore } from '@/module/workbench';
+import { WorkbenchQueueUnavailable } from '@/module/workbench/ui';
 
 const route = useRoute();
+const isOverview = computed(() => route.matched.at(-1)?.path === workbenchPage.overview.path);
 const workbench = useWorkbenchStore();
 const { setEntity } = useRouteTab();
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue';
-defineProps<{ items: { label: string; icon: Component }[] }>();
+defineProps<{ items: { label: string; icon: Component; value?: string | number }[] }>();
 </script>
 <template>
     <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,260px))] gap-4">
@@ -14,7 +14,7 @@ defineProps<{ items: { label: string; icon: Component }[] }>();
             </div>
             <div>
                 <p class="text-sm">{{ item.label }}</p>
-                <p class="mt-1 text-xl font-semibold" aria-label="未加载">—</p>
+                <p class="mt-1 text-xl font-semibold">{{ item.value ?? '—' }}</p>
             </div>
         </div>
     </div>

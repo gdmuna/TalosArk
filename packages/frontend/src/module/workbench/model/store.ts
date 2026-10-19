@@ -133,6 +133,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         await load();
     }
     async function mutate(operation: () => Promise<unknown>) {
+        if (!loaded.value) return (error.value = '工作队列尚未接入，无法执行此操作');
         if (busy.value) return '数据正在更新，请稍后重试';
         if (syncError.value) return (error.value = '请先重新同步工作台数据');
         busy.value = true;

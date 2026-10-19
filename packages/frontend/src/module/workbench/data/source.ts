@@ -1,4 +1,17 @@
 import type { Approval, ExceptionItem, WorkbenchSnapshot } from '../model/workbench';
+import type { MaterialOverview, MaterialScope } from '@talos-ark/contracts/material';
+import type { StockPageSchema } from '@talos-ark/contracts/inventory';
+import type { FacilityPageSchema } from '@talos-ark/contracts/facility';
+import type { z } from 'zod';
+
+export interface WorkbenchOverviewDataSource {
+    material?(scope: MaterialScope, signal: AbortSignal): Promise<MaterialOverview>;
+    inventory?(scope: MaterialScope, signal: AbortSignal): Promise<z.infer<typeof StockPageSchema>>;
+    facilities?(
+        scope: MaterialScope,
+        signal: AbortSignal
+    ): Promise<z.infer<typeof FacilityPageSchema>>;
+}
 
 export interface WorkbenchDataSource {
     load(signal?: AbortSignal): Promise<WorkbenchSnapshot>;

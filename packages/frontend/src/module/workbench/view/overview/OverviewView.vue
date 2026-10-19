@@ -9,6 +9,7 @@ import { Button } from '@/ui/button';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/ui/empty';
 import { StateBadge } from '@/component/state-badge';
 import ResourceDialog from '../../ui/ResourceDialog.vue';
+import ResourceOverview from './ResourceOverview.vue';
 
 const workbench = useWorkbenchStore();
 const isTaskOverdue = workbench.overdue;
@@ -83,7 +84,8 @@ const resourceName = (id: string) => workbench.resourceById.get(id)?.name ?? '�
 </script>
 
 <template>
-    <main aria-label="工作台总览" class="min-w-0 p-4 pt-2 lg:p-6 lg:pt-2">
+    <ResourceOverview v-if="!workbench.loaded" />
+    <main v-else aria-label="工作台总览" class="min-w-0 p-4 pt-2 lg:p-6 lg:pt-2">
         <div class="mx-auto w-full max-w-[1200px] space-y-7" data-slot="workbench-overview">
             <section aria-label="工作概览" class="flex flex-wrap gap-3">
                 <RouterLink

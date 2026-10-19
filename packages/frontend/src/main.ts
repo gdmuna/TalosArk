@@ -12,8 +12,19 @@ import {
     createHttpManagementDataSource,
     managementDataSourceKey,
 } from '@/module/workspace';
-import { createHttpMaterialDataSource, materialDataSourceKey } from '@/module/material';
+import {
+    createHttpMaterialDataSource,
+    materialDataSourceKey,
+    useMaterialAttachmentStore,
+} from '@/module/material';
+import { createHttpFacilityDataSource, facilityDataSourceKey } from '@/module/facility';
+import {
+    createHttpInventoryDataSource,
+    inventoryDataSourceKey,
+    useInventoryReceiptStore,
+} from '@/module/inventory';
 import { createApplicationBootstrap } from './bootstrap';
+import { workbenchOverviewDataSourceKey } from '@/module/workbench';
 import { applicationBootstrapKey } from './layout/startup/context';
 
 import '@/style.css';
@@ -33,8 +44,23 @@ const authApi = createAuthApi(http, authSession, apiRoot);
 app.provide(authApiKey, authApi);
 const teamSource = createHttpTeamDataSource(http);
 const materialSource = createHttpMaterialDataSource(http);
+const materialAttachment = useMaterialAttachmentStore(pinia);
+materialAttachment.connect(materialSource);
+const facilitySource = createHttpFacilityDataSource(http);
+const inventorySource = createHttpInventoryDataSource(http);
+const inventoryReceipt = useInventoryReceiptStore(pinia);
+inventoryReceipt.connect(inventorySource);
 app.provide(managementDataSourceKey, createHttpManagementDataSource(http, teamSource));
 app.provide(materialDataSourceKey, materialSource);
+app.provide(facilityDataSourceKey, facilitySource);
+app.provide(inventoryDataSourceKey, inventorySource);
+app.provide(workbenchOverviewDataSourceKey, {
+    material: (scope, signal) => materialSource.overview(scope, signal),
+    inventory: (scope, signal) =>
+        inventorySource.list(scope, { page: 1, pageSize: 5, q: '' }, signal),
+    facilities: (scope, signal) =>
+        facilitySource.list(scope, { page: 1, pageSize: 5, state: 'active' }, signal),
+});
 const bootstrap = createApplicationBootstrap(
     pinia,
     {
@@ -55,6 +81,15 @@ const removeAuthGuard = router.beforeEach((to) => {
 const stopSessionWatch = watch(
     () => authSession.state.value.version,
     () => {
+        const session = authSession.state.value;
+        const operationOwner =
+            session.status === 'authenticated'
+                ? session.userId
+                : session.status === 'anonymous'
+                  ? ''
+                  : undefined;
+        inventoryReceipt.connect(inventorySource, operationOwner);
+        materialAttachment.connect(materialSource, operationOwner);
         bootstrap.reset();
         const route = router.currentRoute.value;
         if (!route.meta.requiresAuthentication) return;
