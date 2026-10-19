@@ -20,6 +20,7 @@ const props = defineProps<{
     status?: string;
     listLabel: string;
     listPath: string;
+    listTo?: string;
     views: readonly ManagementView[];
     options?: { id: string; name: string }[];
     search?: (
@@ -35,7 +36,7 @@ const emit = defineEmits<{ select: [id: string]; retry: [] }>();
 const route = useRoute(),
     navigation = useNavigationStore();
 const origin = computed(() => navigation.origin);
-const listTo = computed(() => navigation.lastLocation(props.listPath));
+const listTo = computed(() => props.listTo ?? navigation.lastLocation(props.listPath));
 watchEffect(() => navigation.setPageLabel(route.path, props.title));
 provideBreadcrumbs(() => [
     { id: 'management', label: '管理中心', to: '/main/management' },

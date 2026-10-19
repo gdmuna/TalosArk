@@ -20,6 +20,7 @@ import { useManagementView } from '../useManagementView';
 import { useDetailRead, useDetailActivity, detailDate } from '../detail/read';
 import { useMaterialDataSource } from '@/module/material';
 import WorkspaceResource from './Resource.vue';
+import FacilityAccess from './FacilityAccess.vue';
 
 const route = useRoute(),
     router = useRouter(),
@@ -268,7 +269,7 @@ async function save() {
                             {{ resources.error.value || '材料新增记录暂不可用' }}
                             <Button variant="link" @click="resources.refresh">重新加载</Button>
                         </div>
-                        <Button variant="link" class="mt-4 px-0" @click="view = 'sharing'">设施访问 · 未接入</Button>
+                        <Button variant="link" class="mt-4 px-0" @click="view = 'sharing'">查看设施访问关系</Button>
                     </ManagementSection>
                 </div>
             </template>
@@ -283,7 +284,7 @@ async function save() {
             </p>
             <WorkspaceResource v-else-if="view === 'resource'" :key="key" :scope="selection" />
             <ManagementSection v-else-if="view === 'sharing'" title="设施访问">
-                <p class="text-sm text-muted-foreground">设施管理与跨工作区访问尚未接入，暂不展示模拟关系或数量。</p>
+                <FacilityAccess :scope="selection" />
             </ManagementSection>
             <div
                 v-else-if="view === 'setting'"

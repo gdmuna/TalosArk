@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { Folders, Plus, Building2, Text, Eye, LogIn } from '@lucide/vue';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
 import { Button } from '@/ui/button';
@@ -14,7 +14,29 @@ import ManagementPage from './component/ManagementPage.vue';
 
 const workspace = useWorkspaceStore();
 const router = useRouter();
-const organizationId = ref(workspace.organization?.id ?? 'all');
+const route = useRoute();
+const organizationId = ref(
+    typeof route.query.organization === 'string' &&
+        (route.query.organization === 'all' ||
+            workspace.organizations.some((item) => item.id === route.query.organization))
+        ? route.query.organization
+        : (workspace.organization?.id ?? 'all')
+);
+watch(
+    () => route.query.organization,
+    (id) => {
+        if (
+            route.path === '/main/management/workspace' &&
+            typeof id === 'string' &&
+            (id === 'all' || workspace.organizations.some((item) => item.id === id))
+        )
+            organizationId.value = id;
+    }
+);
+watch(organizationId, (id) => {
+    if (route.path !== '/main/management/workspace' || route.query.organization === id) return;
+    void router.replace({ query: { ...route.query, organization: id }, hash: route.hash });
+});
 const query = ref('');
 const filters = ref<Record<string, string[]>>({});
 const previewId = ref<string | null>(null);

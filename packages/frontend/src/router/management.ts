@@ -6,8 +6,10 @@ import Workspace from '@/page/management/Workspace.vue';
 import Member from '@/page/management/Member.vue';
 import Role from '@/page/management/Role.vue';
 import ResourceGrant from '@/page/management/ResourceGrant.vue';
+import ResourceGrantDetail from '@/page/management/resource-grant/Detail.vue';
 import SharingPolicy from '@/page/management/SharingPolicy.vue';
 import Facility from '@/page/management/Facility.vue';
+import FacilityDetail from '@/page/management/facility/Detail.vue';
 import StorageGovernance from '@/page/management/StorageGovernance.vue';
 import DeviceAccess from '@/page/management/DeviceAccess.vue';
 import DeviceIntegration from '@/page/management/DeviceIntegration.vue';
@@ -53,12 +55,26 @@ export const managementRoutes: RouteRecordRaw[] = [
                 path === 'workspace' ||
                 path === 'member' ||
                 path === 'role' ||
-                path === 'audit-log'
+                path === 'audit-log' ||
+                path === 'resource-grant' ||
+                path === 'sharing-policy' ||
+                path === 'facility' ||
+                path === 'storage-governance'
                     ? { requiresWorkspace: false }
                     : {}),
             },
         }))
     ),
+    {
+        path: 'facility/:facilityId',
+        component: FacilityDetail,
+        meta: { pageLabel: '设施详情', defaultTitle: '设施详情', requiresWorkspace: false },
+    },
+    {
+        path: 'resource-grant/:resourceId',
+        component: ResourceGrantDetail,
+        meta: { pageLabel: '资源授权详情', defaultTitle: '资源授权详情', requiresWorkspace: false },
+    },
     {
         path: 'audit-log/:eventId',
         component: AuditDetail,
