@@ -22,6 +22,55 @@ changes cancel and clear reads; authorization failures clear records, while same
 temporary failures may retain explicitly stale results. Resource snapshots remain
 non-navigable until current read capability is confirmed. See remediation R04.
 
+R04-B adds the independent optional `module/organization` read source for profile
+facts and explicitly measured active-member/pending-invitation counts. It does not
+register a production source before public contracts exist. Management Overview
+and Organization Settings retain real directory name/ID and accessible-workspace
+facts, never derive organization totals from team pages, and do not select fixtures
+on missing sources or failures. Their local organization query does not switch the
+global workspace. Scope/account changes clear reads and cancel late results;
+authorization/protocol failures clear sensitive results, while temporary failures
+retain explicitly stale same-scope results. Name editing and lifecycle commands
+remain deferred. Recent organization audit consumes the separate audit owner.
+Workspace-list organization filters round-trip through the URL, including `all`.
+See remediation R04's organization acceptance and read-contract handoff.
+
+R04-C adds optional resource-access and sharing-policy read sources under
+`module/resource-access`, not a frontend permission engine or a new backend
+authorization model. Production registers neither source. Management pages own
+local organization/workspace/query state, independent grant Inspector reads and
+Resource-ID detail tabs. Source-projected basis/status/expiry/policy fields remain
+consumer proposals until public contracts exist; no grant, revoke or policy-save
+commands are exposed. Resource identity and content IDs stay distinct; content
+links require an explicit readable reference in the active workspace. Scope/account
+changes cancel and clear reads, temporary failures retain labelled stale data,
+and authentication/authorization/protocol failures clear it. Remote DataTable mode
+offers only explicitly registered filter fields; local column inference is unchanged.
+See remediation R04's resource-access contract and acceptance records.
+
+P08 supersedes R04-D's optional basic facility projection. `module/facility/data`
+owns the production HTTP adapter and public-schema decoding, including response
+identity and pagination validation. `main.ts` registers it without fetching. Each
+facility has one current topology; module-owned UI shares lazy trees, bounded
+list/grid browsing, authorized position selection and revisioned structure forms
+between governance and inventory pages. Organization-owned facilities, management
+workspaces, whole-facility USE/MANAGE relations and inventory-content access remain
+distinct. Facility governance uses server `govern`; structure maintenance uses
+`manage`. Workspace reads and node commands carry an explicit workspace context.
+Pages own URL scope and selection; facility and node deep links read independently
+of list/tree loading. Cursor append retains its snapshot and topology revision;
+query/scope changes and security/protocol failures clear snapshots and cursors.
+Reads and writes ignore canceled late completions. 409 keeps the form draft but
+blocks submission until explicit reload. Confirmed writes whose reload fails show
+the shared sync notice and recover by reading only, never by replaying the command.
+Sparse grids draw registered coordinates, not implied available positions. Batch
+generation submits at most 1000 explicit one-based positions; reorder uses an
+adjacent anchor; empty-subtree moves carry both revisions and retain node IDs.
+Rules/templates remain optional readonly consumer projections with no production
+source. Audit, equipment links, Placement and occupied-subtree movement are not
+provided by this slice. No silent workspace activation occurs. See the P08 frontend
+acceptance and current contract handoff under remediation R04.
+
 Application composition selects data sources explicitly. `main.ts` supplies the real account and workspace readers; `bootstrap.ts` has no mock fallback. Retained mock adapters stay behind their explicit `data/mock.ts` entries and alone import fixtures. Composition binds sources without fetching. Each store owns `connect(source)`, cancellable `load(signal?)` and session-change `reset()`; `initialize(source)` remains connect + load. Reset/reconnection/disposal invalidate pending reads, including ignored cancellation, and prevent old mutation/synchronization results from changing a newer context. Views consume stores, never fixtures. Local form fields, focus, open state and table-view settings remain local UI state. Provider-scoped UI contexts are registered in `ui-contexts` and disposed with their provider.
 
 `main.ts` owns Vue/plugin installation and HTTP/auth/Pinia disposal. The small
@@ -34,8 +83,17 @@ uses the available window width; the desktop minimum applies only to business vi
 Public auth
 routes bypass this data gate and do not initiate these reads. Authentication is a
 separate route requirement. P04 selects real account and workspace readers;
-workbench remains unloaded and its page shows an unavailable state instead of
-unloaded zero statistics. A workspace-unavailable view allows first organization
+workbench's legacy queue snapshot remains unloaded without an explicit reader.
+R10's production overview instead composes the existing material overview, inventory
+list and workspace-scoped facility list through `WorkbenchOverviewDataSource`.
+These three reads run on overview mount, independently of startup and one another;
+missing queues alone show unavailable, never fake zero statistics. Each section
+clears and cancels on scope changes, retry and disposal, rejecting late completions.
+Material counts use `active`; inventory and facility counts use the server's `total`,
+not the displayed page size. Material overview validates the scope of recent records.
+Facility links enter workspace-scoped storage browsing rather than organization
+governance. No production mock is registered. See remediation R10 for evidence and
+the remaining P12/P15/P16 queue dependencies. A workspace-unavailable view allows first organization
 creation. Account Settings and Workspace management remain accessible without
 an active workspace. No resource HTTP contracts or per-page data sources are
 invented; future remote reads belong to their module and consuming context.
@@ -168,7 +226,7 @@ Update imports, generator alias values and architecture rules together when movi
 ## Dependency direction
 
 - `main`, `App`, `router`, `layout` and `page` compose module and component public entries, platform, shared and ui.
-- `module` may use component, platform, shared and ui. The approved cross-business dependency is `workbench -> workspace`, through the workspace public entry.
+- `module` may use component, platform, shared and ui. Approved cross-business dependencies are `workbench -> workspace`, `material -> workspace` and `inventory -> workspace`, through the workspace public entry. Material and inventory only use that owner for the current workspace context. Receipt and role-setup composition across inventory/material/facility/team belongs to `page/inventory/component`, not extra cross-module dependency exemptions.
 - `component` may use ui, shared and platform. Approved cross-component dependencies are `data-table -> inspector/scroll-surface/select-field`, `breadcrumb -> view-context`, `route-tab -> scroll-surface/view-context` and `view-host -> scroll-surface/view-context`. `view-context` does not depend on its consumers.
 - `platform` may use shared. `ui` may use shared. `shared` must not depend on higher layers.
 - Within a module, component or platform owner, use relative implementation imports, not its own public barrel. Consumers use explicit `index.ts` entries; module `ui/index.ts`, `route.ts` and `navigation.ts` are separate public entries. A module's own `navigation.ts` is a description implementation and may be imported relatively inside that owner. The approved cross-platform dependency is `http -> task`. Do not aggregate views or mocks into the non-visual module index.
@@ -216,6 +274,31 @@ and user menu route here instead of maintaining a second profile Dialog.
 
 The user approved removal of the unused legacy `shared/api` adapters. Their missing-schema source errors are gone, but old tests still reference retired API paths and previously removed stores/pages/schemas. Do not repair this with compatibility stubs, placeholder types, `any`, or wider compiler exclusions. See `docs/reviews/frontend-api-platform-2026-10-08.md` for the current design and verification limits; the earlier migration record remains historical.
 
+R04-E adds the optional notification-policy read source under `module/notification`.
+Production registers no source or fixture fallback. Event and severity-delivery
+matrices display source-projected recipients, enforcement and channel availability;
+they are not a notification engine or an approved policy model. The finite label
+catalog follows the five current Prisma NotificationType values, retaining unknown
+codes without generating default rules. Account/scope/view changes clear and cancel
+reads, late results cannot publish, temporary errors label retained stale results,
+and authentication/authorization/protocol failures clear them. Personal settings
+reuse one shared unavailable-state component until an account preference contract
+exists. No policy save, test-send or personal write is exposed. See R04's notification
+read-contract handoff and isolated acceptance for P16 and delivery limits.
+
+R04-F adds optional readonly integration sources under `module/integration`,
+organization-policy reads under `module/organization`, and allowlisted deployment
+information under `module/deployment`. Production registers none. Integration
+catalogs, details and cursor logs remain independently scoped; switching account,
+organization, integration or view clears obsolete reads, and ignored cancellation
+cannot publish late data. Protocol/authentication/authorization failures clear
+snapshots; temporary same-context errors label stale results. Structured projections
+exclude arbitrary configuration, credentials, raw vendor payloads and exceptions.
+Organization governance never edits deployment defaults or computes effective
+permissions. Personal settings only link to their existing owner. No save, test,
+synchronize or secret-reset command is exposed. See R04's integration/settings
+contract and isolated acceptance for production limits.
+
 ## Current iteration policy
 
 Resource skeletons live in `page/material`, `page/inventory` and `page/equipment`,
@@ -228,7 +311,7 @@ a full-width top region outside the body scroll owner. The body uses a centered,
 full-width canvas capped at 1280px (1440px for tool workspaces), without moving
 the top region. Ordinary management/resource canvases are capped at 1200px,
 single forms at 720px, and topology/tool canvases at 1440px. Inventory's ledger
-uses the full available width without a cap. Page canvases do not shrink with
+uses the centered 1440px data canvas. Page canvases do not shrink with
 table columns or row counts; fixed/manual table widths remain independent and
 start at the canvas's left edge. Body padding is 16px, or 24px from desktop lg.
 `component/breadcrumb` combines provider-owned layers, labels and actions; the
@@ -246,7 +329,10 @@ Management and resource local-view helpers use `platform/navigation`'s
 do nothing, and selecting the default omits its key. Invalid URL values fall back
 without automatic navigation; explicitly selecting the current fallback/default
 normalizes that URL with replace. Unsupported setter values are ignored. Other
-query values and hash are retained. Labels and capability-dependent visibility
+query values and hash are retained. An optional query patch lets a real view switch
+clear dependent cursors in the same navigation; it cannot override the selected
+key and does not turn an already canonical duplicate into a navigation.
+Labels and capability-dependent visibility
 remain with the page, separate from one-shot entry commands.
 Route pages switch immediately without whole-page fade or translation. Keyed
 resource outlets replace record content and breadcrumb providers together, without
@@ -333,6 +419,38 @@ Creation query commands are consumed once. No instance, inventory, attachment,
 QC, culture or lineage workflow is claimed by this slice; unknown data stays
 explicitly unintegrated. See `../backend/docs/design/mvp-p07-2026-10-18.md` and the
 dated override in `docs/design/material-page-redesign.md` for current boundaries.
+
+P09 adds a production `module/inventory` HTTP source, scoped cancellable readers,
+facts-correction UI, and independent stock/transaction reads. Material
+owns source-batch CRUD and quantity precision; facility owns usable position
+candidates. Pages compose these owners without fixture fallback. Receipt retries
+retain the exact original scope, body and idempotency key after uncertain outcomes;
+confirmed writes whose reload fails recover by reading only. Server business dates
+govern expiry confirmation. Old organizations receive an explicit owner-confirmed
+inventory-role setup entry, never an automatic permission write on page load.
+Stock/transaction/batch responses validate identity and pagination. Unsupported
+server sorting, inferred filters and invented alert totals are not offered.
+Unconfirmed receipts belong to inventory's Pinia owner and account-keyed tab-session
+storage, retaining exact scope/body/key through navigation and same-tab reload.
+The page-private position picker owns facility/cursor UI. Material reader refreshes
+join an active request after revision invalidation; batch editors explicitly recover
+latest facts after conflicts. Cell Bank and its professional Batch retain separate
+skeletons from the ordinary source-batch workspace.
+Container relocation confirmation and real joined Web acceptance remain separate
+work. See `docs/remediation/2026-10-15/r04/inventory-p09-acceptance-2026-10-19.md`.
+
+P10's material-owned attachment adapter uses the published schema and current
+material read/update permissions. The file view provides cursor lists, metadata,
+single PUT uploads (up to the material purpose's 100 MiB limit), SHA-256 verification,
+binding, signed downloads and confirmed removal; archived materials remain readonly.
+Upload intent/session/asset/reference state persists in account-keyed tab-session
+storage, without signed URLs, binary content or credentials. Retrying completion
+and binding reuses the original session and asset. Account changes abort and clear
+the old runtime; same-tab reload requires reselecting and hashing the original file
+when transfer remains incomplete. Confirmed writes recover synchronization by reads.
+`platform/file-transfer` has no business dependency and sends signed storage requests
+without application authentication. Multipart UI, real storage/CORS and browser
+acceptance are not claimed. See the same directory's material-p10 acceptance record.
 
 The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.
