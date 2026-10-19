@@ -59,6 +59,7 @@ const write = z.strictObject({
     manufacturer: optionalText(200),
     catalogNumber: optionalText(200),
     quantityUnit: text(32),
+    quantityScale: z.number().int().min(0).max(6).default(6),
     aliases: aliases.default([]),
     identifiers: identifiers.default([]),
 });

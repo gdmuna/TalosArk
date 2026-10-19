@@ -13,6 +13,14 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./inventory": {
+      "types": "./dist/inventory/index.d.ts",
+      "import": "./dist/inventory/index.js"
+    },
+    "./facility": {
+      "types": "./dist/facility/index.d.ts",
+      "import": "./dist/facility/index.js"
+    },
     "./material": {
       "types": "./dist/material/index.d.ts",
       "import": "./dist/material/index.js"
