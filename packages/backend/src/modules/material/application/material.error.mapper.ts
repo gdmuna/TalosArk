@@ -6,6 +6,11 @@ const databaseMapper = defineErrorMapper(DatabaseError, MaterialError, (failure)
     if (failure.reason === 'transaction-conflict') return { reason: 'conflict' as const };
     if (failure.reason !== 'unique-constraint') return undefined;
     const owner = failure.table ?? failure.model;
+    if (
+        failure.constraint === 'MaterialBatch_materialId_batchNumber_key' ||
+        (owner === 'MaterialBatch' && failure.fields.includes('batchNumber'))
+    )
+        return { reason: 'batch-conflict' as const };
     const owned = owner === 'Material' || owner === 'MaterialType';
     const fields =
         failure.fields.length === 2 &&

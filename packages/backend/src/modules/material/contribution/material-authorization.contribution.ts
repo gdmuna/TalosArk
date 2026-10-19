@@ -6,6 +6,7 @@ export const materialPermission = {
     update: 'material.update',
     archive: 'material.archive',
     manageType: 'material.type.manage',
+    manageBatch: 'material.batch.manage',
 } as const;
 export const materialAuthorization = {
     namespace: 'material',

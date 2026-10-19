@@ -23,6 +23,7 @@ export const materialSelect = {
     manufacturer: true,
     catalogNumber: true,
     quantityUnit: true,
+    quantityScale: true,
     archivedAt: true,
     createdAt: true,
     updatedAt: true,

@@ -31,6 +31,7 @@ model Material {
   manufacturer   String?
   catalogNumber  String?
   quantityUnit   String         @db.VarChar(32)
+  quantityScale  Int            @default(6)
   archivedAt     DateTime?      @db.Timestamptz(3)
   createdAt      DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
@@ -86,18 +87,20 @@ model MaterialIdentifier {
 }
 
 model MaterialBatch {
-  id             String    @id @default(uuid(7)) @db.Uuid
-  organizationId String    @db.Uuid
-  workspaceId    String    @db.Uuid
-  resourceId     String    @db.Uuid
-  materialId     String    @db.Uuid
+  id             String             @id @default(uuid(7)) @db.Uuid
+  organizationId String             @db.Uuid
+  workspaceId    String             @db.Uuid
+  resourceId     String             @db.Uuid
+  materialId     String             @db.Uuid
   batchNumber    String
-  manufacturedAt DateTime? @db.Timestamptz(3)
-  expiresAt      DateTime? @db.Timestamptz(3)
+  manufacturedOn DateTime?          @db.Date
+  expiryKind     MaterialExpiryKind @default(UNKNOWN)
+  expiresOn      DateTime?          @db.Date
+  revision       Int                @default(1)
   notes          String?
-  archivedAt     DateTime? @db.Timestamptz(3)
-  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+  archivedAt     DateTime?          @db.Timestamptz(3)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
 
   resource  ResourceIdentity   @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
   material  Material           @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
@@ -108,23 +111,33 @@ model MaterialBatch {
   @@unique([materialId, batchNumber])
 }
 
-/// One physical bottle/tube; batch membership is optional, never a stock aggregate.
+enum MaterialExpiryKind {
+  UNKNOWN
+  NONE
+  DATED
+}
+
+/// One independently stored physical item; batch is optional, never a stock aggregate.
 model MaterialInstance {
-  id              String    @id @default(uuid(7)) @db.Uuid
-  organizationId  String    @db.Uuid
-  workspaceId     String    @db.Uuid
-  resourceId      String    @db.Uuid
-  materialId      String    @db.Uuid
-  batchId         String?   @db.Uuid
+  id              String             @id @default(uuid(7)) @db.Uuid
+  organizationId  String             @db.Uuid
+  workspaceId     String             @db.Uuid
+  resourceId      String             @db.Uuid
+  materialId      String             @db.Uuid
+  batchId         String?            @db.Uuid
   code            String
   label           String?
-  initialQuantity Decimal   @db.Decimal(20, 6)
-  expiresAt       DateTime? @db.Timestamptz(3)
-  openedAt        DateTime? @db.Timestamptz(3)
+  initialQuantity Decimal            @db.Decimal(20, 6)
+  manufacturedOn  DateTime?          @db.Date
+  receivedOn      DateTime?          @db.Date
+  expiryKind      MaterialExpiryKind @default(UNKNOWN)
+  expiresOn       DateTime?          @db.Date
+  revision        Int                @default(1)
+  openedAt        DateTime?          @db.Timestamptz(3)
   notes           String?
-  archivedAt      DateTime? @db.Timestamptz(3)
-  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  archivedAt      DateTime?          @db.Timestamptz(3)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
 
   resource ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
   material Material         @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
@@ -135,5 +148,5 @@ model MaterialInstance {
   @@unique([organizationId, resourceId])
   @@unique([workspaceId, code])
   @@index([organizationId, workspaceId, materialId, batchId])
-  @@index([workspaceId, expiresAt])
+  @@index([workspaceId, expiresOn])
 }

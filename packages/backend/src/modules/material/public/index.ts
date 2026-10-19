@@ -1,6 +1,5 @@
-/**
- * TODO: 定义材料模块跨模块公开 API。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
 export { MaterialFactsReader } from './material-facts.reader.js';
+export { MaterialReceiptSource } from './material-receipt.source.js';
+export { calendarDate, expiryValue, materialDateFields } from './material-dates.js';
+export { batchView } from './material-batch.view.js';
+export { materialPermission } from '../contribution/material-authorization.contribution.js';

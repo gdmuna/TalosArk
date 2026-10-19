@@ -18,7 +18,8 @@ import {
     type MaterialWrite,
 } from '@talos-ark/contracts/material';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { AuthorizationError, AuthorizationKernel } from '@/core/authorization/index.js';
+import { AuthorizationKernel } from '@/core/authorization/index.js';
+import { OrganizationWriteKernel } from '@/core/organization-write/index.js';
 import { AuthorizationExtension, PermissionKernel } from '@/core/permission/index.js';
 import { ResourceKernel } from '@/core/resource/index.js';
 import { AuditKernel, type AuditValue } from '@/core/audit/index.js';
@@ -52,7 +53,8 @@ export class MaterialService {
         private readonly policies: PermissionKernel,
         private readonly resources: ResourceKernel,
         private readonly audit: AuditKernel,
-        private readonly actor: AlsContextAdapter
+        private readonly actor: AlsContextAdapter,
+        private readonly writes: OrganizationWriteKernel
     ) {}
 
     private subject() {
@@ -118,29 +120,28 @@ export class MaterialService {
     ): Promise<T> {
         const scope = this.scope(input);
         return materialErrors.run(() =>
-            this.database.transaction.run(
-                async () => {
+            this.writes.run({
+                organizationId: scope.organizationId,
+                authorize: async () => {
                     await this.authorization.require({
                         subject: this.subject(),
                         permissionCode: permission.read,
                         target: scope,
                     });
-                    const rows = await this.database.queryClient.$queryRaw<{ id: string }[]>`
-                SELECT "id" FROM public."Organization" WHERE "id" = ${scope.organizationId}::uuid AND "archivedAt" IS NULL FOR UPDATE`;
-                    if (!rows.length) throw new AuthorizationError({ reason: 'forbidden' });
                     await this.authorization.require({
                         subject: this.subject(),
                         permissionCode,
                         target: materialId ? { kind: 'material', id: materialId } : scope,
                         expectedScope: scope,
                     });
+                },
+                execute: async () => {
                     if (materialId)
                         await this.database.queryClient.$queryRaw`
                 SELECT "id" FROM public."Material" WHERE "id" = ${materialId}::uuid FOR UPDATE`;
                     return work();
                 },
-                { isolationLevel: 'ReadCommitted' }
-            )
+            })
         );
     }
 
@@ -187,6 +188,7 @@ export class MaterialService {
             manufacturer: body.manufacturer || null,
             catalogNumber: body.catalogNumber || null,
             quantityUnit: body.quantityUnit,
+            quantityScale: body.quantityScale,
             aliases: { create: body.aliases.map((name) => ({ name })) },
             identifiers: { create: body.identifiers.map((item) => ({ ...item })) },
         };
@@ -327,7 +329,9 @@ export class MaterialService {
             if (current.archivedAt) throw new MaterialError({ reason: 'archived' });
             if (
                 current._count.instances &&
-                (current.quantityUnit !== body.quantityUnit || current.branch !== body.branch)
+                (current.quantityUnit !== body.quantityUnit ||
+                    current.quantityScale !== body.quantityScale ||
+                    current.branch !== body.branch)
             )
                 throw new MaterialError({ reason: 'instance-locked' });
             await this.classification(

@@ -7,6 +7,9 @@ const select = {
     organizationId: true,
     workspaceId: true,
     name: true,
+    code: true,
+    quantityUnit: true,
+    quantityScale: true,
     archivedAt: true,
 } as const;
 
