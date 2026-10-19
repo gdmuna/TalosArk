@@ -17,6 +17,7 @@ import type {
 import { FILE_OPTIONS, type ResolvedFileOptions } from '../file.options.js';
 import { FileError } from '../file.error.js';
 import { manifestSchema, parseFileInput } from './file.input.js';
+import { FilePurposePolicy } from '../purpose/file-purpose.policy.js';
 
 const assetInclude = { object: true } as const;
 export type FileAssetRow = Prisma.FileAssetGetPayload<{ include: typeof assetInclude }>;
@@ -26,6 +27,7 @@ export class FileRepository {
     constructor(
         private readonly database: DatabaseRuntime,
         private readonly organization: OrganizationContextKernel,
+        private readonly purposes: FilePurposePolicy,
         @Inject(FILE_OPTIONS) private readonly options: ResolvedFileOptions
     ) {}
 
@@ -35,7 +37,7 @@ export class FileRepository {
 
     private async member(actor: FileActor): Promise<void> {
         try {
-            await this.organization.requireMembership(actor.userId, actor.organizationId);
+            await this.organization.requireAccess(actor.userId, actor.organizationId);
         } catch (error) {
             if (OrganizationContextError.is(error, 'forbidden'))
                 throw new FileError({ reason: 'unavailable' });
@@ -46,6 +48,10 @@ export class FileRepository {
     async begin(input: BeginFileUpload): Promise<FileUploadSession> {
         return this.transaction(async () => {
             await this.member(input);
+            if (input.purpose) {
+                const purpose = await this.purposes.authorize(input, input.purpose, 'manage');
+                this.purposes.admit(purpose.definition, input);
+            }
             const id = uuid();
             await this.database.queryClient.fileUploadSession.createMany({
                 skipDuplicates: true,
@@ -54,6 +60,8 @@ export class FileRepository {
                     organizationId: input.organizationId,
                     uploadedById: input.userId,
                     idempotencyKey: input.idempotencyKey,
+                    purposeKey: input.purpose?.purposeKey,
+                    resourceId: input.purpose?.resourceId,
                     filename: input.filename,
                     contentType: input.contentType,
                     expectedSizeBytes: BigInt(input.sizeBytes),
@@ -79,6 +87,8 @@ export class FileRepository {
                 session.contentType !== input.contentType ||
                 session.expectedSizeBytes !== BigInt(input.sizeBytes) ||
                 session.expectedSha256 !== input.sha256 ||
+                session.purposeKey !== (input.purpose?.purposeKey ?? null) ||
+                session.resourceId !== (input.purpose?.resourceId ?? null) ||
                 session.mode.toLowerCase() !== input.mode
             )
                 throw new FileError({ reason: 'conflict' });
@@ -97,6 +107,7 @@ export class FileRepository {
                 },
             });
             if (!row) throw new FileError({ reason: 'unavailable' });
+            await this.purposes.session(input, row);
             return row;
         });
     }
@@ -115,6 +126,7 @@ export class FileRepository {
             if (!row) throw new FileError({ reason: 'unavailable' });
             if (row.status !== 'OPEN') throw new FileError({ reason: 'invalid-state' });
             if (row.expiresAt <= now) throw new FileError({ reason: 'expired' });
+            await this.purposes.session(input, row);
             const claimed = await this.database.queryClient.fileUploadSession.updateMany({
                 where: {
                     id: row.id,
@@ -204,6 +216,15 @@ export class FileRepository {
         return this.transaction(async () => {
             signal.throwIfAborted();
             await this.member(input);
+            const intent = await this.database.queryClient.fileUploadSession.findFirst({
+                where: {
+                    id: input.sessionId,
+                    organizationId: input.organizationId,
+                    uploadedById: input.userId,
+                },
+            });
+            if (!intent) throw new FileError({ reason: 'unavailable' });
+            await this.purposes.session(input, intent);
             await this.lockSession(input.sessionId);
             const session = await this.database.queryClient.fileUploadSession.findUniqueOrThrow({
                 where: { id: input.sessionId },
@@ -253,7 +274,7 @@ export class FileRepository {
                         verifiedAt: { not: null },
                         sha256: { not: null },
                     },
-                    references: { none: { removedAt: null } },
+                    references: { none: {} },
                 },
                 include: assetInclude,
             });
@@ -262,9 +283,48 @@ export class FileRepository {
         });
     }
 
+    completedAsset(input: FileUploadRequest & { assetId: string }): Promise<FileAssetRow> {
+        return this.transaction(async () => {
+            await this.member(input);
+            const row = await this.database.queryClient.fileAsset.findFirst({
+                where: {
+                    id: input.assetId,
+                    organizationId: input.organizationId,
+                    uploadedById: input.userId,
+                    deletedAt: null,
+                    completedUpload: { id: input.sessionId },
+                    object: {
+                        status: 'AVAILABLE',
+                        verifiedAt: { not: null },
+                        sha256: { not: null },
+                    },
+                },
+                include: { ...assetInclude, references: true },
+            });
+            if (!row) throw new FileError({ reason: 'unavailable' });
+            if (row.references.length) {
+                const reference = row.references.find((item) => !item.removedAt);
+                if (!reference) throw new FileError({ reason: 'unavailable' });
+                await this.purposes.authorize(input, reference, 'read');
+            } else if (!row.unboundExpiresAt || row.unboundExpiresAt <= new Date()) {
+                throw new FileError({ reason: 'unavailable' });
+            }
+            return row;
+        });
+    }
+
     async cancel(input: FileUploadRequest): Promise<FileUploadSession> {
         return this.transaction(async () => {
             await this.member(input);
+            const intent = await this.database.queryClient.fileUploadSession.findFirst({
+                where: {
+                    id: input.sessionId,
+                    organizationId: input.organizationId,
+                    uploadedById: input.userId,
+                },
+            });
+            if (!intent) throw new FileError({ reason: 'unavailable' });
+            await this.purposes.session(input, intent);
             await this.lockSession(input.sessionId);
             const row = await this.database.queryClient.fileUploadSession.findFirst({
                 where: {
@@ -411,16 +471,8 @@ export class FileRepository {
         });
     }
 
-    private async retireAsset(
-        id: string,
-        objectId: string,
-        onlyExpired: boolean
-    ): Promise<boolean> {
-        // Binding writers must take the same object -> asset locks before checking lifecycle.
-        await this.database.queryClient
-            .$queryRaw`SELECT "id" FROM "FileObject" WHERE "id" = ${objectId}::uuid FOR UPDATE`;
-        await this.database.queryClient
-            .$queryRaw`SELECT "id" FROM "FileAsset" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    async retireAsset(id: string, objectId: string, onlyExpired: boolean): Promise<boolean> {
+        await this.lockAsset(id, objectId);
         const row = await this.database.queryClient.fileAsset.findUniqueOrThrow({
             where: { id },
             include: { references: { where: { removedAt: null }, select: { id: true } } },
@@ -448,6 +500,13 @@ export class FileRepository {
                 data: { status: 'DELETED', deletedAt: new Date() },
             });
         return true;
+    }
+
+    async lockAsset(id: string, objectId: string): Promise<void> {
+        await this.database.queryClient
+            .$queryRaw`SELECT "id" FROM "FileObject" WHERE "id" = ${objectId}::uuid FOR UPDATE`;
+        await this.database.queryClient
+            .$queryRaw`SELECT "id" FROM "FileAsset" WHERE "id" = ${id}::uuid FOR UPDATE`;
     }
 
     private async lockSession(id: string): Promise<void> {

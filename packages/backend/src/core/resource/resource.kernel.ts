@@ -39,6 +39,23 @@ export class ResourceKernel {
         );
     }
 
+    /** Homogeneous identities; returned IDs have no input ordering semantics. */
+    createBatch(input: CreateResourceIdentity, count: number): Promise<{ id: string }[]> {
+        return this.database.transaction.run(
+            async () => {
+                if (!Number.isInteger(count) || count < 1 || count > 1000)
+                    throw new ResourceError({ reason: 'invalid-input' });
+                const value = parseCreateResource(input);
+                this.providers.require(value.kind);
+                return this.database.queryClient.resourceIdentity.createManyAndReturn({
+                    data: Array.from({ length: count }, () => ({ ...value })),
+                    select: { id: true },
+                });
+            },
+            { propagation: 'mandatory' }
+        );
+    }
+
     describe(input: ResourceLookup): Promise<ResourceDescriptor | null> {
         const value = parseResourceLookup(input);
         return this.database.transaction.run(

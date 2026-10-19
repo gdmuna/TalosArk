@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { StorageService, type PresignedRequest } from '@/infra/storage/index.js';
-import { FileRepository, assetSnapshot } from './internal/file.repository.js';
+import { FileRepository, assetSnapshot, type FileAssetRow } from './internal/file.repository.js';
 import { FileOperations } from './internal/file.operation.js';
 import {
     assetSchema,
@@ -15,15 +15,22 @@ import {
 import { UploadSessionService, uploadSnapshot } from './services/upload-session.service.js';
 import { FileReadinessService } from './services/file-readiness.service.js';
 import { FileCleanupService } from './services/file-cleanup.service.js';
+import { FileBindingService, referenceSnapshot } from './services/file-binding.service.js';
 import { FILE_OPTIONS, type ResolvedFileOptions } from './file.options.js';
 import { FileError } from './file.error.js';
 import type {
     BeginFileUpload,
+    BindFileAsset,
     CompleteFileUpload,
     FileAssetRequest,
     FileAssetSnapshot,
     FileCleanupResult,
     FileDownload,
+    FileReferenceRequest,
+    FileReferenceQuery,
+    FileReferenceSnapshot,
+    FileReferencePage,
+    FileReferenceDownload,
     FilePartRequest,
     FileUploadProgress,
     FileUploadRequest,
@@ -39,6 +46,7 @@ export class FileKernel {
         private readonly uploads: UploadSessionService,
         private readonly readiness: FileReadinessService,
         private readonly cleanupService: FileCleanupService,
+        private readonly bindings: FileBindingService,
         private readonly storage: StorageService,
         @Inject(FILE_OPTIONS) private readonly options: ResolvedFileOptions
     ) {}
@@ -59,7 +67,15 @@ export class FileKernel {
 
     signUpload(input: FilePartRequest): Promise<PresignedRequest> {
         const value = parseFileInput(partSchema, input);
-        return this.run((signal) => this.uploads.sign(value, signal));
+        return this.run(async (signal) => {
+            const request = await this.uploads.sign(value, signal);
+            const current = await this.repository.session(value);
+            if (current.status !== 'OPEN' || current.completionParts)
+                throw new FileError({ reason: 'invalid-state' });
+            if (current.expiresAt <= new Date()) throw new FileError({ reason: 'expired' });
+            signal.throwIfAborted();
+            return request;
+        });
     }
 
     inspectUpload(input: FileUploadRequest): Promise<FileUploadProgress> {
@@ -98,18 +114,10 @@ export class FileKernel {
                 ? Math.floor((row.unboundExpiresAt.getTime() - Date.now()) / 1000)
                 : this.options.downloadTtlSeconds;
             if (ttl < 1) throw new FileError({ reason: 'unavailable' });
-            const name = encodeURIComponent(row.filename).replace(
-                /['()*]/g,
-                (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
-            );
             signal.throwIfAborted();
-            const request = await this.storage.presignDownload(
-                { bucket: row.object.bucket, key: row.object.key },
-                {
-                    expiresIn: Math.min(ttl, this.options.downloadTtlSeconds),
-                    contentDisposition: `attachment; filename="download"; filename*=UTF-8''${name}`,
-                    contentType: 'application/octet-stream',
-                }
+            const request = await this.signDownload(
+                row,
+                Math.min(ttl, this.options.downloadTtlSeconds)
             );
             await this.repository.asset(value);
             signal.throwIfAborted();
@@ -125,10 +133,52 @@ export class FileKernel {
         });
     }
 
+    bind(input: BindFileAsset): Promise<FileReferenceSnapshot> {
+        return this.bindings.bind(input);
+    }
+
+    unbind(input: FileReferenceRequest): Promise<FileReferenceSnapshot> {
+        return this.bindings.unbind(input);
+    }
+
+    listReferences(input: FileReferenceQuery): Promise<FileReferencePage> {
+        return this.bindings.list(input);
+    }
+
+    async readReference(input: FileReferenceRequest): Promise<FileReferenceSnapshot> {
+        return referenceSnapshot(await this.bindings.read(input));
+    }
+
+    downloadReference(input: FileReferenceRequest): Promise<FileReferenceDownload> {
+        return this.run(async (signal) => {
+            const row = await this.bindings.read(input);
+            signal.throwIfAborted();
+            const request = await this.signDownload(row.asset, this.options.downloadTtlSeconds);
+            await this.bindings.read(input);
+            signal.throwIfAborted();
+            return Object.freeze({ reference: referenceSnapshot(row), request });
+        });
+    }
+
     /** Trusted maintenance entry, never an unrestricted user-facing endpoint. No scheduler is implied. */
     cleanup(limit = 50): Promise<FileCleanupResult> {
         const count = parseFileInput(z.number().int().min(1).max(200), limit);
         return this.run((signal) => this.cleanupService.run(count, signal));
+    }
+
+    private signDownload(row: FileAssetRow, expiresIn: number): Promise<PresignedRequest> {
+        const name = encodeURIComponent(row.filename).replace(
+            /['()*]/g,
+            (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+        );
+        return this.storage.presignDownload(
+            { bucket: row.object.bucket, key: row.object.key },
+            {
+                expiresIn,
+                contentDisposition: `attachment; filename="download"; filename*=UTF-8''${name}`,
+                contentType: 'application/octet-stream',
+            }
+        );
     }
 
     private run<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {

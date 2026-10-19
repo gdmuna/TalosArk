@@ -5,6 +5,8 @@ export interface ResourceLookup {
     readonly resourceId: string;
     readonly subject: PermissionSubject;
     readonly expectedScope?: PermissionScope;
+    /** Selected operation context; providers must validate its current membership and grants. */
+    readonly accessContext?: PermissionScope;
 }
 
 export interface ResourceProvider {

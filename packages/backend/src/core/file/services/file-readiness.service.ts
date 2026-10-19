@@ -25,7 +25,7 @@ export class FileReadinessService {
         const manifest = this.validateManifest(session, input.parts);
         if (session.status === 'COMPLETED' && session.assetId)
             return assetSnapshot(
-                await this.repository.asset({ ...input, assetId: session.assetId })
+                await this.repository.completedAsset({ ...input, assetId: session.assetId })
             );
         return this.uploads.withLease(input, signal, async (current, token) => {
             await this.prepareSource(current, token, manifest, signal);

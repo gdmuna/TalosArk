@@ -21,6 +21,7 @@ model ResourceIdentity {
   alerts           Alert[]
   notifications    Notification[]
   fileReferences   FileReference[]
+  fileUploads      FileUploadSession[]
   auditReferences  AuditResourceReference[]
 
   @@unique([organizationId, id])

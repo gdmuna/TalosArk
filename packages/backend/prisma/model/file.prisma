@@ -55,6 +55,8 @@ model FileUploadSession {
   organizationId    String           @db.Uuid
   uploadedById      String           @db.Uuid
   idempotencyKey    String           @db.Uuid
+  purposeKey        String?
+  resourceId        String?          @db.Uuid
   filename          String
   contentType       String
   expectedSizeBytes BigInt
@@ -74,16 +76,18 @@ model FileUploadSession {
   createdAt         DateTime         @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
-  asset        FileAsset?   @relation("CompletedFileUpload", fields: [organizationId, assetId], references: [organizationId, id], onDelete: Restrict)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  uploadedBy   User              @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  asset        FileAsset?        @relation("CompletedFileUpload", fields: [organizationId, assetId], references: [organizationId, id], onDelete: Restrict)
   objects      FileObject[]
+  resource     ResourceIdentity? @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
 
   @@unique([organizationId, id])
   @@unique([organizationId, uploadedById, idempotencyKey])
   @@unique([organizationId, assetId])
   @@unique([stagingBucket, stagingKey])
   @@index([status, expiresAt, lastCleanupAt, id])
+  @@index([organizationId, resourceId])
 }
 
 enum FileUploadMode {
@@ -113,7 +117,7 @@ model FileReference {
   resource ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
 
   @@unique([assetId, resourceId, purposeKey])
-  @@index([organizationId, resourceId, purposeKey, removedAt, sortOrder])
+  @@index([organizationId, resourceId, purposeKey, removedAt, sortOrder, id])
 }
 
 enum FileObjectStatus {

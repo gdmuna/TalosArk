@@ -21,6 +21,9 @@ export function uploadSnapshot(session: FileUploadSession): FileUploadSnapshot {
                   ? 'finalizing'
                   : (session.status.toLowerCase() as FileUploadSnapshot['status']),
         mode: session.mode === 'SINGLE' ? 'single' : 'multipart',
+        filename: session.filename,
+        contentType: session.contentType,
+        sizeBytes: session.expectedSizeBytes.toString(),
         expiresAt: session.expiresAt,
         assetId: session.assetId,
         partSizeBytes: session.partSizeBytes,
@@ -34,6 +37,10 @@ export function uploadSnapshot(session: FileUploadSession): FileUploadSnapshot {
                   )
               )
             : null,
+        purpose:
+            session.purposeKey && session.resourceId
+                ? Object.freeze({ purposeKey: session.purposeKey, resourceId: session.resourceId })
+                : null,
     });
 }
 

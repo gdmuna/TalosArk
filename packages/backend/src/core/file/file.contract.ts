@@ -6,6 +6,7 @@ export interface FileActor {
 }
 
 export interface BeginFileUpload extends FileActor {
+    readonly purpose?: FilePurposeTarget;
     readonly idempotencyKey: string;
     readonly filename: string;
     /** A declaration, not a detected or security-verified media type. */
@@ -17,6 +18,7 @@ export interface BeginFileUpload extends FileActor {
 
 export interface FileUploadRequest extends FileActor {
     readonly sessionId: string;
+    readonly expectedPurpose?: FilePurposeTarget;
 }
 
 export interface FilePartRequest extends FileUploadRequest {
@@ -36,15 +38,57 @@ export interface FileAssetRequest extends FileActor {
     readonly assetId: string;
 }
 
+export interface FilePurposeTarget {
+    readonly purposeKey: string;
+    readonly resourceId: string;
+}
+
+export interface BindFileAsset extends FileActor, FilePurposeTarget {
+    readonly assetId: string;
+}
+
+export interface FileReferenceRequest extends FileActor, FilePurposeTarget {
+    readonly referenceId: string;
+}
+
+export interface FileReferenceQuery extends FileActor, FilePurposeTarget {
+    readonly limit?: number;
+    readonly cursor?: string;
+}
+
+export interface FileReferenceSnapshot {
+    readonly id: string;
+    readonly resourceId: string;
+    readonly purposeKey: string;
+    readonly sortOrder: number;
+    readonly createdAt: Date;
+    readonly removedAt: Date | null;
+    readonly asset: FileAssetSnapshot;
+}
+
+export interface FileReferencePage {
+    readonly items: readonly FileReferenceSnapshot[];
+    readonly nextCursor: string | null;
+}
+
+export interface FileReferenceDownload {
+    readonly reference: FileReferenceSnapshot;
+    readonly request: PresignedRequest;
+}
+
 export interface FileUploadSnapshot {
     readonly id: string;
     readonly status: 'open' | 'finalizing' | 'completed' | 'cancelled' | 'expired';
     readonly mode: 'single' | 'multipart';
+    readonly filename: string;
+    readonly contentType: string;
+    readonly sizeBytes: string;
     readonly expiresAt: Date;
     readonly assetId: string | null;
     readonly partSizeBytes: number | null;
     readonly partCount: number;
     readonly completionParts: readonly FileUploadPart[] | null;
+    readonly purpose: FilePurposeTarget | null;
 }
 
 export interface FileAssetSnapshot {

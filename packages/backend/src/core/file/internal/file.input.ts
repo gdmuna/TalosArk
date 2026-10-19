@@ -8,10 +8,34 @@ const filenamePattern = /^[^\x00-\x1f\x7f/\\]+$/;
 // eslint-disable-next-line no-control-regex -- Provider ETags are opaque printable protocol values.
 const etagPattern = /^[^\x00-\x1f\x7f]+$/;
 export const actorFields = { organizationId: id, userId: id };
-export const sessionSchema = z.strictObject({ ...actorFields, sessionId: id });
 export const assetSchema = z.strictObject({ ...actorFields, assetId: id });
+export const purposeTargetSchema = z.strictObject({
+    purposeKey: z
+        .string()
+        .max(100)
+        .regex(/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/),
+    resourceId: id,
+});
+export const sessionSchema = z.strictObject({
+    ...actorFields,
+    sessionId: id,
+    expectedPurpose: purposeTargetSchema.optional(),
+});
+export const bindingSchema = assetSchema.extend(purposeTargetSchema.shape);
+export const referenceSchema = z.strictObject({
+    ...actorFields,
+    ...purposeTargetSchema.shape,
+    referenceId: id,
+});
+export const referenceQuerySchema = z.strictObject({
+    ...actorFields,
+    ...purposeTargetSchema.shape,
+    limit: z.number().int().min(1).max(100).default(30),
+    cursor: z.string().min(1).max(1024).optional(),
+});
 export const beginSchema = z.strictObject({
     ...actorFields,
+    purpose: purposeTargetSchema.optional(),
     idempotencyKey: id,
     filename: z
         .string()
@@ -58,7 +82,14 @@ export function parseFileInput<T>(schema: z.ZodType<T>, input: unknown): T {
                         organizationId: {},
                         userId: {},
                         sessionId: {},
+                        expectedPurpose: {},
                         assetId: {},
+                        resourceId: {},
+                        purposeKey: {},
+                        referenceId: {},
+                        purpose: {},
+                        limit: { scalar: true },
+                        cursor: {},
                         filename: {},
                         contentType: {},
                         sizeBytes: { scalar: true },

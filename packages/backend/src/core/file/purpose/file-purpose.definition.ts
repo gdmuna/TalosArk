@@ -1,5 +1,32 @@
-/**
- * TODO: 定义业务文件用途定义扩展契约。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+import type { ResourceDescriptor, ResourceKind } from '@/core/resource/index.js';
+import type { FileActor, FileReferenceSnapshot } from '../file.contract.js';
+
+export interface FilePurposeDefinition {
+    readonly key: string;
+    readonly resourceKind: ResourceKind;
+    readonly maxSizeBytes: number;
+    readonly formats: Readonly<Record<string, readonly string[]>>;
+}
+
+export interface FilePurposeAccess {
+    readonly actor: FileActor;
+    readonly resourceId: string;
+    readonly mode: 'read' | 'manage';
+}
+
+export interface FilePurposeChange {
+    readonly actor: FileActor;
+    readonly resource: ResourceDescriptor;
+    readonly reference: FileReferenceSnapshot;
+    readonly action: 'bind' | 'unbind';
+}
+
+export interface FilePurposeProvider {
+    authorize(input: FilePurposeAccess): Promise<ResourceDescriptor | null>;
+    recordChange(input: FilePurposeChange): Promise<void>;
+}
+
+export interface RegisteredFilePurpose {
+    readonly definition: FilePurposeDefinition;
+    readonly provider: FilePurposeProvider;
+}

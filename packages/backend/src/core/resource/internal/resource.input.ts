@@ -24,6 +24,7 @@ const lookupSchema = z.strictObject({
     resourceId: id,
     subject,
     expectedScope: scope.optional(),
+    accessContext: scope.optional(),
 });
 
 function parse<T>(schema: z.ZodType<T>, input: unknown): T {
@@ -39,6 +40,7 @@ function parse<T>(schema: z.ZodType<T>, input: unknown): T {
                         kind: { label: 'kind' },
                         subject: { label: 'subject' },
                         expectedScope: { label: 'expectedScope' },
+                        accessContext: { label: 'accessContext' },
                     },
                 }),
             }
@@ -57,5 +59,6 @@ export function parseResourceLookup(input: ResourceLookup): ResourceLookup {
         ...parsed,
         subject: Object.freeze(parsed.subject),
         expectedScope: parsed.expectedScope && Object.freeze(parsed.expectedScope),
+        accessContext: parsed.accessContext && Object.freeze(parsed.accessContext),
     });
 }

@@ -1,5 +1,7 @@
-/**
- * TODO: 定义文件用途子域导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { FilePurposeExtension } from './file-purpose.decorator.js';
+export type {
+    FilePurposeDefinition,
+    FilePurposeProvider,
+    FilePurposeAccess,
+    FilePurposeChange,
+} from './file-purpose.definition.js';
