@@ -1,0 +1,123 @@
+import {
+    inject,
+    onScopeDispose,
+    ref,
+    shallowRef,
+    watch,
+    type InjectionKey,
+    type Ref,
+    computed,
+} from 'vue';
+import { AuthenticationError, HttpError } from '@/platform/http';
+import { ZodError } from 'zod';
+import { useWorkspaceStore } from '@/module/workspace';
+import type { InventoryDataSource, InventoryScope } from '../data/source';
+
+export const inventoryDataSourceKey: InjectionKey<InventoryDataSource> =
+    Symbol('inventoryDataSource');
+export function useInventoryDataSource() {
+    return inject(inventoryDataSourceKey, null);
+}
+
+export function inventoryErrorMessage(cause: unknown) {
+    if (cause instanceof ZodError) return '请检查搜索条件、数量和日期格式';
+    if (
+        cause instanceof AuthenticationError ||
+        (cause instanceof HttpError && cause.status === 401)
+    )
+        return '登录会话已改变，请重新加载';
+    if (!(cause instanceof HttpError))
+        return cause instanceof Error ? cause.message : '库存操作失败';
+    const messages: Record<string, string> = {
+        INVENTORY_CONFLICT: '库存资料已改变，请重新加载后再提交',
+        INVENTORY_EXPIRY_CONFIRMATION_REQUIRED: '该实物已过期，请确认风险后再提交',
+        INVENTORY_CODE_CONFLICT: '实例编号已存在，请更换编号',
+        INVENTORY_INVALID_INPUT: '请检查数量精度、必填资料和日期',
+        INVENTORY_INVALID_STATE: '当前材料、批次或位置的状态不允许登记，请重新选择',
+        INVENTORY_RESULT_UNAVAILABLE: '原操作回执暂不可用，请核对库存，不要另建请求重复登记',
+        MATERIAL_BATCH_CONFLICT: '该材料已存在此批号，请选择已有批次',
+        MATERIAL_CONFLICT: '批次资料已改变，请重新加载后再提交',
+        MATERIAL_INVALID_INPUT: '生产日期不能晚于有效期，请检查批次日期',
+    };
+    return (
+        messages[cause.code ?? ''] ??
+        (cause.status === 403
+            ? '当前账户无权操作此库存范围'
+            : cause.status === 404
+              ? '库存实例或流水不存在，或当前账户无权访问'
+              : cause.kind === 'protocol'
+                ? '响应信息不一致，请重新加载'
+                : '库存服务暂不可用，请重试')
+    );
+}
+
+export function useInventoryScope() {
+    const workspace = useWorkspaceStore();
+    return computed<InventoryScope | null>(() =>
+        workspace.current
+            ? {
+                  organizationId: workspace.current.organizationId,
+                  workspaceId: workspace.current.id,
+              }
+            : null
+    );
+}
+
+export function useInventoryRead<T>(
+    key: Ref<string>,
+    read: (scope: InventoryScope, signal: AbortSignal) => Promise<T>
+) {
+    const source = useInventoryDataSource();
+    const scope = useInventoryScope();
+    const data = shallowRef<T>();
+    const loading = ref(false);
+    const error = ref('');
+    let request: AbortController | undefined;
+    let disposed = false;
+    const refresh = async () => {
+        if (disposed) return false;
+        request?.abort();
+        const current = new AbortController();
+        request = current;
+        loading.value = !!key.value;
+        error.value = '';
+        if (!source || !scope.value || !key.value) {
+            data.value = undefined;
+            loading.value = false;
+            if (!source && key.value) error.value = '库存数据源未连接';
+            return false;
+        }
+        try {
+            const result = await read(scope.value, current.signal);
+            current.signal.throwIfAborted();
+            data.value = result;
+            return true;
+        } catch (cause) {
+            if (!current.signal.aborted) {
+                if (
+                    cause instanceof AuthenticationError ||
+                    (cause instanceof HttpError &&
+                        (cause.kind === 'protocol' || [401, 403, 404].includes(cause.status ?? 0)))
+                )
+                    data.value = undefined;
+                error.value = inventoryErrorMessage(cause);
+            }
+            return false;
+        } finally {
+            if (!current.signal.aborted) loading.value = false;
+        }
+    };
+    watch(
+        [key, scope],
+        () => {
+            data.value = undefined;
+            void refresh();
+        },
+        { immediate: true, deep: true, flush: 'sync' }
+    );
+    onScopeDispose(() => {
+        disposed = true;
+        request?.abort();
+    });
+    return { data, loading, error, refresh, source, scope };
+}
