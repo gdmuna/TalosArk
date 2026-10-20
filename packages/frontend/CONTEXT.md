@@ -436,8 +436,32 @@ The page-private position picker owns facility/cursor UI. Material reader refres
 join an active request after revision invalidation; batch editors explicitly recover
 latest facts after conflicts. Cell Bank and its professional Batch retain separate
 skeletons from the ordinary source-batch workspace.
-Container relocation confirmation and real joined Web acceptance remain separate
-work. See `docs/remediation/2026-10-15/r04/inventory-p09-acceptance-2026-10-19.md`.
+P09's occupied-container relocation is composed in `page/inventory/component`,
+reused by storage browsing, facility detail and storage governance. Facility's
+browser offers only a node-action slot; inventory does not import facility.
+The inventory adapter validates the existing preview/execute/operation contracts.
+Its relocation store persists the exact command and receipt per account/tab,
+not the sensitive impact item list. UI changes invalidate the impact confirmation;
+unknown outcomes retain the original key, confirmed outcomes recover with GET only.
+The Web receive/relocation and recovery evidence, and the unverified multi-workspace,
+Tauri and deployment boundaries, are recorded in
+`../../docs/product/mvp-p09-p10-acceptance-2026-10-20.md` and
+`../../docs/product/mvp-p09-relocation-acceptance-2026-10-20.md`.
+
+P11 adds real consume/transfer/adjust/dispose commands to ledger row actions and
+stock detail. Per-stock server actions determine availability; pages compose the
+facility position picker without an inventory-to-facility module dependency.
+The action store persists one exact pending command per workspace in account-keyed
+tab session storage before dispatch. Unknown results survive same-tab reload and
+replay the original body/key; known receipts recover using reads only. A definite
+initial business rejection preserves the draft and requires explicit stock reload
+before a new command. Reload clears old target/confirmation. Synchronization reads
+the acted stock and operation-filtered journal before acknowledging the receipt,
+even when recovery is opened from another stock detail. Account changes/explicit
+logout invalidate old requests and clear the old account state. History presents
+restricted locations distinctly from absent locations. Real Web flows and dialog
+viewport checks are recorded in ../../docs/product/mvp-p11-acceptance-2026-10-20.md;
+they do not constitute Tauri or whole-application mobile acceptance.
 
 P10's material-owned attachment adapter uses the published schema and current
 material read/update permissions. The file view provides cursor lists, metadata,
@@ -482,6 +506,31 @@ own viewport; nested areas do not inherit a parent's clearance through deep CSS.
 Horizontal callers still supply a horizontal ScrollBar. DataTable retains its
 native-X / ScrollArea-Y composition, without ScrollSurface decoration.
 See `docs/design/frontend-f07-f11-2026-10-13.md` for implementation and verification.
+
+R05 reorganizes material and inventory pages around the current HTTP contracts:
+full-width detail identity/navigation, centered 1280px detail bodies, primary
+facts with supporting stock/location/movement context, and server-paged related
+inventory. Inventory owns the shared stock inspector and movement list; pages
+compose them without new write APIs or fixture fallbacks. Receipt retains its
+existing command/recovery owner but uses a Sheet with fixed header/actions and
+an independently scrolling form. Facility's existing storage browser adds grid
+coordinates, availability legend and keyboard focus movement; selection remains
+in the node query. Single-item transfer remains P11, not P09 container relocation.
+Visual checks and remaining gates are recorded in
+`docs/remediation/2026-10-15/r05/README.md` and its dated acceptance record.
+
+R05's follow-up adds a material-owned immediate Inspector shared by overview and
+list, and a detail-private MaterialInventoryPanel composing paged batch choices,
+URL batch context, current batch facts and filtered server inventory counts.
+No reserved quantity or professional Bank projection is inferred. Material and
+position entry points can prefill the existing receipt Sheet; a pending receipt's
+original scope/body/key always takes priority. Position selection reads the current
+topology/node, clears on read failures/loading and displays the full authorized path.
+Facility exposes a node-content slot; inventory page composition reads position
+stock without introducing a facility-to-inventory dependency. Parent layout refresh
+follows receipt acknowledgment and closure, so the form cannot unmount prematurely.
+Material editing provides first-error focus and explicit discard confirmation;
+published field limits and the existing write owner remain authoritative.
 
 ## Design SSOT
 

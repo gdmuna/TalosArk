@@ -775,8 +775,33 @@ test.local tables; parallel file schema changes were not synchronized. Twelve
 focused real-PG/synthetic-HTTP groups passed and synthetic records were removed.
 Frontend pages, JWT/Cookie Web acceptance and Tauri remain pending. No permanent
 test files were added. Interfaces, configuration, schema and evidence:
-docs/design/mvp-p09-2026-10-19.md. P11 individual movements/quantity changes and P13
-multi-receipt behavior remain unimplemented.
+docs/design/mvp-p09-2026-10-19.md. Later P09 Web/relocation acceptance is recorded in
+../../docs/product/mvp-p09-relocation-acceptance-2026-10-20.md. P13 multi-receipt
+behavior remains unimplemented.
+
+## Inventory actions (P11)
+
+InventoryActionService implements consume, transfer, adjust and dispose through
+the existing organization-write and idempotency protocols. Stock CAS, Placement,
+journal, audit and durable receipt commit together. The pure domain planner owns
+quantity/state transitions; InventoryOperationService owns shared receipt codecs,
+current authorization and location-safe receipt projection. No new lock or retry
+framework is introduced. Consumption to zero retains Placement; explicit disposal
+releases it and preserves identity/history. Adjustment sets actual nonnegative
+quantity without rewriting the initial quantity; disposed stock cannot revive.
+
+Actions require independent permissions. Adjustment does not require facility
+read/use, but all four new writes check the effective source lifecycle through
+Facility's trusted transaction-mandatory reader. Disabled sources also block new
+P09 stocked relocation. Completed requests replay under current authorization
+without reapplying version, stock state, emptiness or lifecycle preconditions.
+Current and historical location projections use current facility read authority;
+hidden receipt node IDs become null without changing the durable result.
+
+Only two transaction enum values and the active-state quantity CHECK were applied
+to talos-ark_backend_test. Focused real HTTP/PostgreSQL and Web acceptance passed;
+Tauri, deployment and high-volume performance are unverified. No permanent test
+scripts were added. See ../../docs/product/mvp-p11-acceptance-2026-10-20.md.
 
 ## MVP database vocabulary
 
@@ -809,6 +834,9 @@ multi-receipt behavior remain unimplemented.
 - Inventory receipt registers one physical item at an authorized empty position.
   Correcting descriptive facts is distinct from changing quantity or location;
   a receipt's initial quantity and committed journal are not rewritten by editing.
+- Consumption records the amount actually used from an existing physical item.
+  The MVP excludes whole-item borrowing; consumption itself does not transfer
+  custody, move the item or rewrite its initial registered quantity.
 - Facility is an organization-owned storage place, such as a room, storeroom
   or managed storage area, with a designated management workspace.
 - StorageTopology is a facility's storage layout. StorageNode represents a
@@ -819,8 +847,13 @@ multi-receipt behavior remain unimplemented.
 - Storage relocation moves a container subtree within one organization and may
   change the facility governing its structure. It does not transfer organization
   ownership or the workspace ownership of the material and stock it contains.
-- ApprovalRequest grants eligibility to execute. Approval does not reserve or
-  change stock; execution confirms an InventoryTransaction.
+- ApprovalRequest records a proposed stock action, its applicant and one selected
+  qualified approver in the same workspace; the applicant cannot self-approve.
+- Approval is a decision granting eligibility to execute only that request, not
+  general direct-action permission. It does not reserve or change stock.
+- Approved execution applies the approved intent to actual stock and records an
+  InventoryTransaction. Direct execution and approved execution have separately
+  granted authority; both remain subject to current business conditions.
 - Task is ordinary work. Approval todos and overdue presentation states are
   derived queries, not a second writable workflow or stored OVERDUE status.
 - ResourceIdentity bridges attachments, audit and other cross-cutting references.
