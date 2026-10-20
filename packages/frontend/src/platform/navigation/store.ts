@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, reactive, shallowRef } from 'vue';
 import { defineStore } from 'pinia';
-import type { HistoryState, Router } from 'vue-router';
+import type { HistoryState, RouteLocationPathRaw, Router } from 'vue-router';
 
 export type NavigationOrigin = { to: string; label: string; position: number };
 function readOrigin(value: HistoryState[string] | undefined): NavigationOrigin | null {
@@ -60,6 +60,13 @@ export const useNavigationStore = defineStore('browser-navigation', () => {
     const forward = () => router.forward();
     const lastLocation = (path: string) => locations.get(path) ?? path;
     const setPageLabel = (path: string, label: string) => labels.set(path, label);
+    function pushPreservingOrigin(to: RouteLocationPathRaw) {
+        const source = origin.value;
+        return router.push({
+            ...to,
+            state: { ...to.state, navigationOrigin: source ? { ...source } : null },
+        });
+    }
     function returnTo(source: NavigationOrigin | null, fallback: string) {
         const position = router.options.history.state.position;
         if (source && typeof position === 'number' && position > source.position) {
@@ -78,6 +85,7 @@ export const useNavigationStore = defineStore('browser-navigation', () => {
         lastLocation,
         origin,
         setPageLabel,
+        pushPreservingOrigin,
         returnTo,
     };
 });

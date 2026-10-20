@@ -131,10 +131,9 @@ function openMember(binding: Binding) {
     });
 }
 function switchRole(next: string) {
-    void router.push({
+    void navigation.pushPreservingOrigin({
         path: `/main/management/role/${next}`,
         query: { ...route.query, organization: organizationId.value },
-        state: { navigationOrigin: navigation.origin ? { ...navigation.origin } : null },
     });
 }
 async function save() {

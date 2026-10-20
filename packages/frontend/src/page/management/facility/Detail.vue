@@ -72,10 +72,9 @@ async function search(query: string, page: number, signal: AbortSignal) {
 }
 function select(next: string) {
     stateTarget.value = undefined;
-    void router.push({
+    void navigation.pushPreservingOrigin({
         path: `${facilityPath}/${encodeURIComponent(next)}`,
         query: { organization: scope.value.organizationId, view: route.query.view },
-        state: { navigationOrigin: navigation.origin ? { ...navigation.origin } : null },
     });
 }
 async function changeState() {

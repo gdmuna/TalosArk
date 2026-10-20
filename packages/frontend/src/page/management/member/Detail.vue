@@ -174,10 +174,9 @@ async function saveRoles() {
     }
 }
 function switchMember(next: string) {
-    void router.push({
+    void navigation.pushPreservingOrigin({
         path: `/main/management/member/${next}`,
         query: { ...route.query, organization: organizationId.value },
-        state: { navigationOrigin: navigation.origin ? { ...navigation.origin } : null },
     });
 }
 function openWorkspace(row: Relation) {

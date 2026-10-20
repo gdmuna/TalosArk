@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { provideBreadcrumbs, type BreadcrumbEntry } from '@/component/breadcrumb';
 import { useNavigationStore } from '@/platform/navigation';
 import { useWorkbenchStore, type Resource } from '@/module/workbench';
@@ -15,7 +15,6 @@ export function useResourceBreadcrumb(options: {
     parents?: () => BreadcrumbEntry[];
 }) {
     const route = useRoute();
-    const router = useRouter();
     const navigation = useNavigationStore();
     const workbench = useWorkbenchStore();
     const listPath = `/main/${options.domain}/${options.domain === 'inventory' ? 'ledger' : 'list'}`;
@@ -34,12 +33,9 @@ export function useResourceBreadcrumb(options: {
                 ),
                 onSelect: (resource: Resource) => {
                     const currentPath = `/main/${options.domain}/detail/${encodeURIComponent(options.resourceId.value)}`;
-                    return router.push({
+                    return navigation.pushPreservingOrigin({
                         path: `/main/${options.domain}/detail/${encodeURIComponent(resource.id)}`,
                         query: route.path === currentPath ? { view: route.query.view } : {},
-                        state: {
-                            navigationOrigin: navigation.origin ? { ...navigation.origin } : null,
-                        },
                     });
                 },
             },

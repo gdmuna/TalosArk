@@ -124,13 +124,12 @@ function openMember(memberId: string) {
     });
 }
 function switchWorkspace(next: string) {
-    void router.push({
+    void navigation.pushPreservingOrigin({
         path: `/main/management/workspace/${next}`,
         query: {
             view: route.query.view,
             organization: workspace.workspaces.find((item) => item.id === next)?.organizationId,
         },
-        state: { navigationOrigin: navigation.origin ? { ...navigation.origin } : null },
     });
 }
 async function save() {
