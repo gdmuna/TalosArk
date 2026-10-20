@@ -7,7 +7,7 @@ import { useWorkbenchOverview } from '../../model/overview';
 import { workbenchPage } from '../../navigation';
 import OverviewSection from './OverviewSection.vue';
 
-const { material, inventory, facilities } = useWorkbenchOverview();
+const { material, inventory, facilities, approvalSummary, approvalRequests } = useWorkbenchOverview();
 const summaries = computed(() => [
     {
         id: 'material',
@@ -40,11 +40,20 @@ const summaries = computed(() => [
         color: 'bg-success-soft text-success-soft-foreground',
     },
 ]);
-const queues = [
-    { ...workbenchPage.task, icon: ListTodo, detail: '任务服务尚未接入' },
-    { ...workbenchPage.approval, icon: ClipboardCheck, detail: '审批服务尚未接入' },
+const queues = computed(() => [
+    {
+        ...workbenchPage.task,
+        label: '待执行申请',
+        icon: ListTodo,
+        detail: approvalSummary.data ? `${approvalSummary.data.pendingExecution} 条明细待执行` : '暂不可用',
+    },
+    {
+        ...workbenchPage.approval,
+        icon: ClipboardCheck,
+        detail: approvalSummary.data ? `${approvalSummary.data.pendingReview} 份申请待审批` : '暂不可用',
+    },
     { ...workbenchPage.exception, icon: Bell, detail: '提醒服务尚未接入' },
-];
+]);
 const summaryStatus = (status: string) =>
     status === 'loading' ? '加载中' : status === 'forbidden' ? '无查看权限' : '暂不可用';
 </script>
@@ -76,6 +85,33 @@ const summaryStatus = (status: string) =>
 
             <div class="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
                 <div class="min-w-0 space-y-7">
+                    <OverviewSection
+                        title="待我审批"
+                        :status="approvalRequests.status"
+                        :error="approvalRequests.error"
+                        :empty="!approvalRequests.data?.items.length"
+                        empty-label="暂无待审批申请"
+                        :path="workbenchPage.approval.path"
+                        @refresh="approvalRequests.refresh"
+                    >
+                        <ul class="divide-y border-y">
+                            <li v-for="item in approvalRequests.data?.items" :key="item.id">
+                                <RouterLink
+                                    :to="`/main/workbench/request/${item.id}`"
+                                    class="flex items-center gap-3 px-2.5 py-3 transition-colors hover:bg-accent"
+                                >
+                                    <ClipboardCheck class="size-4 shrink-0 text-primary" aria-hidden="true" />
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate font-medium">{{ item.title }}</span>
+                                        <span class="mt-1 block text-xs text-muted-foreground">
+                                            {{ item.requesterName }} · {{ item.totalLines }} 件实物
+                                        </span>
+                                    </span>
+                                    <ArrowRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                </RouterLink>
+                            </li>
+                        </ul>
+                    </OverviewSection>
                     <OverviewSection
                         title="最近更新的材料"
                         :status="material.status"

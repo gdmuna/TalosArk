@@ -16,7 +16,7 @@ import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { Checkbox } from '@/ui/checkbox';
-import InventoryPositionPicker from './InventoryPositionPicker.vue';
+import { InventoryPositionPicker } from '@/module/inventory';
 
 const props = defineProps<{
     scope: InventoryScope | null;

@@ -27,6 +27,11 @@ import {
 } from '@/module/inventory';
 import { createApplicationBootstrap } from './bootstrap';
 import { workbenchOverviewDataSourceKey } from '@/module/workbench';
+import {
+    createHttpApprovalDataSource,
+    approvalDataSourceKey,
+    useApprovalOperationStore,
+} from '@/module/approval';
 import { applicationBootstrapKey } from './layout/startup/context';
 
 import '@/style.css';
@@ -50,6 +55,10 @@ const materialAttachment = useMaterialAttachmentStore(pinia);
 materialAttachment.connect(materialSource);
 const facilitySource = createHttpFacilityDataSource(http);
 const inventorySource = createHttpInventoryDataSource(http);
+const approvalSource = createHttpApprovalDataSource(http);
+const approvalOperation = useApprovalOperationStore(pinia);
+approvalOperation.connect(approvalSource);
+app.provide(approvalDataSourceKey, approvalSource);
 const inventoryReceipt = useInventoryReceiptStore(pinia);
 inventoryReceipt.connect(inventorySource);
 const inventoryRelocation = useInventoryRelocationStore(pinia);
@@ -66,6 +75,9 @@ app.provide(workbenchOverviewDataSourceKey, {
         inventorySource.list(scope, { page: 1, pageSize: 5, q: '' }, signal),
     facilities: (scope, signal) =>
         facilitySource.list(scope, { page: 1, pageSize: 5, state: 'active' }, signal),
+    approvalSummary: (scope, signal) => approvalSource.summary(scope, signal),
+    approvalRequests: (scope, signal) =>
+        approvalSource.list(scope, { view: 'review', page: 1, pageSize: 5 }, signal),
 });
 const bootstrap = createApplicationBootstrap(
     pinia,
@@ -97,6 +109,7 @@ const stopSessionWatch = watch(
         inventoryReceipt.connect(inventorySource, operationOwner);
         inventoryRelocation.connect(inventorySource, operationOwner);
         inventoryAction.connect(inventorySource, operationOwner);
+        approvalOperation.connect(approvalSource, operationOwner);
         materialAttachment.connect(materialSource, operationOwner);
         bootstrap.reset();
         const route = router.currentRoute.value;

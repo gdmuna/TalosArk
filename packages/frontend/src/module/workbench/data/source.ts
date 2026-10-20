@@ -3,8 +3,11 @@ import type { MaterialOverview, MaterialScope } from '@talos-ark/contracts/mater
 import type { StockPageSchema } from '@talos-ark/contracts/inventory';
 import type { FacilityPageSchema } from '@talos-ark/contracts/facility';
 import type { z } from 'zod';
+import type { ApprovalSummary, ApprovalRequestPage } from '@talos-ark/contracts/approval';
 
 export interface WorkbenchOverviewDataSource {
+    approvalSummary?(scope: MaterialScope, signal: AbortSignal): Promise<ApprovalSummary>;
+    approvalRequests?(scope: MaterialScope, signal: AbortSignal): Promise<ApprovalRequestPage>;
     material?(scope: MaterialScope, signal: AbortSignal): Promise<MaterialOverview>;
     inventory?(scope: MaterialScope, signal: AbortSignal): Promise<z.infer<typeof StockPageSchema>>;
     facilities?(

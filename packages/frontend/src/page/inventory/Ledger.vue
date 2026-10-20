@@ -1,7 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { CalendarDays, Eye, MapPin, Package, Tag, Plus, Minus, ArrowRightLeft, Scale, Archive } from '@lucide/vue';
+import {
+    CalendarDays,
+    Eye,
+    MapPin,
+    Package,
+    Tag,
+    Plus,
+    Minus,
+    ArrowRightLeft,
+    Scale,
+    Archive,
+    ClipboardCheck,
+} from '@lucide/vue';
+import { useApprovalRead } from '@/module/approval';
 import type { PaginationState } from '@tanstack/vue-table';
 import type { InventoryQuery, InventoryStock, InventoryActionKind } from '@/module/inventory';
 import {
@@ -18,7 +31,12 @@ import {
     useInventoryScope,
     InventoryStockInspector,
 } from '@/module/inventory';
-import { DataTable, type DataTableAction, type DataTableColumn } from '@/component/data-table';
+import {
+    DataTable,
+    type DataTableAction,
+    type DataTableColumn,
+    type DataTableBulkAction,
+} from '@/component/data-table';
 import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
 import ResourcePage from '../resource/ResourcePage.vue';
@@ -31,6 +49,33 @@ const router = useRouter();
 const route = useRoute();
 const source = useInventoryDataSource();
 const scope = useInventoryScope();
+const approval = useApprovalRead(
+    computed(() => 'context'),
+    (source, current, signal) => source.context(current, signal)
+);
+const checked = ref<string[]>([]);
+function apply(type: 'CONSUME' | 'TRANSFER', items: InventoryStock[]) {
+    void router.push({ path: '/main/workbench/request/new', query: { type, stock: items.map((item) => item.id) } });
+}
+function canApply(row: InventoryStock, type: 'CONSUME' | 'TRANSFER') {
+    return (
+        !!row.location &&
+        (type === 'CONSUME'
+            ? !!approval.data.value?.capabilities.consumeApply &&
+              row.status === 'IN_STOCK' &&
+              row.expiryRisk !== 'EXPIRED'
+            : !!approval.data.value?.capabilities.transferApply && ['IN_STOCK', 'DEPLETED'].includes(row.status))
+    );
+}
+const bulkActions = computed<DataTableBulkAction<InventoryStock>[]>(() =>
+    (['CONSUME', 'TRANSFER'] as const).map((type) => ({
+        id: `apply-${type}`,
+        label: type === 'CONSUME' ? '申请消耗' : '申请转移',
+        icon: ClipboardCheck,
+        disabled: (items) => !items.length || items.some((item) => !canApply(item, type)),
+        run: (items) => apply(type, items),
+    }))
+);
 const receiptStore = useInventoryReceiptStore();
 const actionStore = useInventoryActionStore();
 const actionAttempt = computed(() => actionStore.current(scope.value));
@@ -74,6 +119,7 @@ watch(
     scope,
     () => {
         selectedId.value = '';
+        checked.value = [];
         actionOpen.value = false;
         actionStock.value = undefined;
         total.value = 0;
@@ -159,6 +205,13 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
             actionOpen.value = true;
         },
     })),
+    ...(['CONSUME', 'TRANSFER'] as const).map((type) => ({
+        id: `apply-${type}`,
+        label: type === 'CONSUME' ? '申请消耗' : '申请转移',
+        icon: ClipboardCheck,
+        disabled: (row: InventoryStock) => !canApply(row, type),
+        run: (row: InventoryStock) => apply(type, [row]),
+    })),
 ]);
 </script>
 
@@ -191,8 +244,11 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
             <Button variant="outline" @click="refresh">重新加载</Button>
         </div>
         <DataTable
+            v-model:selected="checked"
             v-model:query="query"
             v-model:pagination="pagination"
+            :selectable="(row) => canApply(row, 'CONSUME') || canApply(row, 'TRANSFER')"
+            :bulk-actions="bulkActions"
             :server-total="total"
             :filtering="false"
             :data="rows"

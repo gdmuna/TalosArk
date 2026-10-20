@@ -69,6 +69,8 @@ export function useWorkbenchOverview() {
         material: read(source?.material),
         inventory: read(source?.inventory),
         facilities: read(source?.facilities),
+        approvalSummary: read(source?.approvalSummary),
+        approvalRequests: read(source?.approvalRequests),
         scope,
     };
 }

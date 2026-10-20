@@ -6,7 +6,7 @@ import type { MaterialBatchQuery } from '@/module/material';
 import { useMaterialRead, useMaterialStore } from '@/module/material';
 import { useInventoryReceiptStore } from '@/module/inventory';
 import { HttpError } from '@/platform/http';
-import InventoryPositionPicker from './InventoryPositionPicker.vue';
+import { InventoryPositionPicker } from '@/module/inventory';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
 import { ScrollSurface } from '@/component/scroll-surface';
 import { useWorkspaceStore } from '@/module/workspace';

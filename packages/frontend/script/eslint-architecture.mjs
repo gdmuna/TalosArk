@@ -13,9 +13,10 @@ const allowedLayers = {
     shared: new Set(['shared']),
 };
 const moduleDependencies = {
-    workbench: new Set(['workspace']),
+    workbench: new Set(['workspace', 'approval']),
     material: new Set(['workspace']),
-    inventory: new Set(['workspace']),
+    inventory: new Set(['workspace', 'facility']),
+    approval: new Set(['workspace', 'account', 'inventory']),
 };
 const componentDependencies = {
     'data-table': new Set(['scroll-surface', 'select-field', 'inspector']),

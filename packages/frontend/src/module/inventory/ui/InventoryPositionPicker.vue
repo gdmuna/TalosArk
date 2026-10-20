@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { InventoryScope, InventoryReceipt } from '@/module/inventory';
+import type { InventoryScope, InventoryReceipt } from '../data/source';
 import { useFacilityDataSource, useFacilityRead } from '@/module/facility';
 import { FacilityPicker, FacilityReadFeedback } from '@/module/facility/ui';
 import { Button } from '@/ui/button';
