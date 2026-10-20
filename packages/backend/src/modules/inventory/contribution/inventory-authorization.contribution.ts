@@ -4,6 +4,9 @@ export const inventoryPermission = {
     receive: 'inventory.receive',
     updateFacts: 'inventory.instance.update',
     transfer: 'inventory.transfer',
+    consume: 'inventory.consume',
+    adjust: 'inventory.adjust',
+    dispose: 'inventory.dispose',
 } as const;
 export const inventoryAuthorization = {
     namespace: 'inventory',

@@ -11,9 +11,9 @@ import { OrganizationWriteKernel } from '@/core/organization-write/index.js';
 import { IdempotencyKernel } from '@/core/idempotency/index.js';
 import { AuditKernel } from '@/core/audit/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
-import { FacilityRelocation } from '@/modules/facility/public/index.js';
+import { FacilityRelocation, FacilityPositionReader } from '@/modules/facility/public/index.js';
 import { InventoryAccessService } from './inventory-access.service.js';
-import { InventoryService, operationCodec } from './inventory.service.js';
+import { InventoryOperationService, operationCodec } from './inventory-operation.service.js';
 import { inventoryPermission as p } from '../contribution/inventory-authorization.contribution.js';
 import { InventoryIdempotencyRepository } from '../infrastructure/persistence/inventory-idempotency.repository.js';
 import { InventoryError } from './inventory.error.js';
@@ -26,8 +26,9 @@ export class InventoryRelocationService {
         private readonly database: DatabaseRuntime,
         private readonly writes: OrganizationWriteKernel,
         private readonly facilities: FacilityRelocation,
+        private readonly positions: FacilityPositionReader,
         private readonly access: InventoryAccessService,
-        private readonly inventory: InventoryService,
+        private readonly operations: InventoryOperationService,
         private readonly reservations: InventoryIdempotencyRepository,
         private readonly idempotency: IdempotencyKernel,
         private readonly actor: AlsContextAdapter,
@@ -47,6 +48,12 @@ export class InventoryRelocationService {
         });
         if (items.length > 1000) throw new InventoryError({ reason: 'limit' });
         if (!items.length) throw new InventoryError({ reason: 'state' });
+        const sources = await this.positions.inspectSources({
+            organizationId,
+            nodeIds: items.map((item) => item.storageNodeId),
+        });
+        if ([...sources.values()].some((position) => !position.writable))
+            throw new InventoryError({ reason: 'state' });
         const workspaceIds = [...new Set(items.map((item) => item.workspaceId))].sort();
         for (const workspaceId of workspaceIds) {
             await this.access.require(this.subject(), { organizationId, workspaceId }, p.transfer);
@@ -267,7 +274,7 @@ export class InventoryRelocationService {
                         operationCodec
                     );
                     if (execution.kind === 'replayed')
-                        await this.inventory.authorizeOperation(
+                        await this.operations.authorizeOperation(
                             organizationId,
                             execution.value.operationId,
                             p.transfer

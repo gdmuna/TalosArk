@@ -5,7 +5,8 @@ import {
     PermissionKernel,
     type PermissionSubject,
 } from '@/core/permission/index.js';
-import type { InventoryScope } from '@talos-ark/contracts/inventory';
+import type { InventoryScope, InventoryCapabilitiesSchema } from '@talos-ark/contracts/inventory';
+import type { z } from 'zod';
 import { materialPermission } from '@/modules/material/public/index.js';
 import {
     inventoryAuthorization,
@@ -29,19 +30,16 @@ export class InventoryAccessService {
     }
     async capabilities(subject: PermissionSubject, input: InventoryScope) {
         const keys = { ...p, manageBatch: materialPermission.manageBatch };
+        const entries = Object.entries(keys);
         const decisions = await this.policies.evaluateMany(
-            Object.values(keys).map((permissionCode) => ({
+            entries.map(([, permissionCode]) => ({
                 subject,
                 scope: { kind: 'workspace' as const, ...inventoryScope(input) },
                 permissionCode,
             }))
         );
-        return {
-            read: decisions[0].allowed,
-            receive: decisions[1].allowed,
-            updateFacts: decisions[2].allowed,
-            transfer: decisions[3].allowed,
-            manageBatch: decisions[4].allowed,
-        };
+        return Object.fromEntries(
+            entries.map(([name], index) => [name, decisions[index].allowed])
+        ) as z.infer<typeof InventoryCapabilitiesSchema>;
     }
 }

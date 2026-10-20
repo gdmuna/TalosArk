@@ -12,6 +12,8 @@ import { ApiRoute } from '@/platform/http/decorators/route.decorator.js';
 import { InventoryService } from '../application/inventory.service.js';
 import { InventoryRelocationService } from '../application/inventory-relocation.service.js';
 import { InventoryGovernanceService } from '../application/inventory-governance.service.js';
+import { InventoryOperationService } from '../application/inventory-operation.service.js';
+import { InventoryActionService } from '../application/inventory-action.service.js';
 const errors = [
     ...Object.values(InventoryErrorDefinition),
     ...Object.values(MaterialErrorDefinition),
@@ -22,7 +24,10 @@ type StockParams = z.infer<typeof c.StockParamsSchema>;
 type TransactionParams = z.infer<typeof c.TransactionParamsSchema>;
 @Controller('organization/:organizationId/workspace/:workspaceId/inventory')
 export class InventoryController {
-    constructor(private readonly inventory: InventoryService) {}
+    constructor(
+        private readonly inventory: InventoryService,
+        private readonly actions: InventoryActionService
+    ) {}
     @Get('context')
     @ApiRoute({
         auth: 'required',
@@ -113,13 +118,57 @@ export class InventoryController {
     correct(@Param() p: StockParams, @Body() b: c.InstanceCorrection) {
         return this.inventory.correct(p, p.stockItemId, b);
     }
+    @Post(':stockItemId/consume')
+    @ApiRoute({
+        auth: 'required',
+        summary: 'Record actual consumption without changing placement',
+        request: { params: c.StockParamsSchema, body: c.ConsumptionSchema },
+        responses: [{ status: 201, schema: c.OperationReceiptSchema }],
+        errors,
+    })
+    consume(@Param() p: StockParams, @Body() body: c.Consumption) {
+        return this.actions.execute(p, p.stockItemId, { kind: 'consume', body });
+    }
+    @Post(':stockItemId/transfer')
+    @ApiRoute({
+        auth: 'required',
+        summary: 'Move one physical item to an authorized empty position',
+        request: { params: c.StockParamsSchema, body: c.TransferSchema },
+        responses: [{ status: 201, schema: c.OperationReceiptSchema }],
+        errors,
+    })
+    transfer(@Param() p: StockParams, @Body() body: c.Transfer) {
+        return this.actions.execute(p, p.stockItemId, { kind: 'transfer', body });
+    }
+    @Post(':stockItemId/adjust')
+    @ApiRoute({
+        auth: 'required',
+        summary: 'Correct the verified remaining quantity without changing placement',
+        request: { params: c.StockParamsSchema, body: c.QuantityAdjustmentSchema },
+        responses: [{ status: 201, schema: c.OperationReceiptSchema }],
+        errors,
+    })
+    adjust(@Param() p: StockParams, @Body() body: c.QuantityAdjustment) {
+        return this.actions.execute(p, p.stockItemId, { kind: 'adjust', body });
+    }
+    @Post(':stockItemId/dispose')
+    @ApiRoute({
+        auth: 'required',
+        summary: 'Remove a physical item from inventory and release its position',
+        request: { params: c.StockParamsSchema, body: c.DisposalSchema },
+        responses: [{ status: 201, schema: c.OperationReceiptSchema }],
+        errors,
+    })
+    dispose(@Param() p: StockParams, @Body() body: c.Disposal) {
+        return this.actions.execute(p, p.stockItemId, { kind: 'dispose', body });
+    }
 }
 @Controller('organization/:organizationId/inventory')
 export class InventoryOperationController {
     constructor(
-        private readonly inventory: InventoryService,
         private readonly relocation: InventoryRelocationService,
-        private readonly governance: InventoryGovernanceService
+        private readonly governance: InventoryGovernanceService,
+        private readonly operations: InventoryOperationService
     ) {}
     @Post('initialize')
     @ApiRoute({
@@ -172,6 +221,6 @@ export class InventoryOperationController {
         @Res({ passthrough: true }) r: FastifyReply
     ) {
         r.header('Cache-Control', 'no-store');
-        return this.inventory.operation(p.organizationId, p.operationId);
+        return this.operations.operation(p.organizationId, p.operationId);
     }
 }

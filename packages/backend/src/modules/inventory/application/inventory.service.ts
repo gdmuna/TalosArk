@@ -4,18 +4,16 @@ import type { Prisma, MaterialInstance } from '@root/prisma/generated/client.js'
 import {
     ReceiptSchema,
     InstanceCorrectionSchema,
-    OperationReceiptSchema,
     type InventoryScope,
     type InventoryQuery,
     type Receipt,
     type InstanceCorrection,
-    type OperationReceipt,
 } from '@talos-ark/contracts/inventory';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
 import { OrganizationWriteKernel } from '@/core/organization-write/index.js';
 import { ResourceKernel } from '@/core/resource/index.js';
 import { AuditKernel, type AuditValue } from '@/core/audit/index.js';
-import { IdempotencyKernel, type IdempotencyResultCodec } from '@/core/idempotency/index.js';
+import { IdempotencyKernel } from '@/core/idempotency/index.js';
 import { AlsContextAdapter } from '@/platform/context/als-context.adapter.js';
 import {
     MaterialReceiptSource,
@@ -34,16 +32,7 @@ import { inventoryPermission as p } from '../contribution/inventory-authorizatio
 import { InventoryError } from './inventory.error.js';
 import { inventoryErrors } from './inventory.error.mapper.js';
 import { InventoryIdempotencyRepository } from '../infrastructure/persistence/inventory-idempotency.repository.js';
-
-function operationReceipt(value: unknown): OperationReceipt {
-    const result = OperationReceiptSchema.safeParse(value);
-    if (!result.success) throw new InventoryError({ reason: 'result' }, { cause: result.error });
-    return result.data;
-}
-export const operationCodec: IdempotencyResultCodec<OperationReceipt> = {
-    encode: (value) => ({ ...value }),
-    decode: operationReceipt,
-};
+import { InventoryOperationService, operationCodec } from './inventory-operation.service.js';
 const stockInclude = {
     instance: { include: { material: true, batch: true } },
     placement: true,
@@ -62,7 +51,8 @@ export class InventoryService {
         private readonly audit: AuditKernel,
         private readonly actor: AlsContextAdapter,
         private readonly idempotency: IdempotencyKernel,
-        private readonly reservations: InventoryIdempotencyRepository
+        private readonly reservations: InventoryIdempotencyRepository,
+        private readonly operations: InventoryOperationService
     ) {}
     subject() {
         return { kind: 'user' as const, userId: this.actor.requireActor().userId };
@@ -100,11 +90,22 @@ export class InventoryService {
             ...scope,
             nodeIds: rows.flatMap((row) => (row.placement ? [row.placement.storageNodeId] : [])),
         });
+        const sources = await this.positions.inspectSources({
+            organizationId: scope.organizationId,
+            nodeIds: rows.flatMap((row) => (row.placement ? [row.placement.storageNodeId] : [])),
+        });
+        const usable = await this.positions.usableFacilities(this.subject(), scope, [
+            ...new Set([...sources.values()].map((source) => source.facilityId)),
+        ]);
         const today = this.calendar.today();
         return rows.map((row) => {
             const { instance } = row;
             const material = instance.material;
             const expiry = expiryValue(instance);
+            const source = row.placement ? sources.get(row.placement.storageNodeId) : undefined;
+            const writable =
+                !!source?.writable && (row.status === 'IN_STOCK' || row.status === 'DEPLETED');
+            const canUse = !!source && usable.has(source.facilityId);
             return {
                 id: row.id,
                 organizationId: row.organizationId,
@@ -140,6 +141,18 @@ export class InventoryService {
                     : null,
                 locationRestricted: !!row.placement && !locations.has(row.placement.storageNodeId),
                 capabilities,
+                actions: {
+                    consume:
+                        writable &&
+                        canUse &&
+                        capabilities.consume &&
+                        row.status === 'IN_STOCK' &&
+                        row.quantity.isPositive() &&
+                        this.calendar.risk(expiry, today) !== 'EXPIRED',
+                    transfer: writable && canUse && capabilities.transfer,
+                    adjust: writable && capabilities.adjust,
+                    dispose: writable && canUse && capabilities.dispose,
+                },
             };
         });
     }
@@ -147,6 +160,7 @@ export class InventoryService {
         const scope = inventoryScope(input);
         return this.read(async () => {
             await this.access.require(this.subject(), scope);
+            if (query.nodeId) await this.requireReadableNode(scope, query.nodeId);
             const instance: Prisma.MaterialInstanceWhereInput = {
                 ...(query.materialId ? { materialId: query.materialId } : {}),
                 ...(query.batchId ? { batchId: query.batchId } : {}),
@@ -205,24 +219,6 @@ export class InventoryService {
             return (await this.project(scope, [await this.stock(scope, id)]))[0];
         });
     }
-    async authorizeOperation(organizationId: string, operationId: string, permission: string) {
-        const row = await this.database.queryClient.inventoryOperation.findFirst({
-            where: { organizationId, id: operationId },
-            include: { transactions: { select: { workspaceId: true } } },
-        });
-        if (!row || !row.completedAt || !row.transactions.length)
-            throw new InventoryError({ reason: 'forbidden' });
-        for (const workspaceId of [...new Set(row.transactions.map((t) => t.workspaceId))])
-            await this.access.require(this.subject(), { organizationId, workspaceId }, permission);
-        return row;
-    }
-    operation(organizationId: string, operationId: string) {
-        return this.read(async () =>
-            operationReceipt(
-                (await this.authorizeOperation(organizationId, operationId, p.read)).result
-            )
-        );
-    }
     receive(input: InventoryScope, request: Receipt) {
         const scope = inventoryScope(input);
         const body = ReceiptSchema.parse(request);
@@ -247,38 +243,28 @@ export class InventoryService {
                         prepared,
                         async () => {
                             const operation = await this.reservations.row(prepared);
-                            const material = await this.materials.requireMaterial(
+                            const material = await this.materials.requireReceivableMaterial(
                                 this.subject(),
                                 scope,
                                 body.materialId
                             );
-                            if (
-                                material.archivedAt ||
-                                quantity.decimalPlaces() > material.quantityScale
-                            )
-                                throw new InventoryError({
-                                    reason: material.archivedAt ? 'state' : 'invalid',
-                                });
+                            if (quantity.decimalPlaces() > material.quantityScale)
+                                throw new InventoryError({ reason: 'invalid' });
                             let batchId: string | null = null;
                             if (body.batch.kind === 'existing') {
-                                const batch = await this.materials.requireBatch(
+                                batchId = await this.materials.requireReceivableBatch(
                                     scope,
                                     material.id,
-                                    body.batch.id
+                                    body.batch.id,
+                                    body.batch.expectedRevision
                                 );
-                                if (batch.archivedAt) throw new InventoryError({ reason: 'state' });
-                                if (batch.revision !== body.batch.expectedRevision)
-                                    throw new InventoryError({ reason: 'conflict' });
-                                batchId = batch.id;
                             } else if (body.batch.kind === 'create')
-                                batchId = (
-                                    await this.materials.createBatch(
-                                        this.subject(),
-                                        scope,
-                                        material.id,
-                                        body.batch.value
-                                    )
-                                ).id;
+                                batchId = await this.materials.createBatch(
+                                    this.subject(),
+                                    scope,
+                                    material.id,
+                                    body.batch.value
+                                );
                             const fields = this.calendar.fields(body, body.confirmExpired);
                             const position = await this.positions.requireAvailable({
                                 ...scope,
@@ -385,7 +371,7 @@ export class InventoryService {
                         operationCodec
                     );
                     if (execution.kind === 'replayed')
-                        await this.authorizeOperation(
+                        await this.operations.authorizeOperation(
                             scope.organizationId,
                             execution.value.operationId,
                             p.receive
@@ -463,6 +449,7 @@ export class InventoryService {
         const scope = inventoryScope(input);
         return this.read(async () => {
             await this.access.require(this.subject(), scope);
+            if (query.nodeId) await this.requireReadableNode(scope, query.nodeId);
             const where: Prisma.InventoryTransactionWhereInput = {
                 ...scope,
                 ...(id ? { id } : {}),
@@ -509,6 +496,17 @@ export class InventoryService {
                 skip: (query.page - 1) * query.pageSize,
                 take: query.pageSize,
             });
+            const visible = await this.positions.visibleFacilities(
+                this.subject(),
+                scope,
+                rows.flatMap((row) =>
+                    row.lines.flatMap((line) =>
+                        [line.fromFacilityIdSnapshot, line.toFacilityIdSnapshot].filter(
+                            (id): id is string => id !== null
+                        )
+                    )
+                )
+            );
             const items = rows.map((row) => ({
                 id: row.id,
                 operationId: row.operationId,
@@ -517,23 +515,33 @@ export class InventoryService {
                 actorUserId: row.actorUserId,
                 reason: row.reason,
                 occurredAt: row.occurredAt.toISOString(),
-                lines: row.lines.map((line) => ({
-                    stockItemId: line.stockItemId,
-                    lineNumber: line.lineNumber,
-                    unitSnapshot: line.unitSnapshot,
-                    statusBefore: line.statusBefore,
-                    statusAfter: line.statusAfter,
-                    fromNodeId: line.fromNodeId,
-                    toNodeId: line.toNodeId,
-                    fromNodePathSnapshot: line.fromNodePathSnapshot,
-                    toNodePathSnapshot: line.toNodePathSnapshot,
-                    fromFacilityIdSnapshot: line.fromFacilityIdSnapshot,
-                    toFacilityIdSnapshot: line.toFacilityIdSnapshot,
-                    fromTopologyIdSnapshot: line.fromTopologyIdSnapshot,
-                    toTopologyIdSnapshot: line.toTopologyIdSnapshot,
-                    quantityBefore: formatInventoryQuantity(line.quantityBefore),
-                    quantityAfter: formatInventoryQuantity(line.quantityAfter),
-                })),
+                lines: row.lines.map((line) => {
+                    const fromRestricted =
+                        !!line.fromNodeId &&
+                        (!line.fromFacilityIdSnapshot || !visible.has(line.fromFacilityIdSnapshot));
+                    const toRestricted =
+                        !!line.toNodeId &&
+                        (!line.toFacilityIdSnapshot || !visible.has(line.toFacilityIdSnapshot));
+                    return {
+                        stockItemId: line.stockItemId,
+                        lineNumber: line.lineNumber,
+                        unitSnapshot: line.unitSnapshot,
+                        statusBefore: line.statusBefore,
+                        statusAfter: line.statusAfter,
+                        fromNodeId: fromRestricted ? null : line.fromNodeId,
+                        toNodeId: toRestricted ? null : line.toNodeId,
+                        fromNodePathSnapshot: fromRestricted ? null : line.fromNodePathSnapshot,
+                        toNodePathSnapshot: toRestricted ? null : line.toNodePathSnapshot,
+                        fromFacilityIdSnapshot: fromRestricted ? null : line.fromFacilityIdSnapshot,
+                        toFacilityIdSnapshot: toRestricted ? null : line.toFacilityIdSnapshot,
+                        fromTopologyIdSnapshot: fromRestricted ? null : line.fromTopologyIdSnapshot,
+                        toTopologyIdSnapshot: toRestricted ? null : line.toTopologyIdSnapshot,
+                        fromLocationRestricted: fromRestricted,
+                        toLocationRestricted: toRestricted,
+                        quantityBefore: formatInventoryQuantity(line.quantityBefore),
+                        quantityAfter: formatInventoryQuantity(line.quantityAfter),
+                    };
+                }),
             }));
             if (id) {
                 if (!items[0]) throw new InventoryError({ reason: 'forbidden' });
@@ -541,5 +549,12 @@ export class InventoryService {
             }
             return { items, total, page: query.page, pageSize: query.pageSize };
         });
+    }
+    private async requireReadableNode(scope: InventoryScope, nodeId: string) {
+        const locations = await this.positions.describeMany(this.subject(), {
+            ...scope,
+            nodeIds: [nodeId],
+        });
+        if (!locations.has(nodeId)) throw new InventoryError({ reason: 'forbidden' });
     }
 }

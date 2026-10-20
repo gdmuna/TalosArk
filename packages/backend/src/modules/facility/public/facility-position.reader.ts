@@ -19,6 +19,9 @@ export interface FacilityPositionLookup {
     topologyId: string;
     nodeId: string;
 }
+export interface FacilitySourcePosition extends StorageLocation {
+    writable: boolean;
+}
 @Injectable()
 export class FacilityPositionReader {
     constructor(
@@ -27,6 +30,91 @@ export class FacilityPositionReader {
         private readonly facts: FacilityStorageReader,
         private readonly authorization: AuthorizationKernel
     ) {}
+    /** Trusted inventory facts, never a user-facing location projection. */
+    async inspectSources(input: { organizationId: string; nodeIds: readonly string[] }) {
+        const transaction = this.database.transaction.current();
+        if (!transaction || transaction.state !== 'active' || transaction.rollbackOnly)
+            throw new Error('Source position inspection requires an active managed transaction');
+        const ids = [...new Set(input.nodeIds)];
+        const result = new Map<string, FacilitySourcePosition>();
+        if (!ids.length) return result;
+        const nodes = await this.facts.many(input.organizationId, ids);
+        const topologies = await this.database.queryClient.storageTopology.findMany({
+            where: {
+                organizationId: input.organizationId,
+                id: { in: [...new Set(nodes.map((n) => n.topologyId))] },
+            },
+            include: { facility: true },
+        });
+        const layouts = new Map(topologies.map((layout) => [layout.id, layout]));
+        const locations = await storageLocations(this.database, input.organizationId, ids);
+        for (const node of nodes) {
+            const topology = layouts.get(node.topologyId);
+            const location = locations.get(node.id);
+            if (!topology || !location || node.kind !== 'POSITION')
+                throw new Error('Inventory placement has inconsistent storage facts');
+            result.set(node.id, {
+                ...location,
+                writable:
+                    !topology.archivedAt &&
+                    !topology.facility.archivedAt &&
+                    !topology.facility.disabledAt &&
+                    !node.effectiveArchived &&
+                    !node.effectiveDisabled,
+            });
+        }
+        if (result.size !== ids.length)
+            throw new Error('Inventory placement references a missing position');
+        return result;
+    }
+
+    private async authorizedFacilities(
+        subject: PermissionSubject,
+        scope: { organizationId: string; workspaceId: string },
+        facilityIds: readonly string[],
+        action: 'read' | 'use'
+    ) {
+        if (!facilityIds.length) return new Set<string>();
+        const decision = await this.authorization.check({
+            subject,
+            target: { kind: 'workspace', ...scope },
+            permissionCode: facilityPermission.read,
+        });
+        if (!decision.allowed) return new Set<string>();
+        const access = await this.access.scope(subject, scope);
+        if (!access.capabilities[action]) return new Set<string>();
+        const rows = await this.database.queryClient.facility.findMany({
+            where: { AND: [access.where, { id: { in: [...new Set(facilityIds)] } }] },
+            select: { id: true },
+        });
+        return new Set(rows.map((row) => row.id));
+    }
+
+    visibleFacilities(
+        subject: PermissionSubject,
+        scope: { organizationId: string; workspaceId: string },
+        facilityIds: readonly string[]
+    ) {
+        return this.authorizedFacilities(subject, scope, facilityIds, 'read');
+    }
+
+    usableFacilities(
+        subject: PermissionSubject,
+        scope: { organizationId: string; workspaceId: string },
+        facilityIds: readonly string[]
+    ) {
+        return this.authorizedFacilities(subject, scope, facilityIds, 'use');
+    }
+
+    async requireUse(
+        subject: PermissionSubject,
+        scope: { organizationId: string; workspaceId: string },
+        facilityIds: readonly string[]
+    ) {
+        const ids = [...new Set(facilityIds)];
+        const allowed = await this.usableFacilities(subject, scope, ids);
+        if (ids.some((id) => !allowed.has(id))) throw new FacilityError({ reason: 'forbidden' });
+    }
     /** Observation only. Inventory must call after its organization write lock and recheck on commit. */
     requireAvailable(input: FacilityPositionLookup) {
         return this.database.transaction.run(

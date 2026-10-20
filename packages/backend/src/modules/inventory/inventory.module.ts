@@ -15,6 +15,8 @@ import { InventoryService } from './application/inventory.service.js';
 import { InventoryAccessService } from './application/inventory-access.service.js';
 import { InventoryRelocationService } from './application/inventory-relocation.service.js';
 import { InventoryGovernanceService } from './application/inventory-governance.service.js';
+import { InventoryOperationService } from './application/inventory-operation.service.js';
+import { InventoryActionService } from './application/inventory-action.service.js';
 import { InventoryCalendar } from './domain/inventory-calendar.js';
 import { InventoryIdempotencyRepository } from './infrastructure/persistence/inventory-idempotency.repository.js';
 import {
@@ -41,6 +43,8 @@ import {
         InventoryAccessService,
         InventoryRelocationService,
         InventoryGovernanceService,
+        InventoryOperationService,
+        InventoryActionService,
         InventoryCalendar,
         InventoryIdempotencyRepository,
         StockTargetProvider,

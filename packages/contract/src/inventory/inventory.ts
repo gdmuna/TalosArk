@@ -62,6 +62,9 @@ export const InventoryCapabilitiesSchema = z.object({
     receive: z.boolean(),
     updateFacts: z.boolean(),
     transfer: z.boolean(),
+    consume: z.boolean(),
+    adjust: z.boolean(),
+    dispose: z.boolean(),
     manageBatch: z.boolean(),
 });
 export const InventoryContextSchema = z.object({
@@ -74,6 +77,12 @@ export const LocationSchema = z.object({
     topologyId: id,
     nodeId: id,
     path: z.string(),
+});
+export const InventoryActionsSchema = z.object({
+    consume: z.boolean(),
+    transfer: z.boolean(),
+    adjust: z.boolean(),
+    dispose: z.boolean(),
 });
 export const StockSchema = InstanceFactsSchema.extend({
     id,
@@ -102,6 +111,7 @@ export const StockSchema = InstanceFactsSchema.extend({
     location: LocationSchema.nullable(),
     locationRestricted: z.boolean(),
     capabilities: InventoryCapabilitiesSchema,
+    actions: InventoryActionsSchema,
 });
 export const StockPageSchema = z.object({
     items: z.array(StockSchema),
@@ -109,13 +119,45 @@ export const StockPageSchema = z.object({
     page: revision,
     pageSize: revision,
 });
-export const OperationReceiptSchema = z.object({
-    operationId: id,
-    kind: z.enum(['inventory.receive', 'inventory.relocate']),
-    stockItemId: id.nullable(),
-    instanceId: id.nullable(),
-    nodeId: id.nullable(),
-});
+const OperationReceiptBaseSchema = z.object({ operationId: id });
+export const OperationReceiptSchema = z.discriminatedUnion('kind', [
+    OperationReceiptBaseSchema.extend({
+        kind: z.literal('inventory.receive'),
+        stockItemId: id,
+        instanceId: id,
+        nodeId: id.nullable(),
+    }),
+    OperationReceiptBaseSchema.extend({
+        kind: z.literal('inventory.relocate'),
+        stockItemId: z.null(),
+        instanceId: z.null(),
+        nodeId: id.nullable(),
+    }),
+    OperationReceiptBaseSchema.extend({
+        kind: z.literal('inventory.consume'),
+        stockItemId: id,
+        instanceId: id,
+        nodeId: id.nullable(),
+    }),
+    OperationReceiptBaseSchema.extend({
+        kind: z.literal('inventory.transfer'),
+        stockItemId: id,
+        instanceId: id,
+        nodeId: id.nullable(),
+    }),
+    OperationReceiptBaseSchema.extend({
+        kind: z.literal('inventory.adjust'),
+        stockItemId: id,
+        instanceId: id,
+        nodeId: id.nullable(),
+    }),
+    OperationReceiptBaseSchema.extend({
+        kind: z.literal('inventory.dispose'),
+        stockItemId: id,
+        instanceId: id,
+        nodeId: z.null(),
+    }),
+]);
 export const TransactionLineSchema = z.object({
     stockItemId: id,
     lineNumber: revision,
@@ -132,6 +174,8 @@ export const TransactionLineSchema = z.object({
     toFacilityIdSnapshot: id.nullable(),
     fromTopologyIdSnapshot: id.nullable(),
     toTopologyIdSnapshot: id.nullable(),
+    fromLocationRestricted: z.boolean(),
+    toLocationRestricted: z.boolean(),
 });
 export const TransactionSchema = z.object({
     id,

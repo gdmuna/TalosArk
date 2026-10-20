@@ -31,6 +31,16 @@ export const InventoryErrorContract = {
         'Confirm registration of expired stock',
         z.null()
     ),
+    consumptionExpired: defineErrorContract(
+        'INVENTORY_CONSUMPTION_EXPIRED',
+        'Expired stock cannot be consumed',
+        z.null()
+    ),
+    insufficient: defineErrorContract(
+        'INVENTORY_INSUFFICIENT_QUANTITY',
+        'The requested quantity exceeds the remaining stock',
+        z.null()
+    ),
     limit: defineErrorContract(
         'INVENTORY_LIMIT_EXCEEDED',
         'Relocation exceeds the synchronous operation limit',

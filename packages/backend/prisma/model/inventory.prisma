@@ -143,9 +143,11 @@ enum StockStatus {
 
 enum InventoryTransactionType {
   RECEIPT
+  CONSUMPTION
   ISSUE
   RETURN
   TRANSFER
   ADJUSTMENT
+  DISPOSAL
   CONTAINER_RELOCATION
 }

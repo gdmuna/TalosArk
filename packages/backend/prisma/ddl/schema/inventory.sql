@@ -14,6 +14,11 @@ ALTER TABLE "MaterialInstance" DROP CONSTRAINT IF EXISTS "MaterialInstance_initi
 ALTER TABLE "MaterialInstance" ADD CONSTRAINT "MaterialInstance_initialQuantity_check" CHECK ("initialQuantity" >= 0);
 ALTER TABLE "StockItem" DROP CONSTRAINT IF EXISTS "StockItem_quantity_check";
 ALTER TABLE "StockItem" ADD CONSTRAINT "StockItem_quantity_check" CHECK (quantity >= 0);
+ALTER TABLE "StockItem" DROP CONSTRAINT IF EXISTS "StockItem_status_quantity_check";
+ALTER TABLE "StockItem" ADD CONSTRAINT "StockItem_status_quantity_check" CHECK (
+    (status = 'IN_STOCK' AND quantity > 0)
+    OR (status IN ('DEPLETED', 'DISPOSED') AND quantity = 0)
+    OR status IN ('CHECKED_OUT', 'QUARANTINED'));
 ALTER TABLE "InventoryOperation" DROP CONSTRAINT IF EXISTS "InventoryOperation_scope_check";
 ALTER TABLE "InventoryOperation" ADD CONSTRAINT "InventoryOperation_scope_check" CHECK (
     "scopeKind" IN ('workspace', 'organization-user') AND ("scopeKind" <> 'organization-user' OR "scopeId" = "actorUserId"));

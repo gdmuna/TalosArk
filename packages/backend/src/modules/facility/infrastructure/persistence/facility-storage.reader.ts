@@ -65,6 +65,13 @@ export class FacilityStorageReader {
         if (!rows[0]) throw new FacilityError({ reason: 'forbidden' });
         return rows[0];
     }
+    async many(organizationId: string, nodeIds: readonly string[]) {
+        if (!nodeIds.length) return [];
+        return this.database.queryClient.$queryRaw<StorageFact[]>(Prisma.sql`
+            SELECT ${columns} FROM "StorageNode" node
+            WHERE node."organizationId" = ${organizationId}::uuid
+            AND node.id IN (${Prisma.join(nodeIds.map((id) => Prisma.sql`${id}::uuid`))})`);
+    }
     async ancestors(node: StorageFact) {
         return this.database.queryClient.$queryRaw<{ id: string; code: string; name: string }[]>`
             SELECT id, code, name FROM "StorageNode" WHERE "organizationId" = ${node.organizationId}::uuid
