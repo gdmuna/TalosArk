@@ -16,6 +16,7 @@ ddl/
   schema/
     identity.sql
     inventory.sql
+    approval.sql
     storage-node.sql
   upgrade/
     README.md
@@ -33,6 +34,7 @@ ddl/
 | [schema/storage-node.sql](schema/storage-node.sql)             | After schema synchronization                                | Storage-node write invariants and subtree moves       |
 | [schema/identity.sql](schema/identity.sql)                     | After synchronization, before account writes                | Canonical email CHECK; Prisma owns uniqueness         |
 | [schema/inventory.sql](schema/inventory.sql) | After P09 schema synchronization, before inventory writes | Quantity precision/nonnegative balances and explicit expiry-state CHECKs |
+| [schema/approval.sql](schema/approval.sql) | After P12 schema synchronization, before approval writes | Non-self approval, decision/execution state and consume/transfer intent CHECKs |
 
 Do not execute all DDL stages recursively or alphabetically. Prisma schema
 synchronization belongs between `init/` and `schema/`. `db:init` executes regular

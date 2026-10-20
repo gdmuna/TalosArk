@@ -15,6 +15,8 @@ import { OrganizationModule } from '@/modules/organization/index.js';
 import { MaterialModule } from '@/modules/material/index.js';
 import { FacilityModule } from '@/modules/facility/index.js';
 import { InventoryModule } from '@/modules/inventory/inventory.module.js';
+import { ApprovalModule } from '@/modules/approval/index.js';
+import { approvalPermission } from '@/modules/approval/contribution/approval-authorization.contribution.js';
 import { inventoryPermission } from '@/modules/inventory/contribution/inventory-authorization.contribution.js';
 import { WorkspaceConfigurationModule } from '@/modules/workspace/workspace.configuration.js';
 import { workspacePermission } from '@/core/team-governance/index.js';
@@ -84,6 +86,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
             workspacePermission.audit,
             ...Object.values(materialPermission),
             ...Object.values(inventoryPermission),
+            ...Object.values(approvalPermission),
             facilityPermission.read,
             facilityPermission.use,
             facilityPermission.manage,
@@ -102,6 +105,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         MaterialModule,
         FacilityModule,
         InventoryModule,
+        ApprovalModule,
         PlatformContextModule,
         HealthModule,
     ],

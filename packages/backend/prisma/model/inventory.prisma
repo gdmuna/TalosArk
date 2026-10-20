@@ -73,19 +73,19 @@ model InventoryTransaction {
   workspaceId       String                   @db.Uuid
   type              InventoryTransactionType
   actorUserId       String                   @db.Uuid
-  approvalRequestId String?                  @db.Uuid
+  approvalLineId    String?                  @db.Uuid
   operationId       String                   @db.Uuid
   reason            String?
   occurredAt        DateTime                 @default(now()) @db.Timestamptz(3)
 
   workspace Workspace                  @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
   actor     User                       @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
-  approval  ApprovalRequest?           @relation(fields: [organizationId, workspaceId, approvalRequestId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  approval  ApprovalLine?              @relation(fields: [organizationId, workspaceId, approvalLineId], references: [organizationId, workspaceId, id], onDelete: Restrict)
   lines     InventoryTransactionLine[]
   operation InventoryOperation         @relation(fields: [organizationId, operationId], references: [organizationId, id], onDelete: Restrict)
 
   @@unique([organizationId, workspaceId, id])
-  @@unique([organizationId, workspaceId, approvalRequestId])
+  @@unique([organizationId, workspaceId, approvalLineId])
   @@unique([operationId, workspaceId])
   @@index([workspaceId, occurredAt])
   @@index([actorUserId])

@@ -10,6 +10,7 @@ import {
     MaterialErrorDefinition,
     FacilityErrorDefinition,
     InventoryErrorDefinition,
+    ApprovalErrorDefinition,
     MaterialAttachmentErrorDefinition,
 } from '@talos-ark/contracts/backend';
 import { HttpErrorPolicy } from '@/platform/http/error/http.error.policy.js';
@@ -29,6 +30,7 @@ export const errorProviders: Provider[] = [
                 MaterialErrorDefinition,
                 FacilityErrorDefinition,
                 InventoryErrorDefinition,
+                ApprovalErrorDefinition,
                 MaterialAttachmentErrorDefinition,
             ]),
     },

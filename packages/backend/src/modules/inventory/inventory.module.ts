@@ -17,6 +17,8 @@ import { InventoryRelocationService } from './application/inventory-relocation.s
 import { InventoryGovernanceService } from './application/inventory-governance.service.js';
 import { InventoryOperationService } from './application/inventory-operation.service.js';
 import { InventoryActionService } from './application/inventory-action.service.js';
+import { InventoryActionWriter } from './application/inventory-action.writer.js';
+import { InventoryActionReader } from './application/inventory-action.reader.js';
 import { InventoryCalendar } from './domain/inventory-calendar.js';
 import { InventoryIdempotencyRepository } from './infrastructure/persistence/inventory-idempotency.repository.js';
 import {
@@ -45,6 +47,8 @@ import {
         InventoryGovernanceService,
         InventoryOperationService,
         InventoryActionService,
+        InventoryActionWriter,
+        InventoryActionReader,
         InventoryCalendar,
         InventoryIdempotencyRepository,
         StockTargetProvider,
@@ -58,5 +62,6 @@ import {
                 new IdempotencyKernel(database, repository),
         },
     ],
+    exports: [InventoryActionWriter, InventoryActionReader, InventoryOperationService],
 })
 export class InventoryModule {}

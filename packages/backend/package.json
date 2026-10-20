@@ -19,6 +19,7 @@
     "db:apply-ddl": "pnpm prisma db execute --file prisma/ddl/schema/storage-node.sql",
     "db:apply-identity-ddl": "pnpm prisma db execute --file prisma/ddl/schema/identity.sql",
     "db:apply-inventory-ddl": "pnpm prisma db execute --file prisma/ddl/schema/inventory.sql",
+    "db:apply-approval-ddl": "pnpm prisma db execute --file prisma/ddl/schema/approval.sql",
     "auth:provision": "node dist/scripts/provision-account.js",
     "auth:super-admin": "tsx scripts/super-admin.ts",
     "build": "pnpm --filter @talos-ark/contracts build && nest build && tsc-alias -v",
