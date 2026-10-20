@@ -13,6 +13,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./approval": {
+      "types": "./dist/approval/index.d.ts",
+      "import": "./dist/approval/index.js"
+    },
     "./inventory": {
       "types": "./dist/inventory/index.d.ts",
       "import": "./dist/inventory/index.js"
