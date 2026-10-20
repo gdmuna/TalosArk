@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ChevronRight, Box, MapPin } from '@lucide/vue';
-import { useFacilityDataSource, useFacilityRead } from '../model/read';
+import { useFacilityDataSource } from '../model/read';
+import { useStorageNodePages } from '../model/useStorageNodePages';
 import { assertStorageNode } from '../data/validation';
-import type { StorageScope, StorageNode } from '../data/source';
+import type { StorageScope } from '../data/source';
 import { HttpError } from '@/platform/http';
 import { Button } from '@/ui/button';
 import ReadFeedback from './ReadFeedback.vue';
@@ -19,9 +20,6 @@ defineEmits<{ select: [id: string] }>();
 const source = useFacilityDataSource();
 const expanded = ref<string[]>([]),
     collapsed = ref<string[]>([]);
-let accumulated: StorageNode[] = [],
-    cursor: string | undefined,
-    revision: number | undefined;
 const key = computed(() =>
     source && props.contextKey ? JSON.stringify([props.contextKey, props.scope, props.parentId]) : ''
 );
@@ -30,52 +28,22 @@ watch(
     () => {
         expanded.value = [];
         collapsed.value = [];
-        accumulated = [];
-        cursor = undefined;
-        revision = undefined;
     },
     { flush: 'sync' }
 );
-const { data, loading, error, refresh } = useFacilityRead(key, async (signal) => {
+const { data, loading, error, reload, more } = useStorageNodePages(key, async (cursor, signal) => {
     if (!source) return;
     const scope = props.scope,
-        parentId = props.parentId,
-        requestedCursor = cursor;
-    const result = await source.children(scope, { parentId, cursor: requestedCursor, limit: 50, state: 'all' }, signal);
+        parentId = props.parentId;
+    const result = await source.children(scope, { parentId, cursor, limit: 50, state: 'all' }, signal);
     result.items.forEach((item) => {
         assertStorageNode(scope, item);
         if (item.parentId !== parentId || item.id === parentId || props.lineage?.includes(item.id))
             throw new HttpError('节点父子关系无效', 'protocol');
     });
-    const items = [...(requestedCursor ? accumulated : []), ...result.items];
-    if (
-        (requestedCursor && revision !== result.revision) ||
-        new Set(items.map((item) => item.id)).size !== items.length ||
-        result.nextCursor === requestedCursor ||
-        (result.nextCursor && !result.items.length)
-    )
-        throw new HttpError('节点分页已失效，请重新加载', 'protocol');
-    return { ...result, items };
+    if (result.nextCursor && !result.items.length) throw new HttpError('节点分页已失效，请重新加载', 'protocol');
+    return result;
 });
-watch(
-    data,
-    (value) => {
-        accumulated = value?.items ?? [];
-        revision = value?.revision;
-        if (!value) cursor = undefined;
-    },
-    { flush: 'sync' }
-);
-function reload() {
-    cursor = undefined;
-    accumulated = [];
-    revision = undefined;
-    void refresh();
-}
-function more() {
-    cursor = data.value?.nextCursor ?? undefined;
-    void refresh();
-}
 function isExpanded(id: string) {
     return !collapsed.value.includes(id) && (expanded.value.includes(id) || props.ancestors.includes(id));
 }

@@ -19,6 +19,9 @@ const required = [
     'inventory.receive',
     'inventory.instance.update',
     'inventory.transfer',
+    'inventory.consume',
+    'inventory.adjust',
+    'inventory.dispose',
     'material.batch.manage',
 ];
 const needsSetup = computed(
@@ -98,7 +101,7 @@ async function initialize() {
         <DialogContent>
             <DialogTitle>配置库存预置权限</DialogTitle>
             <DialogDescription>
-                将库存读取、入库、资料更正、容器搬迁和批次维护权限加入当前组织的“工作区管理员”角色，影响该组织中所有使用此角色的成员。
+                将库存读取、入库、资料更正、消耗、转移、数量核实、移出管理和批次维护权限加入当前组织的“工作区管理员”角色，影响该组织中所有使用此角色的成员。
             </DialogDescription>
             <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
             <p v-if="committed" role="status" class="text-sm text-success">

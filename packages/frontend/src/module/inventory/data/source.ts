@@ -1,10 +1,14 @@
 import type { z } from 'zod';
 import {
     InventoryContextSchema,
+    InventoryActionSchema,
     InventoryQuerySchema,
     InstanceCorrectionSchema,
     OperationReceiptSchema,
     ReceiptSchema,
+    RelocationSchema,
+    RelocationExecuteSchema,
+    RelocationPreviewSchema,
     StockPageSchema,
     StockSchema,
     TransactionPageSchema,
@@ -12,6 +16,8 @@ import {
 } from '@talos-ark/contracts/inventory';
 
 export type InventoryScope = { organizationId: string; workspaceId: string };
+export type InventoryAction = z.infer<typeof InventoryActionSchema>;
+export type InventoryActionKind = InventoryAction['kind'];
 export type InventoryContext = z.infer<typeof InventoryContextSchema>;
 export type InventoryQuery = z.infer<typeof InventoryQuerySchema>;
 export type InventoryStock = z.infer<typeof StockSchema>;
@@ -21,6 +27,9 @@ export type InventoryTransactionPage = z.infer<typeof TransactionPageSchema>;
 export type InventoryReceipt = z.infer<typeof ReceiptSchema>;
 export type InventoryCorrection = z.infer<typeof InstanceCorrectionSchema>;
 export type InventoryOperationReceipt = z.infer<typeof OperationReceiptSchema>;
+export type InventoryRelocation = z.infer<typeof RelocationSchema>;
+export type InventoryRelocationExecute = z.infer<typeof RelocationExecuteSchema>;
+export type InventoryRelocationPreview = z.infer<typeof RelocationPreviewSchema>;
 
 export interface InventoryDataSource {
     context(scope: InventoryScope, signal?: AbortSignal): Promise<InventoryContext>;
@@ -41,6 +50,12 @@ export interface InventoryDataSource {
         input: InventoryCorrection,
         signal?: AbortSignal
     ): Promise<InventoryStock>;
+    act(
+        scope: InventoryScope,
+        stockItemId: string,
+        input: InventoryAction,
+        signal?: AbortSignal
+    ): Promise<InventoryOperationReceipt>;
     transactions(
         scope: InventoryScope,
         query: InventoryQuery,
@@ -52,4 +67,19 @@ export interface InventoryDataSource {
         signal?: AbortSignal
     ): Promise<InventoryTransaction>;
     initialize(organizationId: string, signal?: AbortSignal): Promise<{ updated: boolean }>;
+    previewRelocation(
+        organizationId: string,
+        input: InventoryRelocation,
+        signal?: AbortSignal
+    ): Promise<InventoryRelocationPreview>;
+    relocate(
+        organizationId: string,
+        input: InventoryRelocationExecute,
+        signal?: AbortSignal
+    ): Promise<InventoryOperationReceipt>;
+    operation(
+        organizationId: string,
+        id: string,
+        signal?: AbortSignal
+    ): Promise<InventoryOperationReceipt>;
 }

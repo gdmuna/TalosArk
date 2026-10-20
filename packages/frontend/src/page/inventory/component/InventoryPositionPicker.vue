@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { InventoryScope } from '@/module/inventory';
+import type { InventoryScope, InventoryReceipt } from '@/module/inventory';
 import { useFacilityDataSource, useFacilityRead } from '@/module/facility';
 import { FacilityPicker, FacilityReadFeedback } from '@/module/facility/ui';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 
-const props = defineProps<{ scope: InventoryScope }>();
+const props = defineProps<{ scope: InventoryScope; initialPosition?: InventoryReceipt['position'] }>();
 const selected = defineModel<{ facilityId: string; topologyId: string; nodeId: string; path: string }>();
 const source = useFacilityDataSource();
-const facilityId = ref('');
+const facilityId = ref(props.initialPosition?.facilityId ?? '');
+const candidateId = ref(props.initialPosition?.nodeId ?? '');
 const search = ref('');
 const draft = ref('');
 const cursor = ref<string>();
@@ -50,7 +51,34 @@ const positions = useFacilityRead(positionKey, (signal) =>
 const items = computed(
     () => positions.data.value?.items.filter((item) => item.kind === 'POSITION' && item.usable) ?? []
 );
+const candidate = useFacilityRead(
+    computed(() =>
+        storageScope.value && candidateId.value ? JSON.stringify([storageScope.value, candidateId.value]) : ''
+    ),
+    (signal) =>
+        source && storageScope.value
+            ? source.node(storageScope.value, candidateId.value, signal)
+            : Promise.resolve(undefined)
+);
+watch(
+    [candidate.data, candidate.error, candidate.loading, facility.loading, facility.error],
+    ([node, error, loading, facilityLoading, facilityError]) => {
+        selected.value =
+            node?.usable && !error && !loading && !facilityLoading && !facilityError
+                ? {
+                      facilityId: node.facilityId,
+                      topologyId: node.topologyId,
+                      nodeId: node.id,
+                      path: [facility.data.value?.name, ...node.ancestors.map((ancestor) => ancestor.name), node.name]
+                          .filter(Boolean)
+                          .join(' / '),
+                  }
+                : undefined;
+    },
+    { flush: 'sync' }
+);
 watch(facilityId, () => {
+    candidateId.value = '';
     selected.value = undefined;
     search.value = draft.value = '';
 });
@@ -107,15 +135,8 @@ function previous() {
                     type="button"
                     variant="ghost"
                     class="h-auto min-h-9 w-full justify-start whitespace-normal text-left"
-                    :class="{ 'bg-primary-soft text-primary': selected?.nodeId === item.id }"
-                    @click="
-                        selected = {
-                            facilityId: item.facilityId,
-                            topologyId: item.topologyId,
-                            nodeId: item.id,
-                            path: `${facility.data.value?.name ?? ''} / ${item.name} · ${item.code}`,
-                        }
-                    "
+                    :class="{ 'bg-primary-soft text-primary': candidateId === item.id }"
+                    @click="candidateId = item.id"
                 >
                     {{ item.name }} · {{ item.code }}
                 </Button>
@@ -123,6 +144,19 @@ function previous() {
                     本批暂无可用的空位置
                 </p>
             </div>
+            <FacilityReadFeedback
+                :error="candidate.error.value"
+                :loading="candidate.loading.value"
+                @retry="candidate.refresh"
+            />
+            <p v-if="candidate.loading.value" role="status" class="text-sm text-muted-foreground">正在核对位置</p>
+            <p
+                v-else-if="candidate.data.value && !candidate.data.value.usable"
+                role="status"
+                class="text-sm text-muted-foreground"
+            >
+                该位置当前不可用，请重新选择。
+            </p>
             <div class="flex justify-end gap-2">
                 <Button
                     type="button"

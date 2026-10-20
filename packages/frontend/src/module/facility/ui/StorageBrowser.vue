@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Network, Box, MapPin, List, Grid2X2, Plus, Pencil, ArrowUp, Search, RotateCw } from '@lucide/vue';
 import { useFacilityDataSource, useFacilityRead } from '../model/read';
+import { useStorageNodePages } from '../model/useStorageNodePages';
 import type { FacilityDetail, StorageNode, StorageNodeDetail } from '../data/source';
-import { HttpError } from '@/platform/http';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { ScrollSurface } from '@/component/scroll-surface';
@@ -70,9 +70,6 @@ const parentId = computed(() =>
 const draft = ref(''),
     query = ref(''),
     mode = ref<'list' | 'grid' | 'positions'>('list');
-const cursor = ref<string>();
-let accumulated: StorageNode[] = [],
-    revision: number | undefined;
 watch(
     () => props.contextKey,
     () => {
@@ -86,19 +83,9 @@ const contentContext = computed(() =>
         ? JSON.stringify([context.value, parentId.value, mode.value, query.value])
         : ''
 );
-watch(
-    contentContext,
-    () => {
-        cursor.value = undefined;
-        accumulated = [];
-        revision = undefined;
-    },
-    { flush: 'sync' }
-);
-const listing = useFacilityRead(contentContext, async (signal) => {
+const listing = useStorageNodePages(contentContext, async (cursor, signal) => {
     if (!source) return;
-    const requestedCursor = cursor.value;
-    const result = await source.children(
+    return source.children(
         scope.value,
         {
             parentId: query.value ? null : parentId.value,
@@ -106,28 +93,11 @@ const listing = useFacilityRead(contentContext, async (signal) => {
             mode: mode.value === 'positions' ? 'positions' : query.value ? 'search' : 'children',
             state: 'all',
             limit: 100,
-            cursor: requestedCursor,
+            cursor,
         },
         signal
     );
-    const items = [...(requestedCursor ? accumulated : []), ...result.items];
-    if (
-        (requestedCursor && revision !== result.revision) ||
-        new Set(items.map((item) => item.id)).size !== items.length ||
-        (result.nextCursor && result.nextCursor === requestedCursor)
-    )
-        throw new HttpError('节点分页已失效，请重新加载', 'protocol');
-    return { ...result, items };
 });
-watch(
-    listing.data,
-    (value) => {
-        accumulated = value?.items ?? [];
-        revision = value?.revision;
-        if (!value) cursor.value = undefined;
-    },
-    { flush: 'sync' }
-);
 const parent = computed(() => (node.data.value?.kind === 'CONTAINER' ? node.data.value : parentRead.data.value));
 const gridAllowed = computed(
     () =>
@@ -139,6 +109,59 @@ const showGrid = computed(() => mode.value === 'grid' && gridAllowed.value && !q
 const gridNodes = computed(
     () => listing.data.value?.items.filter((item) => item.rowIndex !== null && item.columnIndex !== null) ?? []
 );
+const gridElement = ref<HTMLElement>();
+const gridFocus = ref('');
+let pendingGridFocus = '';
+watch(gridNodes, async (items) => {
+    if (!items.some((item) => item.id === gridFocus.value)) gridFocus.value = items[0]?.id ?? '';
+    if (!pendingGridFocus || !items.some((item) => item.id === pendingGridFocus)) return;
+    gridFocus.value = pendingGridFocus;
+    pendingGridFocus = '';
+    await nextTick();
+    gridElement.value
+        ?.querySelector<HTMLButtonElement>(`[data-position-id="${gridFocus.value}"]`)
+        ?.focus({ preventScroll: true });
+});
+async function navigateGrid(event: KeyboardEvent, item: StorageNode) {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        select(parentId.value);
+        return;
+    }
+    const directions: Record<string, [number, number]> = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+    };
+    const direction = directions[event.key];
+    const row = item.rowIndex,
+        column = item.columnIndex;
+    if (!direction || row === null || column === null) return;
+    event.preventDefault();
+    const [dx, dy] = direction;
+    let target: StorageNode | undefined;
+    let distance = Infinity;
+    for (const node of gridNodes.value) {
+        if (node.rowIndex === null || node.columnIndex === null) continue;
+        if (dx ? node.rowIndex !== row : node.columnIndex !== column) continue;
+        const delta = dx ? (node.columnIndex - column) * dx : (node.rowIndex - row) * dy;
+        if (delta > 0 && delta < distance) {
+            target = node;
+            distance = delta;
+        }
+    }
+    if (!target) return;
+    gridFocus.value = target.id;
+    await nextTick();
+    const button = gridElement.value?.querySelector<HTMLButtonElement>(`[data-position-id="${target.id}"]`);
+    button?.focus({ preventScroll: true });
+    button?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+}
+function selectGrid(item: StorageNode, event: MouseEvent) {
+    if (event.detail === 0) pendingGridFocus = item.id;
+    select(item.id);
+}
 const listNodes = computed(() =>
     showGrid.value
         ? (listing.data.value?.items.filter((item) => item.rowIndex === null || item.columnIndex === null) ?? [])
@@ -177,10 +200,6 @@ function reload() {
     epoch.value++;
     emit('changed');
 }
-function more() {
-    cursor.value = listing.data.value?.nextCursor ?? undefined;
-    void listing.refresh();
-}
 const unavailable: Record<string, string> = {
     archived: '已归档',
     disabled: '已停用',
@@ -192,9 +211,14 @@ const unavailable: Record<string, string> = {
 <template>
     <div class="@container/storage space-y-5" data-slot="storage-browser">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-2">
-                <Network class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span class="break-words text-sm">{{ facility.topology?.name ?? '存储布局不可用' }}</span>
+            <div class="flex min-w-0 items-start gap-3">
+                <Network class="mt-1 size-5 shrink-0 text-primary" aria-hidden="true" />
+                <div class="min-w-0">
+                    <h2 class="break-words text-base font-semibold">{{ facility.name }}</h2>
+                    <p class="mt-1 break-words text-xs text-muted-foreground">
+                        {{ facility.code }} · {{ facility.topology?.name ?? '存储布局不可用' }}
+                    </p>
+                </div>
             </div>
             <Button variant="outline" size="sm" @click="reload">
                 <RotateCw aria-hidden="true" />
@@ -204,7 +228,7 @@ const unavailable: Record<string, string> = {
         <p v-if="!facility.topology" class="py-8 text-sm text-muted-foreground">该设施没有可访问的活动布局。</p>
         <div
             v-else
-            class="grid min-w-0 gap-6 @min-[800px]/storage:grid-cols-[220px_minmax(0,1fr)] @min-[1180px]/storage:grid-cols-[220px_minmax(0,1fr)_260px]"
+            class="grid min-w-0 gap-6 @min-[800px]/storage:grid-cols-[220px_minmax(0,1fr)] @min-[1000px]/storage:grid-cols-[220px_minmax(0,1fr)_260px]"
         >
             <aside
                 class="min-w-0 space-y-3 border-b pb-4 @min-[800px]/storage:border-r @min-[800px]/storage:border-b-0 @min-[800px]/storage:pr-4"
@@ -338,32 +362,89 @@ const unavailable: Record<string, string> = {
                 <p v-if="mode === 'grid' && !gridAllowed" class="text-sm text-muted-foreground">
                     选择具有网格规格的容器预览孔位。大型网格使用列表浏览。
                 </p>
-                <div v-if="showGrid" class="max-h-[560px] overflow-auto rounded-md border p-3">
+                <div
+                    v-if="showGrid"
+                    ref="gridElement"
+                    class="max-h-[560px] overflow-auto scroll-smooth rounded-md border p-3"
+                    aria-label="存储位置网格"
+                >
                     <div
                         class="grid w-max gap-2"
                         :style="{
-                            gridTemplateColumns: `repeat(${parent?.columnCount}, 48px)`,
-                            gridTemplateRows: `repeat(${parent?.rowCount}, 48px)`,
+                            gridTemplateColumns: `24px repeat(${parent?.columnCount}, 48px)`,
+                            gridTemplateRows: `24px repeat(${parent?.rowCount}, 48px)`,
                         }"
                     >
+                        <span
+                            v-for="column in parent?.columnCount ?? 0"
+                            :key="`column-${column}`"
+                            class="text-center text-xs tabular-nums text-muted-foreground"
+                            :style="{ gridRow: 1, gridColumn: column + 1 }"
+                            aria-hidden="true"
+                        >
+                            {{ column }}
+                        </span>
+                        <span
+                            v-for="row in parent?.rowCount ?? 0"
+                            :key="`row-${row}`"
+                            class="flex items-center text-xs tabular-nums text-muted-foreground"
+                            :style="{ gridRow: row + 1, gridColumn: 1 }"
+                            aria-hidden="true"
+                        >
+                            {{ row }}
+                        </span>
                         <Button
                             v-for="item in gridNodes"
                             :key="item.id"
                             variant="outline"
-                            class="size-12 min-w-0 px-1 text-xs"
+                            class="relative size-12 min-w-0 px-1 text-xs"
                             :class="{
                                 'border-primary bg-primary-soft text-primary': selected === item.id,
                                 'bg-muted text-muted-foreground': !item.usable,
                             }"
-                            :style="{ gridRow: item.rowIndex ?? undefined, gridColumn: item.columnIndex ?? undefined }"
+                            :style="{
+                                gridRow: item.rowIndex === null ? undefined : item.rowIndex + 1,
+                                gridColumn: item.columnIndex === null ? undefined : item.columnIndex + 1,
+                            }"
+                            :data-position-id="item.id"
+                            :tabindex="gridFocus === item.id ? 0 : -1"
+                            :aria-pressed="selected === item.id"
+                            :aria-label="`${item.name}，${item.rowIndex} 行 ${item.columnIndex} 列，${item.occupied ? '已占用' : item.usable ? '可用' : (unavailable[item.unavailableReason ?? ''] ?? '容器')}`"
                             use-tooltip
                             :tooltip="`${item.name} · ${item.rowIndex} 行 ${item.columnIndex} 列 · ${item.occupied ? '已占用' : item.usable ? '可用' : (unavailable[item.unavailableReason ?? ''] ?? '容器')}`"
-                            @click="select(item.id)"
+                            @focus="gridFocus = item.id"
+                            @keydown="navigateGrid($event, item)"
+                            @click="selectGrid(item, $event)"
                         >
+                            <span v-if="item.occupied" class="absolute right-0.5 top-0.5" aria-hidden="true">
+                                <MapPin class="size-2.5" />
+                            </span>
                             <span class="truncate">{{ item.code }}</span>
                         </Button>
                     </div>
                 </div>
+                <ul
+                    v-if="showGrid"
+                    class="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
+                    aria-label="孔位状态图例"
+                >
+                    <li class="flex items-center gap-2">
+                        <span class="size-3 rounded-sm border bg-card" />
+                        可用
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <MapPin class="size-3" aria-hidden="true" />
+                        已占用
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="size-3 rounded-sm border bg-muted" />
+                        不可用
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <span class="size-3 rounded-sm border border-primary bg-primary-soft" />
+                        已选
+                    </li>
+                </ul>
                 <ul v-if="!showGrid || listNodes.length" class="divide-y border-y">
                     <li v-for="item in listNodes" :key="item.id">
                         <button
@@ -417,13 +498,13 @@ const unavailable: Record<string, string> = {
                     v-if="listing.data.value?.nextCursor"
                     variant="outline"
                     :disabled="listing.loading.value || !!listing.error.value"
-                    @click="more"
+                    @click="listing.more"
                 >
                     加载更多节点
                 </Button>
             </section>
             <aside
-                class="min-w-0 space-y-4 border-t pt-4 @min-[800px]/storage:col-span-2 @min-[1180px]/storage:col-span-1 @min-[1180px]/storage:border-t-0 @min-[1180px]/storage:border-l @min-[1180px]/storage:pt-0 @min-[1180px]/storage:pl-4"
+                class="min-w-0 space-y-4 border-t pt-4 @min-[800px]/storage:col-span-2 @min-[1000px]/storage:col-span-1 @min-[1000px]/storage:border-t-0 @min-[1000px]/storage:border-l @min-[1000px]/storage:pt-0 @min-[1000px]/storage:pl-4"
                 aria-label="存储节点详情"
             >
                 <h2 class="text-sm font-semibold">节点信息</h2>
@@ -477,6 +558,12 @@ const unavailable: Record<string, string> = {
                             </dd>
                         </div>
                     </dl>
+                    <slot
+                        v-if="!node.loading.value && !node.error.value"
+                        name="node-content"
+                        :node="node.data.value"
+                        :scope="scope"
+                    />
                     <div
                         v-if="node.data.value.capabilities.manage && !facility.archivedAt"
                         class="flex flex-wrap gap-2 border-t pt-4"
@@ -509,6 +596,12 @@ const unavailable: Record<string, string> = {
                         >
                             移动空子树
                         </Button>
+                        <slot
+                            v-if="!node.loading.value && !node.error.value"
+                            name="node-action"
+                            :node="node.data.value"
+                            :scope="scope"
+                        />
                         <Button
                             v-if="!node.data.value.archivedAt"
                             variant="outline"

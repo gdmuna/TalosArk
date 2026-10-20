@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Archive, ArchiveRestore, Package, Pencil } from '@lucide/vue';
-import { MaterialBatchEditor, useMaterialRead, useMaterialStore } from '@/module/material';
+import { MaterialBatchEditor, useMaterialBatchRecovery, useMaterialRead, useMaterialStore } from '@/module/material';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { Button } from '@/ui/button';
 import { CopyableId } from '@/component/inspector';
@@ -37,11 +37,16 @@ const permissions = useMaterialRead(
     [materialId]
 );
 const editorOpen = ref(false);
-const syncPending = ref(false);
-let generation = 0;
-onScopeDispose(() => {
-    generation++;
-});
+const {
+    syncPending,
+    synchronize,
+    afterCommit,
+    archive: archiveBatch,
+} = useMaterialBatchRecovery(
+    () => materialId.value,
+    reload,
+    () => batchId.value
+);
 const disabled = computed(
     () =>
         !data.value ||
@@ -55,9 +60,7 @@ const disabled = computed(
 watch(
     [() => store.scope, materialId, batchId],
     () => {
-        generation++;
         editorOpen.value = false;
-        syncPending.value = false;
     },
     { flush: 'sync' }
 );
@@ -70,34 +73,10 @@ provideBreadcrumbs(() => [
     },
     { id: 'batch', label: data.value?.batchNumber ?? '批次详情' },
 ]);
-async function synchronize() {
-    const current = generation;
-    store.error = '';
-    const synchronized = await reload();
-    if (current === generation && synchronized) syncPending.value = false;
-    return synchronized;
-}
-async function afterCommit() {
-    syncPending.value = true;
-    return synchronize();
-}
-async function archive() {
+function archive() {
     const batch = data.value;
     if (!batch || disabled.value) return;
-    const current = generation;
-    const saved = await store.mutate(({ source, scope, signal }) =>
-        source.archiveBatch(
-            scope,
-            materialId.value,
-            batch.id,
-            {
-                expectedRevision: batch.revision,
-                archived: !batch.archivedAt,
-            },
-            signal
-        )
-    );
-    if (saved && current === generation) await afterCommit();
+    return archiveBatch(batch, !batch.archivedAt);
 }
 </script>
 

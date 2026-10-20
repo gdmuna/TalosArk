@@ -14,7 +14,7 @@ import FacilityFacts from './FacilityFacts.vue';
 import FacilityFormDialog from './FacilityFormDialog.vue';
 import WorkspaceAccess from './WorkspaceAccess.vue';
 import Activity from './Activity.vue';
-import { StorageBrowser } from '@/module/facility/ui';
+import StorageBrowser from '../../inventory/component/InventoryStorageBrowser.vue';
 import { useManagementView } from '../useManagementView';
 import { useFacilityContext, facilityPath, governancePath } from './context';
 

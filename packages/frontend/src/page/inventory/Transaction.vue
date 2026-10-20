@@ -51,13 +51,49 @@ const columns: DataTableColumn<InventoryTransaction>[] = [
         id: 'type',
         label: '流水类型',
         icon: ListRestart,
-        size: 180,
+        size: 140,
         sortable: false,
         value: (row) => inventoryTransactionLabel(row.type),
     },
+    {
+        id: 'quantity',
+        label: '数量变化',
+        size: 170,
+        align: 'right',
+        sortable: false,
+        value: (row) => {
+            const [line] = row.lines;
+            return row.lines.length === 1 && line
+                ? `${line.quantityBefore} → ${line.quantityAfter} ${line.unitSnapshot}`
+                : `${row.lines.length} 项变更`;
+        },
+    },
+    {
+        id: 'location',
+        label: '位置变更',
+        size: 280,
+        sortable: false,
+        value: (row) => {
+            const [line] = row.lines;
+            return row.lines.length === 1 && line
+                ? [
+                      line.fromLocationRestricted ? '位置受限' : (line.fromNodePathSnapshot ?? '无来源位置'),
+                      line.toLocationRestricted ? '位置受限' : (line.toNodePathSnapshot ?? '无目标位置'),
+                  ].join(' → ')
+                : `${row.lines.length} 项明细，查看详情`;
+        },
+    },
+    {
+        id: 'lines',
+        label: '明细数',
+        icon: Package,
+        size: 100,
+        align: 'right',
+        sortable: false,
+        value: (row) => row.lines.length,
+    },
+    { id: 'reason', label: '原因', size: 240, sortable: false, value: (row) => row.reason ?? '—' },
     { id: 'operationId', label: '操作 ID', size: 260, sortable: false, value: (row) => row.operationId },
-    { id: 'lines', label: '明细数', icon: Package, size: 120, sortable: false, value: (row) => row.lines.length },
-    { id: 'reason', label: '原因', size: 280, sortable: false, value: (row) => row.reason ?? '—' },
 ];
 const actions: DataTableAction<InventoryTransaction>[] = [
     {
@@ -80,7 +116,7 @@ watch(
 </script>
 
 <template>
-    <ResourcePage label="出入库流水" layout="table">
+    <ResourcePage label="出入库流水" layout="data">
         <div v-if="error" role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
             <p class="text-sm text-destructive">{{ error }}</p>
             <Button variant="outline" @click="refresh">重新加载</Button>
@@ -101,7 +137,26 @@ watch(
                     selectedId = row.id;
                 }
             "
-        />
+        >
+            <template #cell-occurredAt="{ row }">
+                <button
+                    class="text-left tabular-nums hover:underline focus-visible:underline"
+                    :aria-label="`预览${inventoryTransactionLabel(row.type)}流水`"
+                    @click="selectedId = row.id"
+                >
+                    {{ new Date(row.occurredAt).toLocaleString('zh-CN', { hour12: false }) }}
+                </button>
+            </template>
+            <template #cell-operationId="{ row }">
+                <span class="block truncate font-mono text-xs" :title="row.operationId">{{ row.operationId }}</span>
+            </template>
+            <template #cell-quantity="{ value }">
+                <span class="whitespace-nowrap tabular-nums">{{ value }}</span>
+            </template>
+            <template #cell-location="{ value }">
+                <span class="block truncate" :title="String(value)">{{ value }}</span>
+            </template>
+        </DataTable>
         <InventoryTransactionInspector v-model:id="selectedId" />
     </ResourcePage>
 </template>

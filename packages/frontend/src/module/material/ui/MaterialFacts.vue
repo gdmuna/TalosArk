@@ -4,7 +4,7 @@ import type { Material } from '@talos-ark/contracts/material';
 import { branchPresentation, materialDate } from '../model/presentation';
 import { Badge } from '@/ui/badge';
 
-const props = defineProps<{ material: Material }>();
+const props = defineProps<{ material: Material; compact?: boolean }>();
 const facts = computed(() => [
     { label: '材料编号', value: props.material.code },
     { label: '业务分支', value: branchPresentation(props.material.branch).label },
@@ -34,7 +34,7 @@ const attributes = computed(() => props.material.attributes as Record<string, st
             </dl>
             <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ material.description || '暂无描述' }}</p>
         </section>
-        <section class="space-y-4">
+        <section v-if="!compact" class="space-y-4">
             <h3 class="border-b pb-3 font-semibold">{{ branchPresentation(material.branch).label }}属性</h3>
             <dl class="space-y-4">
                 <div
@@ -47,7 +47,7 @@ const attributes = computed(() => props.material.attributes as Record<string, st
                 </div>
             </dl>
         </section>
-        <section class="space-y-4">
+        <section v-if="!compact" class="space-y-4">
             <h3 class="border-b pb-3 font-semibold">别名与外部标识</h3>
             <div v-if="material.aliases.length" class="flex flex-wrap gap-2">
                 <Badge

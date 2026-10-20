@@ -9,7 +9,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/
 import ManagementPage from './component/ManagementPage.vue';
 import ManagementViewNav from './component/ManagementViewNav.vue';
 import DetailPicker from './detail/DetailPicker.vue';
-import { StorageBrowser } from '@/module/facility/ui';
+import StorageBrowser from '../inventory/component/InventoryStorageBrowser.vue';
 import GovernanceRead from './facility/GovernanceRead.vue';
 import ReadFeedback from './facility/ReadFeedback.vue';
 import { facilityPath, governancePath, useFacilityContext } from './facility/context';

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Archive, ArchiveRestore, Eye, Layers, Pencil, Plus } from '@lucide/vue';
 import type { PaginationState } from '@tanstack/vue-table';
 import type { MaterialBatch, MaterialBatchQuery } from '../data/source';
 import { useMaterialStore } from '../model/store';
 import { useMaterialRead } from '../model/useMaterialRead';
+import { useMaterialBatchRecovery } from '../model/useMaterialBatchRecovery';
 import MaterialBatchEditor from './MaterialBatchEditor.vue';
 import { DataTable, type DataTableAction, type DataTableColumn } from '@/component/data-table';
 import { CopyableId, SheetInspector } from '@/component/inspector';
@@ -37,11 +38,12 @@ watch([data, error], ([value, failure]) => {
 const editorOpen = ref(false);
 const editing = ref<MaterialBatch>();
 const selectedId = ref('');
-const syncPending = ref(false);
-let generation = 0;
-onScopeDispose(() => {
-    generation++;
-});
+const {
+    syncPending,
+    synchronize,
+    afterCommit,
+    archive: archiveBatch,
+} = useMaterialBatchRecovery(() => props.materialId, reload);
 const preview = useMaterialRead(
     (context, signal) =>
         selectedId.value
@@ -132,12 +134,10 @@ watch(
 watch(
     [() => store.scope, () => props.materialId],
     () => {
-        generation++;
         total.value = 0;
         pagination.value.pageIndex = 0;
         selectedId.value = '';
         editorOpen.value = false;
-        syncPending.value = false;
     },
     { flush: 'sync' }
 );
@@ -150,33 +150,9 @@ function edit(batch?: MaterialBatch) {
     editing.value = batch;
     editorOpen.value = true;
 }
-async function synchronize() {
-    const current = generation;
-    store.error = '';
-    const synchronized = await reload();
-    if (current === generation && synchronized) syncPending.value = false;
-    return synchronized;
-}
-async function afterCommit() {
-    syncPending.value = true;
-    return synchronize();
-}
-async function archive(batch: MaterialBatch, archived: boolean) {
+function archive(batch: MaterialBatch, archived: boolean) {
     if (disabled.value) return;
-    const current = generation;
-    const saved = await store.mutate(({ source, scope, signal }) =>
-        source.archiveBatch(
-            scope,
-            props.materialId,
-            batch.id,
-            {
-                expectedRevision: batch.revision,
-                archived,
-            },
-            signal
-        )
-    );
-    if (saved && current === generation) await afterCommit();
+    return archiveBatch(batch, archived);
 }
 </script>
 

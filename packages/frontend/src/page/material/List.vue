@@ -2,18 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { refDebounced } from '@vueuse/core';
-import {
-    Archive,
-    ArchiveRestore,
-    Eye,
-    FlaskConical,
-    Shapes,
-    Tag,
-    CalendarDays,
-    Pencil,
-    ArrowUpRight,
-    Boxes,
-} from '@lucide/vue';
+import { Archive, Eye, FlaskConical, Shapes, Tag, CalendarDays, Pencil, Boxes } from '@lucide/vue';
 import type { Material, MaterialQuery } from '@talos-ark/contracts/material';
 import type { SortingState, PaginationState } from '@tanstack/vue-table';
 import {
@@ -22,14 +11,13 @@ import {
     materialBranches,
     branchPresentation,
     MaterialEditor,
-    MaterialFacts,
+    MaterialInspector,
     materialDate,
 } from '@/module/material';
 import { DataTable, type DataTableColumn, type DataTableFilter, type DataTableAction } from '@/component/data-table';
-import { SheetInspector, CopyableId } from '@/component/inspector';
 import { Badge } from '@/ui/badge';
+import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
-import { ScrollArea } from '@/ui/scroll-area';
 import { useQueryCommand } from '@/platform/navigation';
 import { useResourceQuery } from '../resource/useResourceQuery';
 
@@ -80,18 +68,6 @@ watch(types.data, (value) => {
     if (value) store.types = value.items;
 });
 const rows = computed(() => data.value?.items ?? []);
-const preview = useMaterialRead(
-    (context, signal) =>
-        selectedId.value ? context.source.get(context.scope, selectedId.value, signal) : Promise.resolve(undefined),
-    [selectedId]
-);
-const selected = computed(() => preview.data.value?.material);
-const open = computed({
-    get: () => !!selected.value,
-    set: (value) => {
-        if (!value) selectedId.value = '';
-    },
-});
 const columns: DataTableColumn<Material>[] = [
     { id: 'name', label: '材料', icon: FlaskConical, size: 280, fill: true, value: (row) => row.name },
     { id: 'branch', label: '业务分支', icon: Shapes, size: 130, value: (row) => branchPresentation(row.branch).label },
@@ -102,6 +78,7 @@ const columns: DataTableColumn<Material>[] = [
         label: '登记实例',
         icon: Boxes,
         size: 100,
+        align: 'right',
         sortable: false,
         value: (row) => row.instanceCount,
     },
@@ -185,6 +162,16 @@ watch(
 useQueryCommand('resource', (id) => {
     selectedId.value = id;
 });
+watch(
+    () => route.query.state,
+    (value) => {
+        filters.value = {
+            ...filters.value,
+            status: value === 'all' ? [] : [value === 'archived' ? 'archived' : 'active'],
+        };
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
@@ -199,118 +186,69 @@ useQueryCommand('resource', (id) => {
                 <Button variant="outline" @click="reload">重新加载</Button>
             </div>
             <p v-if="store.error" role="alert" class="text-sm text-destructive">{{ store.error }}</p>
-            <p v-if="preview.error.value" role="alert" class="text-sm text-destructive">
-                {{ preview.error.value }}
-                <Button variant="link" size="sm" @click="preview.reload">重试</Button>
-            </p>
             <p v-if="types.error.value" role="alert" class="text-sm text-destructive">
                 分类加载失败
                 <Button variant="link" size="sm" @click="types.reload">重试</Button>
             </p>
-            <SheetInspector v-model:open="open" :title="selected?.name ?? '材料详情'">
-                <template #main>
-                    <DataTable
-                        v-model:query="query"
-                        v-model:filters="filters"
-                        v-model:sorting="sorting"
-                        v-model:pagination="pagination"
-                        :server-total="total"
-                        :data="rows"
-                        :columns="columns"
-                        :filter-fields="filterFields"
-                        :actions="actions"
-                        :busy="loading"
-                        :preview="
-                            (row) => {
-                                selectedId = row.id;
-                            }
-                        "
-                        :active-id="selectedId"
-                        search-label="搜索材料、厂家、别名或外部标识"
-                        :empty-text="error ? '材料加载失败' : '暂无符合条件的材料'"
+            <DataTable
+                v-model:query="query"
+                v-model:filters="filters"
+                v-model:sorting="sorting"
+                v-model:pagination="pagination"
+                :server-total="total"
+                :data="rows"
+                :columns="columns"
+                :filter-fields="filterFields"
+                :actions="actions"
+                :busy="loading"
+                :preview="
+                    (row) => {
+                        selectedId = row.id;
+                    }
+                "
+                :active-id="selectedId"
+                search-label="搜索材料、厂家、别名或外部标识"
+                :empty-text="error ? '材料加载失败' : '暂无符合条件的材料'"
+            >
+                <template #cell-name="{ row }">
+                    <button
+                        class="group flex w-full items-start gap-3 text-left after:absolute after:inset-0"
+                        :aria-label="`预览${row.name}`"
+                        @click="selectedId = row.id"
                     >
-                        <template #cell-name="{ row }">
-                            <button
-                                class="group flex w-full items-start gap-3 text-left after:absolute after:inset-0"
-                                :aria-label="`预览${row.name}`"
-                                @click="selectedId = row.id"
-                            >
-                                <component
-                                    :is="branchPresentation(row.branch).icon"
-                                    class="mt-0.5 size-5 shrink-0 text-primary"
-                                />
-                                <span class="min-w-0">
-                                    <span class="block font-medium group-hover:underline group-focus-visible:underline">
-                                        {{ row.name }}
-                                    </span>
-                                    <span class="mt-1 block break-all text-xs text-muted-foreground">
-                                        {{ row.code }}
-                                        <template v-if="row.catalogNumber">· {{ row.catalogNumber }}</template>
-                                    </span>
-                                </span>
-                            </button>
-                        </template>
-                        <template #cell-branch="{ row }">
-                            <Badge
-                                variant="outline"
-                                class="material-branch-badge whitespace-normal rounded-sm font-normal"
-                                :style="{ '--material-branch-color': branchPresentation(row.branch).color }"
-                            >
-                                {{ branchPresentation(row.branch).label }}
-                            </Badge>
-                        </template>
-                        <template #cell-status="{ row }">
-                            <Badge variant="secondary" class="rounded-sm font-normal">
-                                {{ row.archivedAt ? '已归档' : '有效' }}
-                            </Badge>
-                        </template>
-                    </DataTable>
+                        <component
+                            :is="branchPresentation(row.branch).icon"
+                            class="mt-0.5 size-5 shrink-0 text-primary"
+                        />
+                        <span class="min-w-0">
+                            <span class="block font-medium group-hover:underline group-focus-visible:underline">
+                                {{ row.name }}
+                            </span>
+                            <span class="mt-1 block break-all text-xs text-muted-foreground">
+                                {{ row.code }}
+                                <template v-if="row.catalogNumber">· {{ row.catalogNumber }}</template>
+                            </span>
+                        </span>
+                    </button>
                 </template>
-                <template v-if="selected">
-                    <ScrollArea class="min-h-0 flex-1">
-                        <div class="@container space-y-6 p-6">
-                            <div class="space-y-2 pr-7">
-                                <h2 class="break-words text-lg font-semibold">{{ selected.name }}</h2>
-                                <CopyableId :value="selected.id" label="材料 ID" />
-                                <Badge variant="secondary">{{ selected.archivedAt ? '已归档' : '有效' }}</Badge>
-                            </div>
-                            <MaterialFacts :material="selected" />
-                            <div class="border-t pt-4 text-sm">
-                                <span class="text-muted-foreground">登记实例</span>
-                                <span class="ml-4 tabular-nums">{{ selected.instanceCount }}</span>
-                            </div>
-                        </div>
-                    </ScrollArea>
-                    <div class="flex shrink-0 flex-wrap gap-2 border-t p-6">
-                        <Button class="flex-1" @click="detail(selected)">
-                            <ArrowUpRight />
-                            完整详情
-                        </Button>
-                        <Button
-                            variant="outline"
-                            :disabled="!preview.data.value?.capabilities.update || !!selected.archivedAt || store.busy"
-                            @click="edit(selected)"
-                        >
-                            <Pencil />
-                            编辑
-                        </Button>
-                        <Button
-                            variant="outline"
-                            :disabled="
-                                !preview.data.value?.capabilities.archive ||
-                                store.busy ||
-                                (!!selected.archivedAt && !!selected.type.archivedAt)
-                            "
-                            @click="store.archive(selected)"
-                        >
-                            <component :is="selected.archivedAt ? ArchiveRestore : Archive" />
-                            {{ selected.archivedAt ? '恢复' : '归档' }}
-                        </Button>
-                    </div>
+                <template #cell-branch="{ row }">
+                    <Badge
+                        variant="outline"
+                        class="material-branch-badge whitespace-normal rounded-sm font-normal"
+                        :style="{ '--material-branch-color': branchPresentation(row.branch).color }"
+                    >
+                        {{ branchPresentation(row.branch).label }}
+                    </Badge>
                 </template>
-            </SheetInspector>
+                <template #cell-status="{ row }">
+                    <StateBadge :tone="row.archivedAt ? 'neutral' : 'success'">
+                        {{ row.archivedAt ? '已归档' : '有效' }}
+                    </StateBadge>
+                </template>
+            </DataTable>
         </div>
         <MaterialEditor v-model:open="editorOpen" :material="editing" />
+        <MaterialInspector v-model:id="selectedId" />
     </main>
 </template>
 <style scoped>

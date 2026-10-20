@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import { useId } from 'vue';
+import { computed, useId } from 'vue';
 import { PopoverTitle } from '@/ui/popover';
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/ui/select';
 
-defineProps<{
+const props = defineProps<{
     label: string;
     options: ReadonlyArray<{ value: string; label: string }>;
     disabled?: boolean;
     hideTitle?: boolean;
 }>();
 const model = defineModel<string>({ required: true });
+const selectedLabel = computed(() => props.options.find((option) => option.value === model.value)?.label);
 const titleId = useId();
 </script>
 
 <template>
     <Select v-model="model" :disabled="disabled">
         <SelectTrigger class="h-9 min-w-32 max-w-full rounded-md bg-card" :aria-label="label">
-            <SelectValue :placeholder="label" />
+            <SelectValue :placeholder="label">{{ selectedLabel }}</SelectValue>
         </SelectTrigger>
         <SelectContent
             position="popper"

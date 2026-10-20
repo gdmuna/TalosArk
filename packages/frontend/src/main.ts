@@ -22,6 +22,8 @@ import {
     createHttpInventoryDataSource,
     inventoryDataSourceKey,
     useInventoryReceiptStore,
+    useInventoryRelocationStore,
+    useInventoryActionStore,
 } from '@/module/inventory';
 import { createApplicationBootstrap } from './bootstrap';
 import { workbenchOverviewDataSourceKey } from '@/module/workbench';
@@ -50,6 +52,10 @@ const facilitySource = createHttpFacilityDataSource(http);
 const inventorySource = createHttpInventoryDataSource(http);
 const inventoryReceipt = useInventoryReceiptStore(pinia);
 inventoryReceipt.connect(inventorySource);
+const inventoryRelocation = useInventoryRelocationStore(pinia);
+inventoryRelocation.connect(inventorySource);
+const inventoryAction = useInventoryActionStore(pinia);
+inventoryAction.connect(inventorySource);
 app.provide(managementDataSourceKey, createHttpManagementDataSource(http, teamSource));
 app.provide(materialDataSourceKey, materialSource);
 app.provide(facilityDataSourceKey, facilitySource);
@@ -89,6 +95,8 @@ const stopSessionWatch = watch(
                   ? ''
                   : undefined;
         inventoryReceipt.connect(inventorySource, operationOwner);
+        inventoryRelocation.connect(inventorySource, operationOwner);
+        inventoryAction.connect(inventorySource, operationOwner);
         materialAttachment.connect(materialSource, operationOwner);
         bootstrap.reset();
         const route = router.currentRoute.value;

@@ -5,6 +5,8 @@ import { inventoryStatusLabel, inventoryTransactionLabel } from '../model/presen
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Button } from '@/ui/button';
+import { ArrowUpRight } from '@lucide/vue';
+import { RouterLink } from 'vue-router';
 
 const id = defineModel<string>('id', { default: '' });
 const source = useInventoryDataSource();
@@ -73,6 +75,12 @@ function status(value: string | null) {
                         >
                             <p class="font-medium">第 {{ line.lineNumber }} 项</p>
                             <CopyableId :value="line.stockItemId" label="库存 ID" />
+                            <Button variant="outline" size="sm" as-child>
+                                <RouterLink :to="`/main/inventory/detail/${line.stockItemId}`">
+                                    <ArrowUpRight aria-hidden="true" />
+                                    查看库存实例
+                                </RouterLink>
+                            </Button>
                             <dl class="grid gap-3">
                                 <div>
                                     <dt class="text-muted-foreground">数量</dt>
@@ -86,11 +94,19 @@ function status(value: string | null) {
                                 </div>
                                 <div>
                                     <dt class="text-muted-foreground">来源位置快照</dt>
-                                    <dd class="break-words">{{ line.fromNodePathSnapshot ?? '无' }}</dd>
+                                    <dd class="break-words">
+                                        {{
+                                            line.fromLocationRestricted
+                                                ? '位置受限'
+                                                : (line.fromNodePathSnapshot ?? '无')
+                                        }}
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt class="text-muted-foreground">目标位置快照</dt>
-                                    <dd class="break-words">{{ line.toNodePathSnapshot ?? '无' }}</dd>
+                                    <dd class="break-words">
+                                        {{ line.toLocationRestricted ? '位置受限' : (line.toNodePathSnapshot ?? '无') }}
+                                    </dd>
                                 </div>
                             </dl>
                             <CopyableId v-if="line.fromNodeId" :value="line.fromNodeId" label="来源位置 ID" />

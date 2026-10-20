@@ -7,7 +7,9 @@ import { useMaterialRead, useMaterialStore } from '@/module/material';
 import { useInventoryReceiptStore } from '@/module/inventory';
 import { HttpError } from '@/platform/http';
 import InventoryPositionPicker from './InventoryPositionPicker.vue';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
+import { ScrollSurface } from '@/component/scroll-surface';
+import { useWorkspaceStore } from '@/module/workspace';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { SelectField } from '@/component/select-field';
@@ -21,10 +23,14 @@ const props = defineProps<{
     canReceive: boolean;
     canManageBatch: boolean;
     businessDate?: string;
+    initialMaterialId?: string;
+    initialBatchId?: string;
+    initialPosition?: InventoryReceipt['position'];
     onCommitted?: (receipt: InventoryOperationReceipt) => Promise<boolean>;
 }>();
 
 const materialStore = useMaterialStore();
+const workspace = useWorkspaceStore();
 const receiptStore = useInventoryReceiptStore();
 const materialId = ref('');
 const batchMode = ref<'none' | 'existing' | 'create'>('none');
@@ -182,7 +188,15 @@ function reset() {
 watch(open, (value) => {
     if (!value) return;
     session++;
-    if (!attempt.value) return reset();
+    if (!attempt.value) {
+        reset();
+        materialId.value = props.initialMaterialId ?? '';
+        if (materialId.value && props.initialBatchId) {
+            batchMode.value = 'existing';
+            batchId.value = props.initialBatchId;
+        }
+        return;
+    }
     const body = attempt.value.body;
     materialId.value = body.materialId;
     batchMode.value = body.batch.kind === 'none' ? 'none' : body.batch.kind === 'existing' ? 'existing' : 'create';
@@ -380,237 +394,272 @@ async function reloadOnly() {
 </script>
 
 <template>
-    <Dialog v-model:open="dialogOpen">
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-            <DialogTitle class="flex items-center gap-2">
-                <PackagePlus class="size-5 text-primary" />
-                登记入库
-            </DialogTitle>
-            <DialogDescription>登记一件实物并占用一个可用存储位置。</DialogDescription>
-            <form class="space-y-5" @submit.prevent="submit">
-                <fieldset class="space-y-5 border-0 p-0" :disabled="formLocked">
-                    <label class="grid gap-2 text-sm">
-                        <span>搜索材料</span>
-                        <Input v-model="materialSearch" placeholder="按名称、编号搜索材料" />
-                    </label>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <SelectField
-                            v-model="materialId"
-                            label="材料"
-                            :options="materialOptions"
-                            :disabled="formLocked"
-                        />
+    <Sheet v-model:open="dialogOpen">
+        <SheetContent class="w-full gap-0 p-0 sm:max-w-2xl">
+            <header class="shrink-0 space-y-2 border-b p-6 pr-12">
+                <SheetTitle class="flex items-center gap-2">
+                    <PackagePlus class="size-5 text-primary" />
+                    登记入库
+                </SheetTitle>
+                <SheetDescription>工作区 · {{ workspace.current?.name }}</SheetDescription>
+            </header>
+            <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submit">
+                <ScrollSurface class="min-h-0 flex-1">
+                    <fieldset
+                        class="space-y-5 border-0 p-6 [&_[data-slot=select-trigger]]:w-full"
+                        :disabled="formLocked"
+                    >
                         <label class="grid gap-2 text-sm">
-                            <span>数量{{ quantityUnit ? `（${quantityUnit}）` : '' }}</span>
-                            <Input
-                                v-model="quantity"
-                                inputmode="decimal"
-                                placeholder="例如 1.5"
-                                :disabled="submitting || !!committed || !materialId"
-                                required
-                            />
+                            <span>搜索材料</span>
+                            <Input v-model="materialSearch" placeholder="按名称、编号搜索材料" />
                         </label>
-                    </div>
-                    <div v-if="materials.error.value" class="text-sm text-destructive">{{ materials.error.value }}</div>
-                    <p v-if="materialDetail.error.value" role="alert" class="text-sm text-destructive">
-                        {{ materialDetail.error.value }}
-                    </p>
-                    <div class="flex justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            :disabled="formLocked || materials.loading.value || materialPage <= 1"
-                            @click="materialPage--"
-                        >
-                            上一页材料
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            :disabled="
-                                formLocked ||
-                                materials.loading.value ||
-                                materialPage * 20 >= (materials.data.value?.total ?? 0)
-                            "
-                            @click="materialPage++"
-                        >
-                            下一页材料
-                        </Button>
-                    </div>
-                    <div v-if="selectedMaterial" class="rounded-md border bg-muted/20 p-3 text-sm">
-                        <span class="font-medium">{{ selectedMaterial.name }}</span>
-                        <span class="ml-2 text-muted-foreground">精度 {{ selectedMaterial.quantityScale }} 位小数</span>
-                    </div>
-                    <fieldset class="space-y-3 rounded-md border p-4">
-                        <legend class="px-1 text-sm font-medium">来源批次</legend>
-                        <SelectField
-                            v-model="batchMode"
-                            label="批次方式"
-                            :options="batchModes"
-                            :disabled="formLocked || !materialId"
-                        />
-                        <Input
-                            v-if="batchMode === 'existing'"
-                            v-model="batchSearch"
-                            aria-label="搜索来源批次"
-                            placeholder="搜索批号"
-                        />
-                        <SelectField
-                            v-if="batchMode === 'existing'"
-                            v-model="batchId"
-                            label="已有批次"
-                            :options="batchOptions"
-                            :disabled="formLocked || batchLoading"
-                        />
-                        <p
-                            v-if="batches.error.value || batchDetail.error.value"
-                            role="alert"
-                            class="text-sm text-destructive"
-                        >
-                            {{ batches.error.value || batchDetail.error.value }}
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-2 text-sm">
+                                <span>材料</span>
+                                <SelectField
+                                    v-model="materialId"
+                                    label="材料"
+                                    :options="materialOptions"
+                                    :disabled="formLocked"
+                                />
+                            </div>
+                            <label class="grid gap-2 text-sm">
+                                <span>数量{{ quantityUnit ? `（${quantityUnit}）` : '' }}</span>
+                                <Input
+                                    v-model="quantity"
+                                    inputmode="decimal"
+                                    placeholder="例如 1.5"
+                                    :disabled="submitting || !!committed || !materialId"
+                                    required
+                                />
+                            </label>
+                        </div>
+                        <div v-if="materials.error.value" class="text-sm text-destructive">
+                            {{ materials.error.value }}
+                        </div>
+                        <p v-if="materialDetail.error.value" role="alert" class="text-sm text-destructive">
+                            {{ materialDetail.error.value }}
                         </p>
-                        <div v-if="batchMode === 'existing'" class="flex justify-end gap-2">
+                        <div class="flex justify-end gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                :disabled="formLocked || batchLoading || batchPage <= 1"
-                                @click="batchPage--"
+                                :disabled="formLocked || materials.loading.value || materialPage <= 1"
+                                @click="materialPage--"
                             >
-                                上一页批次
+                                上一页材料
                             </Button>
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 :disabled="
-                                    formLocked || batchLoading || batchPage * 20 >= (batches.data.value?.total ?? 0)
+                                    formLocked ||
+                                    materials.loading.value ||
+                                    materialPage * 20 >= (materials.data.value?.total ?? 0)
                                 "
-                                @click="batchPage++"
+                                @click="materialPage++"
                             >
-                                下一页批次
+                                下一页材料
                             </Button>
                         </div>
-                        <div v-if="batchMode === 'create'" class="grid gap-3 sm:grid-cols-2">
+                        <div v-if="selectedMaterial" class="rounded-md border bg-muted/20 p-3 text-sm">
+                            <span class="font-medium">{{ selectedMaterial.name }}</span>
+                            <span class="ml-2 text-muted-foreground">
+                                精度 {{ selectedMaterial.quantityScale }} 位小数
+                            </span>
+                        </div>
+                        <fieldset class="space-y-3 rounded-md border p-4">
+                            <legend class="px-1 text-sm font-medium">来源批次</legend>
+                            <div class="grid gap-2 text-sm">
+                                <span>批次方式</span>
+                                <SelectField
+                                    v-model="batchMode"
+                                    label="批次方式"
+                                    :options="batchModes"
+                                    :disabled="formLocked || !materialId"
+                                />
+                            </div>
+                            <Input
+                                v-if="batchMode === 'existing'"
+                                v-model="batchSearch"
+                                aria-label="搜索来源批次"
+                                placeholder="搜索批号"
+                            />
+                            <div v-if="batchMode === 'existing'" class="grid gap-2 text-sm">
+                                <span>已有批次</span>
+                                <SelectField
+                                    v-model="batchId"
+                                    label="已有批次"
+                                    :options="batchOptions"
+                                    :disabled="formLocked || batchLoading"
+                                />
+                            </div>
+                            <p
+                                v-if="batches.error.value || batchDetail.error.value"
+                                role="alert"
+                                class="text-sm text-destructive"
+                            >
+                                {{ batches.error.value || batchDetail.error.value }}
+                            </p>
+                            <div v-if="batchMode === 'existing'" class="flex justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="formLocked || batchLoading || batchPage <= 1"
+                                    @click="batchPage--"
+                                >
+                                    上一页批次
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    :disabled="
+                                        formLocked || batchLoading || batchPage * 20 >= (batches.data.value?.total ?? 0)
+                                    "
+                                    @click="batchPage++"
+                                >
+                                    下一页批次
+                                </Button>
+                            </div>
+                            <div v-if="batchMode === 'create'" class="grid gap-3 sm:grid-cols-2">
+                                <label class="grid gap-2 text-sm">
+                                    <span>批号</span>
+                                    <Input v-model="batchNumber" required :disabled="submitting || !!committed" />
+                                </label>
+                                <label class="grid gap-2 text-sm">
+                                    <span>备注</span>
+                                    <Input v-model="batchNotes" :disabled="submitting || !!committed" />
+                                </label>
+                            </div>
+                        </fieldset>
+                        <div class="grid gap-4 sm:grid-cols-2">
                             <label class="grid gap-2 text-sm">
-                                <span>批号</span>
-                                <Input v-model="batchNumber" required :disabled="submitting || !!committed" />
+                                <span>生产日期</span>
+                                <Input v-model="manufacturedOn" type="date" :disabled="submitting || !!committed" />
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span>到货日期</span>
+                                <Input v-model="receivedOn" type="date" :disabled="submitting || !!committed" />
+                            </label>
+                            <label class="grid gap-2 text-sm">
+                                <span>开封时间</span>
+                                <Input v-model="openedAt" type="datetime-local" />
+                            </label>
+                            <div class="grid gap-2 text-sm">
+                                <span>有效期</span>
+                                <SelectField
+                                    v-model="expiryKind"
+                                    label="有效期"
+                                    :options="[
+                                        { value: 'UNKNOWN', label: '未知' },
+                                        { value: 'NONE', label: '无期限' },
+                                        { value: 'DATED', label: '指定日期' },
+                                    ]"
+                                    :disabled="formLocked"
+                                />
+                            </div>
+                            <label v-if="expiryKind === 'DATED'" class="grid gap-2 text-sm">
+                                <span>有效期至</span>
+                                <Input
+                                    v-model="expiryDate"
+                                    type="date"
+                                    required
+                                    :disabled="submitting || !!committed"
+                                />
+                            </label>
+                        </div>
+                        <label class="grid gap-2 text-sm">
+                            <span>实例编号（可选）</span>
+                            <Input
+                                v-model="code"
+                                maxlength="160"
+                                placeholder="留空则由系统生成 INS- 编号"
+                                :disabled="submitting || !!committed"
+                            />
+                        </label>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="grid gap-2 text-sm">
+                                <span>标签</span>
+                                <Input v-model="label" maxlength="200" :disabled="submitting || !!committed" />
                             </label>
                             <label class="grid gap-2 text-sm">
                                 <span>备注</span>
-                                <Input v-model="batchNotes" :disabled="submitting || !!committed" />
+                                <Input v-model="notes" maxlength="4000" :disabled="submitting || !!committed" />
                             </label>
                         </div>
+                        <fieldset class="space-y-3 rounded-md border p-4">
+                            <legend class="px-1 text-sm font-medium">存储位置</legend>
+                            <InventoryPositionPicker
+                                v-if="scope && !formLocked"
+                                v-model="selectedPosition"
+                                :scope="scope"
+                                :initial-position="initialPosition"
+                            />
+                            <p v-if="selectedPosition" class="text-sm text-muted-foreground">
+                                已选择：{{ selectedPosition.path }}
+                                <CopyableId :value="selectedPosition.nodeId" label="位置 ID" />
+                            </p>
+                        </fieldset>
+                        <label
+                            v-if="expiryExpired"
+                            class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground"
+                        >
+                            <input
+                                v-model="confirmExpired"
+                                type="checkbox"
+                                class="mt-1"
+                                :disabled="submitting || !!committed"
+                            />
+                            <span>
+                                <AlertTriangle class="mr-1 inline size-4" aria-hidden="true" />
+                                该实物已超过有效期，确认仍要登记。
+                            </span>
+                        </label>
                     </fieldset>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <label class="grid gap-2 text-sm">
-                            <span>生产日期</span>
-                            <Input v-model="manufacturedOn" type="date" :disabled="submitting || !!committed" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            <span>到货日期</span>
-                            <Input v-model="receivedOn" type="date" :disabled="submitting || !!committed" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            <span>开封时间</span>
-                            <Input v-model="openedAt" type="datetime-local" />
-                        </label>
-                        <SelectField
-                            v-model="expiryKind"
-                            label="有效期"
-                            :options="[
-                                { value: 'UNKNOWN', label: '未知' },
-                                { value: 'NONE', label: '无期限' },
-                                { value: 'DATED', label: '指定日期' },
-                            ]"
-                            :disabled="formLocked"
-                        />
-                        <label v-if="expiryKind === 'DATED'" class="grid gap-2 text-sm">
-                            <span>有效期至</span>
-                            <Input v-model="expiryDate" type="date" required :disabled="submitting || !!committed" />
-                        </label>
-                    </div>
-                    <label class="grid gap-2 text-sm">
-                        <span>实例编号（可选）</span>
-                        <Input
-                            v-model="code"
-                            maxlength="160"
-                            placeholder="留空则由系统生成 INS- 编号"
-                            :disabled="submitting || !!committed"
-                        />
-                    </label>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <label class="grid gap-2 text-sm">
-                            <span>标签</span>
-                            <Input v-model="label" maxlength="200" :disabled="submitting || !!committed" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            <span>备注</span>
-                            <Input v-model="notes" maxlength="4000" :disabled="submitting || !!committed" />
-                        </label>
-                    </div>
-                    <fieldset class="space-y-3 rounded-md border p-4">
-                        <legend class="px-1 text-sm font-medium">存储位置</legend>
-                        <InventoryPositionPicker
-                            v-if="scope && !formLocked"
-                            v-model="selectedPosition"
-                            :scope="scope"
-                        />
-                        <p v-if="selectedPosition" class="text-sm text-muted-foreground">
-                            已选择：{{ selectedPosition.path }}
-                            <CopyableId :value="selectedPosition.nodeId" label="位置 ID" />
-                        </p>
-                    </fieldset>
-                    <label
-                        v-if="expiryExpired"
-                        class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground"
-                    >
-                        <input
-                            v-model="confirmExpired"
-                            type="checkbox"
-                            class="mt-1"
-                            :disabled="submitting || !!committed"
-                        />
-                        <span>
-                            <AlertTriangle class="mr-1 inline size-4" aria-hidden="true" />
-                            该实物已超过有效期，确认仍要登记。
-                        </span>
-                    </label>
-                </fieldset>
-                <p v-if="error || receiptStore.recoveryError" role="alert" class="text-sm text-destructive">
-                    {{ error || receiptStore.recoveryError }}
-                </p>
-                <p v-if="pending && !submitting" role="status" class="text-sm text-warning">
-                    尚未确认登记结果，草稿已锁定。重试会复用原请求编号，不会另建登记请求；请勿在其他窗口重复登记。
-                </p>
-                <div v-if="committed" class="space-y-2 rounded-md border border-success/40 bg-success-soft p-3 text-sm">
-                    <p class="flex items-center gap-2 font-medium">
-                        <CheckCircle2 class="size-4 text-success" />
-                        登记已成功
+                </ScrollSurface>
+                <footer class="shrink-0 space-y-3 border-t p-6">
+                    <p v-if="error || receiptStore.recoveryError" role="alert" class="text-sm text-destructive">
+                        {{ error || receiptStore.recoveryError }}
                     </p>
-                    <CopyableId :value="committed.operationId" label="操作 ID" />
-                    <p v-if="syncPending" class="text-warning">库存列表尚未同步，请只重新加载，不要重复提交。</p>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" :disabled="submitting || syncing" @click="open = false">
-                        {{ committed ? '关闭' : '取消' }}
-                    </Button>
-                    <Button v-if="committed" type="button" :disabled="syncing" @click="reloadOnly">只重新加载</Button>
-                    <Button
-                        v-else-if="pending"
-                        type="button"
-                        :disabled="submitting || !canReceive"
-                        @click="sendPending"
+                    <p v-if="pending && !submitting" role="status" class="text-sm text-warning">
+                        尚未确认登记结果，草稿已锁定。重试会复用原请求编号，不会另建登记请求；请勿在其他窗口重复登记。
+                    </p>
+                    <div
+                        v-if="committed"
+                        class="space-y-2 rounded-md border border-success/40 bg-success-soft p-3 text-sm"
                     >
-                        {{ submitting ? '正在确认' : '重试原请求' }}
-                    </Button>
-                    <Button v-else-if="!committed" type="submit" :disabled="!canSubmit">
-                        {{ submitting ? '登记中' : '登记入库' }}
-                    </Button>
-                </div>
+                        <p class="flex items-center gap-2 font-medium">
+                            <CheckCircle2 class="size-4 text-success" />
+                            登记已成功
+                        </p>
+                        <CopyableId :value="committed.operationId" label="操作 ID" />
+                        <p v-if="syncPending" class="text-warning">库存列表尚未同步，请只重新加载，不要重复提交。</p>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <Button type="button" variant="outline" :disabled="submitting || syncing" @click="open = false">
+                            {{ committed ? '关闭' : '取消' }}
+                        </Button>
+                        <Button v-if="committed" type="button" :disabled="syncing" @click="reloadOnly">
+                            只重新加载
+                        </Button>
+                        <Button
+                            v-else-if="pending"
+                            type="button"
+                            :disabled="submitting || !canReceive"
+                            @click="sendPending"
+                        >
+                            {{ submitting ? '正在确认' : '重试原请求' }}
+                        </Button>
+                        <Button v-else-if="!committed" type="submit" :disabled="!canSubmit">
+                            {{ submitting ? '登记中' : '登记入库' }}
+                        </Button>
+                    </div>
+                </footer>
             </form>
-        </DialogContent>
-    </Dialog>
+        </SheetContent>
+    </Sheet>
 </template>

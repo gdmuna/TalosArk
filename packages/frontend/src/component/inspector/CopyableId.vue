@@ -41,7 +41,7 @@ async function copy() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                class="group h-auto min-w-0 items-start gap-1.5 p-0 text-left font-normal hover:bg-transparent"
+                class="group h-auto min-w-0 shrink items-start gap-1.5 p-0 text-left font-normal hover:bg-transparent"
                 :aria-label="`复制${label}`"
                 :title="copied ? '已复制' : `复制${label}`"
                 @click="copy"

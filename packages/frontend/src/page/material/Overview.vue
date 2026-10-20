@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Archive, ArrowRight, FlaskConical, PackageCheck, Plus, Package } from '@lucide/vue';
 import {
@@ -8,6 +8,7 @@ import {
     materialBranches,
     branchPresentation,
     materialDate,
+    MaterialInspector,
 } from '@/module/material';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 import { Button } from '@/ui/button';
@@ -15,6 +16,7 @@ import ResourceSection from '../resource/ResourceSection.vue';
 
 const router = useRouter(),
     store = useMaterialStore();
+const selectedId = ref('');
 const { data, loading, error, reload } = useMaterialRead((context, signal) =>
     context.source.overview(context.scope, signal)
 );
@@ -33,14 +35,22 @@ const cards = computed(() => [
         value: data.value?.total,
         icon: FlaskConical,
         tone: 'bg-primary-soft text-primary-soft-foreground',
+        state: 'all',
     },
     {
         label: '有效材料',
         value: data.value?.active,
         icon: PackageCheck,
         tone: 'bg-success-soft text-success-soft-foreground',
+        state: 'active',
     },
-    { label: '已归档', value: data.value?.archived, icon: Archive, tone: 'bg-muted text-muted-foreground' },
+    {
+        label: '已归档',
+        value: data.value?.archived,
+        icon: Archive,
+        tone: 'bg-muted text-muted-foreground',
+        state: 'archived',
+    },
 ]);
 function list(branch?: string) {
     void router.push({ path: '/main/material/list', query: branch ? { branch } : {} });
@@ -58,19 +68,22 @@ function list(branch?: string) {
                 <Button variant="outline" @click="reload">重新加载</Button>
             </div>
             <div class="flex flex-wrap gap-4">
-                <div
+                <button
                     v-for="card in cards"
                     :key="card.label"
-                    class="flex max-w-[320px] flex-1 basis-[220px] items-center gap-4 rounded-md border bg-card p-5 shadow-sm"
+                    class="flex w-64 max-w-full items-center gap-3 rounded-lg border bg-card p-4 text-left shadow-xs transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none"
+                    :disabled="!data"
+                    :aria-label="`查看${card.label}`"
+                    @click="router.push({ path: '/main/material/list', query: { state: card.state } })"
                 >
-                    <div class="flex size-11 shrink-0 items-center justify-center rounded-md" :class="card.tone">
-                        <component :is="card.icon" class="size-6" />
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-md" :class="card.tone">
+                        <component :is="card.icon" class="size-5" aria-hidden="true" />
                     </div>
                     <div>
                         <p class="text-sm text-muted-foreground">{{ card.label }}</p>
                         <p class="mt-1 text-2xl font-semibold tabular-nums">{{ card.value ?? '—' }}</p>
                     </div>
-                </div>
+                </button>
             </div>
             <div class="grid min-w-0 gap-8 @min-[1000px]:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                 <div class="min-w-0 space-y-7">
@@ -94,14 +107,17 @@ function list(branch?: string) {
                                     <TableCell>
                                         <button
                                             class="group flex min-w-44 items-center gap-3 text-left"
-                                            @click="router.push(`/main/material/detail/${item.id}`)"
+                                            :aria-label="`预览${item.name}`"
+                                            @click="selectedId = item.id"
                                         >
                                             <component
                                                 :is="branchPresentation(item.branch).icon"
                                                 class="size-5 shrink-0 text-primary"
                                             />
-                                            <span>
-                                                <span class="block font-medium group-hover:underline">
+                                            <span class="min-w-0">
+                                                <span
+                                                    class="block break-words font-medium group-hover:underline group-focus-visible:underline"
+                                                >
                                                     {{ item.name }}
                                                 </span>
                                                 <span class="mt-1 block text-xs text-muted-foreground">
@@ -194,5 +210,6 @@ function list(branch?: string) {
                 </aside>
             </div>
         </div>
+        <MaterialInspector v-model:id="selectedId" />
     </main>
 </template>
