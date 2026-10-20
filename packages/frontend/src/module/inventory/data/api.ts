@@ -14,8 +14,8 @@ import {
     TransactionSchema,
 } from '@talos-ark/contracts/inventory';
 import { z } from 'zod';
-import { HttpError, type HttpClient } from '@/platform/http';
-import type { InventoryDataSource, InventoryScope, InventoryStock, InventoryQuery } from './source';
+import { assertPageResponseMatches, HttpError, type HttpClient } from '@/platform/http';
+import type { InventoryDataSource, InventoryScope, InventoryStock } from './source';
 
 const initializeSchema = z.object({ updated: z.boolean() });
 const root = (scope: InventoryScope) =>
@@ -35,20 +35,6 @@ function assertStock(scope: InventoryScope, value: InventoryStock, id?: string) 
     )
         throw new HttpError('库存响应范围或身份不匹配', 'protocol');
 }
-function assertPage(
-    query: InventoryQuery,
-    page: { page: number; pageSize: number; total: number; items: { id: string }[] }
-) {
-    if (
-        page.page !== query.page ||
-        page.pageSize !== query.pageSize ||
-        page.items.length > query.pageSize ||
-        page.total < page.items.length ||
-        new Set(page.items.map((item) => item.id)).size !== page.items.length
-    )
-        throw new HttpError('库存响应分页不一致', 'protocol');
-}
-
 export function createHttpInventoryDataSource(http: HttpClient): InventoryDataSource {
     return {
         context: (scope, signal) =>
@@ -60,15 +46,16 @@ export function createHttpInventoryDataSource(http: HttpClient): InventoryDataSo
                 retry: false,
             }),
         async list(scope, query, signal) {
+            const params = InventoryQuerySchema.parse(query);
             const result = await http.request({
                 method: 'GET',
                 path: root(scope),
-                params: InventoryQuerySchema.parse(query),
+                params,
                 schema: StockPageSchema,
                 signal,
                 retry: false,
             });
-            assertPage(query, result);
+            assertPageResponseMatches(params, result, '库存响应分页不一致');
             result.items.forEach((item) => assertStock(scope, item));
             return result;
         },
@@ -134,15 +121,16 @@ export function createHttpInventoryDataSource(http: HttpClient): InventoryDataSo
             return result;
         },
         async transactions(scope, query, signal) {
+            const params = InventoryQuerySchema.parse(query);
             const result = await http.request({
                 method: 'GET',
                 path: `${root(scope)}/transaction`,
-                params: InventoryQuerySchema.parse(query),
+                params,
                 schema: TransactionPageSchema,
                 signal,
                 retry: false,
             });
-            assertPage(query, result);
+            assertPageResponseMatches(params, result, '库存响应分页不一致');
             if (result.items.some((item) => item.workspaceId !== scope.workspaceId))
                 throw new HttpError('流水响应工作区不匹配', 'protocol');
             return result;

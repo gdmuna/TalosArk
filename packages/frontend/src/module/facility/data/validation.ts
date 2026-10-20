@@ -1,4 +1,4 @@
-import { HttpError } from '@/platform/http';
+import { assertPageResponseMatches, HttpError } from '@/platform/http';
 import type {
     FacilityScope,
     FacilityQuery,
@@ -18,16 +18,10 @@ export function assertFacilityPage(
     result: FacilityPage
 ) {
     result.items.forEach((item) => assertFacilityScope(scope, item));
-    if (
-        result.page !== query.page ||
-        result.pageSize !== query.pageSize ||
-        !Number.isSafeInteger(result.total) ||
-        result.total < result.items.length ||
-        result.items.length > query.pageSize ||
-        result.items.some((item) => !item.id) ||
-        new Set(result.items.map((item) => item.id)).size !== result.items.length
-    )
-        throw new HttpError('设施列表分页无效', 'protocol');
+    const errorMessage = '设施列表分页无效';
+    assertPageResponseMatches(query, result, errorMessage);
+    if (!Number.isSafeInteger(result.total) || result.items.some((item) => !item.id))
+        throw new HttpError(errorMessage, 'protocol');
 }
 export function assertFacilityDetail(scope: FacilityScope, id: string, result: FacilityDetail) {
     assertFacilityScope(scope, result);

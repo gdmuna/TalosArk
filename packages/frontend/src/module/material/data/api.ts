@@ -13,7 +13,7 @@ import {
     BatchSchema,
     type MaterialScope,
 } from '@talos-ark/contracts/material';
-import { HttpError, type HttpClient } from '@/platform/http';
+import { assertPageResponseMatches, HttpError, type HttpClient } from '@/platform/http';
 import type { MaterialDataSource, MaterialBatch } from './source';
 import { createHttpMaterialAttachmentDataSource } from './attachment-api';
 
@@ -134,22 +134,16 @@ export function createHttpMaterialDataSource(http: HttpClient): MaterialDataSour
                 retry: false,
             }),
         async listBatches(scope, materialId, query, signal) {
+            const params = BatchQuerySchema.parse(query);
             const result = await http.request({
                 method: 'GET',
                 path: `${root(scope)}/${encodeURIComponent(materialId)}/batch`,
-                params: BatchQuerySchema.parse(query),
+                params,
                 schema: BatchPageSchema,
                 signal,
                 retry: false,
             });
-            if (
-                result.page !== query.page ||
-                result.pageSize !== query.pageSize ||
-                result.items.length > query.pageSize ||
-                result.total < result.items.length ||
-                new Set(result.items.map((item) => item.id)).size !== result.items.length
-            )
-                throw new HttpError('批次响应分页不一致', 'protocol');
+            assertPageResponseMatches(params, result, '批次响应分页不一致');
             result.items.forEach((item) => assertBatch(scope, materialId, item));
             return result;
         },
