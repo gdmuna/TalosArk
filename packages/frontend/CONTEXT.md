@@ -106,6 +106,21 @@ F12's original scope and verification remain in docs/design/frontend-f12-2026-10
 P03 adds real restoration and session-change invalidation; its Web evidence and
 Tauri/production limits live in docs/design/mvp-p03-2026-10-14.md.
 
+P12 now supplies real approval queues and summary through module/approval;
+ordinary tasks and notification/reminder sources still await their own slices.
+Approval owns its public-schema HTTP adapter, cancellable scoped reads, session-
+owned original command journal and module UI. Workbench composes its UI/queries,
+never its lifecycle. Review loads every detail page before a complete explicit
+decision; display pagination is not a business item limit. Granted execution is
+one line at a time. Unknown outcomes preserve original body/key; known successful
+commands recover with reads only until synchronization succeeds. Account changes
+clear ownership and late scope results cannot change a new page. Approval URLs
+carry organization/workspace; the shell validates them against the authorized
+directory and server context before mounting views, not as local authorization.
+The inventory module exports its existing position picker for receipt, direct
+actions and approval forms. See docs/design/mvp-p12-2026-10-20.md and the product
+joint acceptance record; Tauri and production are not covered by local Web proof.
+
 P04's workspace HTTP adapter uses contracts/team and validates a selected tenant/
 workspace pair on the server before publishing it. It never treats local selection
 or canCreateWorkspace as authorization. Context changes invalidate old workspace

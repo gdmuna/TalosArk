@@ -847,13 +847,45 @@ scripts were added. See ../../docs/product/mvp-p11-acceptance-2026-10-20.md.
 - Storage relocation moves a container subtree within one organization and may
   change the facility governing its structure. It does not transfer organization
   ownership or the workspace ownership of the material and stock it contains.
-- ApprovalRequest records a proposed stock action, its applicant and one selected
-  qualified approver in the same workspace; the applicant cannot self-approve.
-- Approval is a decision granting eligibility to execute only that request, not
-  general direct-action permission. It does not reserve or change stock.
-- Approved execution applies the approved intent to actual stock and records an
-  InventoryTransaction. Direct execution and approved execution have separately
-  granted authority; both remain subject to current business conditions.
+- ApprovalRequest groups one kind of proposed stock action for multiple physical
+  items, its applicant and one selected qualified approver in the same workspace;
+  the applicant cannot self-approve. All lines receive an approval or rejection
+  decision together in one review. Submitted lines and the selected approver are
+  immutable; the applicant may withdraw a pending request and submit a new one.
+- ApprovalLine records the proposed action for one physical item and its decision.
+  An approver may approve only some items in a request; approval does not reserve
+  or change stock or grant general direct-action permission.
+- Approved execution is performed by the applicant and applies the exact approved
+  intent once per approved line to actual stock, recording an InventoryTransaction.
+  Lines execute independently. Direct execution and approved execution have
+  separately granted authority; approved execution still requires the applicant's
+  current application eligibility, membership, resource and facility authority.
+- Approval scope binding fixes the source POSITION and governing facility, plus
+  the destination POSITION and governing facility for transfers. Execution checks
+  their current identities against the request; quantity changes alone do not
+  invalidate approval when the approved amount remains available.
+- Approved line abandonment is the applicant's decision to give up an unexecuted
+  approved line. Approval revocation ends an unexecuted approval through the still
+  qualified designated approver or an independently authorized revoker. Neither
+  action reverses executed inventory facts. Temporary inability to execute is
+  distinct from either terminal decision.
+- Approval eligibility has no automatic deadline in MVP. A previously lawful
+  decision survives the approver's later loss of authority; stopping its unused
+  eligibility requires explicit revocation. Approval queries create workbench
+  pending items without duplicating ordinary tasks or implying notification delivery.
+- P12 implements these rules through the public contracts/approval subpath.
+  Approval owns lifecycle, scoped participation and current resource projection;
+  InventoryActionReader exposes narrow facts and InventoryActionWriter owns the
+  common mandatory-transaction stock change. Direct execution retains its own
+  permissions; granted execution derives intent from the persisted approved line.
+  Stock changes, the unique approvalLineId journal link, terminal line state,
+  audit and idempotency completion commit in one physical transaction. Recovery
+  of an already successful execution checks current read authority, not eligibility
+  for another write. Native state checks live in prisma/ddl/schema/approval.sql.
+  Permission codes include approval.read.all; existing organizations explicitly
+  initialize default role grants rather than receiving silent startup privilege
+  expansion. Local real HTTP/database/Web evidence and deployment limits are in
+  ../../docs/product/mvp-p12-acceptance-2026-10-20.md.
 - Task is ordinary work. Approval todos and overdue presentation states are
   derived queries, not a second writable workflow or stored OVERDUE status.
 - ResourceIdentity bridges attachments, audit and other cross-cutting references.
