@@ -157,7 +157,7 @@ const actions: DataTableAction<Task>[] = [
         id: 'complete',
         label: '完成任务',
         icon: Check,
-        disabled: (item) => !!workbench.syncError || item.kind !== '任务' || item.status !== '待处理',
+        disabled: (item) => workbench.syncPending || item.kind !== '任务' || item.status !== '待处理',
         run: (item) => complete([item.id]),
     },
 ];
@@ -167,7 +167,7 @@ const bulkActions: DataTableBulkAction<Task>[] = [
         label: '完成任务',
         icon: Check,
         disabled: (items) =>
-            !!workbench.syncError || items.some((item) => item.kind !== '任务' || item.status !== '待处理'),
+            workbench.syncPending || items.some((item) => item.kind !== '任务' || item.status !== '待处理'),
         get disabledReason() {
             return workbench.syncError ? '请先重新同步工作台数据' : '仅支持待处理的普通任务；审批申请请进入审批流程';
         },
@@ -187,8 +187,9 @@ async function complete(ids: string[]) {
     const pending = currentTasks.value.filter(
         (item) => ids.includes(item.id) && item.status === '待处理' && item.kind === '任务'
     );
-    error.value = await workbench.completeTasks(pending.map((item) => item.id));
-    if (!error.value) {
+    const result = await workbench.completeTasks(pending.map((item) => item.id));
+    error.value = result ?? '';
+    if (result === '') {
         checked.value = [];
         preview.value = null;
     }

@@ -12,6 +12,7 @@ import { Textarea } from '@/ui/textarea';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/ui/dialog';
 import { useApprovalRead, approvalErrorMessage } from '../model/read';
 import { useApprovalOperationStore } from '../model/operation';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import type { ApprovalMutation } from '../data/source';
 import {
     approvalStatusLabel,
@@ -89,8 +90,8 @@ async function startReview() {
         for (let page = 1; ; page++) {
             const result = await request.source.lines(current, requestId, { page, pageSize: 100 }, controller.signal);
             if (controller.signal.aborted) return;
-            if (result.total !== header.totalLines) throw new Error('申请明细发生变化，请重新加载');
-            if (!result.items.length && items.length < result.total) throw new Error('申请明细不完整，请重新加载');
+            if (result.total !== header.totalLines) throw new HttpError('申请明细发生变化', 'protocol');
+            if (!result.items.length && items.length < result.total) throw new HttpError('申请明细不完整', 'protocol');
             items.push(
                 ...result.items.map((line) => ({ ...line, reviewDecision: 'UNDECIDED' as const, reviewOpinion: '' }))
             );
@@ -330,7 +331,17 @@ const eventLabel: Record<string, string> = {
                     </Button>
                 </div>
             </header>
-            <ApprovalOperationNotice @synchronize="synchronize" />
+            <ApprovalOperationNotice
+                :silent="
+                    !request.error.value &&
+                    !lineRead.error.value &&
+                    !history.error.value &&
+                    [request.failure.value, lineRead.failure.value, history.failure.value].some(
+                        isResponseValidationError
+                    )
+                "
+                @synchronize="synchronize"
+            />
             <p v-if="request.loading.value" role="status" class="text-sm text-muted-foreground">正在加载申请</p>
             <p v-if="request.error.value || reviewError" role="alert" class="text-sm text-destructive">
                 {{ request.error.value || reviewError }}

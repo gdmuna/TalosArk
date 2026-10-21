@@ -1,6 +1,7 @@
-import { AuthenticationError, HttpError } from '@/platform/http';
+import { AuthenticationError, HttpError, isResponseValidationError } from '@/platform/http';
 
 export function authErrorMessage(cause: unknown, fallback: string): string {
+    if (isResponseValidationError(cause)) return '';
     if (cause instanceof AuthenticationError && cause.reason === 'changed')
         return '登录状态已变更，请重新操作。';
     if (cause instanceof AuthenticationError && cause.reason === 'busy')

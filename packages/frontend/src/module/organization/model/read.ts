@@ -42,7 +42,7 @@ export function useOrganizationRead<T>(
                       : status === 401 || cause instanceof AuthenticationError
                         ? '登录会话已改变，请重新加载'
                         : cause instanceof HttpError && cause.kind === 'protocol'
-                          ? '组织响应无效，请重新加载'
+                          ? ''
                           : '组织信息加载失败，请重试';
         } finally {
             if (!current.signal.aborted) loading.value = false;

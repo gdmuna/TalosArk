@@ -1,5 +1,5 @@
 import { inject, onScopeDispose, ref, shallowRef, watch, type InjectionKey, type Ref } from 'vue';
-import { AuthenticationError, HttpError } from '@/platform/http';
+import { AuthenticationError, HttpError, isResponseValidationError } from '@/platform/http';
 import type { FacilityDataSource, FacilityGovernanceDataSource } from '../data/source';
 
 export const facilityDataSourceKey: InjectionKey<FacilityDataSource> = Symbol('facilityDataSource');
@@ -16,7 +16,7 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
     const busy = ref(false);
     const conflict = ref(false);
     const syncError = ref('');
-    let pendingSync = false;
+    const pendingSync = ref(false);
     let lifetime = new AbortController();
     let request: AbortController | undefined;
     async function refresh() {
@@ -33,7 +33,7 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
             const result = await read(current.signal);
             if (current.signal.aborted) return false;
             data.value = result;
-            pendingSync = false;
+            pendingSync.value = false;
             conflict.value = false;
             syncError.value = '';
             return true;
@@ -47,8 +47,10 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
             if (authentication || protocol || status === 403 || status === 404)
                 data.value = undefined;
             error.value = facilityErrorMessage(cause);
-            if (pendingSync)
-                syncError.value = '操作已成功，但数据尚未同步。请仅重新加载，不要重复提交。';
+            if (pendingSync.value)
+                syncError.value = isResponseValidationError(cause)
+                    ? ''
+                    : '操作已成功，但数据尚未同步。请仅重新加载，不要重复提交。';
             return false;
         } finally {
             if (!current.signal.aborted) loading.value = false;
@@ -59,7 +61,7 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
         () => {
             lifetime.abort();
             lifetime = new AbortController();
-            busy.value = conflict.value = pendingSync = false;
+            busy.value = conflict.value = pendingSync.value = false;
             syncError.value = '';
             data.value = undefined;
             void refresh();
@@ -67,7 +69,7 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
         { immediate: true, flush: 'sync' }
     );
     async function write(action: (signal: AbortSignal) => Promise<unknown>) {
-        if (!key.value || busy.value || loading.value || pendingSync || conflict.value)
+        if (!key.value || busy.value || loading.value || pendingSync.value || conflict.value)
             return false;
         const signal = lifetime.signal;
         busy.value = true;
@@ -75,7 +77,7 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
         try {
             await action(signal);
             if (signal.aborted) return false;
-            pendingSync = true;
+            pendingSync.value = true;
             await refresh();
             return !signal.aborted;
         } catch (cause) {
@@ -97,10 +99,11 @@ export function useFacilityRead<T>(key: Ref<string>, read: (signal: AbortSignal)
         lifetime.abort();
         request?.abort();
     });
-    return { data, loading, error, refresh, busy, conflict, syncError, write };
+    return { data, loading, error, refresh, busy, conflict, syncError, pendingSync, write };
 }
 
 export function facilityErrorMessage(cause: unknown, write = false) {
+    if (isResponseValidationError(cause)) return '';
     if (
         cause instanceof AuthenticationError ||
         (cause instanceof HttpError && cause.status === 401)
@@ -132,9 +135,7 @@ export function facilityErrorMessage(cause: unknown, write = false) {
         ? '当前账户无权操作此范围'
         : cause.status === 404
           ? '设施或节点不存在或已不可访问'
-          : cause.kind === 'protocol'
-            ? '响应信息不一致，请重新加载'
-            : cause.status === 409
-              ? '数据已改变，请重新加载后确认草稿'
-              : '服务暂不可用，请重试';
+          : cause.status === 409
+            ? '数据已改变，请重新加载后确认草稿'
+            : '服务暂不可用，请重试';
 }

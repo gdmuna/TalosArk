@@ -2,7 +2,7 @@ import { onScopeDispose, shallowRef, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { z } from 'zod';
 import { ReceiptSchema, OperationReceiptSchema } from '@talos-ark/contracts/inventory';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import type { InventoryDataSource, InventoryReceipt, InventoryScope } from '../data/source';
 import { inventoryErrorMessage } from './read';
 
@@ -11,6 +11,7 @@ const attemptSchema = z.object({
     body: ReceiptSchema,
     uncertain: z.boolean(),
     receipt: OperationReceiptSchema.optional(),
+    responseValidationFailed: z.boolean().optional(),
 });
 type Attempt = z.infer<typeof attemptSchema>;
 const sameScope = (a: InventoryScope, b: InventoryScope) =>
@@ -83,7 +84,7 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
             const receipt = await source.receive(attempt.scope, attempt.body, controller.signal);
             if (controller.signal.aborted) return;
             attempts.value = attempts.value.map((item) =>
-                item === attempt ? { ...item, receipt } : item
+                item === attempt ? { ...item, receipt, responseValidationFailed: false } : item
             );
         } catch (cause) {
             if (controller.signal.aborted) return;
@@ -97,7 +98,13 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
             attempts.value = rejected
                 ? attempts.value.filter((item) => item !== attempt)
                 : attempts.value.map((item) =>
-                      item === attempt ? { ...item, uncertain: true } : item
+                      item === attempt
+                          ? {
+                                ...item,
+                                uncertain: true,
+                                responseValidationFailed: isResponseValidationError(cause),
+                            }
+                          : item
                   );
             error.value = inventoryErrorMessage(cause);
             return cause;

@@ -1,10 +1,12 @@
 import { onScopeDispose, ref, watch } from 'vue';
 import type { MaterialBatch } from '../data/source';
 import { useMaterialStore } from './store';
+import { isResponseValidationError } from '@/platform/http';
 
 export function useMaterialBatchRecovery(
     materialId: () => string,
     reload: () => Promise<boolean>,
+    readFailure: () => unknown,
     batchId?: () => string
 ) {
     const store = useMaterialStore();
@@ -61,5 +63,11 @@ export function useMaterialBatchRecovery(
         );
         if (saved && current === generation) await afterCommit(saved);
     }
-    return { syncPending, synchronize, afterCommit, archive };
+    return {
+        syncPending,
+        synchronize,
+        afterCommit,
+        archive,
+        showSyncError: () => syncPending.value && !isResponseValidationError(readFailure()),
+    };
 }

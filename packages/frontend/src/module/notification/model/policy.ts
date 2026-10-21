@@ -110,7 +110,7 @@ export function useNotificationPolicy(
                   : status === 404
                     ? '通知策略不存在或已不可访问'
                     : protocol
-                      ? '通知策略响应不一致，请重新加载'
+                      ? ''
                       : '通知策略读取失败，请重试';
         } finally {
             if (!current.signal.aborted) loading.value = false;

@@ -18,7 +18,7 @@ const workbench = useWorkbenchStore();
 const reviewNote = ref('');
 const error = ref('');
 async function decide(status: '已批准' | '已退回') {
-    error.value = await workbench.decideApprovals([props.approval.id], status, reviewNote.value);
+    error.value = (await workbench.decideApprovals([props.approval.id], status, reviewNote.value)) ?? '';
 }
 </script>
 
@@ -112,12 +112,12 @@ async function decide(status: '已批准' | '已退回') {
         </ScrollArea>
         <footer class="flex shrink-0 justify-end gap-3 border-t p-5">
             <template v-if="approval.status === '待审批'">
-                <Button variant="outline" :disabled="workbench.busy || !!workbench.syncError" @click="decide('已退回')">
+                <Button variant="outline" :disabled="workbench.busy || workbench.syncPending" @click="decide('已退回')">
                     <Undo2 aria-hidden="true" />
                     退回
                 </Button>
                 <Button
-                    :disabled="approval.quantity > approval.available || workbench.busy || !!workbench.syncError"
+                    :disabled="approval.quantity > approval.available || workbench.busy || workbench.syncPending"
                     @click="decide('已批准')"
                 >
                     <Check aria-hidden="true" />

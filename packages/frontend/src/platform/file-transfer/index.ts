@@ -1,3 +1,5 @@
+export class FileTransferResponseError extends Error {}
+
 interface SignedRequest {
     url: string;
     method: 'GET' | 'PUT';
@@ -13,7 +15,7 @@ function transferUrl(request: SignedRequest, method: SignedRequest['method']) {
         url.username ||
         url.password
     )
-        throw new Error('文件签名请求无效');
+        throw new FileTransferResponseError('文件签名请求无效');
     if (Date.parse(request.expiresAt) <= Date.now()) throw new Error('文件签名已过期，请重试');
     return url.href;
 }
@@ -90,7 +92,7 @@ export function uploadMultipartPart(
 ) {
     return uploadPut(request, part, signal, progress, '分片', (xhr) => {
         const etag = xhr.getResponseHeader('ETag');
-        if (!etag) throw new Error('存储未返回分片 ETag，请检查存储跨域暴露头配置');
+        if (!etag) throw new FileTransferResponseError('存储未返回分片 ETag');
         return etag;
     });
 }

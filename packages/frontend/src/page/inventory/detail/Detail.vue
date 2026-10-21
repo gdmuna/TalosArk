@@ -29,6 +29,7 @@ import {
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { useNavigationStore } from '@/platform/navigation';
 import { Button } from '@/ui/button';
+import { isResponseValidationError } from '@/platform/http';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/ui/dropdown-menu';
 import InventoryActionDialog from '../component/InventoryActionDialog.vue';
 import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
@@ -49,7 +50,7 @@ const actionKind = ref<InventoryActionKind>();
 const actionIcons = { consume: Minus, transfer: ArrowRightLeft, adjust: Scale, dispose: Archive };
 const actionKinds = ['consume', 'transfer', 'adjust', 'dispose'] as const;
 const id = computed(() => String(route.params.resourceId ?? ''));
-const { data, loading, error, refresh, scope } = useInventoryRead(id, (currentScope, signal) => {
+const { data, loading, error, failure, refresh, scope } = useInventoryRead(id, (currentScope, signal) => {
     if (!source) return Promise.reject(new Error('库存数据源未连接'));
     return source.get(currentScope, id.value, signal);
 });
@@ -60,6 +61,12 @@ const transactions = useInventoryRead(transactionKey, (currentScope, signal) => 
     return source.transactions(currentScope, transactionQuery.value, signal);
 });
 const transactionItems = computed(() => transactions.data.value?.items ?? []);
+const actionSyncFailure = computed(
+    () =>
+        [failure.value, transactions.failure.value].find((cause) => cause && !isResponseValidationError(cause)) ??
+        failure.value ??
+        transactions.failure.value
+);
 const tabs = [
     { id: 'overview', label: '概览' },
     { id: 'movement', label: '流转记录' },
@@ -321,6 +328,7 @@ const locationPath = computed(() =>
             :stock="data"
             :business-date="context.loading.value || context.error.value ? undefined : context.data.value?.businessDate"
             :on-committed="refresh"
+            :sync-failure="failure"
             @refresh-context="context.refresh"
         />
         <InventoryTransactionInspector v-model:id="transactionId" />
@@ -329,6 +337,7 @@ const locationPath = computed(() =>
             :scope="scope"
             :stock="data"
             :kind="actionKind"
+            :sync-failure="actionSyncFailure"
             :on-committed="
                 async () => {
                     transactionId = previewId = '';

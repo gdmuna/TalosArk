@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import { useManagementDataSource } from '@/module/workspace';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { inventoryErrorMessage, useInventoryDataSource, useInventoryRead, useInventoryScope } from '@/module/inventory';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 
-const props = defineProps<{ onCommitted: () => Promise<boolean> }>();
+const props = defineProps<{ onCommitted: () => Promise<boolean>; syncFailure?: unknown }>();
 const source = useInventoryDataSource();
 const management = useManagementDataSource();
 const scope = useInventoryScope();
@@ -36,6 +36,7 @@ const open = ref(false),
     committed = ref(false),
     syncPending = ref(false),
     error = ref('');
+const silentSync = ref(false);
 let request: AbortController | undefined;
 let generation = 0;
 watch(
@@ -45,6 +46,7 @@ watch(
         request?.abort();
         open.value = busy.value = committed.value = syncPending.value = false;
         error.value = '';
+        silentSync.value = false;
     },
     { flush: 'sync' }
 );
@@ -60,6 +62,8 @@ const dialogOpen = computed({
 });
 async function synchronize() {
     const results = await Promise.all([props.onCommitted(), team.refresh()]);
+    const failures = [props.syncFailure, team.failure.value].filter((_, index) => !results[index]);
+    silentSync.value = failures.length > 0 && failures.every(isResponseValidationError);
     return results.every(Boolean);
 }
 async function initialize() {
@@ -81,8 +85,10 @@ async function initialize() {
         if (synchronized) open.value = false;
     } catch (cause) {
         if (signal.aborted || current !== generation) return;
-        if (committed.value) syncPending.value = true;
-        else
+        if (committed.value) {
+            syncPending.value = true;
+            silentSync.value = isResponseValidationError(cause);
+        } else
             error.value =
                 cause instanceof HttpError && cause.code === 'INVENTORY_INVALID_STATE'
                     ? '请先在管理中心完成团队预置角色初始化。'
@@ -105,7 +111,7 @@ async function initialize() {
             </DialogDescription>
             <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
             <p v-if="committed" role="status" class="text-sm text-success">
-                权限已更新。{{ syncPending ? '页面尚未同步，请只重新加载。' : '' }}
+                权限已更新。{{ syncPending && !silentSync ? '页面尚未同步，请只重新加载。' : '' }}
             </p>
             <div class="flex justify-end gap-2">
                 <Button variant="outline" :disabled="busy" @click="open = false">关闭</Button>

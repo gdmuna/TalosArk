@@ -90,7 +90,7 @@ import {
     LocalPasswordBounds,
 } from '@talos-ark/contracts/auth';
 import { useAuthApi } from '@/module/auth';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { Button } from '@/ui/button';
 import { Field, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
@@ -162,6 +162,7 @@ async function submit() {
         token.value = password.value = confirmation.value = '';
     } catch (cause) {
         if (current !== revision || request.signal.aborted) return;
+        if (isResponseValidationError(cause)) return;
         if (cause instanceof HttpError && cause.code === 'AUTH_PASSWORD_RECOVERY_INVALID') {
             token.value = '';
             password.value = confirmation.value = '';

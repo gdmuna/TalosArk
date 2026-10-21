@@ -50,7 +50,7 @@ function committed(facilityId: string, nodeId: string) {
 <template>
     <div class="space-y-4">
         <div
-            v-if="source && (attempt || store.recoveryError)"
+            v-if="source && ((attempt && !attempt.responseValidationFailed) || store.recoveryError)"
             role="status"
             class="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/50 p-3 text-sm"
         >

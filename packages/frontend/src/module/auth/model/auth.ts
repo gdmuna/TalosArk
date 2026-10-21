@@ -13,7 +13,11 @@ import {
     type AccountActivateBody,
     type PasswordSetBody,
 } from '@talos-ark/contracts/auth';
-import { AuthenticationError, type RequestOptions } from '@/platform/http';
+import {
+    AuthenticationError,
+    isResponseValidationError,
+    type RequestOptions,
+} from '@/platform/http';
 import type { AuthDataSource } from '../data/source';
 import type { AuthSession } from './session';
 import type { BrowserSessionCoordinator } from './browser-session';
@@ -35,9 +39,15 @@ export function createAuthActions(
         return next;
     }
     if (marker?.signedOut)
-        session.clear(marker.confirmed ? '' : '本地已退出，服务器会话撤销未确认。');
+        session.clear(
+            marker.confirmed || marker.silent ? '' : '本地已退出，服务器会话撤销未确认。'
+        );
     const unsubscribe = coordinator.subscribe((next) => {
-        const notice = next.confirmed ? '已退出登录。' : '本地已退出，服务器会话撤销未确认。';
+        const notice = next.silent
+            ? ''
+            : next.confirmed
+              ? '已退出登录。'
+              : '本地已退出，服务器会话撤销未确认。';
         if (next.revision === observedRevision) {
             if (next.signedOut && session.state.value.status === 'anonymous')
                 session.setNotice(notice);
@@ -155,13 +165,22 @@ export function createAuthActions(
                     session.setNotice('已退出登录。');
                 return { revoked: true };
             })
-            .catch(() => {
+            .catch((cause) => {
+                const silent = isResponseValidationError(cause);
                 if (
                     !disposed &&
                     coordinator.read()?.revision === signedOut.revision &&
                     session.state.value.status === 'anonymous'
-                )
-                    session.setNotice('本地已退出，服务器会话撤销未确认。');
+                ) {
+                    session.setNotice(silent ? '' : '本地已退出，服务器会话撤销未确认。');
+                    if (silent) {
+                        try {
+                            coordinator.confirmSignOut(signedOut, false, true);
+                        } catch {
+                            /* Local sign-out remains effective if its feedback marker cannot be saved. */
+                        }
+                    }
+                }
                 return { revoked: false };
             })
             .finally(() => {

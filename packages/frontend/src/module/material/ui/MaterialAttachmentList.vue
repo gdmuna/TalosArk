@@ -12,7 +12,7 @@ import {
     type MaterialAttachmentUploadMode,
 } from '../model/attachment';
 import { downloadFile } from '@/platform/file-transfer';
-import { AuthenticationError, HttpError } from '@/platform/http';
+import { AuthenticationError, HttpError, isResponseValidationError } from '@/platform/http';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { Button } from '@/ui/button';
 import { SelectField } from '@/component/select-field';
@@ -24,7 +24,7 @@ const material = useMaterialStore();
 const upload = useMaterialAttachmentStore();
 const cursor = ref<string>();
 const history = ref<(string | undefined)[]>([]);
-const { data, loading, error, reload } = useMaterialRead(
+const { data, loading, error, failure, reload } = useMaterialRead(
     ({ source, scope }, signal) =>
         source.attachments.list(scope, props.materialId, { limit: 30, cursor: cursor.value }, signal),
     [() => props.materialId, cursor]
@@ -181,7 +181,10 @@ async function remove() {
         if (synchronized) {
             selected.value = undefined;
             removing.value = undefined;
-        } else actionError.value = '附件已移除，但列表尚未同步。请只重新加载。';
+        } else
+            actionError.value = isResponseValidationError(failure.value)
+                ? ''
+                : '附件已移除，但列表尚未同步。请只重新加载。';
     } catch (cause) {
         if (!signal.aborted && current === generation) actionError.value = attachmentErrorMessage(cause);
     } finally {
@@ -251,7 +254,7 @@ function previous() {
             <p v-if="active" role="status" class="text-sm">
                 {{ upload.stage.includes('上传') ? `${upload.stage} ${upload.progress}%` : upload.stage }}
             </p>
-            <p v-if="job?.reference" role="status" class="text-sm text-warning">
+            <p v-if="job?.reference && !isResponseValidationError(failure)" role="status" class="text-sm text-warning">
                 附件已添加，列表尚未同步。
                 <Button variant="link" :disabled="loading" @click="synchronize">只重新加载</Button>
             </p>

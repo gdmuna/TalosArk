@@ -30,19 +30,22 @@ const key = computed(() =>
         ? JSON.stringify([account.profile.id, props.scope.organizationId, props.facility?.id])
         : ''
 );
-const { data, loading, busy, conflict, error, syncError, refresh, write } = useFacilityRead(key, async (signal) => {
-    if (!source) return;
-    const governance = await source.governance(props.scope, signal);
-    const detail = props.facility ? await source.detail(props.scope, props.facility.id, signal) : null;
-    return { governance, detail };
-});
+const { data, loading, busy, conflict, error, syncError, pendingSync, refresh, write } = useFacilityRead(
+    key,
+    async (signal) => {
+        if (!source) return;
+        const governance = await source.governance(props.scope, signal);
+        const detail = props.facility ? await source.detail(props.scope, props.facility.id, signal) : null;
+        return { governance, detail };
+    }
+);
 const allowed = computed(() =>
     props.facility
         ? !!data.value?.detail?.capabilities.govern && !data.value.detail.archivedAt
         : !!data.value?.governance.canCreate && !!data.value.governance.canGovern
 );
 const disabled = computed(
-    () => busy.value || loading.value || conflict.value || !!syncError.value || !!committedId.value || !allowed.value
+    () => busy.value || loading.value || conflict.value || pendingSync.value || !!committedId.value || !allowed.value
 );
 const options = computed(() => {
     const items = workspace.workspaces
@@ -64,7 +67,7 @@ watch(
     },
     { immediate: true, flush: 'sync' }
 );
-watch(syncError, (value) => {
+watch(pendingSync, (value) => {
     if (!value && committedId.value) {
         emit('saved', committedId.value);
         open.value = false;
@@ -92,7 +95,7 @@ async function submit() {
     });
     if (!saved) return;
     committedId.value = savedId;
-    if (!syncError.value) {
+    if (!pendingSync.value) {
         emit('saved', savedId);
         open.value = false;
     }
@@ -105,7 +108,13 @@ async function submit() {
             <DialogTitle>{{ facility ? '编辑设施' : '登记设施' }}</DialogTitle>
             <DialogDescription>设施归组织所有；管理工作区负责结构维护。</DialogDescription>
             <ReadFeedback :error="error" :loading="loading" @retry="refresh" />
-            <DataSyncNotice scope="设施" :error="syncError" :busy="busy || loading" @retry="refresh" />
+            <DataSyncNotice
+                scope="设施"
+                :error="syncError"
+                :pending="pendingSync"
+                :busy="busy || loading"
+                @retry="refresh"
+            />
             <form v-if="data" class="space-y-4" @submit.prevent="submit">
                 <label class="block space-y-2">
                     <span>设施编号</span>

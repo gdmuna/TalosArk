@@ -1,7 +1,7 @@
 import { computed, onScopeDispose, ref } from 'vue';
 import { defineStore } from 'pinia';
 import { createTaskScope, waitFor } from '@/platform/task';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import type { WorkspaceDataSource } from '../data/source';
 import type { Organization, Workspace, WorkspaceSnapshot } from './workspace';
 
@@ -12,6 +12,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
     const busy = ref(false);
     const error = ref('');
     const syncError = ref('');
+    const syncPending = ref(false);
     const switching = ref(false);
     const canCreateOrganization = ref(false);
     const canJoin = ref(false);
@@ -49,6 +50,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         busy.value = false;
         switching.value = false;
         error.value = syncError.value = '';
+        syncPending.value = false;
     }
     async function load(signal?: AbortSignal) {
         const task = createTaskScope([sourceScope.signal, signal]);
@@ -99,6 +101,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
             return '';
         } catch (cause) {
             if (scope.signal.aborted) return '工作区切换已取消';
+            if (isResponseValidationError(cause)) return null;
             if (cause instanceof HttpError && cause.status === 403) {
                 workspaces.value = workspaces.value.filter((item) => item.id !== id);
                 if (activeId.value === id) applySelection('');
@@ -119,17 +122,24 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
                 pendingSelection &&
                 !snapshot.workspaces.some((item) => item.id === pendingSelection)
             ) {
-                throw new Error('新工作区尚未出现在同步结果中，请重新同步');
+                throw new HttpError('新工作区尚未出现在同步结果中', 'protocol');
             }
             apply(snapshot);
             syncError.value = '';
+            syncPending.value = false;
+            return true;
         } catch (cause) {
             if (!scope.signal.aborted)
-                syncError.value = cause instanceof Error ? cause.message : '工作区同步失败';
+                syncError.value = isResponseValidationError(cause)
+                    ? ''
+                    : cause instanceof Error
+                      ? cause.message
+                      : '工作区同步失败';
+            return false;
         }
     }
     async function retrySync() {
-        if (busy.value || !syncError.value) return;
+        if (busy.value || !syncPending.value) return;
         busy.value = true;
         const scope = sourceScope;
         try {
@@ -141,7 +151,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
     async function mutate(operation: (signal: AbortSignal) => Promise<string>) {
         if (busy.value) return '工作区正在更新';
         if (switching.value) return '正在切换工作区';
-        if (syncError.value) return '请先重新同步工作区';
+        if (syncPending.value) return syncError.value || null;
         busy.value = true;
         error.value = '';
         const scope = sourceScope;
@@ -149,9 +159,11 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
             const selection = await operation(scope.signal);
             scope.signal.throwIfAborted();
             pendingSelection = selection;
-            await synchronize();
+            syncPending.value = true;
+            if (!(await synchronize()) && !syncError.value) return null;
         } catch (cause) {
             if (scope.signal.aborted) return '操作上下文已改变，请重新检查操作结果';
+            if (isResponseValidationError(cause)) return null;
             if (!scope.signal.aborted)
                 error.value = cause instanceof Error ? cause.message : '更新工作区失败';
         } finally {
@@ -182,6 +194,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         busy,
         error,
         syncError,
+        syncPending,
         switching,
         canCreateOrganization,
         canJoin,

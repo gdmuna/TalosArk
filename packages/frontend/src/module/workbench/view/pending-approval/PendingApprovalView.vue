@@ -137,7 +137,7 @@ const actions: DataTableAction<Approval>[] = [
         id: 'approve',
         label: '批准申请',
         icon: Check,
-        disabled: (item) => !!workbench.syncError || item.status !== '待审批' || item.quantity > item.available,
+        disabled: (item) => workbench.syncPending || item.status !== '待审批' || item.quantity > item.available,
         run: (item) => {
             checked.value = [item.id];
             confirmBatch.value = true;
@@ -147,7 +147,7 @@ const actions: DataTableAction<Approval>[] = [
         id: 'return',
         label: '填写退回意见',
         icon: Undo2,
-        disabled: (item) => !!workbench.syncError || item.status !== '待审批',
+        disabled: (item) => workbench.syncPending || item.status !== '待审批',
         run: (item) => {
             selectedId.value = item.id;
         },
@@ -159,7 +159,7 @@ const bulkActions: DataTableBulkAction<Approval>[] = [
         label: '批准申请',
         icon: Check,
         disabled: (items) =>
-            !!workbench.syncError || items.some((item) => item.status !== '待审批' || item.quantity > item.available),
+            workbench.syncPending || items.some((item) => item.status !== '待审批' || item.quantity > item.available),
         get disabledReason() {
             return workbench.syncError ? '请先重新同步工作台数据' : '仅可批准待审批且可用数量充足的申请';
         },
@@ -191,8 +191,9 @@ const searchText = (item: Approval) => `${item.id} ${item.applicant} ${resourceF
 async function approveBatch() {
     if (batchError.value) return;
     const ids = [...checked.value];
-    error.value = await workbench.decideApprovals(ids, '已批准', '');
-    if (!error.value) {
+    const result = await workbench.decideApprovals(ids, '已批准', '');
+    error.value = result ?? '';
+    if (result === '') {
         checked.value = [];
         confirmBatch.value = false;
     }
@@ -289,7 +290,7 @@ watch(
                 <div class="mt-3 flex justify-end gap-3">
                     <Button variant="outline" @click="confirmBatch = false">取消</Button>
                     <Button
-                        :disabled="!!batchError || !checked.length || workbench.busy || !!workbench.syncError"
+                        :disabled="!!batchError || !checked.length || workbench.busy || workbench.syncPending"
                         @click="approveBatch"
                     >
                         <Check aria-hidden="true" />

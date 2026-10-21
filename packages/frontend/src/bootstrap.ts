@@ -5,7 +5,7 @@ import { useWorkspaceStore, type WorkspaceDataSource } from '@/module/workspace'
 import { useTeamStore, type TeamDataSource } from '@/module/workspace';
 import { useWorkbenchStore, type WorkbenchDataSource } from '@/module/workbench';
 import type { AuthApi } from '@/module/auth';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { useMaterialStore, type MaterialDataSource } from '@/module/material';
 
 export interface ApplicationDataSources {
@@ -46,18 +46,17 @@ export function createApplicationBootstrap(
             label: '登录会话',
             load: async (signal: AbortSignal) => {
                 await auth.restore(signal);
-                if (auth.state.value.status !== 'authenticated')
+                if (auth.state.value.status !== 'authenticated') {
+                    if (auth.state.value.status === 'error' && !auth.state.value.error)
+                        throw new HttpError('登录会话响应无效', 'protocol');
                     throw new Error(auth.state.value.error || '请先登录。');
+                }
             },
         },
         {
             label: '账户资料',
             load: async (signal: AbortSignal) => {
-                await account.load(signal);
-                if (account.profile?.id !== auth.state.value.userId) {
-                    account.reset();
-                    throw new Error('账户资料与当前登录会话不一致，请重新登录。');
-                }
+                await account.load(signal, auth.state.value.userId);
             },
         },
         ...(sources.workspace ? [{ label: '工作区', load: workspace.load }] : []),
@@ -79,12 +78,13 @@ export function createApplicationBootstrap(
                     state.value = {
                         status: 'error',
                         stage: stage.label,
-                        error:
-                            cause instanceof HttpError && cause.status === 403
-                                ? '当前账户无权访问此内容。'
-                                : cause instanceof Error
-                                  ? cause.message
-                                  : '读取失败，请稍后重试',
+                        error: isResponseValidationError(cause)
+                            ? ''
+                            : cause instanceof HttpError && cause.status === 403
+                              ? '当前账户无权访问此内容。'
+                              : cause instanceof Error
+                                ? cause.message
+                                : '读取失败，请稍后重试',
                     };
                 }
                 return;

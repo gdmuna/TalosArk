@@ -36,7 +36,7 @@ const organizationId = computed(() =>
 );
 const selection = computed(() => ({ organizationId: organizationId.value, workspaceId: id.value }));
 const key = computed(() => (organizationId.value ? `${organizationId.value}:${id.value}` : ''));
-const { data, loading, busy, error, syncError, refresh, write } = useDetailRead(
+const { data, loading, busy, error, syncError, pendingSync, refresh, write } = useDetailRead(
     key,
     (signal) => source.workspace(selection.value, signal),
     (signal) => workspace.load(signal)
@@ -167,7 +167,13 @@ async function save() {
             </Button>
         </template>
         <template v-if="data">
-            <DataSyncNotice scope="工作区" :error="syncError" :busy="busy || loading" @retry="refresh" />
+            <DataSyncNotice
+                scope="工作区"
+                :error="syncError"
+                :pending="pendingSync"
+                :busy="busy || loading"
+                @retry="refresh"
+            />
             <template v-if="view === 'overview'">
                 <div class="grid min-w-0 gap-6 @min-[1000px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
                     <ManagementSection title="基本信息">
@@ -307,7 +313,7 @@ async function save() {
                         </label>
                         <p v-if="saved && !dirty" role="status" class="text-sm text-success-foreground">更改已保存</p>
                         <div class="flex gap-2">
-                            <Button :disabled="!data.canUpdate || !dirty || busy || !!syncError">
+                            <Button :disabled="!data.canUpdate || !dirty || busy || pendingSync">
                                 {{ busy ? '保存中' : '保存更改' }}
                             </Button>
                             <Button

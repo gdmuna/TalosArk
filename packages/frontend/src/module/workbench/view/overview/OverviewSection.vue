@@ -47,7 +47,7 @@ defineEmits<{ refresh: [] }>();
             <template v-else-if="status === 'idle'">请先选择工作区</template>
             <template v-else-if="status === 'unavailable'">此数据来源尚未接入</template>
             <template v-else-if="status === 'ready'">{{ emptyLabel }}</template>
-            <template v-else>
+            <template v-else-if="error">
                 <p>{{ error }}</p>
                 <Button variant="outline" size="sm" @click="$emit('refresh')">重新加载</Button>
             </template>

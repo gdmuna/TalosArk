@@ -1,5 +1,5 @@
 import { inject, onScopeDispose, ref, shallowRef, watch, type InjectionKey, type Ref } from 'vue';
-import { AuthenticationError, HttpError } from '@/platform/http';
+import { AuthenticationError, HttpError, isResponseValidationError } from '@/platform/http';
 import type { AuditDataSource, AuditRecord, AuditScope } from '../data/source';
 
 export const auditDataSourceKey: InjectionKey<AuditDataSource> = Symbol('auditDataSource');
@@ -41,6 +41,7 @@ export function useAuditRead<T>(key: Ref<string>, read: (signal: AbortSignal) =>
                 [401, 403, 404].includes(status ?? 0)
             )
                 data.value = undefined;
+            if (isResponseValidationError(cause)) return;
             error.value =
                 status === 403
                     ? '当前账户无权查看此范围的审计记录'

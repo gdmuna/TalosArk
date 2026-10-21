@@ -33,7 +33,7 @@ const key = computed(() =>
     organizationId.value ? `${organizationId.value}:${id.value}:${workspaceId.value ?? ''}` : ''
 );
 const source = useManagementDataSource();
-const { data, loading, busy, error, syncError, refresh, write } = useDetailRead(key, (signal) =>
+const { data, loading, busy, error, syncError, pendingSync, refresh, write } = useDetailRead(key, (signal) =>
     source.member(selection.value, id.value, signal)
 );
 const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
@@ -210,13 +210,19 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
         @select="switchMember"
     >
         <template #actions>
-            <Button v-if="data?.canManageRoles" variant="outline" :disabled="busy || !!syncError" @click="editRoles">
+            <Button v-if="data?.canManageRoles" variant="outline" :disabled="busy || pendingSync" @click="editRoles">
                 <ShieldCheck />
                 分配组织角色
             </Button>
         </template>
         <template v-if="data">
-            <DataSyncNotice scope="成员" :error="syncError" :busy="busy || loading" @retry="refresh" />
+            <DataSyncNotice
+                scope="成员"
+                :error="syncError"
+                :pending="pendingSync"
+                :busy="busy || loading"
+                @retry="refresh"
+            />
             <div
                 v-if="view === 'workspace' && relations.error.value"
                 role="alert"
@@ -380,7 +386,7 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
                             !roleCatalog.data.value ||
                             !!roleCatalog.error.value ||
                             !data?.canManageRoles ||
-                            !!syncError
+                            pendingSync
                         "
                     >
                         保存分配

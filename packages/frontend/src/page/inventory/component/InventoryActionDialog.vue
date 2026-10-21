@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { InventoryActionSchema } from '@talos-ark/contracts/inventory';
+import { isResponseValidationError } from '@/platform/http';
 import {
     inventoryActionLabel,
     inventoryErrorMessage,
@@ -23,8 +24,10 @@ const props = defineProps<{
     stock?: InventoryStock;
     kind?: InventoryActionKind;
     onCommitted: (receipt: InventoryOperationReceipt) => Promise<boolean>;
+    syncFailure?: unknown;
 }>();
 const open = defineModel<boolean>('open', { default: false });
+const silentSync = ref(false);
 const source = useInventoryDataSource();
 const store = useInventoryActionStore();
 const stock = shallowRef<InventoryStock>();
@@ -74,6 +77,7 @@ watch(
         lifetime = new AbortController();
         stock.value = undefined;
         error.value = syncError.value = '';
+        silentSync.value = false;
         loading.value = syncing.value = needsReload.value = false;
         reason.value = quantity.value = '';
         position.value = undefined;
@@ -153,8 +157,8 @@ async function submit() {
 async function recover() {
     if (!props.scope) return;
     const signal = lifetime.signal;
-    await store.recover(props.scope);
-    if (!signal.aborted && attempt.value?.receipt && !store.error) await synchronize();
+    const recovered = await store.recover(props.scope);
+    if (!signal.aborted && recovered && attempt.value?.receipt) await synchronize();
 }
 async function synchronize() {
     const saved = attempt.value;
@@ -162,6 +166,7 @@ async function synchronize() {
     const signal = lifetime.signal;
     syncing.value = true;
     syncError.value = '';
+    silentSync.value = false;
     try {
         await source.get(saved.scope, saved.stockItemId, signal);
         await source.transactions(
@@ -178,10 +183,17 @@ async function synchronize() {
         if (signal.aborted) return;
         const ready = await props.onCommitted(saved.receipt);
         if (signal.aborted) return;
-        if (!ready) syncError.value = '操作已成功，页面尚未同步。请只重新加载。';
-        else if (store.acknowledge(saved.scope)) open.value = false;
-    } catch {
-        if (!signal.aborted) syncError.value = '操作已成功，页面尚未同步。请只重新加载。';
+        if (!ready) {
+            silentSync.value = isResponseValidationError(props.syncFailure);
+            syncError.value = isResponseValidationError(props.syncFailure)
+                ? ''
+                : '操作已成功，页面尚未同步。请只重新加载。';
+        } else if (store.acknowledge(saved.scope)) open.value = false;
+    } catch (cause) {
+        if (!signal.aborted) {
+            silentSync.value = isResponseValidationError(cause);
+            syncError.value = isResponseValidationError(cause) ? '' : '操作已成功，页面尚未同步。请只重新加载。';
+        }
     } finally {
         if (!signal.aborted) syncing.value = false;
     }
@@ -199,7 +211,11 @@ async function synchronize() {
                 {{ store.recoveryError || error || store.error }}
             </p>
             <template v-if="attempt">
-                <div role="status" class="space-y-2 border-y py-4 text-sm">
+                <div
+                    v-if="!attempt.responseValidationFailed && !silentSync"
+                    role="status"
+                    class="space-y-2 border-y py-4 text-sm"
+                >
                     <p class="font-medium">{{ attempt.receipt ? '操作已成功' : '原操作结果尚未确认' }}</p>
                     <p class="text-muted-foreground">
                         {{
@@ -208,8 +224,8 @@ async function synchronize() {
                                 : '继续核对将使用保存的原请求，避免重复变更库存。'
                         }}
                     </p>
-                    <p v-if="syncError" class="text-destructive">{{ syncError }}</p>
                 </div>
+                <p v-if="syncError" class="text-destructive">{{ syncError }}</p>
                 <div class="flex justify-end gap-2">
                     <Button variant="outline" :disabled="locked" @click="open = false">关闭</Button>
                     <Button :disabled="locked" @click="attempt.receipt ? synchronize() : recover()">

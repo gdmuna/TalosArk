@@ -127,18 +127,18 @@ const actions: DataTableAction<ExceptionItem>[] = [
         id: 'handle',
         label: '标记已处理',
         icon: Check,
-        disabled: (item) => !!workbench.syncError || item.status !== '未处理',
+        disabled: (item) => workbench.syncPending || item.status !== '未处理',
         run: async (item) => {
-            error.value = await workbench.updateException(item.id, '已处理');
+            error.value = (await workbench.updateException(item.id, '已处理')) ?? '';
         },
     },
     {
         id: 'ignore',
         label: '忽略提醒',
         icon: EyeOff,
-        disabled: (item) => !!workbench.syncError || item.status !== '未处理',
+        disabled: (item) => workbench.syncPending || item.status !== '未处理',
         run: async (item) => {
-            error.value = await workbench.updateException(item.id, '已忽略');
+            error.value = (await workbench.updateException(item.id, '已忽略')) ?? '';
         },
     },
 ];
@@ -147,7 +147,7 @@ const bulkActions: DataTableBulkAction<ExceptionItem>[] = [
         id: 'handle',
         label: '标记已处理',
         icon: Check,
-        disabled: (items) => !!workbench.syncError || items.some((item) => item.status !== '未处理'),
+        disabled: (items) => workbench.syncPending || items.some((item) => item.status !== '未处理'),
         get disabledReason() {
             return workbench.syncError ? '请先重新同步工作台数据' : '仅支持未处理的异常与提醒';
         },
@@ -157,7 +157,7 @@ const bulkActions: DataTableBulkAction<ExceptionItem>[] = [
         id: 'ignore',
         label: '忽略提醒',
         icon: EyeOff,
-        disabled: (items) => !!workbench.syncError || items.some((item) => item.status !== '未处理'),
+        disabled: (items) => workbench.syncPending || items.some((item) => item.status !== '未处理'),
         get disabledReason() {
             return workbench.syncError ? '请先重新同步工作台数据' : '仅支持未处理的异常与提醒';
         },
@@ -165,11 +165,12 @@ const bulkActions: DataTableBulkAction<ExceptionItem>[] = [
     },
 ];
 async function updateBatch(items: ExceptionItem[], status: '已处理' | '已忽略') {
-    error.value = await workbench.updateExceptions(
+    const result = await workbench.updateExceptions(
         items.map((item) => item.id),
         status
     );
-    if (!error.value) checked.value = [];
+    error.value = result ?? '';
+    if (result === '') checked.value = [];
 }
 const selected = computed(() => workbench.currentExceptions.find((item) => item.id === selectedId.value));
 const inspectorOpen = computed({

@@ -58,7 +58,7 @@ export function useDeploymentInformation(
                   : status === 404
                     ? '部署信息已不可访问'
                     : protocol
-                      ? '部署信息响应不一致，请重新加载'
+                      ? ''
                       : '部署信息读取失败，请重试';
         } finally {
             if (!current.signal.aborted) loading.value = false;

@@ -8,7 +8,7 @@ import {
     type Ref,
     computed,
 } from 'vue';
-import { AuthenticationError, HttpError } from '@/platform/http';
+import { AuthenticationError, HttpError, isResponseValidationError } from '@/platform/http';
 import { ZodError } from 'zod';
 import { useWorkspaceStore } from '@/module/workspace';
 import type { InventoryDataSource, InventoryScope } from '../data/source';
@@ -20,6 +20,7 @@ export function useInventoryDataSource() {
 }
 
 export function inventoryErrorMessage(cause: unknown) {
+    if (isResponseValidationError(cause)) return '';
     if (cause instanceof ZodError) return '请检查搜索条件、数量和日期格式';
     if (
         cause instanceof AuthenticationError ||
@@ -47,9 +48,7 @@ export function inventoryErrorMessage(cause: unknown) {
             ? '当前账户无权操作此库存范围'
             : cause.status === 404
               ? '库存实例或流水不存在，或当前账户无权访问'
-              : cause.kind === 'protocol'
-                ? '响应信息不一致，请重新加载'
-                : '库存服务暂不可用，请重试')
+              : '库存服务暂不可用，请重试')
     );
 }
 
@@ -72,6 +71,7 @@ export function useInventoryRead<T>(
     const source = useInventoryDataSource();
     const scope = useInventoryScope();
     const data = shallowRef<T>();
+    const failure = shallowRef<unknown>();
     const loading = ref(false);
     const error = ref('');
     let request: AbortController | undefined;
@@ -83,6 +83,7 @@ export function useInventoryRead<T>(
         request = current;
         loading.value = !!key.value;
         error.value = '';
+        failure.value = undefined;
         if (!source || !scope.value || !key.value) {
             data.value = undefined;
             loading.value = false;
@@ -96,6 +97,7 @@ export function useInventoryRead<T>(
             return true;
         } catch (cause) {
             if (!current.signal.aborted) {
+                failure.value = cause;
                 if (
                     cause instanceof AuthenticationError ||
                     (cause instanceof HttpError &&
@@ -121,5 +123,5 @@ export function useInventoryRead<T>(
         disposed = true;
         request?.abort();
     });
-    return { data, loading, error, refresh, source, scope };
+    return { data, loading, error, failure, refresh, source, scope };
 }

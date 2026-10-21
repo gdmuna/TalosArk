@@ -1,11 +1,12 @@
 import { computed, ref, shallowRef, watch, onScopeDispose } from 'vue';
 import { defineStore } from 'pinia';
 import type { MaterialCapabilities, MaterialType, Material } from '@talos-ark/contracts/material';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { useWorkspaceStore } from '@/module/workspace';
 import type { MaterialDataSource } from '../data/source';
 
 export function materialErrorMessage(cause: unknown, write = false): string {
+    if (isResponseValidationError(cause)) return '';
     if (!(cause instanceof HttpError)) {
         if (write) return '写入结果无法确认。请先刷新并核对材料状态；确认未生效后再提交。';
         return cause instanceof Error ? cause.message : '材料操作失败';

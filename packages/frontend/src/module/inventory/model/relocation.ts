@@ -2,7 +2,7 @@ import { onScopeDispose, ref, shallowRef } from 'vue';
 import { defineStore } from 'pinia';
 import { z } from 'zod';
 import { OperationReceiptSchema, RelocationExecuteSchema } from '@talos-ark/contracts/inventory';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import type { InventoryDataSource, InventoryRelocationExecute } from '../data/source';
 import { inventoryErrorMessage } from './read';
 
@@ -10,6 +10,7 @@ const attemptSchema = z.object({
     organizationId: z.uuid(),
     body: RelocationExecuteSchema,
     receipt: OperationReceiptSchema.optional(),
+    responseValidationFailed: z.boolean().optional(),
 });
 type Attempt = z.infer<typeof attemptSchema>;
 
@@ -83,7 +84,7 @@ export const useInventoryRelocationStore = defineStore('inventory-relocation', (
     }
     async function recover(organizationId: string) {
         const attempt = current(organizationId);
-        if (attempt) await send(attempt, true);
+        return attempt ? send(attempt, true) : false;
     }
     async function send(attempt: Attempt, recovering: boolean) {
         if (!owner || !source || busy.value || !persist()) return;
@@ -107,8 +108,9 @@ export const useInventoryRelocationStore = defineStore('inventory-relocation', (
             )
                 throw new HttpError('搬迁回执身份不一致', 'protocol');
             attempts.value = attempts.value.map((item) =>
-                item === attempt ? { ...item, receipt } : item
+                item === attempt ? { ...item, receipt, responseValidationFailed: false } : item
             );
+            return true;
         } catch (cause) {
             if (controller.signal.aborted) return;
             // A rejected recovery cannot prove whether the original request committed.
@@ -120,6 +122,12 @@ export const useInventoryRelocationStore = defineStore('inventory-relocation', (
                 (cause.status ?? 500) < 500 &&
                 cause.code !== 'INVENTORY_RESULT_UNAVAILABLE';
             if (rejected) attempts.value = attempts.value.filter((item) => item !== attempt);
+            else
+                attempts.value = attempts.value.map((item) =>
+                    item === attempt
+                        ? { ...item, responseValidationFailed: isResponseValidationError(cause) }
+                        : item
+                );
             error.value =
                 cause instanceof HttpError && cause.status === 409 && rejected
                     ? '搬迁预览已失效或目标已改变。请重新预览并确认。'

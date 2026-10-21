@@ -26,7 +26,7 @@ const request = computed<MaterialBatchQuery>(() => ({
     page: pagination.value.pageIndex + 1,
     pageSize: pagination.value.pageSize,
 }));
-const { data, loading, error, reload } = useMaterialRead(
+const { data, loading, error, failure, reload } = useMaterialRead(
     (context, signal) => context.source.listBatches(context.scope, props.materialId, request.value, signal),
     [() => props.materialId, request]
 );
@@ -40,10 +40,15 @@ const editing = ref<MaterialBatch>();
 const selectedId = ref('');
 const {
     syncPending,
+    showSyncError,
     synchronize,
     afterCommit,
     archive: archiveBatch,
-} = useMaterialBatchRecovery(() => props.materialId, reload);
+} = useMaterialBatchRecovery(
+    () => props.materialId,
+    reload,
+    () => failure.value
+);
 const preview = useMaterialRead(
     (context, signal) =>
         selectedId.value
@@ -174,12 +179,14 @@ function archive(batch: MaterialBatch, archived: boolean) {
             </Button>
         </div>
         <div
-            v-if="syncPending || error || store.error"
+            v-if="showSyncError() || error || store.error"
             role="alert"
             class="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
         >
             <p class="text-destructive">
-                {{ syncPending ? '操作已成功，但批次尚未同步。请仅重新加载，不要重复提交。' : error || store.error }}
+                {{
+                    showSyncError() ? '操作已成功，但批次尚未同步。请仅重新加载，不要重复提交。' : error || store.error
+                }}
             </p>
             <Button variant="outline" size="sm" :disabled="loading" @click="synchronize">重新加载</Button>
         </div>
@@ -234,6 +241,7 @@ function archive(batch: MaterialBatch, archived: boolean) {
             :material-id="materialId"
             :batch="editing"
             :on-committed="afterCommit"
+            :sync-failure="failure"
         />
     </div>
 </template>

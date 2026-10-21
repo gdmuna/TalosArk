@@ -11,7 +11,7 @@ const emit = defineEmits<{ changed: [] }>();
 const source = useFacilityDataSource(),
     workspace = useWorkspaceStore();
 const key = computed(() => (source && props.contextKey ? JSON.stringify([props.contextKey, props.facility.id]) : ''));
-const { data, loading, busy, error, conflict, syncError, refresh, write } = useFacilityRead(
+const { data, loading, busy, error, conflict, syncError, pendingSync, refresh, write } = useFacilityRead(
     key,
     (signal) => source?.detail(props.scope, props.facility.id, signal) ?? Promise.resolve(undefined)
 );
@@ -30,7 +30,7 @@ const disabled = computed(
         busy.value ||
         loading.value ||
         conflict.value ||
-        !!syncError.value ||
+        pendingSync.value ||
         !data.value?.capabilities.govern ||
         !!data.value?.archivedAt
 );
@@ -63,7 +63,13 @@ async function save(id: string, next: 'USE' | 'MANAGE' | null) {
     <div class="space-y-5">
         <p class="text-sm text-muted-foreground">设施归组织所有。共享整处设施不授予内部材料或库存内容的访问权限。</p>
         <ReadFeedback :error="error" :loading="loading" :stale="!!data" @retry="refresh" />
-        <DataSyncNotice scope="设施共享" :error="syncError" :busy="busy || loading" @retry="refresh" />
+        <DataSyncNotice
+            scope="设施共享"
+            :error="syncError"
+            :pending="pendingSync"
+            :busy="busy || loading"
+            @retry="refresh"
+        />
         <p v-if="data" class="text-sm">
             管理工作区：{{
                 workspace.workspaces.find((item) => item.id === data?.managementWorkspaceId)?.name ??

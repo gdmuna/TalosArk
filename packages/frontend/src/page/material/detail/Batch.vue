@@ -38,7 +38,7 @@ const material = useMaterialRead(
     (context, signal) => context.source.get(context.scope, materialId.value, signal),
     [materialId]
 );
-const { data, loading, error, reload } = useMaterialRead(
+const { data, loading, error, failure, reload } = useMaterialRead(
     (context, signal) => context.source.getBatch(context.scope, materialId.value, batchId.value, signal),
     [materialId, batchId]
 );
@@ -143,12 +143,14 @@ const inventoryActions: DataTableAction<InventoryStock>[] = [
 const editorOpen = ref(false);
 const {
     syncPending,
+    showSyncError,
     synchronize,
     afterCommit,
     archive: archiveBatch,
 } = useMaterialBatchRecovery(
     () => materialId.value,
     reload,
+    () => failure.value,
     () => batchId.value
 );
 const disabled = computed(
@@ -206,13 +208,13 @@ function archive() {
             </ResourceObjectHeader>
         </template>
         <div
-            v-if="error || material.error.value || permissions.error.value || syncPending || store.error"
+            v-if="error || material.error.value || permissions.error.value || showSyncError() || store.error"
             role="alert"
             class="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4"
         >
             <p class="text-sm text-destructive">
                 {{
-                    syncPending
+                    showSyncError()
                         ? '操作已成功，但批次尚未同步。请仅重新加载。'
                         : error || material.error.value || permissions.error.value || store.error
                 }}
@@ -316,6 +318,7 @@ function archive() {
             :material-id="materialId"
             :batch="data"
             :on-committed="afterCommit"
+            :sync-failure="failure"
         />
         <InventoryStockInspector v-model:id="inventoryPreviewId" />
     </ResourceDetailPage>

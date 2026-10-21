@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { useAccountStore } from '@/module/account';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
+import { DataSyncNotice } from '@/component/data-sync';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
@@ -38,8 +39,9 @@ function reset() {
     saved.value = false;
 }
 async function save() {
-    error.value = await account.updateDisplayName(displayName.value);
-    saved.value = !error.value;
+    const result = await account.updateDisplayName(displayName.value);
+    error.value = result ?? '';
+    saved.value = result === '';
 }
 </script>
 
@@ -68,7 +70,7 @@ async function save() {
                         maxlength="40"
                         autocomplete="nickname"
                         :disabled="
-                            !account.profile || account.busy || !!account.syncError || !account.canUpdateDisplayName
+                            !account.profile || account.busy || account.syncPending || !account.canUpdateDisplayName
                         "
                     />
                 </div>
@@ -85,6 +87,13 @@ async function save() {
             </ManagementSection>
             <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
             <p v-if="saved" role="status" class="text-sm text-success">资料已保存</p>
+            <DataSyncNotice
+                scope="账户资料"
+                :error="account.syncError"
+                :pending="account.syncPending"
+                :busy="account.busy"
+                @retry="account.retrySync()"
+            />
             <div class="flex justify-end gap-2 border-t pt-4">
                 <Button type="button" variant="outline" :disabled="!dirty || account.busy" @click="reset">
                     取消更改
@@ -94,7 +103,7 @@ async function save() {
                     :disabled="
                         !dirty ||
                         account.busy ||
-                        !!account.syncError ||
+                        account.syncPending ||
                         !account.profile ||
                         !account.canUpdateDisplayName
                     "

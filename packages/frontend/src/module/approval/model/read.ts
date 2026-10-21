@@ -9,7 +9,7 @@ import {
     type Ref,
 } from 'vue';
 import type { ApprovalScope } from '@talos-ark/contracts/approval';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { useWorkspaceStore } from '@/module/workspace';
 import { useAccountStore } from '@/module/account';
 import { inventoryErrorMessage } from '@/module/inventory';
@@ -30,6 +30,7 @@ export function useApprovalScope() {
     );
 }
 export function approvalErrorMessage(cause: unknown) {
+    if (isResponseValidationError(cause)) return '';
     const messages: Record<string, string> = {
         APPROVAL_FORBIDDEN: '当前账户无权处理此申请或相关资源',
         APPROVAL_INVALID_INPUT: '请检查全部明细、数量、目标位置与审批结论',
@@ -45,9 +46,7 @@ export function approvalErrorMessage(cause: unknown) {
     if (cause.status === 401) return '登录会话已改变，请重新加载';
     if (cause.status === 403) return '当前账户无权访问此申请范围';
     if (cause.status === 404) return '申请不存在，或当前账户无权访问';
-    return cause.kind === 'protocol'
-        ? '审批响应信息不一致，请重新加载'
-        : '审批服务暂不可用，请重试';
+    return '审批服务暂不可用，请重试';
 }
 export function useApprovalRead<T>(
     key: Ref<string>,
@@ -57,6 +56,7 @@ export function useApprovalRead<T>(
         scope = useApprovalScope(),
         account = useAccountStore();
     const data = shallowRef<T>(),
+        failure = shallowRef<unknown>(),
         error = ref(''),
         loading = ref(false);
     let request: AbortController | undefined,
@@ -67,6 +67,7 @@ export function useApprovalRead<T>(
         const controller = new AbortController();
         request = controller;
         error.value = '';
+        failure.value = undefined;
         loading.value = false;
         const current = scope.value;
         if (!source || !current || !key.value || !account.profile) {
@@ -81,6 +82,7 @@ export function useApprovalRead<T>(
             return true;
         } catch (cause) {
             if (controller.signal.aborted) return false;
+            failure.value = cause;
             data.value = undefined;
             error.value = approvalErrorMessage(cause);
             return false;
@@ -100,5 +102,5 @@ export function useApprovalRead<T>(
         disposed = true;
         request?.abort();
     });
-    return { data, loading, error, refresh, scope, source };
+    return { data, loading, error, failure, refresh, scope, source };
 }

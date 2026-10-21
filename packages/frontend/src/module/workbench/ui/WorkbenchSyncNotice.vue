@@ -6,5 +6,11 @@ const workbench = useWorkbenchStore();
 </script>
 
 <template>
-    <DataSyncNotice scope="工作台" :error="workbench.syncError" :busy="workbench.busy" @retry="workbench.retrySync()" />
+    <DataSyncNotice
+        scope="工作台"
+        :error="workbench.syncError"
+        :pending="workbench.syncPending"
+        :busy="workbench.busy"
+        @retry="workbench.retrySync()"
+    />
 </template>

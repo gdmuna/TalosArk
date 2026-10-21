@@ -99,7 +99,7 @@ const request = computed<InventoryQuery>(() => ({
     batchId: batchId.value,
 }));
 const key = computed(() => JSON.stringify(request.value));
-const { data, loading, error, refresh } = useInventoryRead(key, (scope, signal) => {
+const { data, loading, error, failure, refresh } = useInventoryRead(key, (scope, signal) => {
     if (!source) return Promise.reject(new Error('库存数据源未连接'));
     return source.list(scope, request.value, signal);
 });
@@ -312,6 +312,7 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
             :scope="scope"
             :stock="actionStock"
             :kind="actionKind"
+            :sync-failure="failure"
             :on-committed="
                 async () => {
                     selectedId = '';
@@ -328,6 +329,7 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
             :can-manage-batch="context.data.value?.capabilities.manageBatch ?? false"
             :business-date="context.data.value?.businessDate"
             :on-committed="async () => refresh()"
+            :sync-failure="failure"
             @refresh-context="context.refresh"
         />
     </ResourcePage>

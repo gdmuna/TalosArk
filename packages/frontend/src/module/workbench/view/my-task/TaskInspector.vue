@@ -93,7 +93,7 @@
             <Button
                 v-else
                 class="flex-1"
-                :disabled="task.status === '已完成' || busy || !!workbench.syncError"
+                :disabled="task.status === '已完成' || busy || workbench.syncPending"
                 @click="$emit('complete', task.id)"
             >
                 <Check aria-hidden="true" />

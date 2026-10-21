@@ -28,7 +28,7 @@ const id = computed(() => (typeof route.params.facilityId === 'string' ? route.p
 const key = computed(() =>
     source && contextKey.value && id.value ? JSON.stringify([contextKey.value, id.value]) : ''
 );
-const { data, loading, busy, error, conflict, syncError, refresh, write } = useFacilityRead(
+const { data, loading, busy, error, conflict, syncError, pendingSync, refresh, write } = useFacilityRead(
     key,
     (signal) => source?.detail(scope.value, id.value, signal) ?? Promise.resolve(undefined)
 );
@@ -52,7 +52,7 @@ const view = useManagementView(views);
 const managementWorkspace = computed(() =>
     workspace.workspaces.find((item) => item.id === data.value?.managementWorkspaceId)
 );
-const disabled = computed(() => busy.value || loading.value || conflict.value || !!syncError.value);
+const disabled = computed(() => busy.value || loading.value || conflict.value || pendingSync.value);
 const status = computed(() =>
     data.value ? (data.value.archivedAt ? '已归档' : data.value.disabledAt ? '已停用' : '正常') : undefined
 );
@@ -147,7 +147,13 @@ async function changeState() {
                 </RouterLink>
             </Button>
         </template>
-        <DataSyncNotice scope="设施" :error="syncError" :busy="busy || loading" @retry="refresh" />
+        <DataSyncNotice
+            scope="设施"
+            :error="syncError"
+            :pending="pendingSync"
+            :busy="busy || loading"
+            @retry="refresh"
+        />
         <p v-if="data && error" class="text-sm text-muted-foreground">当前显示上次读取结果</p>
         <template v-if="data">
             <template v-if="view === 'overview'">

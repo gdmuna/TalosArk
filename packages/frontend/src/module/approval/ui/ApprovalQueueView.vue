@@ -12,6 +12,7 @@ import { useApprovalRead } from '../model/read';
 import { useApprovalOperationStore } from '../model/operation';
 import { approvalStatusLabel, approvalTypeLabel } from '../model/presentation';
 import ApprovalOperationNotice from './ApprovalOperationNotice.vue';
+import { isResponseValidationError } from '@/platform/http';
 const props = withDefaults(defineProps<{ initialView?: 'review' | 'execute'; allowMine?: boolean }>(), {
     initialView: 'execute',
     allowMine: false,
@@ -136,7 +137,14 @@ async function synchronize() {
                     </Button>
                 </div>
             </header>
-            <ApprovalOperationNotice @synchronize="synchronize" />
+            <ApprovalOperationNotice
+                :silent="
+                    !list.error.value &&
+                    !summary.error.value &&
+                    (isResponseValidationError(list.failure.value) || isResponseValidationError(summary.failure.value))
+                "
+                @synchronize="synchronize"
+            />
             <div
                 v-if="list.error.value"
                 role="alert"

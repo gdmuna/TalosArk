@@ -211,7 +211,7 @@ function toggleGroup(id: string) {
         : [...collapsed.value, id];
 }
 async function selectWorkspace(id: string) {
-    if (!(await workspace.select(id))) popoverOpen.value = false;
+    if ((await workspace.select(id)) === '') popoverOpen.value = false;
 }
 function openManagement() {
     popoverOpen.value = false;

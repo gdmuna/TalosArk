@@ -5,6 +5,7 @@ interface SessionMarker {
     revision: string;
     signedOut: boolean;
     confirmed: boolean;
+    silent?: boolean;
 }
 
 export function createBrowserSessionCoordinator(apiRoot: string) {
@@ -88,8 +89,8 @@ export function createBrowserSessionCoordinator(apiRoot: string) {
         assertCurrent,
         automaticResumeAllowed,
         run,
-        confirmSignOut(marker: SessionMarker, confirmed: boolean) {
-            if (read()?.revision === marker.revision) write({ ...marker, confirmed });
+        confirmSignOut(marker: SessionMarker, confirmed: boolean, silent = false) {
+            if (read()?.revision === marker.revision) write({ ...marker, confirmed, silent });
         },
         subscribe(listener: (marker: SessionMarker) => void) {
             listeners.add(listener);

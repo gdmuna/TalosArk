@@ -1,6 +1,6 @@
 import { computed, inject, onScopeDispose, shallowReactive, watch, type InjectionKey } from 'vue';
 import type { MaterialScope } from '@talos-ark/contracts/material';
-import { AuthenticationError, HttpError } from '@/platform/http';
+import { AuthenticationError, HttpError, isResponseValidationError } from '@/platform/http';
 import { useWorkspaceStore } from '@/module/workspace';
 import type { WorkbenchOverviewDataSource } from '../data/source';
 
@@ -48,6 +48,10 @@ export function useWorkbenchOverview() {
                 state.status = 'ready';
             } catch (cause) {
                 if (request.signal.aborted) return;
+                if (isResponseValidationError(cause)) {
+                    state.status = 'error';
+                    return;
+                }
                 const forbidden = cause instanceof HttpError && cause.status === 403;
                 state.status = forbidden ? 'forbidden' : 'error';
                 state.error = forbidden
@@ -55,9 +59,7 @@ export function useWorkbenchOverview() {
                     : cause instanceof AuthenticationError ||
                         (cause instanceof HttpError && cause.status === 401)
                       ? '登录会话暂不可用，请恢复登录后重试'
-                      : cause instanceof HttpError && cause.kind === 'protocol'
-                        ? '返回的数据格式不正确，请重试'
-                        : '暂时无法加载，请稍后重试';
+                      : '暂时无法加载，请稍后重试';
             }
         }
         watch(scope, refresh, { immediate: true, flush: 'sync' });

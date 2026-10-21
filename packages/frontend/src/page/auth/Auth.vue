@@ -77,7 +77,7 @@ import AuthPhoneNumLogin from './Auth-PhoneNumLogin.vue';
 import { Button } from '@/ui/button';
 import { FieldSeparator } from '@/ui/field';
 
-import { useAuthApi } from '@/module/auth';
+import { authErrorMessage, useAuthApi } from '@/module/auth';
 
 type LoginMethod = 'account' | 'email' | 'phone';
 
@@ -102,7 +102,8 @@ async function handleCasdoorLogin() {
         const res = await api.startOidcLogin({ signal: controller.signal });
         window.location.href = res.url;
     } catch (error) {
-        if (!controller.signal.aborted) loginError.value = error instanceof Error ? error.message : '无法开始登录';
+        if (!controller.signal.aborted)
+            loginError.value = authErrorMessage(error, error instanceof Error ? error.message : '无法开始登录');
     } finally {
         loginPending.value = false;
     }

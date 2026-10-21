@@ -3,6 +3,7 @@ import { SessionCredentialsSchema, type SessionCredentials } from '@talos-ark/co
 import {
     AuthenticationError,
     HttpError,
+    isResponseValidationError,
     createAuthGate,
     type AccessCredential,
 } from '@/platform/http';
@@ -43,12 +44,14 @@ export function createAuthSession(options: AuthSessionOptions = {}) {
     }
 
     function validate(value: SessionCredentials) {
-        const next = SessionCredentialsSchema.parse(value);
+        const parsed = SessionCredentialsSchema.safeParse(value);
+        if (!parsed.success) throw new HttpError('登录凭据响应无效', 'protocol');
+        const next = parsed.data;
         if (
             Date.parse(next.session.idleExpiresAt) <= Date.now() ||
             toAccessCredential(next).expiresAt <= Date.now()
         ) {
-            throw new TypeError('Session credentials have expired');
+            throw new HttpError('登录凭据响应已过期', 'protocol');
         }
         return next;
     }
@@ -56,6 +59,10 @@ export function createAuthSession(options: AuthSessionOptions = {}) {
     const gate = createAuthGate({
         onExpired(cause) {
             credentials = null;
+            if (isResponseValidationError(cause)) {
+                publish('error');
+                return;
+            }
             if (
                 cause &&
                 !(cause instanceof HttpError && cause.status === 401) &&
@@ -73,7 +80,7 @@ export function createAuthSession(options: AuthSessionOptions = {}) {
                 next.session.id !== current.session.id ||
                 next.session.userId !== current.session.userId
             ) {
-                throw new AuthenticationError('changed');
+                throw new HttpError('刷新凭据响应身份不一致', 'protocol');
             }
             credentials = next;
             return toAccessCredential(next);
@@ -130,9 +137,11 @@ export function createAuthSession(options: AuthSessionOptions = {}) {
                             publish(
                                 'error',
                                 '',
-                                cause instanceof HttpError && cause.status === 403
-                                    ? '当前访问地址无权恢复登录会话。'
-                                    : '暂时无法恢复登录会话，请检查网络后重试。'
+                                isResponseValidationError(cause)
+                                    ? ''
+                                    : cause instanceof HttpError && cause.status === 403
+                                      ? '当前访问地址无权恢复登录会话。'
+                                      : '暂时无法恢复登录会话，请检查网络后重试。'
                             );
                     } finally {
                         scope.dispose();

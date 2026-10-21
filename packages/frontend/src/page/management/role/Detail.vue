@@ -33,7 +33,7 @@ const key = computed(() =>
     organizationId.value ? `${organizationId.value}:${id.value}:${workspaceId.value ?? ''}` : ''
 );
 const source = useManagementDataSource();
-const { data, loading, busy, error, syncError, refresh, write } = useDetailRead(key, (signal) =>
+const { data, loading, busy, error, syncError, pendingSync, refresh, write } = useDetailRead(key, (signal) =>
     source.role(selection.value, id.value, signal)
 );
 const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
@@ -172,7 +172,13 @@ async function save() {
             <Badge v-if="data.bindingTotal !== null" variant="secondary">{{ data.bindingTotal }} 项有效绑定</Badge>
         </template>
         <template v-if="data">
-            <DataSyncNotice scope="角色" :error="syncError" :busy="busy || loading" @retry="refresh" />
+            <DataSyncNotice
+                scope="角色"
+                :error="syncError"
+                :pending="pendingSync"
+                :busy="busy || loading"
+                @retry="refresh"
+            />
             <div
                 v-if="view === 'member' && bindings.error.value"
                 role="alert"
@@ -195,7 +201,7 @@ async function save() {
                         v-model="permissions"
                         :definitions="data.definitions"
                         :scope="scopeName"
-                        :disabled="!data.canEdit || busy || !!syncError"
+                        :disabled="!data.canEdit || busy || pendingSync"
                     />
                 </ManagementSection>
                 <FactList
@@ -206,7 +212,7 @@ async function save() {
                 />
                 <p v-if="saved && !dirty" role="status" class="text-sm text-success-foreground">角色定义已保存</p>
                 <div v-if="data.canEdit" class="flex gap-2">
-                    <Button :disabled="!dirty || busy || !!syncError">{{ busy ? '保存中' : '保存更改' }}</Button>
+                    <Button :disabled="!dirty || busy || pendingSync">{{ busy ? '保存中' : '保存更改' }}</Button>
                     <Button
                         type="button"
                         variant="outline"

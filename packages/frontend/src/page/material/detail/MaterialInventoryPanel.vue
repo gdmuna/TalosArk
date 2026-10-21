@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { isResponseValidationError } from '@/platform/http';
 import { refDebounced } from '@vueuse/core';
 import { Boxes, Clock, Eye, Plus, Search, ArrowRight } from '@lucide/vue';
 import type { Material } from '@talos-ark/contracts/material';
@@ -25,7 +26,7 @@ import { Input } from '@/ui/input';
 import InventoryReceiptDialog from '../../inventory/component/InventoryReceiptDialog.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
 
-const props = defineProps<{ material: Material; onCommitted: () => Promise<boolean> }>();
+const props = defineProps<{ material: Material; onCommitted: () => Promise<boolean>; syncFailure?: unknown }>();
 const route = useRoute(),
     router = useRouter();
 const id = computed(() => props.material.id);
@@ -107,6 +108,7 @@ const inventory = useInventoryRead(inventoryKey, (scope, signal) =>
         : Promise.reject(new Error('库存数据源未连接'))
 );
 const inventoryData = computed(() => inventory.data.value);
+const syncFailure = ref<unknown>();
 const inventoryRows = computed(() => inventoryData.value?.items ?? []);
 const inventoryLoading = computed(() => inventory.loading.value);
 const inventoryError = computed(() => inventory.error.value);
@@ -141,6 +143,15 @@ async function afterReceipt() {
         batches.reload(),
         selectedBatch.reload(),
     ]);
+    const failures = [
+        inventory.failure.value,
+        props.syncFailure,
+        batches.failure.value,
+        selectedBatch.failure.value,
+    ].filter((_, index) => !results[index]);
+    syncFailure.value = failures.every(isResponseValidationError)
+        ? failures[0]
+        : failures.find((cause) => !isResponseValidationError(cause));
     return results.every(Boolean);
 }
 const inventoryColumns: DataTableColumn<InventoryStock>[] = [
@@ -393,6 +404,7 @@ const inventoryActions: DataTableAction<InventoryStock>[] = [
         :can-manage-batch="inventoryContext.data.value?.capabilities.manageBatch ?? false"
         :business-date="inventoryContext.data.value?.businessDate"
         :on-committed="afterReceipt"
+        :sync-failure="syncFailure"
         @refresh-context="inventoryContext.refresh"
     />
 </template>

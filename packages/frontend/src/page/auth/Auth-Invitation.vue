@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Mail } from '@lucide/vue';
 import { useAuthApi } from '@/module/auth';
+import { isResponseValidationError } from '@/platform/http';
 import {
     useTeamStore,
     useWorkspaceStore,
@@ -86,8 +87,8 @@ async function accept() {
         completed.value = true;
         try {
             await workspace.load(controller.signal);
-        } catch {
-            error.value = '已加入，工作区列表尚未同步，可进入管理中心后重新加载';
+        } catch (cause) {
+            if (!isResponseValidationError(cause)) error.value = '已加入，工作区列表尚未同步，可进入管理中心后重新加载';
         }
     } catch (cause) {
         if (current === revision && !controller.signal.aborted) error.value = teamErrorMessage(cause);
@@ -122,11 +123,7 @@ onBeforeUnmount(() => {
                 <RouterLink to="/main/management/member">进入管理中心</RouterLink>
             </Button>
             <Button v-else-if="preview" class="w-full" :disabled="pending" @click="accept">接受邀请</Button>
-            <Button
-                v-else-if="token && !pending && auth.state.value.status !== 'authenticated'"
-                as-child
-                class="w-full"
-            >
+            <Button v-else-if="token && !pending && auth.state.value.status === 'anonymous'" as-child class="w-full">
                 <RouterLink :to="{ path: '/auth/login', query: { next: '/auth/invitation' } }">
                     登录后接受邀请
                 </RouterLink>

@@ -1,12 +1,13 @@
 import { computed, onScopeDispose, ref, shallowRef, watch, type UnwrapRef } from 'vue';
 import { defineStore } from 'pinia';
 import type { TeamManagement, TeamManagementQuery } from '@talos-ark/contracts/team';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { createTaskScope } from '@/platform/task';
 import { useWorkspaceStore } from './store';
 import type { TeamDataSource, TeamSelection, TeamCommand } from '../data/source';
 
 export function teamErrorMessage(error: unknown): string {
+    if (isResponseValidationError(error)) return '';
     const code = error instanceof HttpError ? error.code : undefined;
     return (
         (
@@ -49,6 +50,7 @@ export function createTeamManagementState(
     let scope = createTaskScope([]);
     let readVersion = 0;
     let pendingLeaveSync = false;
+    const syncPending = ref(false);
     const ready = computed(() => !!data.value && !loading.value);
     function connect(value: TeamDataSource) {
         reset();
@@ -59,6 +61,7 @@ export function createTeamManagementState(
         scope = createTaskScope([]);
         readVersion++;
         pendingLeaveSync = false;
+        syncPending.value = false;
         selection.value = null;
         data.value = null;
         loading.value = busy.value = false;
@@ -87,12 +90,15 @@ export function createTeamManagementState(
             data.value = result;
             appliedSearch.value = query.search;
             syncError.value = '';
+            syncPending.value = false;
         } catch (cause) {
             if (!current.signal.aborted && version === readVersion) {
                 if (cause instanceof HttpError && (cause.status === 401 || cause.status === 403))
                     data.value = null;
                 if (pendingLeaveSync)
-                    syncError.value = '已离开，但工作区列表未同步。请重新加载，不要重复提交。';
+                    syncError.value = isResponseValidationError(cause)
+                        ? ''
+                        : '已离开，但工作区列表未同步。请重新加载，不要重复提交。';
                 else error.value = teamErrorMessage(cause);
                 throw cause;
             }
@@ -114,8 +120,8 @@ export function createTeamManagementState(
             /* The view owns retry for a failed read. */
         }
     }
-    async function mutate(command: TeamCommand): Promise<boolean> {
-        if (!selection.value || busy.value || loading.value || syncError.value) return false;
+    async function mutate(command: TeamCommand): Promise<boolean | null> {
+        if (!selection.value || busy.value || loading.value || syncPending.value) return false;
         const selected = selection.value,
             current = scope;
         busy.value = true;
@@ -128,6 +134,7 @@ export function createTeamManagementState(
                     result.delivery === 'queued'
                         ? '邀请已提交发送，尚未确认送达'
                         : '邀请已创建，但未能加入发送队列，请稍后重发';
+            syncPending.value = true;
             if (command.kind === 'leave') {
                 pendingLeaveSync = true;
                 data.value = null;
@@ -140,13 +147,16 @@ export function createTeamManagementState(
             }
             try {
                 await load();
-            } catch {
+            } catch (cause) {
                 if (!current.signal.aborted)
-                    syncError.value = '变更已提交，但列表未同步。请重新加载，不要重复提交。';
+                    syncError.value = isResponseValidationError(cause)
+                        ? ''
+                        : '变更已提交，但列表未同步。请重新加载，不要重复提交。';
             }
             return !current.signal.aborted;
         } catch (cause) {
             if (!current.signal.aborted) error.value = teamErrorMessage(cause);
+            if (isResponseValidationError(cause)) return null;
             return false;
         } finally {
             if (current === scope) busy.value = false;
@@ -164,6 +174,7 @@ export function createTeamManagementState(
         busy,
         error,
         syncError,
+        syncPending,
         notice,
         page,
         pageSize,

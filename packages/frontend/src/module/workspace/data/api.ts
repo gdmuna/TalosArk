@@ -3,7 +3,7 @@ import {
     TeamSnapshotResponseSchema,
     WorkspaceSummarySchema,
 } from '@talos-ark/contracts/team';
-import type { HttpClient } from '@/platform/http';
+import { HttpError, type HttpClient } from '@/platform/http';
 import type { WorkspaceDataSource } from './source';
 
 export function createHttpWorkspaceDataSource(http: HttpClient): WorkspaceDataSource {
@@ -49,7 +49,7 @@ export function createHttpWorkspaceDataSource(http: HttpClient): WorkspaceDataSo
                 retry: false,
             });
             if (context.id !== workspace.id || context.organizationId !== workspace.organizationId)
-                throw new Error('工作区上下文与所选记录不一致');
+                throw new HttpError('工作区上下文与所选记录不一致', 'protocol');
         },
     };
 }

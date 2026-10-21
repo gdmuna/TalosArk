@@ -2,7 +2,7 @@ import { onScopeDispose, ref, shallowRef } from 'vue';
 import { defineStore } from 'pinia';
 import { z } from 'zod';
 import { InventoryActionSchema, OperationReceiptSchema } from '@talos-ark/contracts/inventory';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import type {
     InventoryAction,
     InventoryDataSource,
@@ -18,6 +18,7 @@ const attemptSchema = z.object({
     code: z.string(),
     command: InventoryActionSchema,
     receipt: OperationReceiptSchema.optional(),
+    responseValidationFailed: z.boolean().optional(),
 });
 type Attempt = z.infer<typeof attemptSchema>;
 
@@ -94,7 +95,7 @@ export const useInventoryActionStore = defineStore('inventory-action', () => {
     }
     async function recover(scope: InventoryScope) {
         const attempt = current(scope);
-        if (attempt) await send(attempt, true);
+        return attempt ? send(attempt, true) : false;
     }
     async function send(attempt: Attempt, recovering: boolean) {
         if (!owner || !source || busy.value || !persist()) return;
@@ -123,8 +124,9 @@ export const useInventoryActionStore = defineStore('inventory-action', () => {
             )
                 throw new HttpError('库存动作回执身份不一致', 'protocol');
             attempts.value = attempts.value.map((item) =>
-                item === attempt ? { ...item, receipt } : item
+                item === attempt ? { ...item, receipt, responseValidationFailed: false } : item
             );
+            return true;
         } catch (cause) {
             if (controller.signal.aborted) return;
             // A recovery rejection does not establish that the original request rolled back.
@@ -136,7 +138,14 @@ export const useInventoryActionStore = defineStore('inventory-action', () => {
                 (cause.status ?? 500) < 500 &&
                 cause.code !== 'INVENTORY_RESULT_UNAVAILABLE';
             if (rejected) attempts.value = attempts.value.filter((item) => item !== attempt);
+            else
+                attempts.value = attempts.value.map((item) =>
+                    item === attempt
+                        ? { ...item, responseValidationFailed: isResponseValidationError(cause) }
+                        : item
+                );
             error.value = inventoryErrorMessage(cause);
+            return false;
         } finally {
             if (!controller.signal.aborted) {
                 busy.value = false;

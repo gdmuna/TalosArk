@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { AlertTriangle, CheckCircle2, PackagePlus } from '@lucide/vue';
 import { ReceiptSchema } from '@talos-ark/contracts/inventory';
 import type { MaterialBatchQuery } from '@/module/material';
 import { useMaterialRead, useMaterialStore } from '@/module/material';
 import { useInventoryReceiptStore } from '@/module/inventory';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { InventoryPositionPicker } from '@/module/inventory';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
 import { ScrollSurface } from '@/component/scroll-surface';
@@ -27,6 +27,7 @@ const props = defineProps<{
     initialBatchId?: string;
     initialPosition?: InventoryReceipt['position'];
     onCommitted?: (receipt: InventoryOperationReceipt) => Promise<boolean>;
+    syncFailure?: unknown;
 }>();
 
 const materialStore = useMaterialStore();
@@ -56,6 +57,7 @@ const attempt = computed(() => receiptStore.current(props.scope));
 const committed = computed(() => attempt.value?.receipt);
 const pending = computed(() => (attempt.value && !attempt.value.receipt ? attempt.value : undefined));
 const syncPending = ref(false);
+const syncFailure = shallowRef<unknown>();
 const materialSearch = ref('');
 const batchSearch = ref('');
 const materialPage = ref(1),
@@ -180,6 +182,7 @@ function reset() {
     error.value = '';
     syncing.value = false;
     syncPending.value = false;
+    syncFailure.value = undefined;
     materialSearch.value = '';
     batchSearch.value = '';
     materialPage.value = batchPage.value = 1;
@@ -377,6 +380,7 @@ async function reloadOnly() {
     if (!committed.value || syncing.value) return;
     const currentSession = session;
     syncing.value = true;
+    syncFailure.value = undefined;
     try {
         const synchronized = props.onCommitted ? await props.onCommitted(committed.value) : true;
         if (currentSession === session) {
@@ -385,8 +389,11 @@ async function reloadOnly() {
                 if (receiptStore.acknowledge(props.scope)) open.value = false;
             }
         }
-    } catch {
-        if (currentSession === session) syncPending.value = true;
+    } catch (cause) {
+        if (currentSession === session) {
+            syncPending.value = true;
+            syncFailure.value = cause;
+        }
     } finally {
         if (currentSession === session) syncing.value = false;
     }
@@ -625,7 +632,11 @@ async function reloadOnly() {
                     <p v-if="error || receiptStore.recoveryError" role="alert" class="text-sm text-destructive">
                         {{ error || receiptStore.recoveryError }}
                     </p>
-                    <p v-if="pending && !submitting" role="status" class="text-sm text-warning">
+                    <p
+                        v-if="pending && !pending.responseValidationFailed && !submitting"
+                        role="status"
+                        class="text-sm text-warning"
+                    >
                         尚未确认登记结果，草稿已锁定。重试会复用原请求编号，不会另建登记请求；请勿在其他窗口重复登记。
                     </p>
                     <div
@@ -637,7 +648,12 @@ async function reloadOnly() {
                             登记已成功
                         </p>
                         <CopyableId :value="committed.operationId" label="操作 ID" />
-                        <p v-if="syncPending" class="text-warning">库存列表尚未同步，请只重新加载，不要重复提交。</p>
+                        <p
+                            v-if="syncPending && !isResponseValidationError(syncFailure ?? props.syncFailure)"
+                            class="text-warning"
+                        >
+                            库存列表尚未同步，请只重新加载，不要重复提交。
+                        </p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <Button type="button" variant="outline" :disabled="submitting || syncing" @click="open = false">

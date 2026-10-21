@@ -7,8 +7,13 @@ import {
     MaterialAttachmentReferenceSchema,
     type MaterialScope,
 } from '@talos-ark/contracts/material';
-import { HttpError } from '@/platform/http';
-import { hashFile, uploadFile, uploadMultipartPart } from '@/platform/file-transfer';
+import { HttpError, isResponseValidationError } from '@/platform/http';
+import {
+    FileTransferResponseError,
+    hashFile,
+    uploadFile,
+    uploadMultipartPart,
+} from '@/platform/file-transfer';
 import type { MaterialDataSource } from '../data/source';
 
 const jobSchema = z.object({
@@ -43,6 +48,7 @@ export const materialAttachmentAccept = Object.keys(formats)
     .map((extension) => `.${extension}`)
     .join(',');
 export function attachmentErrorMessage(cause: unknown) {
+    if (isResponseValidationError(cause) || cause instanceof FileTransferResponseError) return '';
     const messages: Record<string, string> = {
         MATERIAL_ATTACHMENT_INVALID: '附件请求无效，请检查文件资料',
         MATERIAL_ATTACHMENT_UNAVAILABLE: '附件或上传会话不可用，或当前账户无权访问',
@@ -80,7 +86,7 @@ function confirmedMultipartParts(
             part.sizeBytes !== expectedSize ||
             confirmed.has(part.partNumber)
         )
-            throw new Error('服务端返回的分片进度无效，请重新读取上传进度');
+            throw new HttpError('服务端返回的分片进度无效', 'protocol');
         confirmed.set(part.partNumber, { etag: part.etag, sizeBytes: part.sizeBytes });
     }
     return confirmed;
@@ -266,13 +272,13 @@ export const useMaterialAttachmentStore = defineStore('material-attachment', () 
                         !Number.isSafeInteger(expectedSize) ||
                         session.partCount !== Math.ceil(expectedSize / partSize)
                     )
-                        throw new Error('服务端分片计划无效，请保留原上传并联系管理员');
+                        throw new HttpError('服务端分片计划无效', 'protocol');
                     const latest =
                         progressSnapshot ??
                         (await source.attachments.progress(scope, materialId, session.id, signal));
                     signal.throwIfAborted();
                     if (latest.session.id !== session.id || latest.session.mode !== 'multipart')
-                        throw new Error('原上传会话信息不一致，请保留恢复记录');
+                        throw new HttpError('原上传会话信息不一致', 'protocol');
                     if (latest.session.status === 'completed') {
                         session = latest.session;
                         job = update(job, { session });
@@ -293,7 +299,7 @@ export const useMaterialAttachmentStore = defineStore('material-attachment', () 
                                 recoveredParts.length !== session.partCount ||
                                 recoveredParts.some((part, index) => part.partNumber !== index + 1)
                             )
-                                throw new Error('服务端完成清单与原文件计划不一致，请勿新建上传');
+                                throw new HttpError('服务端完成清单与原文件计划不一致', 'protocol');
                             const manifest = recoveredParts.map((part) => ({
                                 partNumber: part.partNumber,
                                 etag: part.etag,
@@ -372,8 +378,9 @@ export const useMaterialAttachmentStore = defineStore('material-attachment', () 
                                         snapshot.session.id !== session.id ||
                                         snapshot.session.mode !== 'multipart'
                                     )
-                                        throw new Error(
-                                            '分片尚未被存储确认，请重新读取上传进度后继续'
+                                        throw new HttpError(
+                                            '分片响应与原上传会话不一致',
+                                            'protocol'
                                         );
                                     const refreshed = confirmedMultipartParts(
                                         snapshot.parts,
@@ -383,9 +390,7 @@ export const useMaterialAttachmentStore = defineStore('material-attachment', () 
                                     );
                                     const confirmedPart = refreshed.get(partNumber);
                                     if (!confirmedPart || confirmedPart.etag !== etag)
-                                        throw new Error(
-                                            '分片尚未被存储确认，请重新读取上传进度后继续'
-                                        );
+                                        throw new HttpError('分片响应与存储确认不一致', 'protocol');
                                     confirmed.clear();
                                     for (const [number, part] of refreshed)
                                         confirmed.set(number, part);
@@ -396,7 +401,7 @@ export const useMaterialAttachmentStore = defineStore('material-attachment', () 
                                 .sort(([a], [b]) => a - b)
                                 .map(([partNumber, part]) => ({ partNumber, etag: part.etag }));
                             if (parts.length !== session.partCount)
-                                throw new Error('分片清单不完整，请重新读取上传进度后继续');
+                                throw new HttpError('分片清单不完整', 'protocol');
                             progress.value = 100;
                             stage.value = '正在合并并验证文件';
                             session = await source.attachments.complete(

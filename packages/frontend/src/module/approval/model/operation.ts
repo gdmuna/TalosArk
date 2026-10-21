@@ -6,7 +6,7 @@ import {
     ApprovalOperationResultSchema,
     type ApprovalScope,
 } from '@talos-ark/contracts/approval';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { useWorkspaceStore } from '@/module/workspace';
 import {
     approvalMutationSchema,
@@ -18,6 +18,7 @@ const attemptSchema = z.object({
     scope: ApprovalScopeSchema,
     mutation: approvalMutationSchema,
     result: ApprovalOperationResultSchema.optional(),
+    responseValidationFailed: z.boolean().optional(),
 });
 type Attempt = z.infer<typeof attemptSchema>;
 export const useApprovalOperationStore = defineStore('approval-operation', () => {
@@ -99,7 +100,7 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
                 (attempt.result && result.receipt.requestId !== attempt.result.receipt.requestId)
             )
                 throw new HttpError('审批恢复结果与原请求不一致', 'protocol');
-            const saved = { ...attempt, result };
+            const saved = { ...attempt, result, responseValidationFailed: false };
             attempts.value = attempts.value.map((item) => (item === attempt ? saved : item));
         } catch (cause) {
             if (controller.signal.aborted) return;
@@ -113,6 +114,12 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
                     cause.code ?? ''
                 );
             if (rejected) attempts.value = attempts.value.filter((item) => item !== attempt);
+            else
+                attempts.value = attempts.value.map((item) =>
+                    item === attempt
+                        ? { ...item, responseValidationFailed: isResponseValidationError(cause) }
+                        : item
+                );
             error.value = approvalErrorMessage(cause);
         } finally {
             if (!controller.signal.aborted) {

@@ -42,7 +42,7 @@ watch([name, workspaceName, organizationId], () => {
     error.value = '';
 });
 watch(
-    () => workspace.syncError,
+    () => workspace.syncPending,
     (value) => {
         if (!value && committed.value) open.value = false;
     }
@@ -57,10 +57,10 @@ async function submit() {
               ? await workspace.create(name.value, organizationId.value)
               : await workspace.join(name.value);
     if (current !== generation || !open.value) return;
-    error.value = result;
-    if (!result) {
+    error.value = result ?? '';
+    if (result === '') {
         committed.value = true;
-        if (!workspace.syncError) open.value = false;
+        if (!workspace.syncPending) open.value = false;
     }
 }
 </script>
@@ -109,6 +109,7 @@ async function submit() {
                 <DataSyncNotice
                     scope="工作区"
                     :error="workspace.syncError"
+                    :pending="workspace.syncPending"
                     :busy="workspace.busy"
                     @retry="workspace.retrySync()"
                 />
@@ -121,7 +122,7 @@ async function submit() {
                         :disabled="
                             workspace.busy ||
                             workspace.switching ||
-                            !!workspace.syncError ||
+                            workspace.syncPending ||
                             committed ||
                             (mode === 'workspace' && !organizationId)
                         "

@@ -82,7 +82,7 @@ export function useIntegrationRead<T>(key: Ref<string>, read: (signal: AbortSign
                   : status === 404
                     ? '集成不存在或已不可访问'
                     : protocol
-                      ? '集成响应不一致，请重新加载'
+                      ? ''
                       : '集成信息读取失败，请重试';
         } finally {
             if (!current.signal.aborted) loading.value = false;

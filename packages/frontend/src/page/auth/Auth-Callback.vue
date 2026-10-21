@@ -4,7 +4,7 @@
             <p role="alert" class="text-destructive">{{ error }}</p>
             <Button as-child variant="outline"><RouterLink to="/auth/login">返回登录</RouterLink></Button>
         </template>
-        <p v-else role="status" class="flex items-center gap-2 text-sm text-muted-foreground">
+        <p v-else-if="pending" role="status" class="flex items-center gap-2 text-sm text-muted-foreground">
             <LoaderCircle class="size-4 animate-spin" aria-hidden="true" />
             正在完成登录
         </p>
@@ -23,6 +23,7 @@ const route = useRoute();
 const router = useRouter();
 const api = useAuthApi();
 const error = ref('');
+const pending = ref(false);
 const controller = new AbortController();
 onBeforeUnmount(() => controller.abort());
 
@@ -33,6 +34,7 @@ onMounted(async () => {
         error.value = 'OIDC 回调缺少有效的 code 或 state';
         return;
     }
+    pending.value = true;
     try {
         const response = await api.completeOidcLogin({ code, state }, { signal: controller.signal });
         if (response.type === 'block') {
@@ -42,6 +44,8 @@ onMounted(async () => {
         await router.replace('/');
     } catch (cause) {
         if (!controller.signal.aborted) error.value = authErrorMessage(cause, '暂时无法完成登录，请重试。');
+    } finally {
+        pending.value = false;
     }
 });
 </script>

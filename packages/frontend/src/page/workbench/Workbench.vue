@@ -34,10 +34,13 @@
             class="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center text-sm"
             role="status"
         >
-            <p :class="approvalContextError ? 'text-destructive' : 'text-muted-foreground'">
+            <p
+                v-if="approvalContextError || selectingContext"
+                :class="approvalContextError ? 'text-destructive' : 'text-muted-foreground'"
+            >
                 {{ approvalContextError || '正在核对申请所属工作区' }}
             </p>
-            <Button v-if="approvalContextError" variant="outline" @click="resolveApprovalContext">重新加载</Button>
+            <Button v-if="!selectingContext" variant="outline" @click="resolveApprovalContext">重新加载</Button>
         </main>
         <WorkbenchQueueUnavailable v-else />
     </ScrollArea>
@@ -75,12 +78,13 @@ const isApproval = computed(
 const workbench = useWorkbenchStore();
 const approvalContextReady = ref(false),
     approvalContextError = ref('');
-let selectingContext = false,
-    contextGeneration = 0;
+const selectingContext = ref(false);
+let contextGeneration = 0;
 async function resolveApprovalContext() {
     const generation = ++contextGeneration;
     approvalContextReady.value = false;
     approvalContextError.value = '';
+    selectingContext.value = false;
     if (!isApproval.value) return;
     const current = workspace.current;
     if (!current) {
@@ -102,17 +106,17 @@ async function resolveApprovalContext() {
         approvalContextError.value = '申请所属工作区不存在，或当前账户无权进入';
         return;
     }
-    selectingContext = true;
+    selectingContext.value = true;
     try {
         const error =
             current.id === target.id && current.organizationId === target.organizationId
                 ? ''
                 : await workspace.select(target.id);
         if (generation !== contextGeneration) return;
-        approvalContextReady.value = !error;
-        approvalContextError.value = error;
+        approvalContextReady.value = error === '';
+        approvalContextError.value = error ?? '';
     } finally {
-        if (generation === contextGeneration) selectingContext = false;
+        if (generation === contextGeneration) selectingContext.value = false;
     }
 }
 watch(
@@ -123,7 +127,7 @@ watch(
 watch(
     () => workspace.current,
     (current, previous) => {
-        if (!isApproval.value || selectingContext || !current || current.id === previous?.id) return;
+        if (!isApproval.value || selectingContext.value || !current || current.id === previous?.id) return;
         void router.replace({ query: { ...route.query, organization: current.organizationId, workspace: current.id } });
     },
     { flush: 'sync' }

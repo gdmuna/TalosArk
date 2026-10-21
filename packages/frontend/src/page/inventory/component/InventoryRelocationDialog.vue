@@ -14,6 +14,7 @@ import { ScrollSurface } from '@/component/scroll-surface';
 import { DataSyncNotice } from '@/component/data-sync';
 import { useInventoryDataSource, useInventoryRelocationStore, relocationErrorMessage } from '@/module/inventory';
 import type { InventoryRelocation, InventoryRelocationPreview } from '@/module/inventory';
+import { isResponseValidationError } from '@/platform/http';
 
 const props = defineProps<{ scope: StorageScope; contextKey: string; node?: StorageNodeDetail }>();
 const open = defineModel<boolean>('open', { default: false });
@@ -33,6 +34,7 @@ const loading = ref(false),
     syncing = ref(false);
 const error = ref(''),
     syncError = ref('');
+const silentSync = ref(false);
 const preview = shallowRef<{ input: InventoryRelocation; impact: InventoryRelocationPreview }>();
 let lifetime = new AbortController();
 let previewRequest: AbortController | undefined;
@@ -110,6 +112,7 @@ watch(
         lifetime = new AbortController();
         invalidatePreview();
         error.value = syncError.value = '';
+        silentSync.value = false;
         syncing.value = false;
         if (!open.value) return;
         targetId.value = props.scope.facilityId;
@@ -181,8 +184,8 @@ async function submit() {
 }
 async function recover() {
     const signal = lifetime.signal;
-    await store.recover(props.scope.organizationId);
-    if (!signal.aborted && attempt.value?.receipt && !store.error) await synchronize();
+    const recovered = await store.recover(props.scope.organizationId);
+    if (!signal.aborted && recovered === true && attempt.value?.receipt) await synchronize();
 }
 async function synchronize() {
     const saved = attempt.value;
@@ -190,6 +193,7 @@ async function synchronize() {
     const signal = lifetime.signal;
     syncing.value = true;
     syncError.value = '';
+    silentSync.value = false;
     try {
         const scope = { organizationId: saved.organizationId, workspaceId: saved.body.targetWorkspaceId };
         // The receipt proves this move committed; later legitimate moves must not invalidate it.
@@ -203,8 +207,13 @@ async function synchronize() {
         if (!store.acknowledge(saved.organizationId)) return;
         open.value = false;
         emit('committed', saved.body.targetFacilityId, saved.body.nodeId);
-    } catch {
-        if (!signal.aborted) syncError.value = '搬迁已成功，但数据尚未同步。请仅重新加载，不要重复搬迁。';
+    } catch (cause) {
+        if (!signal.aborted) {
+            silentSync.value = isResponseValidationError(cause);
+            syncError.value = isResponseValidationError(cause)
+                ? ''
+                : '搬迁已成功，但数据尚未同步。请仅重新加载，不要重复搬迁。';
+        }
     } finally {
         if (!signal.aborted) syncing.value = false;
     }
@@ -222,7 +231,11 @@ async function synchronize() {
             <p v-if="store.recoveryError" role="alert" class="text-sm text-destructive">{{ store.recoveryError }}</p>
             <p v-if="error || store.error" role="alert" class="text-sm text-destructive">{{ error || store.error }}</p>
             <template v-if="attempt">
-                <div class="space-y-3 rounded-md border bg-muted/50 p-4 text-sm" role="status">
+                <div
+                    v-if="!attempt.responseValidationFailed && !silentSync"
+                    class="space-y-3 rounded-md border bg-muted/50 p-4 text-sm"
+                    role="status"
+                >
                     <p class="font-medium">{{ attempt.receipt ? '搬迁已成功' : '原搬迁结果尚未确认' }}</p>
                     <p>
                         {{

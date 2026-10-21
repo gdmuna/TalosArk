@@ -82,6 +82,7 @@ const {
     busy: initializeBusy,
     error: governanceError,
     syncError: initializeSyncError,
+    pendingSync: initializePendingSync,
     refresh: refreshGovernance,
     write: writeGovernance,
 } = useFacilityRead(governanceKey, (signal) =>
@@ -171,7 +172,7 @@ const columns: DataTableColumn<FacilitySummary>[] = [
             <Button
                 v-if="governance?.canInitialize"
                 variant="outline"
-                :disabled="initializeBusy || governanceLoading || !!initializeSyncError"
+                :disabled="initializeBusy || governanceLoading || initializePendingSync"
                 @click="initializeOpen = true"
             >
                 初始化设施权限
@@ -199,6 +200,7 @@ const columns: DataTableColumn<FacilitySummary>[] = [
             <DataSyncNotice
                 scope="设施权限"
                 :error="initializeSyncError"
+                :pending="initializePendingSync"
                 :busy="initializeBusy || governanceLoading"
                 @retry="refreshGovernance"
             />
@@ -356,7 +358,7 @@ const columns: DataTableColumn<FacilitySummary>[] = [
             <p v-if="governanceError" role="alert" class="text-sm text-destructive">{{ governanceError }}</p>
             <div class="flex justify-end gap-2">
                 <Button variant="outline" @click="initializeOpen = false">取消</Button>
-                <Button :disabled="initializeBusy || governanceLoading || !!initializeSyncError" @click="initialize">
+                <Button :disabled="initializeBusy || governanceLoading || initializePendingSync" @click="initialize">
                     确认初始化
                 </Button>
             </div>

@@ -17,7 +17,7 @@ const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
 const error = ref('');
 async function handle(status: '已处理' | '已忽略') {
-    error.value = await workbench.updateException(props.exception.id, status);
+    error.value = (await workbench.updateException(props.exception.id, status)) ?? '';
 }
 </script>
 
@@ -74,11 +74,11 @@ async function handle(status: '已处理' | '已忽略') {
         </ScrollArea>
         <footer class="flex shrink-0 justify-end gap-3 border-t p-5">
             <template v-if="exception.status === '未处理'">
-                <Button variant="outline" :disabled="workbench.busy || !!workbench.syncError" @click="handle('已忽略')">
+                <Button variant="outline" :disabled="workbench.busy || workbench.syncPending" @click="handle('已忽略')">
                     <EyeOff aria-hidden="true" />
                     忽略
                 </Button>
-                <Button :disabled="workbench.busy || !!workbench.syncError" @click="handle('已处理')">
+                <Button :disabled="workbench.busy || workbench.syncPending" @click="handle('已处理')">
                     <Check aria-hidden="true" />
                     标记已处理
                 </Button>

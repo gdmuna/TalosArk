@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, ref, watch } from 'vue';
 import { defineStore } from 'pinia';
 import { createTaskScope, waitFor } from '@/platform/task';
+import { isResponseValidationError } from '@/platform/http';
 import { useWorkspaceStore } from '@/module/workspace';
 import { formatTime, isToday } from '@/shared/util/date-time';
 import { useWorkbenchClock } from './clock';
@@ -29,6 +30,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     const busy = ref(false);
     const error = ref('');
     const syncError = ref('');
+    const syncPending = ref(false);
     const now = useWorkbenchClock();
     let source: WorkbenchDataSource;
     let sourceScope = createTaskScope([]);
@@ -40,6 +42,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
             sourceScope = createTaskScope([]);
             busy.value = false;
             error.value = syncError.value = '';
+            syncPending.value = false;
         },
         { flush: 'sync' }
     );
@@ -116,6 +119,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         loaded.value = false;
         busy.value = false;
         error.value = syncError.value = '';
+        syncPending.value = false;
     }
     async function load(signal?: AbortSignal) {
         const task = createTaskScope([sourceScope.signal, signal]);
@@ -135,15 +139,18 @@ export const useWorkbenchStore = defineStore('workbench', () => {
     async function mutate(operation: () => Promise<unknown>) {
         if (!loaded.value) return (error.value = '工作队列尚未接入，无法执行此操作');
         if (busy.value) return '数据正在更新，请稍后重试';
-        if (syncError.value) return (error.value = '请先重新同步工作台数据');
+        if (syncPending.value)
+            return syncError.value ? (error.value = '请先重新同步工作台数据') : null;
         busy.value = true;
         error.value = '';
         const scope = sourceScope;
         try {
             await operation();
             scope.signal.throwIfAborted();
-            await synchronize();
+            syncPending.value = true;
+            if (!(await synchronize()) && !syncError.value) return null;
         } catch (cause) {
+            if (isResponseValidationError(cause)) return null;
             if (!scope.signal.aborted)
                 error.value = cause instanceof Error ? cause.message : '更新失败，请重试';
         } finally {
@@ -158,13 +165,20 @@ export const useWorkbenchStore = defineStore('workbench', () => {
             scope.signal.throwIfAborted();
             apply(snapshot);
             syncError.value = '';
+            syncPending.value = false;
+            return true;
         } catch (cause) {
             if (!scope.signal.aborted)
-                syncError.value = cause instanceof Error ? cause.message : '工作台数据同步失败';
+                syncError.value = isResponseValidationError(cause)
+                    ? ''
+                    : cause instanceof Error
+                      ? cause.message
+                      : '工作台数据同步失败';
+            return false;
         }
     }
     async function retrySync() {
-        if (busy.value || !syncError.value) return;
+        if (busy.value || !syncPending.value) return;
         busy.value = true;
         const scope = sourceScope;
         try {
@@ -185,7 +199,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         const error = await mutate(async () => {
             id = await source.addInspection(resource.id);
         });
-        return error ? null : id;
+        return error === '' ? id : null;
     }
     return {
         loaded,
@@ -206,6 +220,7 @@ export const useWorkbenchStore = defineStore('workbench', () => {
         busy,
         error,
         syncError,
+        syncPending,
         connect,
         reset,
         load,

@@ -36,7 +36,7 @@ const route = useRoute(),
     navigation = useNavigationStore();
 const workspace = useWorkspaceStore();
 const id = computed(() => String(route.params.resourceId));
-const { data, loading, error, reload } = useMaterialRead(
+const { data, loading, error, failure, reload } = useMaterialRead(
     (context, signal) => context.source.get(context.scope, id.value, signal),
     [id]
 );
@@ -229,7 +229,12 @@ provideBreadcrumbs(() => [
                     <MaterialBatchList :material-id="id" :archived="!!material.archivedAt" />
                 </ResourceSection>
             </div>
-            <MaterialInventoryPanel v-else-if="view === 'instance'" :material="material" :on-committed="reload" />
+            <MaterialInventoryPanel
+                v-else-if="view === 'instance'"
+                :material="material"
+                :on-committed="reload"
+                :sync-failure="failure"
+            />
             <ResourceSection v-else-if="view === 'batch'" title="来源批次">
                 <MaterialBatchList :material-id="id" :archived="!!material.archivedAt" />
             </ResourceSection>

@@ -4,7 +4,7 @@ import { Plus, Save, X } from '@lucide/vue';
 import { BatchWriteSchema } from '@talos-ark/contracts/material';
 import type { MaterialBatch } from '../data/source';
 import { useMaterialStore } from '../model/store';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -16,6 +16,7 @@ const props = defineProps<{
     materialId: string;
     batch?: MaterialBatch;
     onCommitted?: (batch: MaterialBatch) => Promise<boolean>;
+    syncFailure?: unknown;
 }>();
 const emit = defineEmits<{ saved: [batch: MaterialBatch] }>();
 const open = defineModel<boolean>('open', { default: false });
@@ -27,6 +28,7 @@ const expiryKind = ref<'UNKNOWN' | 'NONE' | 'DATED'>('UNKNOWN');
 const expiryDate = ref('');
 const validation = ref('');
 const syncPending = ref(false);
+const syncFailure = ref<unknown>();
 const committed = ref<MaterialBatch>();
 const initial = ref<MaterialBatch>();
 const syncing = ref(false);
@@ -54,6 +56,7 @@ function reset() {
     validation.value = '';
     syncing.value = false;
     syncPending.value = false;
+    syncFailure.value = undefined;
     committed.value = undefined;
     needsReload.value = false;
     store.error = '';
@@ -166,7 +169,11 @@ async function reloadDraft() {
         }
     } catch (cause) {
         if (!context.signal.aborted && currentSession === session.value)
-            validation.value = cause instanceof Error ? cause.message : '读取批次失败';
+            validation.value = isResponseValidationError(cause)
+                ? ''
+                : cause instanceof Error
+                  ? cause.message
+                  : '读取批次失败';
     } finally {
         if (currentSession === session.value) syncing.value = false;
     }
@@ -176,13 +183,17 @@ async function reloadOnly() {
     if (!committed.value || syncing.value) return;
     const currentSession = session.value;
     syncing.value = true;
+    syncFailure.value = undefined;
     try {
         const synchronized = props.onCommitted ? await props.onCommitted(committed.value) : true;
         if (currentSession !== session.value) return;
         syncPending.value = !synchronized;
         if (synchronized) open.value = false;
-    } catch {
-        if (currentSession === session.value) syncPending.value = true;
+    } catch (cause) {
+        if (currentSession === session.value) {
+            syncPending.value = true;
+            syncFailure.value = cause;
+        }
     } finally {
         if (currentSession === session.value) syncing.value = false;
     }
@@ -238,7 +249,12 @@ async function reloadOnly() {
                     </p>
                     <div v-if="committed" class="rounded-md border border-success/40 bg-success-soft p-3 text-sm">
                         <p class="font-medium">批次已保存</p>
-                        <p v-if="syncPending" class="mt-1 text-warning">列表尚未同步，请只重新加载，不要重复提交。</p>
+                        <p
+                            v-if="syncPending && !isResponseValidationError(syncFailure ?? props.syncFailure)"
+                            class="mt-1 text-warning"
+                        >
+                            列表尚未同步，请只重新加载，不要重复提交。
+                        </p>
                     </div>
                     <div class="flex justify-end gap-2">
                         <Button type="button" variant="outline" :disabled="store.busy || syncing" @click="open = false">

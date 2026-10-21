@@ -2,7 +2,7 @@ import { onScopeDispose, ref, shallowRef, watch, type Ref } from 'vue';
 import type { ManagementActivityPage } from '@talos-ark/contracts/team';
 import { useAccountStore } from '@/module/account';
 import { teamErrorMessage } from '@/module/workspace';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 
 export const detailDate = (value: string | null | undefined) =>
     value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—';
@@ -25,8 +25,8 @@ export function useDetailRead<T>(
     let lifetime = new AbortController(),
         request: AbortController | undefined;
     let generation = 0,
-        readVersion = 0,
-        pendingSync = false;
+        readVersion = 0;
+    const pendingSync = ref(false);
 
     async function refresh() {
         request?.abort();
@@ -38,11 +38,11 @@ export function useDetailRead<T>(
         error.value = '';
         readError.value = undefined;
         try {
-            if (pendingSync) await synchronize?.(signal);
+            if (pendingSync.value) await synchronize?.(signal);
             const next = key.value ? await read(signal) : undefined;
             if (signal.aborted || current !== generation || version !== readVersion) return false;
             data.value = next;
-            pendingSync = false;
+            pendingSync.value = false;
             syncError.value = '';
             return true;
         } catch (cause) {
@@ -51,8 +51,10 @@ export function useDetailRead<T>(
                     data.value = undefined;
                 readError.value = cause;
                 error.value = teamErrorMessage(cause);
-                if (pendingSync)
-                    syncError.value = '变更已保存，但视图尚未同步。请重新加载，不要重复提交。';
+                if (pendingSync.value)
+                    syncError.value = isResponseValidationError(cause)
+                        ? ''
+                        : '变更已保存，但视图尚未同步。请重新加载，不要重复提交。';
             }
             return false;
         } finally {
@@ -66,7 +68,7 @@ export function useDetailRead<T>(
             lifetime = new AbortController();
             generation++;
             data.value = undefined;
-            busy.value = pendingSync = false;
+            busy.value = pendingSync.value = false;
             syncError.value = '';
             void refresh();
         },
@@ -74,7 +76,7 @@ export function useDetailRead<T>(
     );
 
     async function write(action: (signal: AbortSignal) => Promise<unknown>) {
-        if (busy.value || loading.value || pendingSync || !key.value) return false;
+        if (busy.value || loading.value || pendingSync.value || !key.value) return false;
         const current = generation,
             signal = lifetime.signal;
         busy.value = true;
@@ -82,7 +84,7 @@ export function useDetailRead<T>(
         try {
             await action(signal);
             if (signal.aborted || current !== generation) return false;
-            pendingSync = true;
+            pendingSync.value = true;
             await refresh();
             return !signal.aborted && current === generation;
         } catch (cause) {
@@ -97,7 +99,7 @@ export function useDetailRead<T>(
         request?.abort();
         generation++;
     });
-    return { data, loading, busy, error, readError, syncError, refresh, write };
+    return { data, loading, busy, error, readError, syncError, pendingSync, refresh, write };
 }
 
 export function useDetailActivity(

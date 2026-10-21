@@ -35,3 +35,12 @@ export class AuthenticationError extends Error {
         this.name = 'AuthenticationError';
     }
 }
+
+export function isResponseValidationError(cause: unknown): boolean {
+    return (
+        (cause instanceof HttpError && cause.kind === 'protocol') ||
+        (cause instanceof AuthenticationError &&
+            cause.reason === 'expired' &&
+            isResponseValidationError(cause.cause))
+    );
+}

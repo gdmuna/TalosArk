@@ -155,6 +155,7 @@ const columns: DataTableColumn<(typeof rows.value)[number]>[] = [
         <DataSyncNotice
             scope="工作区"
             :error="workspace.syncError"
+            :pending="workspace.syncPending"
             :busy="workspace.busy"
             @retry="workspace.retrySync()"
         />

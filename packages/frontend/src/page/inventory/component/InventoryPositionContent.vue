@@ -126,6 +126,7 @@ async function afterReceipt() {
             :can-manage-batch="context.data.value?.capabilities.manageBatch ?? false"
             :business-date="context.data.value?.businessDate"
             :on-committed="afterReceipt"
+            :sync-failure="stocks.failure.value"
             @refresh-context="context.refresh"
         />
     </section>

@@ -11,6 +11,7 @@ export function useMaterialRead<T>(
 ) {
     const store = useMaterialStore();
     const data = shallowRef<T>();
+    const failure = shallowRef<unknown>();
     const loading = ref(false),
         error = ref('');
     let controller: AbortController | undefined;
@@ -30,6 +31,7 @@ export function useMaterialRead<T>(
         controller = new AbortController();
         const currentController = controller;
         error.value = '';
+        failure.value = undefined;
         loading.value = false;
         if (!store.scope) {
             data.value = undefined;
@@ -46,6 +48,7 @@ export function useMaterialRead<T>(
             return true;
         } catch (cause) {
             if (!signal.aborted) {
+                failure.value = cause;
                 if (
                     cause instanceof AuthenticationError ||
                     (cause instanceof HttpError &&
@@ -84,6 +87,7 @@ export function useMaterialRead<T>(
         data,
         loading,
         error,
+        failure,
         reload: () => pending ?? start(),
     };
 }

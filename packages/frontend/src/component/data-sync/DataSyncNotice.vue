@@ -2,7 +2,7 @@
 import { RefreshCw, TriangleAlert } from '@lucide/vue';
 import { Button } from '@/ui/button';
 
-defineProps<{ scope: string; error: string; busy: boolean }>();
+defineProps<{ scope: string; error: string; busy: boolean; pending?: boolean }>();
 defineEmits<{ retry: [] }>();
 </script>
 
@@ -22,4 +22,8 @@ defineEmits<{ retry: [] }>();
             {{ busy ? '正在同步' : '重新同步' }}
         </Button>
     </div>
+    <Button v-else-if="pending" type="button" variant="outline" size="sm" :disabled="busy" @click="$emit('retry')">
+        <RefreshCw class="size-4" :class="busy && 'animate-spin'" aria-hidden="true" />
+        重新加载
+    </Button>
 </template>

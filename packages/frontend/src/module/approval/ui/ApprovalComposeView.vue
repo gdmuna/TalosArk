@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, Check, MapPin, Package, Plus, Send, Trash2 } from '@lucide/vue';
 import { z } from 'zod';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { ApprovalSelectionSchema, type ApprovalSelection, type ApprovalType } from '@talos-ark/contracts/approval';
 import type { InventoryStock, InventoryReceipt } from '@/module/inventory';
 import { useInventoryDataSource, InventoryPositionPicker } from '@/module/inventory';
@@ -64,7 +65,8 @@ const initial = useApprovalRead(
             const all = [];
             for (let index = 1; ; index++) {
                 const result = await source.lines(current, original.id, { page: index, pageSize: 100 }, signal);
-                if (!result.items.length && all.length < result.total) throw new Error('原申请明细不完整，请重新加载');
+                if (!result.items.length && all.length < result.total)
+                    throw new HttpError('原申请明细不完整', 'protocol');
                 all.push(...result.items);
                 if (all.length >= result.total) break;
             }
@@ -251,7 +253,15 @@ async function submit() {
                     {{ store.busy ? '提交中' : '提交申请' }}
                 </Button>
             </header>
-            <ApprovalOperationNotice @synchronize="finish" />
+            <ApprovalOperationNotice
+                :silent="
+                    !initial.error.value &&
+                    !context.error.value &&
+                    (isResponseValidationError(initial.failure.value) ||
+                        isResponseValidationError(context.failure.value))
+                "
+                @synchronize="finish"
+            />
             <p v-if="initial.error.value || context.error.value" role="alert" class="text-sm text-destructive">
                 {{ initial.error.value || context.error.value }}
             </p>

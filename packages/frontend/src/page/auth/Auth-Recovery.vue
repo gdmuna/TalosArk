@@ -56,7 +56,7 @@ import { useTimestamp } from '@vueuse/core';
 import { ArrowLeft, Box, LoaderCircle, Mail } from '@lucide/vue';
 import { PasswordRecoveryRequestBodySchema } from '@talos-ark/contracts/auth';
 import { useAuthApi } from '@/module/auth';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { Button } from '@/ui/button';
 import { Field, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
@@ -87,6 +87,7 @@ async function submit() {
         nextAllowedAt.value = Date.now() + result.retryAfterSeconds * 1000;
     } catch (cause) {
         if (controller.signal.aborted) return;
+        if (isResponseValidationError(cause)) return;
         if (cause instanceof HttpError && cause.status === 429) {
             error.value = '申请过于频繁，请稍后再试。';
             nextAllowedAt.value = Date.now() + (cause.retryAfterMs ?? 60_000);

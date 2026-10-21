@@ -3,7 +3,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import { InstanceCorrectionSchema } from '@talos-ark/contracts/inventory';
 import type { InventoryStock } from '../data/source';
 import { inventoryErrorMessage, useInventoryDataSource, useInventoryScope } from '../model/read';
-import { HttpError } from '@/platform/http';
+import { HttpError, isResponseValidationError } from '@/platform/http';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Button } from '@/ui/button';
@@ -15,6 +15,7 @@ const props = defineProps<{
     stock: InventoryStock;
     businessDate?: string;
     onCommitted: () => Promise<boolean>;
+    syncFailure?: unknown;
 }>();
 const open = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ refreshContext: [] }>();
@@ -36,6 +37,7 @@ const confirmExpired = ref(false),
     syncPending = ref(false),
     needsReload = ref(false);
 let session = 0;
+const syncFailure = shallowRef<unknown>();
 let request: AbortController | undefined;
 const locked = computed(() => busy.value || committed.value || needsReload.value);
 const expired = computed(
@@ -68,6 +70,7 @@ function reset(stock: InventoryStock) {
     expiryDate.value = stock.expiry.kind === 'DATED' ? stock.expiry.date : '';
     reason.value = error.value = '';
     confirmExpired.value = committed.value = syncPending.value = needsReload.value = false;
+    syncFailure.value = undefined;
 }
 watch(open, (value) => {
     if (value) {
@@ -142,9 +145,11 @@ async function submit() {
             !cause.response ||
             cause.kind === 'protocol' ||
             (cause.status ?? 500) >= 500;
-        error.value = needsReload.value
-            ? '资料可能已改变或写入结果无法确认，请重新加载并核对后再操作。'
-            : inventoryErrorMessage(cause);
+        error.value = isResponseValidationError(cause)
+            ? ''
+            : needsReload.value
+              ? '资料可能已改变或写入结果无法确认，请重新加载并核对后再操作。'
+              : inventoryErrorMessage(cause);
     } finally {
         if (current === session) busy.value = false;
     }
@@ -154,13 +159,17 @@ async function reloadOnly() {
     if (!committed.value || busy.value) return;
     const current = session;
     busy.value = true;
+    syncFailure.value = undefined;
     try {
         const synchronized = await props.onCommitted();
         if (current !== session) return;
         syncPending.value = !synchronized;
         if (synchronized) open.value = false;
-    } catch {
-        if (current === session) syncPending.value = true;
+    } catch (cause) {
+        if (current === session) {
+            syncPending.value = true;
+            syncFailure.value = cause;
+        }
     } finally {
         if (current === session) busy.value = false;
     }
@@ -239,7 +248,11 @@ async function reloadDraft() {
                     </fieldset>
                     <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
                     <p v-if="committed" role="status" class="text-sm text-success">
-                        资料已更正。{{ syncPending ? '详情尚未同步，请只重新加载，不要重复提交。' : '' }}
+                        资料已更正。{{
+                            syncPending && !isResponseValidationError(syncFailure ?? props.syncFailure)
+                                ? '详情尚未同步，请只重新加载，不要重复提交。'
+                                : ''
+                        }}
                     </p>
                     <div class="flex justify-end gap-2">
                         <Button type="button" variant="outline" :disabled="busy" @click="open = false">关闭</Button>

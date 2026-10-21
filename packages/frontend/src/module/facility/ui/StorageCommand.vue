@@ -55,18 +55,21 @@ const key = computed(() =>
         ? JSON.stringify([props.contextKey, props.scope, props.node?.id, props.mode])
         : ''
 );
-const { data, loading, busy, conflict, error, syncError, refresh, write } = useFacilityRead(key, async (signal) => {
-    if (!source) return;
-    const scope = props.scope,
-        selected = props.node;
-    const facility = await source.detail(scope, scope.facilityId, signal);
-    const node =
-        selected && !(resultFacilityId && resultFacilityId !== scope.facilityId)
-            ? await source.node(scope, selected.id, signal)
-            : undefined;
-    if (facility.topology?.id !== scope.topologyId) throw new HttpError('布局已改变', 'protocol');
-    return { facility, node };
-});
+const { data, loading, busy, conflict, error, syncError, pendingSync, refresh, write } = useFacilityRead(
+    key,
+    async (signal) => {
+        if (!source) return;
+        const scope = props.scope,
+            selected = props.node;
+        const facility = await source.detail(scope, scope.facilityId, signal);
+        const node =
+            selected && !(resultFacilityId && resultFacilityId !== scope.facilityId)
+                ? await source.node(scope, selected.id, signal)
+                : undefined;
+        if (facility.topology?.id !== scope.topologyId) throw new HttpError('布局已改变', 'protocol');
+        return { facility, node };
+    }
+);
 const targetKey = computed(() =>
     key.value && targetId.value && props.mode === 'move' ? JSON.stringify([key.value, targetId.value]) : ''
 );
@@ -84,7 +87,7 @@ const disabled = computed(
         loading.value ||
         busy.value ||
         conflict.value ||
-        !!syncError.value ||
+        pendingSync.value ||
         committed.value ||
         !data.value?.facility.capabilities.manage ||
         !!data.value.facility.archivedAt
@@ -141,7 +144,7 @@ watch(targetId, () => {
     targetParent.value = null;
     rowIndex.value = columnIndex.value = '';
 });
-watch(syncError, (value) => {
+watch(pendingSync, (value) => {
     if (!value && committed.value) {
         emit('changed', resultId, resultFacilityId);
         open.value = false;
@@ -249,7 +252,7 @@ async function submit() {
     const saved = await write(action);
     if (saved) {
         committed.value = true;
-        if (!syncError.value) {
+        if (!pendingSync.value) {
             emit('changed', resultId, resultFacilityId);
             open.value = false;
         }
@@ -269,7 +272,13 @@ async function reload() {
                 开始；操作由服务端再次检查权限、状态和布局版本。
             </DialogDescription>
             <ReadFeedback :error="error" :loading="loading" @retry="reload" />
-            <DataSyncNotice scope="存储结构" :error="syncError" :busy="busy || loading" @retry="reload" />
+            <DataSyncNotice
+                scope="存储结构"
+                :error="syncError"
+                :pending="pendingSync"
+                :busy="busy || loading"
+                @retry="reload"
+            />
             <form v-if="data" class="space-y-4" @submit.prevent="submit">
                 <template v-if="mode === 'create' || mode === 'edit'">
                     <SelectField

@@ -20,6 +20,7 @@ import ResourceSummary from '../resource/ResourceSummary.vue';
 import ResourceEmpty from '../resource/ResourceEmpty.vue';
 import ResourceFactList from '../resource/ResourceFactList.vue';
 import { useRouter } from 'vue-router';
+import { isResponseValidationError } from '@/platform/http';
 
 const router = useRouter();
 const source = useInventoryDataSource();
@@ -43,6 +44,10 @@ const contextData = computed(() => context.data.value);
 const listData = computed(() => list.data.value);
 const listItems = computed(() => listData.value?.items ?? []);
 const capabilityLabel = (value: boolean | undefined) => (value === undefined ? '—' : value ? '已授权' : '未授权');
+const syncFailure = computed(() => {
+    const failures = [context.failure.value, list.failure.value, movements.failure.value];
+    return failures.find((cause) => cause && !isResponseValidationError(cause)) ?? failures.find(Boolean);
+});
 async function refresh() {
     const results = await Promise.all([context.refresh(), list.refresh(), movements.refresh()]);
     return results.every(Boolean);
@@ -51,7 +56,7 @@ async function refresh() {
 
 <template>
     <ResourcePage label="库存概览">
-        <InventoryPermissionSetup :on-committed="refresh" />
+        <InventoryPermissionSetup :on-committed="refresh" :sync-failure="syncFailure" />
         <div
             v-if="context.error.value || list.error.value"
             role="alert"

@@ -69,7 +69,7 @@ export function useResourceAccessRead<T>(
                   : status === 404
                     ? '记录不存在或已不可访问'
                     : protocol
-                      ? '响应信息不一致，请重新加载'
+                      ? ''
                       : '读取失败，请重试';
         } finally {
             if (!current.signal.aborted) loading.value = false;

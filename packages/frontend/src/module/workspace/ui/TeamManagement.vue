@@ -143,7 +143,7 @@ const scopeOptions = computed(() => [
         .filter((item) => item.organizationId === organizationId.value)
         .map((item) => ({ value: item.id, label: item.name })),
 ]);
-const disabled = computed(() => team.busy || team.loading || !!team.syncError);
+const disabled = computed(() => team.busy || team.loading || team.syncPending);
 const definitions = computed(() => team.data?.definitions.filter((item) => item.scope === roleScope.value) ?? []);
 const scopeName = computed(() => scopeOptions.value.find((item) => item.value === workspaceId.value)?.label ?? '组织');
 const organizationName = computed(
@@ -461,7 +461,7 @@ async function submit() {
     const success = await team.mutate(command);
     if (current !== generation) return;
     if (success) modal.value = null;
-    else formError.value = team.error || '当前状态尚未同步，请重新检查';
+    else if (success !== null) formError.value = team.error || '当前状态尚未同步，请重新检查';
 }
 </script>
 
@@ -543,7 +543,13 @@ async function submit() {
             {{ team.error }}
             <span v-if="team.data" class="ml-2 text-muted-foreground">当前显示上次成功加载的结果</span>
         </p>
-        <DataSyncNotice scope="团队管理" :error="team.syncError" :busy="team.loading || team.busy" @retry="reload" />
+        <DataSyncNotice
+            scope="团队管理"
+            :error="team.syncError"
+            :pending="team.syncPending"
+            :busy="team.loading || team.busy"
+            @retry="reload"
+        />
         <p v-if="team.notice" role="status" class="text-sm text-muted-foreground">
             {{ context?.simulation ? '模拟操作已完成，未发送邮件' : team.notice }}
         </p>
@@ -1018,6 +1024,7 @@ async function submit() {
                 <DataSyncNotice
                     scope="团队管理"
                     :error="team.syncError"
+                    :pending="team.syncPending"
                     :busy="team.busy || team.loading"
                     @retry="reload"
                 />
