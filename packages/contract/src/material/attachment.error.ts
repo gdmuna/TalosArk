@@ -12,6 +12,11 @@ export const MaterialAttachmentErrorContract = {
         'The material attachment is unavailable or access is denied',
         z.null()
     ),
+    storageUnavailable: defineErrorContract(
+        'MATERIAL_ATTACHMENT_STORAGE_UNAVAILABLE',
+        'Attachment storage is temporarily unavailable',
+        z.null()
+    ),
     conflict: defineErrorContract(
         'MATERIAL_ATTACHMENT_CONFLICT',
         'The attachment operation conflicts with an existing request',

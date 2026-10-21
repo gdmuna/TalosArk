@@ -35,9 +35,9 @@ export class FileRepository {
         return this.database.transaction.run(work, { isolationLevel: 'ReadCommitted' });
     }
 
-    private async member(actor: FileActor): Promise<void> {
+    private async member(actor: FileActor) {
         try {
-            await this.organization.requireAccess(actor.userId, actor.organizationId);
+            return await this.organization.requireAccess(actor.userId, actor.organizationId);
         } catch (error) {
             if (OrganizationContextError.is(error, 'forbidden'))
                 throw new FileError({ reason: 'unavailable' });
@@ -98,12 +98,12 @@ export class FileRepository {
 
     session(input: FileUploadRequest): Promise<FileUploadSession> {
         return this.transaction(async () => {
-            await this.member(input);
+            const access = await this.member(input);
             const row = await this.database.queryClient.fileUploadSession.findFirst({
                 where: {
                     id: input.sessionId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                 },
             });
             if (!row) throw new FileError({ reason: 'unavailable' });
@@ -114,13 +114,13 @@ export class FileRepository {
 
     async claim(input: FileUploadRequest, token: string): Promise<FileUploadSession> {
         return this.transaction(async () => {
-            await this.member(input);
+            const access = await this.member(input);
             const now = new Date();
             const row = await this.database.queryClient.fileUploadSession.findFirst({
                 where: {
                     id: input.sessionId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                 },
             });
             if (!row) throw new FileError({ reason: 'unavailable' });
@@ -215,12 +215,12 @@ export class FileRepository {
     ): Promise<FileAssetRow> {
         return this.transaction(async () => {
             signal.throwIfAborted();
-            await this.member(input);
+            const access = await this.member(input);
             const intent = await this.database.queryClient.fileUploadSession.findFirst({
                 where: {
                     id: input.sessionId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                 },
             });
             if (!intent) throw new FileError({ reason: 'unavailable' });
@@ -261,12 +261,12 @@ export class FileRepository {
 
     asset(input: FileAssetRequest): Promise<FileAssetRow> {
         return this.transaction(async () => {
-            await this.member(input);
+            const access = await this.member(input);
             const row = await this.database.queryClient.fileAsset.findFirst({
                 where: {
                     id: input.assetId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                     deletedAt: null,
                     OR: [{ unboundExpiresAt: null }, { unboundExpiresAt: { gt: new Date() } }],
                     object: {
@@ -285,12 +285,12 @@ export class FileRepository {
 
     completedAsset(input: FileUploadRequest & { assetId: string }): Promise<FileAssetRow> {
         return this.transaction(async () => {
-            await this.member(input);
+            const access = await this.member(input);
             const row = await this.database.queryClient.fileAsset.findFirst({
                 where: {
                     id: input.assetId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                     deletedAt: null,
                     completedUpload: { id: input.sessionId },
                     object: {
@@ -315,12 +315,12 @@ export class FileRepository {
 
     async cancel(input: FileUploadRequest): Promise<FileUploadSession> {
         return this.transaction(async () => {
-            await this.member(input);
+            const access = await this.member(input);
             const intent = await this.database.queryClient.fileUploadSession.findFirst({
                 where: {
                     id: input.sessionId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                 },
             });
             if (!intent) throw new FileError({ reason: 'unavailable' });
@@ -330,7 +330,7 @@ export class FileRepository {
                 where: {
                     id: input.sessionId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                 },
             });
             if (!row) throw new FileError({ reason: 'unavailable' });
@@ -349,12 +349,12 @@ export class FileRepository {
 
     async remove(input: FileAssetRequest): Promise<void> {
         await this.transaction(async () => {
-            await this.member(input);
+            const access = await this.member(input);
             const row = await this.database.queryClient.fileAsset.findFirst({
                 where: {
                     id: input.assetId,
                     organizationId: input.organizationId,
-                    uploadedById: input.userId,
+                    uploadedById: access.isSuperAdmin ? undefined : input.userId,
                 },
             });
             if (!row) throw new FileError({ reason: 'unavailable' });

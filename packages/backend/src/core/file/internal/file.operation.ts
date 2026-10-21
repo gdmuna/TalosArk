@@ -10,11 +10,20 @@ export class FileOperations implements OnModuleDestroy {
 
     constructor(@Inject(FILE_OPTIONS) private readonly options: ResolvedFileOptions) {}
 
-    async run<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    async run<T>(
+        work: (signal: AbortSignal) => Promise<T>,
+        options: {
+            signal?: AbortSignal;
+            settleOnAbort?: boolean;
+        } = {}
+    ): Promise<T> {
         if (this.stopping) throw new FileError({ reason: 'stopping' });
         if (this.active.size >= this.options.maxConcurrentOperations)
             throw new FileError({ reason: 'busy' });
         const controller = new AbortController();
+        const signal = options.signal
+            ? AbortSignal.any([controller.signal, options.signal])
+            : controller.signal;
         this.active.add(controller);
         const timer = setTimeout(
             () => controller.abort(new FileError({ reason: 'timeout' })),
@@ -22,12 +31,12 @@ export class FileOperations implements OnModuleDestroy {
         );
         let onAbort = () => {};
         const aborted = new Promise<never>((_, reject) => {
-            onAbort = () => reject(controller.signal.reason);
-            controller.signal.addEventListener('abort', onAbort, { once: true });
+            onAbort = () => reject(signal.reason);
+            if (!options.settleOnAbort) signal.addEventListener('abort', onAbort, { once: true });
         });
         const running = Promise.resolve().then(() => {
-            controller.signal.throwIfAborted();
-            return work(controller.signal);
+            signal.throwIfAborted();
+            return work(signal);
         });
         this.pending.add(running);
         // Timed-out work retains its capacity slot until the underlying operation actually settles.
@@ -42,10 +51,15 @@ export class FileOperations implements OnModuleDestroy {
             }
         );
         try {
+            if (options.settleOnAbort) {
+                const result = await running;
+                signal.throwIfAborted();
+                return result;
+            }
             return await Promise.race([running, aborted]);
         } finally {
             clearTimeout(timer);
-            controller.signal.removeEventListener('abort', onAbort);
+            signal.removeEventListener('abort', onAbort);
         }
     }
 

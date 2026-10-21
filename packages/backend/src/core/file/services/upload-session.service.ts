@@ -130,10 +130,15 @@ export class UploadSessionService {
 
     async progress(input: FileUploadRequest, signal: AbortSignal) {
         const session = await this.repository.session(input);
-        if (session.status !== 'OPEN' || session.mode === 'SINGLE' || session.completionParts)
+        if (
+            session.status !== 'OPEN' ||
+            session.mode === 'SINGLE' ||
+            session.completionParts ||
+            !session.multipartUploadId
+        )
             return Object.freeze({ session: uploadSnapshot(session), parts: Object.freeze([]) });
-        return this.withLease(input, signal, async (current, token) => {
-            const handle = await this.ensureMultipart(current, token, signal);
+        return this.withLease(input, signal, async (current) => {
+            const handle = multipartHandle(current);
             const parts = await this.storage.listMultipartParts(handle, { signal });
             return Object.freeze({
                 session: uploadSnapshot(current),

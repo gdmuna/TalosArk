@@ -10,6 +10,11 @@ const failure = <T extends (typeof c)[keyof typeof c]>(contract: T, status: numb
 export const MaterialAttachmentErrorDefinition = defineErrorCatalog('material-attachment', {
     invalid: failure(c.invalid, 400),
     unavailable: failure(c.unavailable, 404),
+    'storage-unavailable': {
+        public: c.storageUnavailable,
+        protocol: { http: { status: 503 } },
+        internal: { logLevel: 'error' as const },
+    },
     conflict: failure(c.conflict, 409),
     expired: failure(c.expired, 409),
     busy: failure(c.busy, 409),

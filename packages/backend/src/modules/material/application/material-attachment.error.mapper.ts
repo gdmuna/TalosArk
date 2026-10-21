@@ -11,6 +11,8 @@ const fileMapper = defineErrorMapper(FileError, MaterialAttachmentError, (failur
             return { reason: 'invalid' as const };
         case 'unavailable':
             return { reason: 'unavailable' as const };
+        case 'storage-unavailable':
+            return { reason: 'storage-unavailable' as const };
         case 'conflict':
             return { reason: 'conflict' as const };
         case 'expired':

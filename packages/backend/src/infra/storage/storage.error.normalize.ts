@@ -8,21 +8,22 @@ export function normalizeStorageError(
     if (error instanceof StorageError) return error;
     if (error instanceof S3ServiceException) {
         const status = error.$metadata.httpStatusCode;
-        const reason = ['NoSuchBucket', 'InvalidAccessKeyId', 'SignatureDoesNotMatch'].includes(
-            error.name
-        )
-            ? 'configuration'
-            : error.name === 'BadDigest'
-              ? 'checksum-mismatch'
-              : error.name === 'NoSuchUpload'
-                ? 'invalid-multipart'
-                : status === 404
-                  ? 'not-found'
-                  : status === 401 || status === 403
-                    ? 'permission-denied'
-                    : (status !== undefined && status >= 500) || status === 429
-                      ? 'unavailable'
-                      : 'request-failed';
+        const reason =
+            error.name === 'NoSuchBucket'
+                ? 'bucket-not-found'
+                : ['InvalidAccessKeyId', 'SignatureDoesNotMatch'].includes(error.name)
+                  ? 'configuration'
+                  : error.name === 'BadDigest'
+                    ? 'checksum-mismatch'
+                    : error.name === 'NoSuchUpload'
+                      ? 'invalid-multipart'
+                      : status === 404
+                        ? 'not-found'
+                        : status === 401 || status === 403
+                          ? 'permission-denied'
+                          : (status !== undefined && status >= 500) || status === 429
+                            ? 'unavailable'
+                            : 'request-failed';
         return new StorageError({ reason, operation }, { cause: error });
     }
     if (error instanceof Error) {

@@ -14,6 +14,7 @@ export class FileCleanupService {
     ) {}
 
     async run(limit: number, signal: AbortSignal): Promise<FileCleanupResult> {
+        signal.throwIfAborted();
         const expired = await this.repository.expire(limit);
         const failures: { kind: 'session' | 'object'; id: string }[] = [];
         let cleanedSessions = 0,
@@ -54,6 +55,7 @@ export class FileCleanupService {
         for (const { id } of await this.repository.cleanupObjects(limit)) {
             signal.throwIfAborted();
             const location = await this.repository.retireObject(id);
+            signal.throwIfAborted();
             if (!location) continue;
             try {
                 await this.storage.deleteObject(location, { signal });

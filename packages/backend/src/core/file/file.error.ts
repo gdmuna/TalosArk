@@ -4,6 +4,7 @@ const messages = {
     'invalid-input': 'File input violates the declared constraints',
     configuration: 'File module configuration is invalid',
     unavailable: 'The file or upload session is unavailable',
+    'storage-unavailable': 'File storage is temporarily unavailable',
     busy: 'The file operation is already running or capacity is exhausted',
     expired: 'The upload session has expired',
     'invalid-state': 'The upload session cannot perform this operation',

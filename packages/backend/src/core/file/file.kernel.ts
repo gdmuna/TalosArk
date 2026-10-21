@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { StorageService, type PresignedRequest } from '@/infra/storage/index.js';
+import { StorageService, StorageError, type PresignedRequest } from '@/infra/storage/index.js';
 import { FileRepository, assetSnapshot, type FileAssetRow } from './internal/file.repository.js';
 import { FileOperations } from './internal/file.operation.js';
 import {
@@ -161,9 +161,17 @@ export class FileKernel {
     }
 
     /** Trusted maintenance entry, never an unrestricted user-facing endpoint. No scheduler is implied. */
-    cleanup(limit = 50): Promise<FileCleanupResult> {
+    cleanup(limit = 50, signal?: AbortSignal): Promise<FileCleanupResult> {
         const count = parseFileInput(z.number().int().min(1).max(200), limit);
-        return this.run((signal) => this.cleanupService.run(count, signal));
+        if (this.database.transaction.current())
+            throw new FileError({ reason: 'transaction-active' });
+        return this.operations.run(
+            (effectiveSignal) => this.cleanupService.run(count, effectiveSignal),
+            {
+                signal,
+                settleOnAbort: true,
+            }
+        );
     }
 
     private signDownload(row: FileAssetRow, expiresIn: number): Promise<PresignedRequest> {
@@ -184,6 +192,15 @@ export class FileKernel {
     private run<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T> {
         if (this.database.transaction.current())
             throw new FileError({ reason: 'transaction-active' });
-        return this.operations.run(work);
+        return this.operations.run(work).catch((error: unknown) => {
+            if (
+                StorageError.is(error) &&
+                ['bucket-not-found', 'configuration', 'permission-denied', 'unavailable'].includes(
+                    error.failure.reason
+                )
+            )
+                throw new FileError({ reason: 'storage-unavailable' }, { cause: error });
+            throw error;
+        });
     }
 }

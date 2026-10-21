@@ -18,6 +18,7 @@ export type StorageFailure = {
         | 'unavailable'
         | 'permission-denied'
         | 'configuration'
+        | 'bucket-not-found'
         | 'checksum-mismatch'
         | 'invalid-request'
         | 'invalid-multipart'
@@ -36,6 +37,7 @@ const catalog = defineInternalErrorCatalog('storage', [
     'unavailable',
     'permission-denied',
     'configuration',
+    'bucket-not-found',
     'checksum-mismatch',
     'invalid-request',
     'invalid-multipart',
@@ -51,6 +53,8 @@ export const StorageError = defineErrorClass<typeof catalog, StorageFailure>(cat
             unavailable: 'Object storage is unavailable',
             'permission-denied': 'Object storage denied the operation',
             configuration: 'Object storage connection or authentication configuration is invalid',
+            'bucket-not-found':
+                'The configured object storage bucket does not exist; check bucket provisioning and the saved upload session bucket',
             'checksum-mismatch': 'Storage object checksum does not match',
             'invalid-request': 'Object storage request is invalid',
             'invalid-multipart': 'Multipart upload or its completion parts are invalid',
