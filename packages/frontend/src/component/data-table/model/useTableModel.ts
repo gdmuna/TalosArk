@@ -38,6 +38,7 @@ export function useTableModel<T extends { id: string }>(
         searchText?: (row: T) => string;
         selectable?: (row: T) => boolean;
         serverTotal?: number;
+        busy?: boolean;
         filtering?: boolean;
     },
     models: {
@@ -442,8 +443,8 @@ export function useTableModel<T extends { id: string }>(
     }
     function jumpToPage(page: number) {
         if (paginationMode.value !== 'offset') return false;
-        if (!Number.isInteger(page) || page < 1 || page > Math.min(1000, pageCount.value)) {
-            pageError.value = `请输入 1 到 ${Math.min(1000, pageCount.value)} 之间的整数页码`;
+        if (!Number.isInteger(page) || page < 1 || page > pageCount.value) {
+            pageError.value = `请输入 1 到 ${pageCount.value} 之间的整数页码`;
             pageInput.value = String(pagination.value.pageIndex + 1);
             return false;
         }
@@ -488,12 +489,14 @@ export function useTableModel<T extends { id: string }>(
             pageError.value = '';
         }
     );
-    watch(filteredRows, (items) => {
+    watch([filteredRows, () => props.busy], ([items]) => {
         const valid = new Set(
             items.filter((item) => props.selectable?.(item)).map((item) => item.id)
         );
         const next = selected.value.filter((id) => valid.has(id));
         if (next.length !== selected.value.length) selected.value = next;
+        // Remote loading may temporarily clear rows and total; recheck when it finishes.
+        if (props.serverTotal !== undefined && props.busy) return;
         if (pagination.value.pageIndex >= pageCount.value) table.setPageIndex(pageCount.value - 1);
     });
     const api = {
