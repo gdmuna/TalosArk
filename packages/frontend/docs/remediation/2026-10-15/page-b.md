@@ -4,6 +4,8 @@
 
 2026-10-20 R05：B-01/02/04/05 已按当前契约整改构图、即时预览、批次上下文与关联库存分页，并补摘要导航、入库预填和录入校验 / 草稿关闭保护，见 [实施](r05/README.md)、[验收](r05/acceptance-2026-10-20.md)。下述“当前差异”为原整改基线；培养 / QC / 谱系、预留量和专业 Bank 事实仍需正式来源。
 
+2026-10-21 R06：普通来源批次详情新增按材料 ID + 批次 ID 服务端分页的库存实例表、库存预览与详情，见 [R06 实施分组](r06/README.md)。仅普通 Batch 库存纳入本轮；Cell Bank 专业批次、培养/谱系/QC 和材料活动保持依赖分组。
+
 ## B-01 材料概览
 
 [设计稿](../../../../../output/design/frozen-v2-71-2026-09-29/B-01.png) · `/main/material/overview` · [源码](../../../src/page/material/Overview.vue)
@@ -116,12 +118,12 @@
 
 ## B-11 Cell Bank 与 Batch 专业视图
 
-[设计稿](../../../../../output/design/frozen-v2-71-2026-09-29/B-11.png) · [Bank](../../../src/page/material/detail/Bank.vue) 与 [Batch](../../../src/page/material/detail/Batch.vue)
+[设计稿](../../../../../output/design/frozen-v2-71-2026-09-29/B-11.png) · [Bank](../../../src/page/material/detail/Bank.vue) 与 [专业 Batch](../../../src/page/material/detail/BankBatch.vue)
 
-- **当前路由**：`/main/material/detail/:resourceId/bank/:bankId`（overview/batch/quality/file）；其下 `/batch/:batchId` 为独立 Batch 详情。
+- **当前路由**：`/main/material/detail/:resourceId/bank/:bankId`（overview/batch/quality/file）；其下 `/bank/:bankId/batch/:batchId` 为 Cell Bank 专业 Batch 详情。普通来源批次使用 `/main/material/detail/:resourceId/batch/:batchId`，不属于本稿。
 - **图中构图**：Bank 对象头、状态与 4 个本地标签；批次数/冻存量/放行量/实例摘要；批次列表与选中批次摘要形成关联。
-- **当前差异**：已有文件与标签骨架，但 Bank/Batch 都主要核查父材料，不能据此证明 bankId/batchId 对象存在或属于该父对象。
-- **目标**：Bank 页面保留细胞库身份和层级面包屑；Batch 页面有自己的名称/编号/状态、生产/入库/检验信息、关联实例，不把两页做成材料通用详情复制品。各 view 分别为身份事实、批次表、检验、文件；Batch 的实例与检验也必须有数据来源。
+- **当前差异**：已有文件与标签骨架，但 Bank/专业 Batch 都主要核查父材料，不能据此证明 bankId/batchId 对象存在或属于该父对象。
+- **目标**：Bank 页面保留细胞库身份和层级面包屑；专业 Batch 页面有自己的名称/编号/状态、生产/入库/检验信息、关联实例，不把两页做成材料通用详情复制品。各 view 分别为身份事实、批次表、检验、文件；专业 Batch 的实例与检验也必须有数据来源。
 - **交互**：批次选择可预览，再进入完整 Batch；材料→Bank→Batch→实例连续可回退；不存在或不属于父对象时不显示父材料的“正常”假详情。
 - **依赖**：专业模型是否首发需业务确认；即使已有 Prisma 模型也不等于有读模型/授权/工作流。
 - **验收**：直接访问有效/错误 bankId/batchId、换父 ID、刷新深链、权限撤销全部正确；冻存管数、容量与可用数不能混算。

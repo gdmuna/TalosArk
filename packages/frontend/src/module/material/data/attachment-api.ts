@@ -6,6 +6,7 @@ import {
     MaterialAttachmentProgressSchema,
     MaterialAttachmentQuerySchema,
     MaterialAttachmentReferenceSchema,
+    MaterialAttachmentSignSchema,
     MaterialAttachmentUploadSchema,
     MaterialAttachmentPresignedRequestSchema,
     type MaterialScope,
@@ -49,11 +50,13 @@ export function createHttpMaterialAttachmentDataSource(
                 throw new HttpError('附件上传会话与原文件不匹配', 'protocol');
             return result;
         },
-        async sign(scope, id, sessionId, signal) {
+        async sign(scope, id, sessionId, partNumber, signal) {
             const result = await http.request({
                 method: 'POST',
                 path: `${sessionPath(scope, id, sessionId)}/sign`,
-                body: {},
+                body: MaterialAttachmentSignSchema.parse(
+                    partNumber === undefined ? {} : { partNumber }
+                ),
                 schema: MaterialAttachmentPresignedRequestSchema,
                 signal,
                 retry: false,

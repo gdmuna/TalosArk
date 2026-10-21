@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { MaterialAttachmentUploadModeSchema } from '@talos-ark/contracts/material';
 import { Download, File, RefreshCw, Trash2, Upload } from '@lucide/vue';
 import type { MaterialAttachmentReference } from '@talos-ark/contracts/material';
 import { useMaterialStore } from '../model/store';
 import { useMaterialRead } from '../model/useMaterialRead';
-import { useMaterialAttachmentStore, materialAttachmentAccept, attachmentErrorMessage } from '../model/attachment';
+import {
+    useMaterialAttachmentStore,
+    materialAttachmentAccept,
+    attachmentErrorMessage,
+    type MaterialAttachmentUploadMode,
+} from '../model/attachment';
 import { downloadFile } from '@/platform/file-transfer';
 import { AuthenticationError, HttpError } from '@/platform/http';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { Button } from '@/ui/button';
+import { SelectField } from '@/component/select-field';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
 
@@ -36,6 +43,11 @@ const uploadError = computed(() =>
         : ''
 );
 const file = shallowRef<globalThis.File>();
+const uploadMode = ref<MaterialAttachmentUploadMode>('single');
+const uploadModes = MaterialAttachmentUploadModeSchema.options.map((value) => ({
+    value,
+    label: value === 'single' ? '单次上传' : '分片上传（支持分段恢复）',
+}));
 const selected = shallowRef<MaterialAttachmentReference>();
 const removing = shallowRef<MaterialAttachmentReference>();
 const committedRemoval = ref(false);
@@ -105,7 +117,7 @@ async function submit() {
     const scope = material.scope;
     if (!scope || !props.canManage || busy.value) return;
     const current = generation;
-    await upload.run(scope, props.materialId, file.value);
+    await upload.run(scope, props.materialId, file.value, uploadMode.value);
     if (current !== generation) return;
     if (job.value?.reference) {
         file.value = undefined;
@@ -213,6 +225,7 @@ function previous() {
                         @change="selectFile"
                     />
                 </label>
+                <SelectField v-if="canManage && !job" v-model="uploadMode" label="上传方式" :options="uploadModes" />
                 <Button
                     v-if="canManage && !job?.reference"
                     :disabled="busy || (!file && !job) || !!upload.recoveryError"
@@ -232,10 +245,11 @@ function previous() {
             </div>
             <p v-if="file" class="text-sm text-muted-foreground">{{ file.name }} · {{ size(String(file.size)) }}</p>
             <p v-if="job && !job.reference" class="text-sm text-muted-foreground">
-                待处理：{{ job.input.filename }} · {{ size(String(job.input.sizeBytes)) }}
+                待处理：{{ job.input.filename }} · {{ size(String(job.input.sizeBytes)) }} ·
+                {{ job.input.mode === 'multipart' ? '分片上传' : '单次上传' }}
             </p>
             <p v-if="active" role="status" class="text-sm">
-                {{ upload.stage }}{{ upload.stage === '正在上传' ? ` ${upload.progress}%` : '' }}
+                {{ upload.stage.includes('上传') ? `${upload.stage} ${upload.progress}%` : upload.stage }}
             </p>
             <p v-if="job?.reference" role="status" class="text-sm text-warning">
                 附件已添加，列表尚未同步。

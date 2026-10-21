@@ -1,8 +1,22 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { refDebounced } from '@vueuse/core';
 import { useRoute, useRouter } from 'vue-router';
-import { Archive, ArchiveRestore, Package, Pencil } from '@lucide/vue';
+import { Archive, ArchiveRestore, CalendarDays, Eye, MapPin, Package, Pencil, Tag } from '@lucide/vue';
+import type { PaginationState } from '@tanstack/vue-table';
 import { MaterialBatchEditor, useMaterialBatchRecovery, useMaterialRead, useMaterialStore } from '@/module/material';
+import {
+    InventoryStockInspector,
+    inventoryStatusLabel,
+    inventoryStatusTone,
+    useInventoryDataSource,
+    useInventoryRead,
+    useInventoryScope,
+    type InventoryQuery,
+    type InventoryStock,
+} from '@/module/inventory';
+import { DataTable, type DataTableAction, type DataTableColumn } from '@/component/data-table';
+import { StateBadge } from '@/component/state-badge';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { Button } from '@/ui/button';
 import { CopyableId } from '@/component/inspector';
@@ -15,6 +29,8 @@ import ResourceEmpty from '../../resource/ResourceEmpty.vue';
 const route = useRoute();
 const router = useRouter();
 const store = useMaterialStore();
+const inventorySource = useInventoryDataSource();
+const inventoryScope = useInventoryScope();
 const materialId = computed(() => String(route.params.resourceId ?? ''));
 const batchId = computed(() => String(route.params.batchId ?? ''));
 const materialPath = computed(() => `/main/material/detail/${encodeURIComponent(materialId.value)}`);
@@ -36,6 +52,94 @@ const permissions = useMaterialRead(
         ),
     [materialId]
 );
+const inventoryQuery = ref('');
+const inventorySearch = refDebounced(inventoryQuery, 200);
+const inventoryPagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
+const inventoryPreviewId = ref('');
+const inventoryRequest = computed<InventoryQuery>(() => ({
+    page: inventoryPagination.value.pageIndex + 1,
+    pageSize: inventoryPagination.value.pageSize,
+    q: inventorySearch.value.trim(),
+    materialId: materialId.value,
+    batchId: batchId.value,
+}));
+const inventoryKey = computed(() =>
+    inventoryScope.value ? JSON.stringify([inventoryScope.value, inventoryRequest.value]) : ''
+);
+const inventory = useInventoryRead(inventoryKey, (scope, signal) =>
+    inventorySource
+        ? inventorySource.list(scope, inventoryRequest.value, signal)
+        : Promise.reject(new Error('库存数据源未连接'))
+);
+const inventoryTotal = ref(0);
+watch([inventory.data, inventory.loading], ([value, loading]) => {
+    if (value) inventoryTotal.value = value.total;
+    else if (!loading) inventoryTotal.value = 0;
+});
+watch(
+    [() => store.scope, materialId, batchId],
+    () => {
+        inventoryPreviewId.value = '';
+        inventoryTotal.value = 0;
+        inventoryPagination.value.pageIndex = 0;
+    },
+    { flush: 'sync' }
+);
+watch(
+    inventorySearch,
+    () => {
+        inventoryPagination.value.pageIndex = 0;
+        inventoryPreviewId.value = '';
+        inventoryTotal.value = 0;
+    },
+    { flush: 'sync' }
+);
+const inventoryColumns: DataTableColumn<InventoryStock>[] = [
+    { id: 'code', label: '实例编号', icon: Package, size: 190, fill: true, sortable: false, value: (row) => row.code },
+    { id: 'material', label: '材料', icon: Tag, size: 220, sortable: false, value: (row) => row.material.name },
+    {
+        id: 'quantity',
+        label: '数量',
+        size: 130,
+        align: 'right',
+        sortable: false,
+        value: (row) => `${row.quantity} ${row.quantityUnit}`,
+    },
+    { id: 'status', label: '状态', size: 120, sortable: false, value: (row) => inventoryStatusLabel[row.status] },
+    {
+        id: 'location',
+        label: '存储位置',
+        icon: MapPin,
+        size: 260,
+        sortable: false,
+        value: (row) => row.location?.path ?? (row.locationRestricted ? '位置受限' : '未分配'),
+    },
+    {
+        id: 'createdAt',
+        label: '入库时间',
+        icon: CalendarDays,
+        size: 190,
+        sortable: false,
+        value: (row) => new Date(row.createdAt).toLocaleString('zh-CN', { hour12: false }),
+    },
+];
+const inventoryActions: DataTableAction<InventoryStock>[] = [
+    {
+        id: 'detail',
+        label: '详情',
+        icon: Eye,
+        primary: true,
+        run: (row) => void router.push(`/main/inventory/detail/${encodeURIComponent(row.id)}`),
+    },
+    {
+        id: 'preview',
+        label: '预览',
+        icon: Eye,
+        run: (row) => {
+            inventoryPreviewId.value = row.id;
+        },
+    },
+];
 const editorOpen = ref(false);
 const {
     syncPending,
@@ -151,13 +255,60 @@ function archive() {
                     />
                 </div>
             </ResourceSection>
-            <ResourceSection title="批次实例">
-                <Button
-                    variant="outline"
-                    @click="router.push({ path: '/main/inventory/ledger', query: { materialId, batchId } })"
+            <ResourceSection title="批次库存实例">
+                <div class="mb-3 flex justify-end">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        @click="router.push({ path: '/main/inventory/ledger', query: { materialId, batchId } })"
+                    >
+                        在库存台账中查看
+                    </Button>
+                </div>
+                <div
+                    v-if="inventory.error.value"
+                    role="alert"
+                    class="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4"
                 >
-                    查看此批次库存
-                </Button>
+                    <p class="text-sm text-destructive">
+                        {{
+                            inventory.data.value ? '库存刷新失败，当前显示上次成功读取的数据。' : inventory.error.value
+                        }}
+                    </p>
+                    <Button variant="outline" @click="inventory.refresh">重新加载</Button>
+                </div>
+                <DataTable
+                    v-model:query="inventoryQuery"
+                    v-model:pagination="inventoryPagination"
+                    :data="inventory.data.value?.items ?? []"
+                    :server-total="inventoryTotal"
+                    :columns="inventoryColumns"
+                    :actions="inventoryActions"
+                    :filtering="false"
+                    :busy="inventory.loading.value"
+                    :preview="(row) => (inventoryPreviewId = row.id)"
+                    :active-id="inventoryPreviewId"
+                    search-label="搜索库存实例"
+                    :empty-text="
+                        inventory.error.value
+                            ? '批次库存加载失败'
+                            : inventory.loading.value
+                              ? '正在读取批次库存'
+                              : '当前批次暂无库存实例'
+                    "
+                >
+                    <template #cell-status="{ row }">
+                        <StateBadge :tone="inventoryStatusTone[row.status]">
+                            {{ inventoryStatusLabel[row.status] }}
+                        </StateBadge>
+                    </template>
+                    <template #cell-quantity="{ value }">
+                        <span class="whitespace-nowrap tabular-nums">{{ value }}</span>
+                    </template>
+                    <template #cell-location="{ value }">
+                        <span class="block truncate" :title="String(value)">{{ value }}</span>
+                    </template>
+                </DataTable>
             </ResourceSection>
         </template>
         <MaterialBatchEditor
@@ -166,5 +317,6 @@ function archive() {
             :batch="data"
             :on-committed="afterCommit"
         />
+        <InventoryStockInspector v-model:id="inventoryPreviewId" />
     </ResourceDetailPage>
 </template>

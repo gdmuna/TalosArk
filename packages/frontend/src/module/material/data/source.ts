@@ -53,6 +53,7 @@ export interface MaterialAttachmentDataSource {
         scope: MaterialScope,
         materialId: string,
         sessionId: string,
+        partNumber?: number,
         signal?: AbortSignal
     ): Promise<MaterialAttachmentPresignedRequest>;
     progress(

@@ -24,21 +24,27 @@ export async function hashFile(file: File) {
 }
 
 // Storage signatures are used directly; application cookies and bearer tokens are never attached.
-export function uploadFile(
+function uploadPut<T>(
     request: SignedRequest,
-    file: File,
+    body: Blob,
     signal: AbortSignal,
-    progress: (value: number) => void
+    progress: (value: number) => void,
+    subject: '文件' | '分片',
+    onSuccess: (response: XMLHttpRequest) => T
 ) {
     const url = transferUrl(request, 'PUT');
-    return new Promise<void>((resolve, reject) => {
+    const retryTarget = subject === '分片' ? '原分片' : '原上传';
+    return new Promise<T>((resolve, reject) => {
         signal.throwIfAborted();
         const xhr = new XMLHttpRequest();
         const abort = () => xhr.abort();
-        const finish = (error?: Error) => {
+        let settled = false;
+        const finish = (error?: Error, value?: T) => {
+            if (settled) return;
+            settled = true;
             signal.removeEventListener('abort', abort);
             if (error) reject(error);
-            else resolve();
+            else resolve(value as T);
         };
         xhr.open('PUT', url);
         xhr.withCredentials = false;
@@ -48,17 +54,44 @@ export function uploadFile(
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) progress(Math.round((event.loaded / event.total) * 100));
         };
-        xhr.onload = () =>
-            finish(
-                xhr.status >= 200 && xhr.status < 300
-                    ? undefined
-                    : new Error('文件上传失败，请重试原上传')
-            );
+        xhr.onload = () => {
+            if (xhr.status < 200 || xhr.status >= 300) {
+                finish(new Error(`${subject}上传失败，请重试${retryTarget}`));
+                return;
+            }
+            try {
+                finish(undefined, onSuccess(xhr));
+            } catch (cause) {
+                finish(cause instanceof Error ? cause : new Error('文件上传响应无效'));
+            }
+        };
         xhr.onerror = () => finish(new Error('无法连接文件存储，请检查网络或存储跨域配置'));
-        xhr.ontimeout = () => finish(new Error('文件传输超时，请重试原上传'));
+        xhr.ontimeout = () => finish(new Error(`${subject}传输超时，请重试${retryTarget}`));
         xhr.onabort = () => finish(new DOMException('File transfer aborted', 'AbortError'));
         signal.addEventListener('abort', abort, { once: true });
-        xhr.send(file);
+        xhr.send(body);
+    });
+}
+
+export function uploadFile(
+    request: SignedRequest,
+    file: File,
+    signal: AbortSignal,
+    progress: (value: number) => void
+) {
+    return uploadPut(request, file, signal, progress, '文件', () => undefined);
+}
+
+export function uploadMultipartPart(
+    request: SignedRequest,
+    part: Blob,
+    signal: AbortSignal,
+    progress: (value: number) => void
+) {
+    return uploadPut(request, part, signal, progress, '分片', (xhr) => {
+        const etag = xhr.getResponseHeader('ETag');
+        if (!etag) throw new Error('存储未返回分片 ETag，请检查存储跨域暴露头配置');
+        return etag;
     });
 }
 
