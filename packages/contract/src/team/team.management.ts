@@ -20,6 +20,7 @@ export const TeamRoleSchema = z.object({
     scope: z.enum(['ORGANIZATION', 'WORKSPACE']),
     permissions: z.array(z.string()),
     protected: z.boolean(),
+    canEdit: z.boolean(),
     grantable: z.boolean(),
     updatedAt: z.iso.datetime(),
 });
@@ -31,6 +32,8 @@ export const TeamMemberSchema = z.object({
     email: z.string(),
     status: z.enum(['ACTIVE', 'SUSPENDED', 'LEFT']),
     isOwner: z.boolean(),
+    canManageRoles: z.boolean(),
+    canRemove: z.boolean(),
     roles: z.array(z.object({ id: UuidSchema, name: z.string() })),
 });
 export const TeamInvitationSchema = z.object({
