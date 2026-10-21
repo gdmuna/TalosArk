@@ -108,19 +108,14 @@ export class ApprovalService {
         lines: readonly Pick<ApprovalLine, 'sourceFacilityId' | 'destinationFacilityId'>[],
         subject: PermissionSubject
     ) {
-        if (subject.userId === this.access.subject().userId) return false;
-        const member = await this.database.queryClient.workspaceMember.findFirst({
-            where: {
-                ...scope,
-                status: 'ACTIVE',
-                organizationMember: { userId: subject.userId, status: 'ACTIVE' },
-            },
-            select: { id: true },
-        });
-        if (!member) return false;
         if (
             !(await this.access.can(scope, this.access.action(type, 'review'), subject)) ||
             !(await this.access.stockReadable(scope, subject))
+        )
+            return false;
+        if (
+            subject.userId === this.access.subject().userId &&
+            !(await this.access.context(scope, subject)).isSuperAdmin
         )
             return false;
         const ids = [
@@ -190,7 +185,10 @@ export class ApprovalService {
                 throw new ApprovalError({ reason: 'forbidden' });
             if (body.previousId) {
                 const previous = await this.access.document(scope, body.previousId);
-                if (previous.requesterId !== this.access.subject().userId)
+                if (
+                    previous.requesterId !== this.access.subject().userId &&
+                    !(await this.access.context(scope)).isSuperAdmin
+                )
                     throw new ApprovalError({ reason: 'forbidden' });
             }
             const resource = await this.resources.create({
@@ -228,8 +226,9 @@ export class ApprovalService {
             async () => {
                 const request = await this.access.document(scope, requestId);
                 if (
-                    request.approverId !== this.access.subject().userId ||
-                    request.requesterId === this.access.subject().userId
+                    (request.approverId !== this.access.subject().userId ||
+                        request.requesterId === this.access.subject().userId) &&
+                    !(await this.access.context(scope)).isSuperAdmin
                 )
                     throw new ApprovalError({ reason: 'forbidden' });
                 await this.access.require(scope, this.access.action(request.type, 'review'));
@@ -269,7 +268,10 @@ export class ApprovalService {
         const body = ApprovalCommandSchema.parse(input);
         return this.command(scope, 'approval.withdraw', body, { requestId, ...body }, async () => {
             const request = await this.access.document(scope, requestId);
-            if (request.requesterId !== this.access.subject().userId)
+            if (
+                request.requesterId !== this.access.subject().userId &&
+                !(await this.access.context(scope)).isSuperAdmin
+            )
                 throw new ApprovalError({ reason: 'forbidden' });
             await this.transition(request, body.expectedVersion, 'PENDING', 'WITHDRAWN');
             await this.event(request, 'WITHDRAWN', body.note);
@@ -296,7 +298,10 @@ export class ApprovalService {
                 });
                 if (!line) throw new ApprovalError({ reason: 'forbidden' });
                 if (kind === 'abandon') {
-                    if (request.requesterId !== this.access.subject().userId)
+                    if (
+                        request.requesterId !== this.access.subject().userId &&
+                        !(await this.access.context(scope)).isSuperAdmin
+                    )
                         throw new ApprovalError({ reason: 'forbidden' });
                 } else {
                     await this.access.requireStockRead(scope);

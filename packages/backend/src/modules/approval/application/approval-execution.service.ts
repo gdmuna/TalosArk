@@ -35,7 +35,10 @@ export class ApprovalExecutionService {
                 organizationId: scope.organizationId,
                 authorize: () => this.access.document(scope, requestId),
                 execute: async (request) => {
-                    if (request.requesterId !== this.access.subject().userId)
+                    if (
+                        request.requesterId !== this.access.subject().userId &&
+                        !(await this.access.context(scope)).isSuperAdmin
+                    )
                         throw new ApprovalError({ reason: 'forbidden' });
                     const line = await this.database.queryClient.approvalLine.findFirst({
                         where: { ...scope, requestId, id: lineId },

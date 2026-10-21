@@ -55,9 +55,18 @@ export class ApprovalQueryService {
                 },
                 orderBy: { id: 'asc' },
             });
+            const administrators = await this.database.queryClient.user.findMany({
+                where: { isSuperAdmin: true },
+                include: { profile: true },
+                orderBy: { id: 'asc' },
+            });
+            const users = new Map(
+                [...members.map((member) => member.organizationMember.user), ...administrators].map(
+                    (user) => [user.id, user]
+                )
+            );
             const items = [];
-            for (const member of members) {
-                const user = member.organizationMember.user;
+            for (const user of users.values()) {
                 if (
                     await this.approval.qualified(scope, body.type, lines, {
                         kind: 'user',
@@ -73,7 +82,7 @@ export class ApprovalQueryService {
             return { items };
         });
     }
-    private async requestView(scope: ApprovalScope, row: ApprovalRequest) {
+    private async requestView(scope: ApprovalScope, row: ApprovalRequest, isSuperAdmin: boolean) {
         const users = await this.database.queryClient.user.findMany({
             where: { id: { in: [row.requesterId, row.approverId] } },
             select: { id: true, username: true, profile: { select: { nickname: true } } },
@@ -100,7 +109,9 @@ export class ApprovalQueryService {
             ),
         ];
         const usable =
-            readable && row.approverId === this.access.subject().userId && row.status === 'PENDING'
+            readable &&
+            (isSuperAdmin || row.approverId === this.access.subject().userId) &&
+            row.status === 'PENDING'
                 ? await this.positions.usableFacilities(this.access.subject(), scope, facilityIds)
                 : new Set<string>();
         return {
@@ -123,18 +134,21 @@ export class ApprovalQueryService {
             actions: {
                 decide:
                     row.status === 'PENDING' &&
-                    row.approverId === this.access.subject().userId &&
+                    (isSuperAdmin ||
+                        (row.approverId === this.access.subject().userId &&
+                            row.requesterId !== this.access.subject().userId)) &&
                     readable &&
                     facilityIds.every((id) => usable.has(id)) &&
                     (await this.access.can(scope, this.access.action(row.type, 'review'))),
                 withdraw:
-                    row.status === 'PENDING' && row.requesterId === this.access.subject().userId,
+                    row.status === 'PENDING' &&
+                    (isSuperAdmin || row.requesterId === this.access.subject().userId),
             },
         };
     }
     list(scope: ApprovalScope, query: ApprovalQuery) {
         return this.read(async () => {
-            await this.access.context(scope);
+            const { isSuperAdmin } = await this.access.context(scope);
             if (query.view === 'all') await this.access.require(scope, p.readAll);
             const userId = this.access.subject().userId;
             const where: Prisma.ApprovalRequestWhereInput = {
@@ -160,14 +174,16 @@ export class ApprovalQueryService {
             });
             const total = await this.database.queryClient.approvalRequest.count({ where });
             const items = [];
-            for (const row of rows) items.push(await this.requestView(scope, row));
+            for (const row of rows) items.push(await this.requestView(scope, row, isSuperAdmin));
             return { items, total, page: query.page, pageSize: query.pageSize };
         });
     }
     get(scope: ApprovalScope, id: string) {
-        return this.read(async () =>
-            this.requestView(scope, await this.access.document(scope, id))
-        );
+        return this.read(async () => {
+            const row = await this.access.document(scope, id);
+            const { isSuperAdmin } = await this.access.context(scope);
+            return this.requestView(scope, row, isSuperAdmin);
+        });
     }
     summary(scope: ApprovalScope) {
         return this.read(async () => {
@@ -190,6 +206,7 @@ export class ApprovalQueryService {
     lines(scope: ApprovalScope, requestId: string, query: ApprovalPageQuery) {
         return this.read(async () => {
             const request = await this.access.document(scope, requestId);
+            const { isSuperAdmin } = await this.access.context(scope);
             const rows = await this.database.queryClient.approvalLine.findMany({
                 where: { ...scope, requestId },
                 orderBy: { lineNumber: 'asc' },
@@ -328,9 +345,12 @@ export class ApprovalQueryService {
                     actions: {
                         execute:
                             pending &&
-                            request.requesterId === this.access.subject().userId &&
+                            (isSuperAdmin ||
+                                request.requesterId === this.access.subject().userId) &&
                             !blockedReason,
-                        abandon: pending && request.requesterId === this.access.subject().userId,
+                        abandon:
+                            pending &&
+                            (isSuperAdmin || request.requesterId === this.access.subject().userId),
                         revoke:
                             pending &&
                             readable &&
@@ -353,12 +373,12 @@ export class ApprovalQueryService {
     }
     operation(scope: ApprovalScope, operationId: string) {
         return this.read(async () => {
-            await this.access.context(scope);
+            const { isSuperAdmin } = await this.access.context(scope);
             const row = await this.database.queryClient.approvalOperation.findFirst({
                 where: {
                     ...scope,
                     id: operationId,
-                    actorUserId: this.access.subject().userId,
+                    ...(isSuperAdmin ? {} : { actorUserId: this.access.subject().userId }),
                     completedAt: { not: null },
                 },
             });

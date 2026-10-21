@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@root/prisma/generated/client.js';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
+import { SystemAccessKernel } from '@/core/system-access/index.js';
 import { FileRepository, assetSnapshot } from '../internal/file.repository.js';
 import { FilePurposePolicy } from '../purpose/file-purpose.policy.js';
 import {
@@ -54,7 +55,8 @@ export class FileBindingService {
     constructor(
         private readonly database: DatabaseRuntime,
         private readonly files: FileRepository,
-        private readonly purposes: FilePurposePolicy
+        private readonly purposes: FilePurposePolicy,
+        private readonly systemAccess: SystemAccessKernel
     ) {}
 
     bind(input: BindFileAsset): Promise<FileReferenceSnapshot> {
@@ -84,7 +86,8 @@ export class FileBindingService {
             if (existing && !existing.removedAt) return referenceSnapshot({ ...existing, asset });
             if (asset.references.length) throw new FileError({ reason: 'in-use' });
             if (
-                asset.uploadedById !== value.userId ||
+                (asset.uploadedById !== value.userId &&
+                    !(await this.systemAccess.isSuperAdmin(value.userId))) ||
                 !asset.unboundExpiresAt ||
                 asset.unboundExpiresAt <= new Date()
             )

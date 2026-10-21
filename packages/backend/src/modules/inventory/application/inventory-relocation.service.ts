@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
     RelocationSchema,
@@ -39,9 +38,9 @@ export class InventoryRelocationService {
     }
     private async inspect(organizationId: string, body: Relocation, lock: boolean) {
         const layout = await this.facilities.prepare(this.subject(), organizationId, body, lock);
-        if (layout.nodes.length > 10000) throw new InventoryError({ reason: 'limit' });
+        if (layout.nodeIds.length > 10000) throw new InventoryError({ reason: 'limit' });
         const items = await this.database.queryClient.placement.findMany({
-            where: { organizationId, storageNodeId: { in: layout.nodes.map((n) => n.id) } },
+            where: { organizationId, storageNodeId: { in: [...layout.nodeIds] } },
             include: { stockItem: { include: { instance: { include: { material: true } } } } },
             orderBy: { stockItemId: 'asc' },
             take: 1001,
@@ -58,32 +57,22 @@ export class InventoryRelocationService {
         for (const workspaceId of workspaceIds) {
             await this.access.require(this.subject(), { organizationId, workspaceId }, p.transfer);
             await this.facilities.requireWorkspaceAccess(
+                this.subject(),
                 organizationId,
                 workspaceId,
                 body.targetFacilityId
             );
         }
-        const fingerprint = createHash('sha256')
-            .update(
-                JSON.stringify({
-                    input: body,
-                    source: layout.source,
-                    target: layout.target,
-                    sourceRevision: layout.sourceLayout.revision,
-                    targetRevision: layout.targetLayout.revision,
-                    root: layout.root.id,
-                    grants: layout.grants,
-                    items: items.map((item) => [
-                        item.id,
-                        item.storageNodeId,
-                        item.stockItemId,
-                        item.workspaceId,
-                        item.stockItem.version,
-                        item.stockItem.instance.revision,
-                    ]),
-                })
-            )
-            .digest('hex');
+        const fingerprint = layout.fingerprint(
+            items.map((item) => [
+                item.id,
+                item.storageNodeId,
+                item.stockItemId,
+                item.workspaceId,
+                item.stockItem.version,
+                item.stockItem.instance.revision,
+            ])
+        );
         return { layout, items, workspaceIds, fingerprint };
     }
     preview(organizationId: string, request: Relocation) {
@@ -97,29 +86,15 @@ export class InventoryRelocationService {
                 );
                 return {
                     fingerprint,
-                    nodeCount: layout.nodes.length,
+                    nodeCount: layout.nodeIds.length,
                     itemCount: items.length,
                     workspaceIds,
-                    sourcePath: layout.sourcePath,
-                    targetPath: layout.targetPath,
+                    sourcePath: layout.source.path,
+                    targetPath: layout.target.path,
                     sourceManagementWorkspaceId: layout.source.managementWorkspaceId,
                     targetManagementWorkspaceId: layout.target.managementWorkspaceId,
-                    sourceAccessWorkspaceIds: [
-                        ...new Set([
-                            layout.source.managementWorkspaceId,
-                            ...layout.grants
-                                .filter((g) => g.facilityId === layout.source.id)
-                                .map((g) => g.workspaceId),
-                        ]),
-                    ],
-                    targetAccessWorkspaceIds: [
-                        ...new Set([
-                            layout.target.managementWorkspaceId,
-                            ...layout.grants
-                                .filter((g) => g.facilityId === layout.target.id)
-                                .map((g) => g.workspaceId),
-                        ]),
-                    ],
+                    sourceAccessWorkspaceIds: layout.source.accessWorkspaceIds,
+                    targetAccessWorkspaceIds: layout.target.accessWorkspaceIds,
                     items: items.map((item) => ({
                         stockItemId: item.stockItemId,
                         code: item.stockItem.instance.code,
@@ -164,7 +139,7 @@ export class InventoryRelocationService {
                             const operation = await this.reservations.row(prepared);
                             const nodeIds = items.map((item) => item.storageNodeId);
                             const before = await this.facilities.locations(organizationId, nodeIds);
-                            await this.facilities.apply(layout);
+                            await layout.apply();
                             const after = await this.facilities.locations(organizationId, nodeIds);
                             await this.database.queryClient.stockItem.updateMany({
                                 where: {
@@ -236,8 +211,8 @@ export class InventoryRelocationService {
                                         operationId: operation.id,
                                         count: selected.length,
                                         reason: body.reason,
-                                        fromFacilityId: layout.source.id,
-                                        toFacilityId: layout.target.id,
+                                        fromFacilityId: layout.source.facilityId,
+                                        toFacilityId: layout.target.facilityId,
                                     },
                                 });
                             }
@@ -254,10 +229,10 @@ export class InventoryRelocationService {
                                 ],
                                 details: {
                                     operationId: operation.id,
-                                    fromFacilityId: layout.source.id,
-                                    toFacilityId: layout.target.id,
-                                    fromTopologyId: layout.sourceLayout.id,
-                                    toTopologyId: layout.targetLayout.id,
+                                    fromFacilityId: layout.source.facilityId,
+                                    toFacilityId: layout.target.facilityId,
+                                    fromTopologyId: layout.source.topologyId,
+                                    toTopologyId: layout.target.topologyId,
                                     itemCount: items.length,
                                     workspaceCount: workspaceIds.length,
                                     reason: body.reason,

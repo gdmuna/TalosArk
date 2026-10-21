@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '@/infra/database/database.module.js';
 import { OrganizationContextModule } from '@/core/organization-context/index.js';
+import { SystemAccessModule } from '@/core/system-access/index.js';
 import { ExtensionDiscoveryModule } from '@/platform/extensions/discovery/index.js';
 import { FileKernel } from './file.kernel.js';
 import { FileRepository } from './internal/file.repository.js';
@@ -13,7 +14,12 @@ import { FilePurposeRegistry } from './purpose/file-purpose.registry.js';
 import { FilePurposePolicy } from './purpose/file-purpose.policy.js';
 
 @Module({
-    imports: [DatabaseModule, OrganizationContextModule, ExtensionDiscoveryModule],
+    imports: [
+        DatabaseModule,
+        OrganizationContextModule,
+        SystemAccessModule,
+        ExtensionDiscoveryModule,
+    ],
     providers: [
         FileKernel,
         FileRepository,

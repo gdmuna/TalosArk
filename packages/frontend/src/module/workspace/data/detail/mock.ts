@@ -323,6 +323,7 @@ export function createManagementDetailMock(): ManagementDetailSource {
                         id: nextId(),
                         organizationId: selection.organizationId,
                         protected: false,
+                        canEdit: true,
                         grantable: true,
                         createdAt: now,
                         updatedAt: now,

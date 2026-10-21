@@ -2,7 +2,7 @@
 BEGIN;
 ALTER TABLE "ApprovalRequest" DROP CONSTRAINT IF EXISTS "ApprovalRequest_state_check";
 ALTER TABLE "ApprovalRequest" ADD CONSTRAINT "ApprovalRequest_state_check" CHECK (
-    "requesterId" <> "approverId" AND version > 0 AND
+    version > 0 AND
     ((status = 'DECIDED' AND "decidedAt" IS NOT NULL) OR
      (status <> 'DECIDED' AND "decidedAt" IS NULL)));
 ALTER TABLE "ApprovalLine" DROP CONSTRAINT IF EXISTS "ApprovalLine_state_check";

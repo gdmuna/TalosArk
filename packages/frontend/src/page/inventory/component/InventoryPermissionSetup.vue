@@ -26,7 +26,7 @@ const required = [
 ];
 const needsSetup = computed(
     () =>
-        team.data.value?.isOwner &&
+        (team.data.value?.isOwner || team.data.value?.canManageRoles) &&
         !required.every((code) =>
             team.data.value?.roles.find((role) => role.code === 'workspace-manager')?.permissions.includes(code)
         )
@@ -63,7 +63,7 @@ async function synchronize() {
     return results.every(Boolean);
 }
 async function initialize() {
-    if (!source || !scope.value || !team.data.value?.isOwner || busy.value) return;
+    if (!source || !scope.value || !(team.data.value?.isOwner || team.data.value?.canManageRoles) || busy.value) return;
     const current = generation;
     request = new AbortController();
     const signal = request.signal;

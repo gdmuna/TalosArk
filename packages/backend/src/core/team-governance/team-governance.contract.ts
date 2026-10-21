@@ -34,6 +34,8 @@ export interface TeamGovernanceSnapshot {
 
 export interface WorkspaceGovernanceSnapshot {
     readonly userId: string;
+    readonly isSuperAdmin: boolean;
+    readonly canManageOrganizationMembers: boolean;
     readonly canViewMembers: boolean;
     readonly canUpdate: boolean;
     readonly canReadActivity: boolean;

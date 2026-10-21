@@ -59,6 +59,7 @@ export class TeamDetailService {
             subject,
             org,
             owner: governance.organization.isOwner || governance.organization.isSuperAdmin,
+            isSuperAdmin: governance.organization.isSuperAdmin,
             canManageMembers: governance.canManageOrganizationMembers,
             canManageRoles: governance.canEditRoleDefinitions,
             workspaceManager: governance.memberVisibility.kind === 'workspace',
@@ -107,15 +108,18 @@ export class TeamDetailService {
                       orderBy: { id: 'asc' },
                   })
                 : [];
+            const member = memberDetailView(
+                context.row,
+                context.org.ownerUserId,
+                includeRoles,
+                context
+            );
             return {
                 organization: { id: context.org.id, name: context.org.name },
-                member: memberDetailView(context.row, context.org.ownerUserId, includeRoles),
-                roles: roles.map((role) => roleDetailView(role, protectedRoleCodes)),
+                member,
+                roles: roles.map((role) => roleDetailView(role, protectedRoleCodes, context)),
                 definitions: [...this.permission.definitions()],
-                canManageRoles:
-                    context.canManageMembers &&
-                    context.row.userId !== context.org.ownerUserId &&
-                    context.row.status === 'ACTIVE',
+                canManageRoles: member.canManageRoles,
                 canReadOrganizationRoles: includeRoles,
                 canReadActivity:
                     context.self || context.canManageMembers || context.workspaceManager,
@@ -158,7 +162,8 @@ export class TeamDetailService {
                     memberDetailView(
                         row,
                         access.org.ownerUserId,
-                        access.canManageMembers || row.userId === access.userId
+                        access.canManageMembers || row.userId === access.userId,
+                        access
                     )
                 ),
                 total,
@@ -234,7 +239,7 @@ export class TeamDetailService {
                     leftAt: row.leftAt?.toISOString() ?? null,
                     workspace: workspaceDetailView(row.workspace),
                     roles: row.roleBindings.map((binding) =>
-                        roleDetailView(binding.role, protectedRoleCodes)
+                        roleDetailView(binding.role, protectedRoleCodes, context)
                     ),
                 })),
                 total,
@@ -314,11 +319,13 @@ export class TeamDetailService {
                     });
             return {
                 organization: { id: context.org.id, name: context.org.name },
-                role: roleDetailView(context.role, protectedRoleCodes),
+                role: roleDetailView(context.role, protectedRoleCodes, context),
                 definitions: [...this.permission.definitions()].filter(
                     (item) => item.scope === context.role.scope
                 ),
-                canEdit: context.canManageRoles && !protectedRoleCodes.has(context.role.code),
+                canEdit:
+                    context.canManageRoles &&
+                    (!protectedRoleCodes.has(context.role.code) || context.isSuperAdmin),
                 canReadBindings: context.canReadBindings,
                 canReadActivity: context.canManageRoles,
                 bindingTotal,
@@ -393,7 +400,7 @@ export class TeamDetailService {
                 take: query.pageSize,
             });
             return {
-                items: rows.map((row) => roleDetailView(row, protectedRoleCodes)),
+                items: rows.map((row) => roleDetailView(row, protectedRoleCodes, context)),
                 total,
                 page: query.page,
                 pageSize: query.pageSize,
@@ -436,7 +443,12 @@ export class TeamDetailService {
                 return {
                     items: rows.map((row) => ({
                         id: row.member.id,
-                        member: memberDetailView(row.member, context.org.ownerUserId),
+                        member: memberDetailView(
+                            row.member,
+                            context.org.ownerUserId,
+                            true,
+                            context
+                        ),
                         workspace: null,
                         createdAt: row.createdAt.toISOString(),
                     })),
@@ -476,7 +488,8 @@ export class TeamDetailService {
                     member: memberDetailView(
                         row.member.organizationMember,
                         context.org.ownerUserId,
-                        context.canManageMembers
+                        context.canManageMembers,
+                        context
                     ),
                     workspace: workspaceDetailView(row.member.workspace),
                     createdAt: row.createdAt.toISOString(),

@@ -63,6 +63,7 @@ export function createDetailFixture(): DetailCatalog {
                 .filter((item) => item.scope === 'ORGANIZATION')
                 .map((item) => item.code),
             protected: true,
+            canEdit: false,
             grantable: false,
             createdAt: date,
             updatedAt: date,
@@ -76,6 +77,7 @@ export function createDetailFixture(): DetailCatalog {
             scope: 'WORKSPACE' as const,
             permissions: ['workspace.read', 'workspace.member.manage'],
             protected: true,
+            canEdit: false,
             grantable: true,
             createdAt: date,
             updatedAt: date,
@@ -89,6 +91,7 @@ export function createDetailFixture(): DetailCatalog {
             scope: 'WORKSPACE' as const,
             permissions: ['workspace.read'],
             protected: false,
+            canEdit: true,
             grantable: true,
             createdAt: date,
             updatedAt: date,
@@ -102,6 +105,7 @@ export function createDetailFixture(): DetailCatalog {
             scope: 'WORKSPACE' as const,
             permissions: ['workspace.read'],
             protected: false,
+            canEdit: false,
             grantable: true,
             createdAt: date,
             updatedAt: date,
@@ -115,6 +119,7 @@ export function createDetailFixture(): DetailCatalog {
             scope: 'ORGANIZATION' as const,
             permissions: ['organization.read'],
             protected: false,
+            canEdit: true,
             grantable: true,
             createdAt: date,
             updatedAt: date,
@@ -131,6 +136,8 @@ export function createDetailFixture(): DetailCatalog {
         email: `researcher${index + 1}@example.test`,
         status: index === 5 ? ('LEFT' as const) : ('ACTIVE' as const),
         isOwner: index === 0,
+        canManageRoles: index > 0 && index < 5,
+        canRemove: index > 0 && index < 5,
         roles:
             index === 0
                 ? [{ id: roles[0].id, name: roles[0].name }]
@@ -149,6 +156,8 @@ export function createDetailFixture(): DetailCatalog {
         email: 'researcher2@example.test',
         status: 'ACTIVE',
         isOwner: false,
+        canManageRoles: false,
+        canRemove: false,
         roles: [],
         joinedAt: date,
         leftAt: null,

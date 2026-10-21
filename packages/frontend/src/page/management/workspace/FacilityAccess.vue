@@ -50,7 +50,9 @@ const { data, loading, error, refresh } = useFacilityRead(
                     <p class="break-words font-medium">{{ item.name }}</p>
                     <p class="text-sm text-muted-foreground">
                         {{ item.code }} ·
-                        {{ item.managementWorkspaceId === scope.workspaceId ? '管理工作区设施' : '共享设施' }}
+                        {{
+                            item.managementWorkspaceId === scope.workspaceId ? '管理工作区设施' : '其他工作区管理的设施'
+                        }}
                     </p>
                 </div>
                 <Button

@@ -325,12 +325,10 @@ watch(
             (modal.value === 'role' &&
                 (!data.canManageRoles ||
                     (selectedRole.value &&
-                        !data.roles.some((item) => item.id === selectedRole.value?.id && !item.protected)))) ||
+                        !data.roles.some((item) => item.id === selectedRole.value?.id && item.canEdit)))) ||
             (modal.value === 'bindings' &&
                 (!data.canManageMembers ||
-                    !data.members.some(
-                        (item) => item.id === selectedMember.value?.id && item.status === 'ACTIVE' && !item.isOwner
-                    ))) ||
+                    !data.members.some((item) => item.id === selectedMember.value?.id && item.canManageRoles))) ||
             (modal.value === 'invite' && !data.canInvite)
         )
             modal.value = null;
@@ -378,12 +376,10 @@ function editRole(role?: TeamRole) {
     modal.value = 'role';
 }
 function memberActions(member: TeamMember) {
-    if (!team.data?.canManageMembers || member.isOwner) return [];
+    if (!team.data?.canManageMembers) return [];
     return [
-        ...(member.status === 'ACTIVE'
-            ? [{ label: '分配角色', icon: ShieldCheck, run: () => editBindings(member) }]
-            : []),
-        ...(member.status !== 'LEFT'
+        ...(member.canManageRoles ? [{ label: '分配角色', icon: ShieldCheck, run: () => editBindings(member) }] : []),
+        ...(member.canRemove
             ? [
                   {
                       label: selectedWorkspaceId.value ? '移出工作区' : '移出组织',
@@ -400,7 +396,7 @@ function memberActions(member: TeamMember) {
     ];
 }
 function roleActions(role: TeamRole) {
-    if (!team.data?.canManageRoles || role.protected) return [];
+    if (!team.data?.canManageRoles || !role.canEdit) return [];
     return [
         { label: '编辑角色', icon: Pencil, run: () => editRole(role) },
         {

@@ -17,12 +17,25 @@ contexts allow administrators without manufacturing membership rows or claiming
 ownership; ordinary requireMembership remains facts-only. Owner-gated governance
 and capability projections explicitly recognize system administrators.
 
+System administrators bypass authorization rules, including organization/workspace
+membership, owner-only governance, protected-role administration, designated
+approval actors, uploader-only access and workspace-to-facility access relations.
+This does not create membership or sharing records, transfer ownership, or replace
+the original requester, approver or uploader. Business audit records the actual actor.
+
 Authentication, CSRF/session protection, permission-definition validation, archived
-contexts, resource ownership facts, business-state rules, idempotency identity,
-upload-session ownership, quantity invariants, transactions and business audit are
-unchanged. Workspace-to-facility storage eligibility remains a business constraint,
-even when the actor is a system administrator. Unsupported APIs do not become
-implemented through this override.
+contexts, resource scope and identity, business-state rules, idempotency identity,
+upload credentials and leases, quantity invariants and transactions remain enforced.
+An invitation still identifies its intended recipient; consuming it does not let an
+actor substitute another account. Unsupported APIs do not become implemented
+through this override.
+
+The 2026-10-21 B02 correction supersedes the earlier facility-eligibility and
+upload-ownership exceptions. See `facility-super-admin-b02-scope-2026-10-21.md`
+for the implemented scope and verification limits. Existing databases also need
+the explicitly operated `system-super-admin-approval.sql` upgrade before accepting
+superadmin self-review requests; application authorization still rejects ordinary
+self-review.
 
 ## Operator Commands
 

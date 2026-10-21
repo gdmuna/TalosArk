@@ -74,10 +74,23 @@ export class OrganizationTeamService {
                         select: { ownerUserId: true },
                     }
                 );
-                const member = await this.organization.requireMembership(
-                    organization.ownerUserId,
-                    organizationId
-                );
+                const member = (await this.permission.isSuperAdmin(this.operations.actor()))
+                    ? await this.database.queryClient.organizationMember.findFirst({
+                          where: {
+                              organizationId,
+                              userId: organization.ownerUserId,
+                              status: 'ACTIVE',
+                          },
+                          select: { id: true },
+                      })
+                    : {
+                          id: (
+                              await this.organization.requireMembership(
+                                  organization.ownerUserId,
+                                  organizationId
+                              )
+                          ).organizationMemberId,
+                      };
                 const role = await this.permission.createRole({
                     organizationId,
                     code: 'organization-governance',
@@ -85,11 +98,12 @@ export class OrganizationTeamService {
                     scope: 'ORGANIZATION',
                     permissions: [op.members, op.roles, op.invitations],
                 });
-                await this.permission.bindRole({
-                    scope: this.target(organizationId),
-                    memberId: member.organizationMemberId,
-                    roleId: role.id,
-                });
+                if (member)
+                    await this.permission.bindRole({
+                        scope: this.target(organizationId),
+                        memberId: member.id,
+                        roleId: role.id,
+                    });
                 const manager = await this.permission.findRole({
                     organizationId,
                     scope: 'WORKSPACE',
@@ -125,6 +139,7 @@ export class OrganizationTeamService {
                 const scope = this.target(organizationId, query.workspaceId);
                 const owner =
                     governance.organization.isOwner || governance.organization.isSuperAdmin;
+                const isSuperAdmin = governance.organization.isSuperAdmin;
                 const organizationManager = governance.canManageOrganizationMembers;
                 const canManageMembers = governance.memberVisibility.kind !== 'self';
                 const roles =
@@ -148,12 +163,16 @@ export class OrganizationTeamService {
                         : [];
                 const roleViews = roles.map((role) => ({
                     ...role,
+                    canEdit:
+                        governance.canEditRoleDefinitions &&
+                        (!protectedRoleCodes.has(role.code) || isSuperAdmin),
                     permissions: role.permissions.map((item) => item.permissionCode),
                     protected: protectedRoleCodes.has(role.code),
                     grantable:
                         role.scope === (query.workspaceId ? 'WORKSPACE' : 'ORGANIZATION') &&
-                        role.code !== 'organization-owner' &&
-                        role.code !== 'organization-governance',
+                        (isSuperAdmin ||
+                            (role.code !== 'organization-owner' &&
+                                role.code !== 'organization-governance')),
                     updatedAt: role.updatedAt.toISOString(),
                 }));
                 if (!organizationManager) {
@@ -240,6 +259,8 @@ export class OrganizationTeamService {
                         email: row.organizationMember.user.email,
                         status: row.status,
                         isOwner: false,
+                        canManageRoles: false,
+                        canRemove: false,
                         roles: row.roleBindings.map((binding) => binding.role),
                     }));
                 } else {
@@ -269,6 +290,8 @@ export class OrganizationTeamService {
                         email: row.user.email,
                         status: row.status,
                         isOwner: false,
+                        canManageRoles: false,
+                        canRemove: false,
                         roles: row.roleBindings.map((binding) => binding.role),
                     }));
                 }
@@ -279,6 +302,14 @@ export class OrganizationTeamService {
                 members = members.map((member) => ({
                     ...member,
                     isOwner: member.userId === org.ownerUserId,
+                    canManageRoles:
+                        canManageMembers &&
+                        member.status === 'ACTIVE' &&
+                        (member.userId !== org.ownerUserId || isSuperAdmin),
+                    canRemove:
+                        canManageMembers &&
+                        member.status !== 'LEFT' &&
+                        (member.userId !== org.ownerUserId || isSuperAdmin),
                 }));
                 const canInvite = governance.canInvite;
                 const invitationWhere = {
@@ -443,7 +474,13 @@ export class OrganizationTeamService {
             organizationId,
             () => this.manage(organizationId, workspaceId),
             async (ownerManager) => {
-                const target = await this.member(organizationId, memberId, workspaceId);
+                const isSuperAdmin = await this.permission.isSuperAdmin(this.operations.actor());
+                const target = await this.member(
+                    organizationId,
+                    memberId,
+                    workspaceId,
+                    isSuperAdmin
+                );
                 if (target.status !== 'ACTIVE') throw new TeamError({ reason: 'conflict' });
                 const roles = await this.database.queryClient.role.findMany({
                     where: {
@@ -460,9 +497,10 @@ export class OrganizationTeamService {
                 });
                 if (
                     roles.length !== new Set(roleIds).size ||
-                    roles.some((role) =>
-                        ['organization-owner', 'organization-governance'].includes(role.code)
-                    )
+                    (!isSuperAdmin &&
+                        roles.some((role) =>
+                            ['organization-owner', 'organization-governance'].includes(role.code)
+                        ))
                 )
                     throw new TeamError({ reason: 'forbidden' });
                 if (!ownerManager) {
@@ -525,8 +563,18 @@ export class OrganizationTeamService {
                 if (!self) await this.manage(organizationId, workspaceId);
             },
             async () => {
-                const target = await this.member(organizationId, memberId, workspaceId);
-                if (self && target.userId !== this.operations.actor())
+                const target = await this.member(
+                    organizationId,
+                    memberId,
+                    workspaceId,
+                    await this.permission.isSuperAdmin(this.operations.actor())
+                );
+                const isSelf = target.userId === this.operations.actor();
+                if (
+                    self &&
+                    !isSelf &&
+                    !(await this.permission.isSuperAdmin(this.operations.actor()))
+                )
                     throw new TeamError({ reason: 'forbidden' });
                 if (target.status === 'LEFT') return;
                 if (workspaceId) {
@@ -569,7 +617,7 @@ export class OrganizationTeamService {
                 });
                 await this.operations.record(
                     organizationId,
-                    self ? 'member.leave' : 'member.remove',
+                    self && isSelf ? 'member.leave' : 'member.remove',
                     {
                         memberId,
                         organizationMemberId: target.organizationMemberId,
@@ -600,7 +648,12 @@ export class OrganizationTeamService {
         return this.removeMember(organizationId, member.id, workspaceId, true);
     }
 
-    private async member(organizationId: string, memberId: string, workspaceId?: string) {
+    private async member(
+        organizationId: string,
+        memberId: string,
+        workspaceId?: string,
+        allowOwner = false
+    ) {
         const org = await this.database.queryClient.organization.findUniqueOrThrow({
             where: { id: organizationId },
             select: { ownerUserId: true },
@@ -631,7 +684,8 @@ export class OrganizationTeamService {
                   },
               });
         if (!member) throw new TeamError({ reason: 'forbidden' });
-        if (member.userId === org.ownerUserId) throw new TeamError({ reason: 'conflict' });
+        if (member.userId === org.ownerUserId && !allowOwner)
+            throw new TeamError({ reason: 'conflict' });
         return {
             organizationMemberId: member.id,
             userId: member.userId,
@@ -645,7 +699,11 @@ export class OrganizationTeamService {
             organizationId,
             () => this.owner(organizationId, op.roles),
             async () => {
-                if (protectedRoleCodes.has(body.code)) throw new TeamError({ reason: 'conflict' });
+                if (
+                    protectedRoleCodes.has(body.code) &&
+                    !(await this.permission.isSuperAdmin(this.operations.actor()))
+                )
+                    throw new TeamError({ reason: 'conflict' });
                 this.validatePermissions(body.permissions, body.scope);
                 if (
                     await this.permission.findRole({
@@ -674,7 +732,11 @@ export class OrganizationTeamService {
                     where: { id: roleId, organizationId, archivedAt: null },
                     select: { id: true, code: true, updatedAt: true },
                 });
-                if (!role || protectedRoleCodes.has(role.code))
+                if (
+                    !role ||
+                    (protectedRoleCodes.has(role.code) &&
+                        !(await this.permission.isSuperAdmin(this.operations.actor())))
+                )
                     throw new TeamError({ reason: 'conflict' });
                 if (body) {
                     if (role.updatedAt.toISOString() !== body.expectedUpdatedAt)

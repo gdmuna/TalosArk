@@ -49,7 +49,11 @@ export function workspaceDetailView(row: WorkspaceRow) {
         archivedAt: row.archivedAt?.toISOString() ?? null,
     };
 }
-export function roleDetailView(row: RoleRow, protectedCodes: ReadonlySet<string>) {
+export function roleDetailView(
+    row: RoleRow,
+    protectedCodes: ReadonlySet<string>,
+    access?: { canManageRoles: boolean; isSuperAdmin: boolean }
+) {
     return {
         id: row.id,
         organizationId: row.organizationId,
@@ -58,13 +62,19 @@ export function roleDetailView(row: RoleRow, protectedCodes: ReadonlySet<string>
         scope: row.scope,
         permissions: row.permissions.map((item) => item.permissionCode),
         protected: protectedCodes.has(row.code),
+        canEdit: !!access?.canManageRoles && (!protectedCodes.has(row.code) || access.isSuperAdmin),
         grantable: false,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
         archivedAt: row.archivedAt?.toISOString() ?? null,
     };
 }
-export function memberDetailView(row: MemberRow, ownerUserId: string, includeRoles = true) {
+export function memberDetailView(
+    row: MemberRow,
+    ownerUserId: string,
+    includeRoles = true,
+    access?: { canManageMembers: boolean; isSuperAdmin: boolean }
+) {
     return {
         id: row.id,
         organizationMemberId: row.id,
@@ -74,6 +84,14 @@ export function memberDetailView(row: MemberRow, ownerUserId: string, includeRol
         email: row.user.email,
         status: row.status,
         isOwner: row.userId === ownerUserId,
+        canManageRoles:
+            !!access?.canManageMembers &&
+            row.status === 'ACTIVE' &&
+            (row.userId !== ownerUserId || access.isSuperAdmin),
+        canRemove:
+            !!access?.canManageMembers &&
+            row.status !== 'LEFT' &&
+            (row.userId !== ownerUserId || access.isSuperAdmin),
         roles: includeRoles ? row.roleBindings.map((item) => item.role) : [],
         joinedAt: row.joinedAt.toISOString(),
         leftAt: row.leftAt?.toISOString() ?? null,

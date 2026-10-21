@@ -3,8 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import type { AllConfig } from '@/config/index.js';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import { AuthorizationKernel } from '@/core/authorization/index.js';
-import { organizationPermission as op } from '@/core/team-governance/index.js';
+import { AuthorizationError } from '@/core/authorization/index.js';
+import {
+    TeamGovernanceKernel,
+    TeamGovernanceError,
+    organizationPermission as op,
+} from '@/core/team-governance/index.js';
 import { OrganizationTeamService } from './team.service.js';
 import { TeamOperations } from './team.operations.js';
 import { TeamError } from './team.error.js';
@@ -17,7 +21,7 @@ export class OrganizationInvitationService {
         private readonly team: OrganizationTeamService,
         private readonly operations: TeamOperations,
         private readonly delivery: InvitationDelivery,
-        private readonly authorization: AuthorizationKernel,
+        private readonly governance: TeamGovernanceKernel,
         private readonly config: ConfigService<AllConfig, true>
     ) {}
 
@@ -166,7 +170,7 @@ export class OrganizationInvitationService {
         const invitation = await this.database.queryClient.organizationInvitation.findUnique({
             where: { tokenHash: invitationHash(token) },
             include: {
-                organization: { select: { name: true, ownerUserId: true, archivedAt: true } },
+                organization: { select: { name: true, archivedAt: true } },
                 workspace: { select: { name: true, archivedAt: true } },
             },
         });
@@ -182,16 +186,23 @@ export class OrganizationInvitationService {
             invitation.revokedAt ||
             invitation.expiresAt <= new Date() ||
             invitation.organization.archivedAt ||
-            invitation.workspace?.archivedAt ||
-            invitation.invitedById !== invitation.organization.ownerUserId
+            invitation.workspace?.archivedAt
         )
             throw new TeamError({ reason: 'invitation-invalid' });
-        const authority = await this.authorization.check({
-            subject: { kind: 'user', userId: invitation.invitedById },
-            permissionCode: op.invitations,
-            target: { kind: 'organization', organizationId: invitation.organizationId },
-        });
-        if (!authority.allowed) throw new TeamError({ reason: 'invitation-invalid' });
+        try {
+            await this.governance.requireOrganizationOwner({
+                subject: { kind: 'user', userId: invitation.invitedById },
+                organizationId: invitation.organizationId,
+                permissionCode: op.invitations,
+            });
+        } catch (error) {
+            if (
+                AuthorizationError.is(error, 'forbidden') ||
+                TeamGovernanceError.is(error, 'forbidden')
+            )
+                throw new TeamError({ reason: 'invitation-invalid' });
+            throw error;
+        }
         return { invitation, user };
     }
 

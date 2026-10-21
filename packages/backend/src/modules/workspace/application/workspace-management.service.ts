@@ -119,6 +119,14 @@ export class WorkspaceManagementService {
                         email: member.user.email,
                         status: member.status,
                         isOwner: member.userId === workspace.organization.ownerUserId,
+                        canManageRoles:
+                            access.canManageOrganizationMembers &&
+                            (member.userId !== workspace.organization.ownerUserId ||
+                                access.isSuperAdmin),
+                        canRemove:
+                            access.canManageOrganizationMembers &&
+                            (member.userId !== workspace.organization.ownerUserId ||
+                                access.isSuperAdmin),
                         joinedAt: member.joinedAt.toISOString(),
                         leftAt: member.leftAt?.toISOString() ?? null,
                         roles: [],

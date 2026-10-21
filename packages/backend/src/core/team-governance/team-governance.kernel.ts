@@ -99,12 +99,14 @@ export class TeamGovernanceKernel {
                     scope: { kind: 'organization', organizationId },
                 },
             ]);
+            const canManageOrganizationMembers =
+                (context.organization.isOwner || context.organization.isSuperAdmin) &&
+                grants[3].allowed;
             return Object.freeze({
                 userId: subject.userId,
-                canViewMembers:
-                    grants[0].allowed ||
-                    ((context.organization.isOwner || context.organization.isSuperAdmin) &&
-                        grants[3].allowed),
+                isSuperAdmin: context.organization.isSuperAdmin,
+                canManageOrganizationMembers,
+                canViewMembers: grants[0].allowed || canManageOrganizationMembers,
                 canUpdate: grants[1].allowed,
                 canReadActivity: grants[2].allowed,
             });

@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
-import type { PermissionSubject } from '@/core/permission/index.js';
+import { PermissionKernel, type PermissionSubject } from '@/core/permission/index.js';
 import { FacilityAccessService } from '../application/facility-access.service.js';
 import { FacilityStorageReader } from '../infrastructure/persistence/facility-storage.reader.js';
 import { FacilityStorageTopologyWriter } from './facility-storage-topology.writer.js';
@@ -20,16 +21,32 @@ export interface StorageRelocationInput {
     rowIndex?: number | null;
     columnIndex?: number | null;
 }
-export type PreparedStorageRelocation = Awaited<ReturnType<FacilityRelocation['prepare']>>;
+interface StorageRelocationEndpoint {
+    readonly facilityId: string;
+    readonly topologyId: string;
+    readonly path: string;
+    readonly managementWorkspaceId: string;
+    readonly accessWorkspaceIds: readonly string[];
+}
+export interface PreparedStorageRelocation {
+    readonly source: StorageRelocationEndpoint;
+    readonly target: StorageRelocationEndpoint;
+    readonly root: { readonly id: string; readonly resourceId: string; readonly name: string };
+    readonly nodeIds: readonly string[];
+    /** The content owner supplies ordered version facts; Facility does not interpret them. */
+    fingerprint(contentVersions: readonly (readonly (string | number)[])[]): string;
+    apply(): Promise<void>;
+}
 @Injectable()
 export class FacilityRelocation {
     constructor(
         private readonly database: DatabaseRuntime,
         private readonly access: FacilityAccessService,
         private readonly facts: FacilityStorageReader,
-        private readonly writer: FacilityStorageTopologyWriter
+        private readonly writer: FacilityStorageTopologyWriter,
+        private readonly policies: PermissionKernel
     ) {}
-    async authorize(
+    private async authorizedFacilities(
         subject: PermissionSubject,
         organizationId: string,
         input: StorageRelocationInput
@@ -48,15 +65,22 @@ export class FacilityRelocation {
         );
         return { source, target };
     }
+    async authorize(
+        subject: PermissionSubject,
+        organizationId: string,
+        input: StorageRelocationInput
+    ): Promise<void> {
+        await this.authorizedFacilities(subject, organizationId, input);
+    }
     async prepare(
         subject: PermissionSubject,
         organizationId: string,
         input: StorageRelocationInput,
         lock: boolean
-    ) {
+    ): Promise<PreparedStorageRelocation> {
         const transaction = this.database.transaction.current();
         if (!transaction) throw new FacilityError({ reason: 'invalid-state' });
-        const { source, target } = await this.authorize(subject, organizationId, input);
+        const { source, target } = await this.authorizedFacilities(subject, organizationId, input);
         if (source.facility.archivedAt || target.facility.archivedAt || target.facility.disabledAt)
             throw new FacilityError({ reason: 'invalid-state' });
         if (lock)
@@ -107,33 +131,94 @@ export class FacilityRelocation {
             throw new Error('Relocation source or parent location is missing');
         const sourcePath = sourceLocation.path;
         const parentPath = parentLocation?.path ?? target.facility.name;
+        const accessWorkspaceIds = (facilityId: string, managementWorkspaceId: string) => [
+            ...new Set([
+                managementWorkspaceId,
+                ...grants.filter((g) => g.facilityId === facilityId).map((g) => g.workspaceId),
+            ]),
+        ];
         return {
-            organizationId,
-            input,
-            source: source.facility,
-            target: target.facility,
-            sourceLayout,
-            targetLayout,
-            root,
-            nodes,
-            grants,
-            sourcePath,
-            targetPath: `${parentPath} / ${root.name} [${input.code ?? root.code}]`,
-            lock,
-            transactionId: transaction.id,
+            source: {
+                facilityId: source.facility.id,
+                topologyId: sourceLayout.id,
+                path: sourcePath,
+                managementWorkspaceId: source.facility.managementWorkspaceId,
+                accessWorkspaceIds: accessWorkspaceIds(
+                    source.facility.id,
+                    source.facility.managementWorkspaceId
+                ),
+            },
+            target: {
+                facilityId: target.facility.id,
+                topologyId: targetLayout.id,
+                path: `${parentPath} / ${root.name} [${input.code ?? root.code}]`,
+                managementWorkspaceId: target.facility.managementWorkspaceId,
+                accessWorkspaceIds: accessWorkspaceIds(
+                    target.facility.id,
+                    target.facility.managementWorkspaceId
+                ),
+            },
+            root: { id: root.id, resourceId: root.resourceId, name: root.name },
+            nodeIds: nodes.map((node) => node.id),
+            // Preserve the existing preimage and property order so old previews remain valid.
+            fingerprint: (contentVersions) =>
+                createHash('sha256')
+                    .update(
+                        JSON.stringify({
+                            input,
+                            source: source.facility,
+                            target: target.facility,
+                            sourceRevision: sourceLayout.revision,
+                            targetRevision: targetLayout.revision,
+                            root: root.id,
+                            grants,
+                            items: contentVersions,
+                        })
+                    )
+                    .digest('hex'),
+            apply: async () => {
+                if (!lock || this.database.transaction.current()?.id !== transaction.id)
+                    throw new FacilityError({ reason: 'invalid-state' });
+                await this.writer.move({
+                    organizationId,
+                    topologyId: input.sourceTopologyId,
+                    targetTopologyId: input.targetTopologyId,
+                    nodeId: input.nodeId,
+                    parentId: input.parentId,
+                    code: input.code,
+                    rowIndex: input.rowIndex ?? undefined,
+                    columnIndex: input.columnIndex ?? undefined,
+                });
+                await this.database.queryClient.storageTopology.updateMany({
+                    where: {
+                        id: { in: [...new Set([input.sourceTopologyId, input.targetTopologyId])] },
+                    },
+                    data: { revision: { increment: 1 } },
+                });
+            },
         };
     }
-    async requireWorkspaceAccess(organizationId: string, workspaceId: string, facilityId: string) {
+    async requireWorkspaceAccess(
+        subject: PermissionSubject,
+        organizationId: string,
+        workspaceId: string,
+        facilityId: string
+    ) {
+        const isSuperAdmin = await this.policies.isSuperAdmin(subject.userId);
         const facility = await this.database.queryClient.facility.findFirst({
             where: {
                 id: facilityId,
                 organizationId,
                 archivedAt: null,
                 disabledAt: null,
-                OR: [
-                    { managementWorkspaceId: workspaceId },
-                    { workspaceAccess: { some: { workspaceId } } },
-                ],
+                ...(!isSuperAdmin
+                    ? {
+                          OR: [
+                              { managementWorkspaceId: workspaceId },
+                              { workspaceAccess: { some: { workspaceId } } },
+                          ],
+                      }
+                    : {}),
             },
             select: { id: true },
         });
@@ -141,24 +226,5 @@ export class FacilityRelocation {
     }
     locations(organizationId: string, nodeIds: readonly string[]) {
         return storageLocations(this.database, organizationId, nodeIds);
-    }
-    async apply(prepared: PreparedStorageRelocation) {
-        if (!prepared.lock || this.database.transaction.current()?.id !== prepared.transactionId)
-            throw new FacilityError({ reason: 'invalid-state' });
-        const { input, organizationId } = prepared;
-        await this.writer.move({
-            organizationId,
-            topologyId: input.sourceTopologyId,
-            targetTopologyId: input.targetTopologyId,
-            nodeId: input.nodeId,
-            parentId: input.parentId,
-            code: input.code,
-            rowIndex: input.rowIndex ?? undefined,
-            columnIndex: input.columnIndex ?? undefined,
-        });
-        await this.database.queryClient.storageTopology.updateMany({
-            where: { id: { in: [...new Set([input.sourceTopologyId, input.targetTopologyId])] } },
-            data: { revision: { increment: 1 } },
-        });
     }
 }

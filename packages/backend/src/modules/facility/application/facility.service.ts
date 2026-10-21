@@ -221,7 +221,8 @@ export class FacilityService {
                         ...access.capabilities,
                         manage:
                             access.capabilities.manage &&
-                            (!context.workspaceId ||
+                            (access.capabilities.govern ||
+                                !context.workspaceId ||
                                 row.managementWorkspaceId === context.workspaceId ||
                                 workspaceAccess.some((grant) => grant.level === 'MANAGE')),
                     },
