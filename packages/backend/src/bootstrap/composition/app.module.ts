@@ -7,6 +7,8 @@ import { IamModule } from '@/infra/iam/index.js';
 import { MailModule } from '@/infra/mail/index.js';
 import { StorageModule } from '@/infra/storage/index.js';
 import { HealthModule } from '@/system/health/health.module.js';
+import { BullmqModule } from '@/infra/queue/bullmq/index.js';
+import { MaintenanceModule } from '@/system/maintenance/file-cleanup.task.js';
 
 import { AuthModule } from '@/modules/auth/index.js';
 import { AuthRecoveryModule } from '@/modules/auth/auth-recovery.module.js';
@@ -108,6 +110,8 @@ import { ZodValidationPipe } from 'nestjs-zod';
         ApprovalModule,
         PlatformContextModule,
         HealthModule,
+        BullmqModule,
+        MaintenanceModule,
     ],
     providers: [
         ...errorProviders,

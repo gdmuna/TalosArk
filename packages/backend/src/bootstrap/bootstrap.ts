@@ -3,6 +3,7 @@ import { APP_AUTHOR, APP_VERSION, type AllConfig } from '@/config/index.js';
 import { AppModule } from './composition/app.module.js';
 import { installProcessShutdown } from './lifecycle/shutdown.js';
 import { HealthState } from '@/system/health/health.state.js';
+import { BullmqRuntime } from '@/infra/queue/bullmq/index.js';
 
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
@@ -73,6 +74,7 @@ export async function bootstrap() {
         registerOpenApi(app);
 
         await app.init();
+        await app.get(BullmqRuntime).start();
         await app.listen(port, '0.0.0.0');
         app.get(HealthState).markReady();
         logger.log(`Server started at: http://localhost:${port}`);

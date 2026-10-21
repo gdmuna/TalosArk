@@ -1,5 +1,4 @@
 # Docker operations
-
 Each Compose layout is a self-contained directory. Its `compose.yaml`, Compose
 input file, Casdoor configuration, and any layout-specific bootstrap scripts
 live together; shared backend build assets remain in this directory.
@@ -56,6 +55,40 @@ The backend connects to PostgreSQL, Valkey, and RustFS through their internal
 Compose service names. For browser-direct uploads, configure an S3 endpoint
 reachable by both browser and backend, normally through a reverse proxy or a
 public S3 hostname.
+
+The buckets named by `S3_BUCKET_PUBLIC`, `S3_BUCKET_PRIVATE`, and
+`S3_BUCKET_STAGING` must already exist on that endpoint. Neither Compose nor
+backend startup creates them. RustFS process health does not verify bucket
+existence or access. Browser uploads also require bucket CORS: allow the actual
+frontend origin, `PUT`/`GET`/`HEAD`, the `content-type` and
+`x-amz-checksum-sha256` request headers, and expose `ETag` for multipart uploads.
+Use explicit origins, such as `http://localhost:4444` for local development.
+
+Upload sessions persist their staging bucket when created. Changing the bucket
+environment variables only affects new sessions; retrying an existing session
+continues using its original bucket. Cancel the old upload and select the file
+again when correcting a bucket configuration.
+
+From the repository root, check the selected runtime configuration explicitly:
+
+```sh
+pnpm --filter @talos-ark/backend storage:check --env-file secrets/env/.env.development.local secrets/env/.env.development --origin http://localhost:4444
+```
+
+`check` is read-only. To create missing configured buckets and merge browser CORS,
+run the same command with `storage:init`. Environment files are highest priority
+first; without `--env-file`, the command uses the injected process environment.
+Pass every real frontend origin after `--origin`, separated by spaces. Origins
+must include the scheme and port, without a path or trailing slash. `init` preserves
+unrelated CORS rules and previously managed origins; it does not configure public
+access, ACLs or lifecycle rules, and never rewrites saved upload sessions.
+
+Both local development profiles now select the inspected local API endpoint and
+`talos-ark-dev` bucket. The S3 endpoint must use the object API port, not the web
+console port. `S3_PUBLIC_BASE_URL` is the API/CDN base, without the bucket suffix;
+the storage adapter appends the bucket and key. After environment changes, restart
+the complete backend start command, including its dotenvx/watch parent process;
+recompiling a child Node process does not reload its parent's environment.
 
 ### Backend configuration and keys
 
@@ -141,3 +174,17 @@ The artifact is written to packages/docsite/api-reference/openapi.json. Docsite
 publishing, Scalar and nginx consume that file; see
 [docsite README](../../../docsite/README.md). GitHub Actions execution, registry
 pushes and production rollout remain separate from local delivery verification.
+# Reliable background work (I09)
+
+Background work is opt-in. Synchronize the additive `BackgroundJob` Prisma model first,
+then enable `TASK_ENABLED=true`. Full Compose forwards TASK_ENABLED, TASK_WORKER_ENABLED
+and TASK_QUEUE_PREFIX; runtime env files provide other task options. Default inline
+consumption uses two slots. Set TASK_WORKER_ENABLED=false in Web when running the built
+`dist/src/worker.js` separately with the same database, Redis URL and prefix.
+
+Dev/full Valkey uses AOF everysec and noeviction. Avoid sharing queue data with an
+evicting cache configuration. Startup does not synchronize schemas. Worker shutdown
+must fit inside the container/process stop budget. Trusted `pnpm task` maintenance
+supports inspect, retry with an operator note, recover and bounded prune. No public
+queue dashboard or recurring cleanup is enabled. See
+`../../docs/design/mvp-i09-2026-10-21.md` for invocation and validation boundaries.

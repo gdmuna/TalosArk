@@ -1,12 +1,17 @@
 import type { Server } from 'node:http';
+import type { INestApplicationContext } from '@nestjs/common';
 import type { NestApplicationContext } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { PinoLogger } from 'nestjs-pino';
 import type { LifecycleConfig } from '@/config/lifecycle.config.js';
 import { HealthState } from '@/system/health/health.state.js';
+import { BullmqRuntime } from '@/infra/queue/bullmq/index.js';
 
 /** The process owns signals and the deadline; Nest still owns resource hooks. */
-export async function installProcessShutdown(app: NestFastifyApplication, config: LifecycleConfig) {
+export async function installProcessShutdown(
+    app: INestApplicationContext,
+    config: LifecycleConfig
+) {
     const health = app.get(HealthState);
     const logger = (await app.resolve(PinoLogger)).logger;
     let closing: Promise<void> | undefined;
@@ -57,16 +62,23 @@ export async function installProcessShutdown(app: NestFastifyApplication, config
     }
 
     async function drainAndClose(signal?: NodeJS.Signals): Promise<void> {
+        if (!('getHttpAdapter' in app)) {
+            await app.get(BullmqRuntime).stop();
+            await app.close();
+            return;
+        }
+        const httpApp = app as NestFastifyApplication;
         // Nest close() destroys providers before disposing HTTP: drain HTTP first.
         const timer = setTimeout(() => {
             logger.warn('HTTP drain timed out; remaining connections aborted');
-            (app.getHttpServer() as Server).closeAllConnections();
+            (httpApp.getHttpServer() as Server).closeAllConnections();
         }, config.httpDrainTimeoutMs);
         try {
-            await app.getHttpAdapter().close();
+            await httpApp.getHttpAdapter().close();
         } finally {
             clearTimeout(timer);
         }
+        await app.get(BullmqRuntime).stop();
         await (app.close as NestApplicationContext['close']).call(app, signal);
     }
 

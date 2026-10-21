@@ -1,5 +1,12 @@
-/**
- * TODO: 定义任务内核导出边界。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+export { TaskKernel } from './task.kernel.js';
+export { TaskModule } from './task.module.js';
+export { TaskHandlerExtension } from './task-handler.decorator.js';
+export { TaskError, TaskFailure } from './task.error.js';
+export type { TaskHandler } from './task-handler.js';
+export type {
+    TaskDefinition,
+    TaskPolicy,
+    TaskContext,
+    TaskValue,
+    TaskEnqueueOptions,
+} from './task.types.js';

@@ -1,0 +1,42 @@
+/// Durable work and its pending dispatch record. Independent of ordinary Task.
+model BackgroundJob {
+  id                 String              @id @default(uuid(7)) @db.Uuid
+  kind               String
+  version            Int
+  payload            Json
+  policy             Json
+  status             BackgroundJobStatus @default(PENDING)
+  generation         Int                 @default(1)
+  attempts           Int                 @default(0)
+  budgetUsed         Int                 @default(0)
+  dispatchAttempts   Int                 @default(0)
+  availableAt        DateTime            @default(now()) @db.Timestamptz(3)
+  expiresAt          DateTime?           @db.Timestamptz(3)
+  checkAt            DateTime            @default(now()) @db.Timestamptz(3)
+  dispatchToken      String?             @db.Uuid
+  dispatchUntil      DateTime?           @db.Timestamptz(3)
+  executionToken     String?             @db.Uuid
+  executionUntil     DateTime?           @db.Timestamptz(3)
+  sourceRequestId    String?
+  startedAt          DateTime?           @db.Timestamptz(3)
+  finishedAt         DateTime?           @db.Timestamptz(3)
+  result             Json?
+  failureCode        String?
+  operatorNote       String?
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@index([status, checkAt, id])
+  @@index([status, finishedAt, id])
+  @@index([kind, createdAt, id])
+}
+
+enum BackgroundJobStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  NEEDS_REVIEW
+  EXPIRED
+}

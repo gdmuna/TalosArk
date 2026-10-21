@@ -12,6 +12,7 @@ import { observabilityConfig, ObservabilityConfig } from './observability.config
 import { storageConfig, StorageConfig } from './storage.config.js';
 import { teamConfig, type TeamConfig } from './team.config.js';
 import { inventoryConfig, type InventoryConfig } from './inventory.config.js';
+import { queueConfig, type QueueConfig } from './queue.config.js';
 
 // 导出所有配置
 
@@ -30,6 +31,7 @@ export type AllConfig = {
     storage: StorageConfig;
     team: TeamConfig;
     inventory: InventoryConfig;
+    queue: QueueConfig;
 };
 
 export const allConfig = {
@@ -47,6 +49,7 @@ export const allConfig = {
     storageConfig,
     teamConfig,
     inventoryConfig,
+    queueConfig,
 };
 
 export default [...Object.values(allConfig)];

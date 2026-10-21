@@ -1,4 +1,2 @@
-/**
- * TODO: 定义 BullMQ infrastructure 的导出边界。
- */
-export {};
+export { BullmqModule } from './bullmq.module.js';
+export { BullmqRuntime } from './bullmq.runtime.js';

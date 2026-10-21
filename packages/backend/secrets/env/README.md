@@ -4,8 +4,8 @@
 `.env.test`、`.env.production` 都保留完整的配置变量名；`.local` 是稀疏覆盖文件，
 只需要写与对应基础文件不同的项，不需要复制整份配置。
 
-当前配置代码实际读取 **80 个运行时变量**。示例和基础文件另外列出一个工具变量
-`BACKEND_URL`，供 OpenAPI 导出脚本使用。队列配置目前没有实现，不能提前列出虚构的队列开关。
+示例和基础文件另列工具变量 `BACKEND_URL`，供 OpenAPI 导出脚本使用。
+I09 的 Background tasks 分组默认关闭；同步新增模型后用 `TASK_ENABLED=true` 启用。
 
 ## 加载规则
 
@@ -62,6 +62,24 @@ local 不等于天然被 Git 忽略，敏感值仍需按 dotenvx 流程加密或
 | SMTP                           | Web 启动已接入 MailModule；development 已通过连接和认证验证，其他环境仍须确认真实 SMTP 主机、发件身份、认证凭据及 TLS 配置                                                           |
 | production 文档/认证/来源 URL  | 必须匹配真实部署；此轮不猜测域名，不替换已有设置。新补 `ERROR_REFERENCE_URL` 维持代码原默认值，并加部署提醒                                                                          |
 | Prisma dev/test/prod 基础 env  | 两个数据库 URL 原先为空，已加必填标记；配置好的 local 文件仍作为独立可选 profile 使用                                                                                                |
+
+## Background tasks 变量
+
+| 变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `TASK_ENABLED` | `false` | 启动 BullMQ 队列和 Outbox 派发/恢复循环；先同步 BackgroundJob 模型 |
+| `TASK_WORKER_ENABLED` | `true` | Web 进程内消费；独立 Worker 入口始终启用消费 |
+| `TASK_REDIS_URL` | 空 | 非空时独立连接，否则继承 KVS_URL；不是复用 KvsClient 连接 |
+| `TASK_QUEUE_PREFIX` | `talosark` | Redis 队列命名空间，各环境应隔离 |
+| `TASK_CONCURRENCY` | `2` | 每个 Worker 进程的并发数，范围 1..32 |
+| `TASK_POLL_INTERVAL_MS` | `5000` | 数据库派发/恢复扫描间隔，范围 500..60000 毫秒 |
+| `TASK_BATCH_SIZE` | `20` | 每轮有界扫描及 CLI 清理批量，范围 1..200 |
+| `TASK_REDIS_TIMEOUT_MS` | `3000` | 生产连接建连/命令等待预算，范围 100..30000 毫秒 |
+| `TASK_CLOSE_TIMEOUT_MS` | `3000` | 任务运行时退出预算，范围 100..60000 毫秒；需与总关闭预算协调 |
+| `TASK_RETENTION_DAYS` | `30` | CLI prune 的成功/过期任务保留期，范围 1..365 天 |
+
+基础环境文件保留所有变量；local 仍为稀疏覆盖。纯 Web/Worker 共用 prefix；不同环境使用不同 prefix。
+失败和待确认记录不自动删除。当前没有周期调度或自动清理开关；详见 I09 实施说明。
 
 ## Mail 变量
 

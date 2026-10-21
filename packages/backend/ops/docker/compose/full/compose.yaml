@@ -28,7 +28,16 @@ services:
     image: ${VALKEY_IMAGE:?Set VALKEY_IMAGE in .env.}
     container_name: talos-ark_full-valkey
     restart: unless-stopped
-    command: ['valkey-server', '--appendonly', 'yes']
+    command:
+      [
+        'valkey-server',
+        '--appendonly',
+        'yes',
+        '--appendfsync',
+        'everysec',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
     volumes:
       - valkey-data:/data
     healthcheck:
@@ -107,6 +116,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env.}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env.}?schema=public
       SHADOW_DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env.}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.}@postgres:5432/${POSTGRES_SHADOW_DB:?Set POSTGRES_SHADOW_DB in .env.}?schema=public
       KVS_URL: redis://valkey:6379
+      TASK_ENABLED: ${TASK_ENABLED:-false}
+      TASK_WORKER_ENABLED: ${TASK_WORKER_ENABLED:-true}
+      TASK_QUEUE_PREFIX: ${TASK_QUEUE_PREFIX:-talosark}
       S3_ENDPOINT: http://rustfs:9000
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:?Set RUSTFS_ACCESS_KEY in .env.}

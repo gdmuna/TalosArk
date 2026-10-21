@@ -4,7 +4,16 @@ services:
   valkey:
     image: ${VALKEY_IMAGE:?Set VALKEY_IMAGE in .env.}
     container_name: talos-ark_dev-valkey
-    command: ['valkey-server', '--appendonly', 'yes']
+    command:
+      [
+        'valkey-server',
+        '--appendonly',
+        'yes',
+        '--appendfsync',
+        'everysec',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
     volumes:
       - valkey-data:/data
     ports:

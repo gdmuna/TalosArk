@@ -1,5 +1,7 @@
-/**
- * TODO: 定义任务处理器装饰器。
- * 当前文件只声明新架构的 seam，不提供运行时行为。
- */
-export {};
+import { defineExtensionPoint } from '@/platform/extensions/index.js';
+import { createExtensionDecorator } from '@/platform/extensions/discovery/index.js';
+import type { TaskDefinition } from './task.types.js';
+
+export const taskHandlerPoint = defineExtensionPoint<TaskDefinition>('task.handler');
+export const TaskHandlerExtension: (definition: TaskDefinition) => ClassDecorator =
+    createExtensionDecorator(taskHandlerPoint);
