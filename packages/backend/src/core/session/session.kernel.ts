@@ -87,24 +87,7 @@ export class SessionKernel {
                     idleExpiresAt: sessionIdleExpiresAt.toDate(),
                     user: { connect: { id: input.userId } },
                     tokenPairs: {
-                        create: {
-                            id: tokenPair.tokenPairId,
-                            accessToken: {
-                                create: {
-                                    id: tokenPair.accessToken.jti,
-                                    // Match the persisted issue time to the JWT's rounded-down iat.
-                                    createdAt: now.startOf('second').toDate(),
-                                    expiresAt: tokenPair.accessToken.expiresAt,
-                                },
-                            },
-                            refreshToken: {
-                                create: {
-                                    tokenHash: tokenPair.refreshToken.hash,
-                                    createdAt: now.startOf('second').toDate(),
-                                    expiresAt: tokenPair.refreshToken.expiresAt,
-                                },
-                            },
-                        },
+                        create: tokenPair.persistence,
                     },
                 },
             })
@@ -117,17 +100,7 @@ export class SessionKernel {
                 version: session.version,
                 idleExpiresAt: session.idleExpiresAt,
             },
-            tokenPair: {
-                id: tokenPair.tokenPairId,
-                accessToken: {
-                    value: tokenPair.accessToken.value,
-                    expiresAt: tokenPair.accessToken.expiresAt,
-                },
-                refreshToken: {
-                    value: tokenPair.refreshToken.value,
-                    expiresAt: tokenPair.refreshToken.expiresAt,
-                },
-            },
+            tokenPair: tokenPair.credentials,
         };
     }
 
@@ -143,43 +116,7 @@ export class SessionKernel {
                 this.database.transaction.run(
                     async () => {
                         // Session updates (including revocation) serialize with this lock.
-                        const locked = await this.database.queryClient.$queryRaw<{ id: string }[]>`
-                            SELECT s."id"
-                            FROM "public"."Session" s
-                            JOIN "public"."TokenPair" p ON p."sessionId" = s."id"
-                            JOIN "public"."RefreshToken" r ON r."pairId" = p."id"
-                            WHERE r."tokenHash" = ${refreshTokenHash}
-                            FOR UPDATE OF s
-                        `;
-                        if (locked.length === 0) {
-                            throw new SessionError({ reason: 'session-inactive' });
-                        }
-
-                        // Re-read after waiting: the previous holder may have consumed this RT.
-                        const refreshToken =
-                            await this.database.queryClient.refreshToken.findUnique({
-                                where: { tokenHash: refreshTokenHash },
-                                select: {
-                                    id: true,
-                                    consumedAt: true,
-                                    expiresAt: true,
-                                    tokenPair: {
-                                        select: {
-                                            generation: true,
-                                            revokedAt: true,
-                                            session: {
-                                                select: {
-                                                    id: true,
-                                                    userId: true,
-                                                    version: true,
-                                                    idleExpiresAt: true,
-                                                    revokedAt: true,
-                                                },
-                                            },
-                                        },
-                                    },
-                                },
-                            });
+                        const refreshToken = await this.readLockedRefreshToken(refreshTokenHash);
                         const nowDate = new Date();
                         if (!refreshToken || refreshToken.expiresAt <= nowDate) {
                             throw new SessionError({ reason: 'session-inactive' });
@@ -232,24 +169,7 @@ export class SessionKernel {
                                 version: { increment: 1 },
                                 updatedAt: now.startOf('second').toDate(),
                                 tokenPairs: {
-                                    create: {
-                                        id: tokenPair.tokenPairId,
-                                        generation: nextVersion,
-                                        accessToken: {
-                                            create: {
-                                                id: tokenPair.accessToken.jti,
-                                                createdAt: now.startOf('second').toDate(),
-                                                expiresAt: tokenPair.accessToken.expiresAt,
-                                            },
-                                        },
-                                        refreshToken: {
-                                            create: {
-                                                tokenHash: tokenPair.refreshToken.hash,
-                                                createdAt: now.startOf('second').toDate(),
-                                                expiresAt: tokenPair.refreshToken.expiresAt,
-                                            },
-                                        },
-                                    },
+                                    create: { ...tokenPair.persistence, generation: nextVersion },
                                 },
                             },
                             select: {
@@ -262,17 +182,7 @@ export class SessionKernel {
 
                         return {
                             session: updatedSession,
-                            tokenPair: {
-                                id: tokenPair.tokenPairId,
-                                accessToken: {
-                                    value: tokenPair.accessToken.value,
-                                    expiresAt: tokenPair.accessToken.expiresAt,
-                                },
-                                refreshToken: {
-                                    value: tokenPair.refreshToken.value,
-                                    expiresAt: tokenPair.refreshToken.expiresAt,
-                                },
-                            },
+                            tokenPair: tokenPair.credentials,
                         };
                     },
                     { isolationLevel: 'ReadCommitted' }
@@ -398,27 +308,7 @@ export class SessionKernel {
         await this.execute(() =>
             this.database.transaction.run(
                 async () => {
-                    const rows = await this.database.queryClient.$queryRaw<{ id: string }[]>`
-                SELECT s."id" FROM public."Session" s
-                JOIN public."TokenPair" p ON p."sessionId" = s."id"
-                JOIN public."RefreshToken" r ON r."pairId" = p."id"
-                WHERE r."tokenHash" = ${hash} FOR UPDATE OF s
-            `;
-                    if (rows.length === 0) return;
-                    const token = await this.database.queryClient.refreshToken.findUnique({
-                        where: { tokenHash: hash },
-                        select: {
-                            expiresAt: true,
-                            tokenPair: {
-                                select: {
-                                    revokedAt: true,
-                                    session: {
-                                        select: { id: true, revokedAt: true, idleExpiresAt: true },
-                                    },
-                                },
-                            },
-                        },
-                    });
+                    const token = await this.readLockedRefreshToken(hash);
                     if (
                         token &&
                         token.expiresAt > new Date() &&
@@ -569,6 +459,44 @@ export class SessionKernel {
         };
     }
 
+    private async readLockedRefreshToken(tokenHash: string) {
+        // The caller retains its ReadCommitted transaction through the subsequent writes.
+        // Return post-lock facts only; admission and time remain caller-owned.
+        const locked = await this.database.queryClient.$queryRaw<{ id: string }[]>`
+            SELECT s."id"
+            FROM "public"."Session" s
+            JOIN "public"."TokenPair" p ON p."sessionId" = s."id"
+            JOIN "public"."RefreshToken" r ON r."pairId" = p."id"
+            WHERE r."tokenHash" = ${tokenHash}
+            FOR UPDATE OF s
+        `;
+        if (locked.length === 0) return null;
+        // The previous lock holder may have consumed or revoked these credentials.
+        return await this.database.queryClient.refreshToken.findUnique({
+            where: { tokenHash },
+            select: {
+                id: true,
+                consumedAt: true,
+                expiresAt: true,
+                tokenPair: {
+                    select: {
+                        generation: true,
+                        revokedAt: true,
+                        session: {
+                            select: {
+                                id: true,
+                                userId: true,
+                                version: true,
+                                idleExpiresAt: true,
+                                revokedAt: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
     private async execute<T>(
         operation: () => PromiseLike<T>,
         inactiveOnMissing = false
@@ -619,7 +547,7 @@ export class SessionKernel {
             .setExpirationTime(accessTokenExpiresAtSeconds)
             .sign(this.signingKey);
 
-        return {
+        const tokenPair = {
             accessToken: {
                 value: accessToken,
                 expiresAt: accessTokenExpiresAt.startOf('second').toDate(),
@@ -631,6 +559,37 @@ export class SessionKernel {
                 hash: refreshTokenHash,
             },
             tokenPairId,
+        };
+        return {
+            persistence: {
+                id: tokenPair.tokenPairId,
+                accessToken: {
+                    create: {
+                        id: tokenPair.accessToken.jti,
+                        // Match the persisted issue time to the JWT's rounded-down iat.
+                        createdAt: now.startOf('second').toDate(),
+                        expiresAt: tokenPair.accessToken.expiresAt,
+                    },
+                },
+                refreshToken: {
+                    create: {
+                        tokenHash: tokenPair.refreshToken.hash,
+                        createdAt: now.startOf('second').toDate(),
+                        expiresAt: tokenPair.refreshToken.expiresAt,
+                    },
+                },
+            },
+            credentials: {
+                id: tokenPair.tokenPairId,
+                accessToken: {
+                    value: tokenPair.accessToken.value,
+                    expiresAt: tokenPair.accessToken.expiresAt,
+                },
+                refreshToken: {
+                    value: tokenPair.refreshToken.value,
+                    expiresAt: tokenPair.refreshToken.expiresAt,
+                },
+            },
         };
     }
 }
