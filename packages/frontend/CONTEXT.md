@@ -480,7 +480,8 @@ they do not constitute Tauri or whole-application mobile acceptance.
 
 P10's material-owned attachment adapter uses the published schema and current
 material read/update permissions. The file view provides cursor lists, metadata,
-single PUT uploads (up to the material purpose's 100 MiB limit), SHA-256 verification,
+single PUT uploads and explicitly selected multipart uploads (up to the material
+purpose's 100 MiB limit), SHA-256 verification,
 binding, signed downloads and confirmed removal; archived materials remain readonly.
 Upload intent/session/asset/reference state persists in account-keyed tab-session
 storage, without signed URLs, binary content or credentials. Retrying completion
@@ -488,8 +489,13 @@ and binding reuses the original session and asset. Account changes abort and cle
 the old runtime; same-tab reload requires reselecting and hashing the original file
 when transfer remains incomplete. Confirmed writes recover synchronization by reads.
 `platform/file-transfer` has no business dependency and sends signed storage requests
-without application authentication. Multipart UI, real storage/CORS and browser
-acceptance are not claimed. See the same directory's material-p10 acceptance record.
+without application authentication. R06 resumes multipart uploads from validated
+server part sizes/ETags and the original completion manifest, without persisting a
+second local part list. Its isolated browser checks cover upload/recovery and Batch
+inventory interaction. Local real-storage browser PUT/download/ETag/CORS and
+two-part backend SHA-256/recovery checks now pass; authenticated multipart UI and
+deployment acceptance remain separate gates. See docs/remediation/2026-10-15/r06/audit-2026-10-21.md and
+the material-p10 acceptance record.
 
 The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
 test scripts unless the user explicitly requests them.

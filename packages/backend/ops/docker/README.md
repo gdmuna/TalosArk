@@ -1,4 +1,5 @@
 # Docker operations
+
 Each Compose layout is a self-contained directory. Its `compose.yaml`, Compose
 input file, Casdoor configuration, and any layout-specific bootstrap scripts
 live together; shared backend build assets remain in this directory.

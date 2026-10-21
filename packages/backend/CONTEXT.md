@@ -934,6 +934,15 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
   cleanup must be invoked by trusted maintenance, and unknown multipart upload IDs
   require staging lifecycle rules. The approved test.local database is synchronized
   to the current Prisma schema; dev/prod and real deployment acceptance remain untouched.
+- Storage operations are checked/provisioned explicitly with `storage:check` and
+  `storage:init` (see ops/docker/README.md), never by application startup. Upload
+  progress does not initialize multipart storage; signing initializes it on demand.
+  File maps known storage availability/configuration failures into its own error,
+  and Material exposes `MATERIAL_ATTACHMENT_STORAGE_UNAVAILABLE` (HTTP 503) without
+  leaking bucket/endpoint details. Missing buckets retain a distinct internal
+  reason. Saved sessions keep their original bucket; cancellation does not require
+  storage access. Local real-storage and isolated checks are not full authenticated
+  business acceptance.
   APIs, options, deployment prerequisites and isolated verification
   live in docs/design/mvp-i08a-2026-10-18.md.
 - The file kernel has no IMAGE, DOCUMENT, or VIDEO upload-purpose enumeration.
@@ -971,6 +980,19 @@ Native DDL ordering and existing-tree upgrade precautions live in prisma/ddl/REA
   A future Casdoor authorization client belongs beside the OIDC client in infra/iam,
   registered by the same IamModule; authorization business decisions enter through
   core/permission. No remote authorization client is activated by the local evaluator.
+
+## Reliable background work (I09)
+
+`core/task` owns BackgroundJob, mandatory-transaction submission, frozen versioned handler
+contributions, execution budget and fenced outcomes. BackgroundJob doubles as its Outbox;
+ordinary Task and event Outbox/Inbox placeholders are unchanged. `infra/queue/bullmq` owns
+connections, bounded SKIP LOCKED dispatch/reconciliation and Worker execution. Redis carries
+only ID/generation. TASK_ENABLED defaults false until schema synchronization; Web supports
+inline workers and a separate src/worker.ts composition avoids HTTP/SMTP/IAM initialization.
+Shutdown stops workers before dependent File/Storage providers. Interrupted non-repeatable
+work requires review; explicit manual retry preserves total attempts. First handler is bounded
+file cleanup; no scheduler or credential-bearing mail workflow is enabled. See
+docs/design/mvp-i09-2026-10-21.md for configuration, CLI, invariants and verification limits.
 
 ## Verification expectation
 
