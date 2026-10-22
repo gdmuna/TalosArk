@@ -478,23 +478,58 @@ visibility; they are not an application-wide public surface.
   The existing nestjs-pino integration remains replaceable without changing
   error factories, catalogs, resolver or business projections. Adapters that rethrow do not also
   log the same command failure. Current inbound performance instrumentation is
-  platform/http/interceptors/performance.interceptor.ts. The composition root
+  platform/http/http.observation.ts, registered before Nest routes and guards. The composition root
   registers platform/observability/logger/logger.module.ts, which supplies one
-  Pino root to nestjs-pino for both request and out-of-context logging. Development
-  uses its custom pretty worker transport; other environments retain asynchronous
-  JSON file output. Event-keyed, owner-local pure pretty adapters customize only
+  Pino root to nestjs-pino for both request and out-of-context logging. LOG_OUTPUT
+  selects console/file/both in one asynchronous worker. Console format is pretty
+  or JSON; files are JSON with optional time/size rotation and count retention.
+  Unspecified settings preserve development pretty console and other environments'
+  single JSON file. Sampling drops only trace/debug/info before serialization,
+  once per record for both outputs; warn/error/fatal still obey level filters.
+  Event-keyed, owner-local pure pretty adapters customize only
   the summary; existing structured fields remain visible. The worker owns the
   header and linear error stacks; branching errors and ordinary objects retain
   pino-pretty rendering. Owner module declarations supply diagnostic/pretty modules
   using native imports. The logger snapshots them after Nest scans the graph;
-  development startup waits for worker ready (5-second deadline), including required
-  imports and duplicate-event checks. Failure aborts startup and closes the worker;
-  other environments do not create a pretty worker. Flat JSON diagnostic fields are
+  every startup waits for all enabled destinations (including actual file opens)
+  within the configurable 5-second default deadline. Pretty imports and duplicate-event
+  checks run only when pretty is enabled. Failure aborts startup and closes the worker;
+  the worker's asynchronous flush waits for parsing, rendering and all sink buffers
+  inside the existing process log budget.
+  File prefixes require one writer; containers can use JSON stdout for external collection.
+  Flat JSON diagnostic fields are
   bounded and cannot override serializer/Pino structure. Workers never import Nest
   or SDK modules. Usage and extension
   rules live in docs/design/logger-pretty.md. Register forRoot() at composition
-  time so every imported InjectPinoLogger context is available. infra/observability
-  is reserved for a real external sink or exporter, not another logger wrapper.
+  time so every imported InjectPinoLogger context is available.
+
+- platform/observability owns logging, metrics, tracing and their private SDK/exporter
+  implementations; there is no separate infra/observability package. main/worker initialize
+  typed, opt-in OTel before dynamically importing their application graph. Fastify owns
+  request spans; its lifecycle observation records completion/abort once, including guard
+  rejection and unmatched routes. Pino attaches active trace IDs before its output worker.
+  Owner-local HTTP/Database telemetry records independent unsampled metrics; gateway
+  attempts propagate W3C trace context, and Prisma supplies additional query spans.
+  Span projection removes SQL, URLs, vendor exception events and status descriptions
+  before batching. Existing business ALS and transaction semantics are unchanged.
+  Shutdown drains resources, closes telemetry within its budget, then flushes logs.
+  BackgroundJob persists optional W3C source context; acquired attempts create independent
+  consumer traces linked to that source and record confirmed execution outcomes. Shared SQL
+  backlog is sampled with a diagnostic Redis lease, strict query budgets and explicit caps,
+  never queried during export. KVS observes node-redis diagnostics without patching its API;
+  opt-in runtime metrics cover main-thread GC/event-loop windows. Mail/Storage/IAM own
+  logical-operation observations; S3 attempts/presigning/stream consumption have separate
+  meanings, and token rejection is observed without changing synchronous return contracts.
+  Queue dispatch/connection events and HTTP credential/send-slot waits are observed separately.
+  Core permission-engine, password, session verification, idempotency and audit entries expose
+  bounded technical metrics without actor, payload or key labels; audit/idempotency return
+  metrics do not claim a committed business transaction. Startup/shutdown spans do not become
+  active parents of long-lived callbacks; readiness remains process-only. Collector deployments,
+  host/container monitoring, dashboards and alerting remain later work. The coverage matrix and
+  evidence limits live in docs/design/observability-infrastructure-coverage.md.
+  Existing databases need the explicit background-job-telemetry upgrade before deployment;
+  startup does not apply DDL. Contracts, configuration and verification limits live in
+  docs/design/observability-application-loop.md.
 
 ## Layout
 
@@ -517,7 +552,7 @@ visibility; they are not an application-wide public surface.
     |   |   +-- realtime/                      # websocket and SSE adapters
     |   |   +-- context/                       # ALS runtime adapter
     |   |   +-- extensions/                    # pure typed contribution index; discovery/ Nest bridge
-    |   |   +-- observability/logger/          # Nest Pino wiring and pretty worker transport
+    |   |   +-- observability/                 # logger, OTel metrics/tracing and private exporters
     |   |   `-- lifecycle/                     # only a real Nest -> Core bridge
     |   +-- core/
     |   |   +-- context/ identity/ session/
@@ -533,7 +568,7 @@ visibility; they are not an application-wide public surface.
     |   |   +-- queue/bullmq/                  # TODO adapters, not a running queue
     |   |   +-- storage/                       # retained S3-compatible adapter
     |   |   +-- mail/                          # retained generic SMTP adapter
-    |   |   `-- search/ realtime/ observability/ # TODO adapters and external exporters
+    |   |   `-- search/ realtime/              # TODO external adapters
     |   +-- modules/
     |   |   +-- auth/
     |   |   +-- organization/ workspace/ material/ inventory/
