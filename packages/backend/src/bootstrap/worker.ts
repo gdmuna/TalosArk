@@ -10,7 +10,7 @@ import type { ObservabilityRuntime } from '@/platform/observability/observabilit
 
 export async function bootstrapWorker(observability?: ObservabilityRuntime) {
     const app = await NestFactory.createApplicationContext(WorkerModule, {
-        bufferLogs: true,
+        // bufferLogs: true,
         abortOnError: false,
     });
     app.useLogger(app.get(Logger));
