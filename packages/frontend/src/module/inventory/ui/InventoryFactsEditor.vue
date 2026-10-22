@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch, useId } from 'vue';
 import { InstanceCorrectionSchema } from '@talos-ark/contracts/inventory';
 import type { InventoryStock } from '../data/source';
 import { inventoryErrorMessage, useInventoryDataSource, useInventoryScope } from '../model/read';
@@ -8,8 +8,13 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
+import { Checkbox } from '@/ui/checkbox';
 import { Textarea } from '@/ui/textarea';
 import { SelectField } from '@/component/select-field';
+import { Field, FieldError, FieldLabel, FieldSet } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 const props = defineProps<{
     stock: InventoryStock;
@@ -200,53 +205,64 @@ async function reloadDraft() {
             </div>
             <ScrollArea class="min-h-0 flex-1">
                 <form class="space-y-5 p-6" @submit.prevent="submit">
-                    <fieldset class="space-y-4 border-0 p-0" :disabled="locked">
-                        <label class="grid gap-2 text-sm">
-                            <span>标签</span>
-                            <Input v-model="label" maxlength="200" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            <span>备注</span>
-                            <Textarea v-model="notes" maxlength="4000" rows="4" />
-                        </label>
+                    <FieldSet class="border-0 p-0" :disabled="locked">
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-1'">标签</FieldLabel>
+                            <Input :id="formFieldId + '-1'" v-model="label" maxlength="200" />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-2'">备注</FieldLabel>
+                            <Textarea :id="formFieldId + '-2'" v-model="notes" maxlength="4000" rows="4" />
+                        </Field>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="grid gap-2 text-sm">
-                                <span>生产日期</span>
-                                <Input v-model="manufacturedOn" type="date" />
-                            </label>
-                            <label class="grid gap-2 text-sm">
-                                <span>到货日期</span>
-                                <Input v-model="receivedOn" type="date" />
-                            </label>
-                            <label class="grid gap-2 text-sm">
-                                <span>开封时间（本地）</span>
-                                <Input v-model="openedAt" type="datetime-local" step="1" />
-                            </label>
-                            <SelectField
-                                v-model="expiryKind"
-                                label="有效期"
-                                :disabled="locked"
-                                :options="[
-                                    { value: 'UNKNOWN', label: '未知' },
-                                    { value: 'NONE', label: '无期限' },
-                                    { value: 'DATED', label: '指定日期' },
-                                ]"
-                            />
-                            <label v-if="expiryKind === 'DATED'" class="grid gap-2 text-sm">
-                                <span>有效期至</span>
-                                <Input v-model="expiryDate" type="date" required />
-                            </label>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-3'">生产日期</FieldLabel>
+                                <Input :id="formFieldId + '-3'" v-model="manufacturedOn" type="date" />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-4'">到货日期</FieldLabel>
+                                <Input :id="formFieldId + '-4'" v-model="receivedOn" type="date" />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-5'">开封时间（本地）</FieldLabel>
+                                <Input :id="formFieldId + '-5'" v-model="openedAt" type="datetime-local" step="1" />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="standaloneFieldId + '-1'">有效期</FieldLabel>
+                                <SelectField
+                                    :id="standaloneFieldId + '-1'"
+                                    v-model="expiryKind"
+                                    label="有效期"
+                                    :disabled="locked"
+                                    :options="[
+                                        { value: 'UNKNOWN', label: '未知' },
+                                        { value: 'NONE', label: '无期限' },
+                                        { value: 'DATED', label: '指定日期' },
+                                    ]"
+                                />
+                            </Field>
+                            <Field v-if="expiryKind === 'DATED'">
+                                <FieldLabel :for="formFieldId + '-6'">有效期至</FieldLabel>
+                                <Input :id="formFieldId + '-6'" v-model="expiryDate" type="date" required />
+                            </Field>
                         </div>
-                        <label class="grid gap-2 text-sm">
-                            <span>更正原因 *</span>
-                            <Textarea v-model="reason" maxlength="1000" rows="3" required />
-                        </label>
-                        <label v-if="expired" class="flex items-start gap-2 text-sm text-warning">
-                            <input v-model="confirmExpired" type="checkbox" class="mt-1" />
-                            确认该实物已超过有效期，仍保留本次资料。
-                        </label>
-                    </fieldset>
-                    <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-7'">更正原因 *</FieldLabel>
+                            <Textarea :id="formFieldId + '-7'" v-model="reason" maxlength="1000" rows="3" required />
+                        </Field>
+                        <Field v-if="expired" orientation="horizontal" class="items-start text-warning">
+                            <Checkbox
+                                :id="formFieldId + '-8'"
+                                :model-value="confirmExpired"
+                                :disabled="locked"
+                                @update:model-value="confirmExpired = $event === true"
+                            />
+                            <FieldLabel :for="formFieldId + '-8'" class="font-normal">
+                                确认该实物已超过有效期，仍保留本次资料。
+                            </FieldLabel>
+                        </Field>
+                    </FieldSet>
+                    <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
                     <p v-if="committed" role="status" class="text-sm text-success">
                         资料已更正。{{
                             syncPending && !isResponseValidationError(syncFailure ?? props.syncFailure)

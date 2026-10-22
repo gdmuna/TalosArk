@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, watch, useId } from 'vue';
 import { Plus, Save, X } from '@lucide/vue';
 import { BatchWriteSchema } from '@talos-ark/contracts/material';
 import type { MaterialBatch } from '../data/source';
@@ -11,6 +11,9 @@ import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { ScrollArea } from '@/ui/scroll-area';
 import { SelectField } from '@/component/select-field';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const props = defineProps<{
     materialId: string;
@@ -213,18 +216,25 @@ async function reloadOnly() {
             </div>
             <ScrollArea class="min-h-0 flex-1">
                 <form class="space-y-5 p-6" @submit.prevent="submit">
-                    <label class="grid gap-2 text-sm">
-                        <span>批号 *</span>
-                        <Input v-model="batchNumber" maxlength="160" required :disabled="locked" />
-                    </label>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-1'">批号 *</FieldLabel>
+                        <Input
+                            :id="formFieldId + '-1'"
+                            v-model="batchNumber"
+                            maxlength="160"
+                            required
+                            :disabled="locked"
+                        />
+                    </Field>
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <label class="grid gap-2 text-sm">
-                            <span>生产日期</span>
-                            <Input v-model="manufacturedOn" type="date" :disabled="locked" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            <span>有效期</span>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-2'">生产日期</FieldLabel>
+                            <Input :id="formFieldId + '-2'" v-model="manufacturedOn" type="date" :disabled="locked" />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-3'">有效期</FieldLabel>
                             <SelectField
+                                :id="formFieldId + '-3'"
                                 v-model="expiryKind"
                                 label="有效期"
                                 :options="[
@@ -234,19 +244,25 @@ async function reloadOnly() {
                                 ]"
                                 :disabled="locked"
                             />
-                        </label>
+                        </Field>
                     </div>
-                    <label v-if="expiryKind === 'DATED'" class="grid gap-2 text-sm">
-                        <span>有效期至</span>
-                        <Input v-model="expiryDate" type="date" required :disabled="locked" />
-                    </label>
-                    <label class="grid gap-2 text-sm">
-                        <span>备注</span>
-                        <Textarea v-model="notes" rows="5" maxlength="4000" :disabled="locked" />
-                    </label>
-                    <p v-if="validation || store.error" role="alert" class="text-sm text-destructive">
+                    <Field v-if="expiryKind === 'DATED'">
+                        <FieldLabel :for="formFieldId + '-4'">有效期至</FieldLabel>
+                        <Input :id="formFieldId + '-4'" v-model="expiryDate" type="date" required :disabled="locked" />
+                    </Field>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-5'">备注</FieldLabel>
+                        <Textarea
+                            :id="formFieldId + '-5'"
+                            v-model="notes"
+                            rows="5"
+                            maxlength="4000"
+                            :disabled="locked"
+                        />
+                    </Field>
+                    <FieldError v-if="validation || store.error" role="alert" class="text-sm text-destructive">
                         {{ validation || store.error }}
-                    </p>
+                    </FieldError>
                     <div v-if="committed" class="rounded-md border border-success/40 bg-success-soft p-3 text-sm">
                         <p class="font-medium">批次已保存</p>
                         <p

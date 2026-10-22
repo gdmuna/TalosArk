@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, useId, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Network, Box, MapPin, List, Grid2X2, Plus, Pencil, ArrowUp, Search, RotateCw } from '@lucide/vue';
 import { useFacilityDataSource, useFacilityRead } from '../model/read';
@@ -13,6 +13,9 @@ import { CopyableId } from '@/component/inspector';
 import StorageBranch from './StorageBranch.vue';
 import StorageCommand from './StorageCommand.vue';
 import ReadFeedback from './ReadFeedback.vue';
+import { Field, FieldLabel } from '@/ui/field';
+
+const searchId = useId();
 
 const props = defineProps<{
     facility: FacilityDetail;
@@ -347,7 +350,16 @@ const unavailable: Record<string, string> = {
                     </Button>
                 </div>
                 <form class="flex gap-2" @submit.prevent="query = draft.trim()">
-                    <Input v-model="draft" maxlength="160" aria-label="搜索存储节点" placeholder="搜索节点名称或编号" />
+                    <Field class="min-w-0 flex-1">
+                        <FieldLabel :for="searchId" class="sr-only">搜索存储节点</FieldLabel>
+                        <Input
+                            :id="searchId"
+                            v-model="draft"
+                            maxlength="160"
+                            aria-label="搜索存储节点"
+                            placeholder="搜索节点名称或编号"
+                        />
+                    </Field>
                     <Button variant="outline" size="icon-sm" use-tooltip title="搜索存储节点">
                         <Search aria-hidden="true" />
                     </Button>

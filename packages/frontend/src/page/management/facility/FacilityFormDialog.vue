@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { FacilityWriteSchema } from '@talos-ark/contracts/facility';
 import { useAccountStore } from '@/module/account';
 import { useWorkspaceStore } from '@/module/workspace';
@@ -11,6 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dial
 import { SelectField } from '@/component/select-field';
 import { DataSyncNotice } from '@/component/data-sync';
 import ReadFeedback from './ReadFeedback.vue';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 const open = defineModel<boolean>('open', { default: false });
 const props = defineProps<{ scope: FacilityScope; facility?: FacilitySummary | null }>();
@@ -116,30 +120,35 @@ async function submit() {
                 @retry="refresh"
             />
             <form v-if="data" class="space-y-4" @submit.prevent="submit">
-                <label class="block space-y-2">
-                    <span>设施编号</span>
-                    <Input v-model="code" required maxlength="160" :disabled="disabled" />
-                </label>
-                <label class="block space-y-2">
-                    <span>设施名称</span>
-                    <Input v-model="name" required maxlength="160" :disabled="disabled" />
-                </label>
-                <SelectField
-                    v-model="managementWorkspaceId"
-                    label="管理工作区"
-                    :options="options"
-                    :disabled="disabled"
-                    class="w-full"
-                />
-                <label class="block space-y-2">
-                    <span>位置说明</span>
-                    <Input v-model="location" maxlength="500" :disabled="disabled" />
-                </label>
-                <label class="block space-y-2">
-                    <span>描述</span>
-                    <Textarea v-model="description" maxlength="2000" :disabled="disabled" />
-                </label>
-                <p v-if="validation" role="alert" class="text-sm text-destructive">{{ validation }}</p>
+                <Field>
+                    <FieldLabel :for="formFieldId + '-1'">设施编号</FieldLabel>
+                    <Input :id="formFieldId + '-1'" v-model="code" required maxlength="160" :disabled="disabled" />
+                </Field>
+                <Field>
+                    <FieldLabel :for="formFieldId + '-2'">设施名称</FieldLabel>
+                    <Input :id="formFieldId + '-2'" v-model="name" required maxlength="160" :disabled="disabled" />
+                </Field>
+                <Field class="w-full">
+                    <FieldLabel :for="standaloneFieldId + '-1'">管理工作区</FieldLabel>
+                    <SelectField
+                        :id="standaloneFieldId + '-1'"
+                        v-model="managementWorkspaceId"
+                        label="管理工作区"
+                        :options="options"
+                        :disabled="disabled"
+                    />
+                </Field>
+                <Field>
+                    <FieldLabel :for="formFieldId + '-3'">位置说明</FieldLabel>
+                    <Input :id="formFieldId + '-3'" v-model="location" maxlength="500" :disabled="disabled" />
+                </Field>
+                <Field>
+                    <FieldLabel :for="formFieldId + '-4'">描述</FieldLabel>
+                    <Textarea :id="formFieldId + '-4'" v-model="description" maxlength="2000" :disabled="disabled" />
+                </Field>
+                <FieldError v-if="validation" role="alert" class="text-sm text-destructive">
+                    {{ validation }}
+                </FieldError>
                 <div class="flex justify-end gap-2">
                     <Button type="button" variant="outline" :disabled="busy" @click="open = false">关闭</Button>
                     <Button type="submit" :disabled="disabled">{{ busy ? '保存中' : '保存' }}</Button>

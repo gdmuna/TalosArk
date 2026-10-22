@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch, useId } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Folders, Users, Pencil, FlaskConical, Package, Monitor, Building2 } from '@lucide/vue';
 import { Button } from '@/ui/button';
@@ -21,6 +21,9 @@ import { useDetailRead, useDetailActivity, detailDate } from '../detail/read';
 import { useMaterialDataSource } from '@/module/material';
 import WorkspaceResource from './Resource.vue';
 import FacilityAccess from './FacilityAccess.vue';
+import { Field, FieldDescription, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const route = useRoute(),
     router = useRouter(),
@@ -297,20 +300,29 @@ async function save() {
             >
                 <ManagementSection title="基本资料">
                     <form class="max-w-[720px] space-y-5" @submit.prevent="save">
-                        <label class="grid gap-2 text-sm">
-                            名称
-                            <Input v-model="name" required maxlength="40" :disabled="!data.canUpdate || busy" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            说明
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-1'">名称</FieldLabel>
+                            <Input
+                                :id="formFieldId + '-1'"
+                                v-model="name"
+                                required
+                                maxlength="40"
+                                :disabled="!data.canUpdate || busy"
+                            />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-2'">说明</FieldLabel>
                             <Textarea
+                                :id="formFieldId + '-2'"
                                 v-model="description"
                                 maxlength="500"
                                 rows="5"
                                 :disabled="!data.canUpdate || busy"
                             />
-                            <span class="text-right text-xs text-muted-foreground">{{ description.length }} / 500</span>
-                        </label>
+                            <FieldDescription class="text-right text-xs text-muted-foreground">
+                                {{ description.length }} / 500
+                            </FieldDescription>
+                        </Field>
                         <p v-if="saved && !dirty" role="status" class="text-sm text-success-foreground">更改已保存</p>
                         <div class="flex gap-2">
                             <Button :disabled="!data.canUpdate || !dirty || busy || pendingSync">

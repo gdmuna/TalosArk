@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { isResponseValidationError } from '@/platform/http';
 import { refDebounced } from '@vueuse/core';
@@ -25,6 +25,9 @@ import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import InventoryReceiptDialog from '../../inventory/component/InventoryReceiptDialog.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
+const standaloneFieldId = useId();
+
+import { Field, FieldLabel } from '@/ui/field';
 
 const props = defineProps<{ material: Material; onCommitted: () => Promise<boolean>; syncFailure?: unknown }>();
 const route = useRoute(),
@@ -236,24 +239,29 @@ const inventoryActions: DataTableAction<InventoryStock>[] = [
             </div>
         </div>
         <div class="flex flex-wrap items-end gap-3 border-b py-4">
-            <div class="grid min-w-0 gap-2 text-sm">
-                <span>来源批次</span>
+            <Field class="w-64 max-w-full">
+                <FieldLabel :for="standaloneFieldId + '-1'">来源批次</FieldLabel>
                 <SelectField
+                    :id="standaloneFieldId + '-1'"
                     :model-value="batchId || 'all'"
                     label="来源批次"
                     :options="batchOptions"
                     :disabled="batches.loading.value"
                     @update:model-value="batchId = $event === 'all' ? '' : $event"
                 />
-            </div>
+            </Field>
             <form class="flex min-w-0 gap-2" @submit.prevent="searchBatches">
-                <Input
-                    v-model="batchSearch"
-                    aria-label="搜索可选批次"
-                    placeholder="搜索批号"
-                    maxlength="160"
-                    class="w-48"
-                />
+                <Field class="w-48">
+                    <FieldLabel :for="standaloneFieldId + '-search'" class="sr-only">搜索可选批次</FieldLabel>
+                    <Input
+                        :id="standaloneFieldId + '-search'"
+                        v-model="batchSearch"
+                        aria-label="搜索可选批次"
+                        placeholder="搜索批号"
+                        maxlength="160"
+                        class="w-48"
+                    />
+                </Field>
                 <Button variant="outline" size="icon" title="搜索批次" use-tooltip aria-label="搜索批次">
                     <Search aria-hidden="true" />
                 </Button>

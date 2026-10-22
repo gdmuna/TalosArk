@@ -60,7 +60,7 @@
                         :disabled="pending"
                     />
                 </Field>
-                <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
                 <Button type="submit" class="w-full" :disabled="pending">
                     <LoaderCircle v-if="pending" class="size-4 animate-spin" aria-hidden="true" />
                     <KeyRound v-else class="size-4" aria-hidden="true" />
@@ -92,7 +92,7 @@ import {
 import { useAuthApi } from '@/module/auth';
 import { HttpError, isResponseValidationError } from '@/platform/http';
 import { Button } from '@/ui/button';
-import { Field, FieldLabel } from '@/ui/field';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
 
 const route = useRoute();

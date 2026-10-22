@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch, useId } from 'vue';
 import { ArrowRight, AlertTriangle } from '@lucide/vue';
 import { RelocationSchema, RelocationExecuteSchema } from '@talos-ark/contracts/inventory';
 import { useFacilityDataSource, useFacilityRead, type StorageScope, type StorageNodeDetail } from '@/module/facility';
@@ -15,6 +15,9 @@ import { DataSyncNotice } from '@/component/data-sync';
 import { useInventoryDataSource, useInventoryRelocationStore, relocationErrorMessage } from '@/module/inventory';
 import type { InventoryRelocation, InventoryRelocationPreview } from '@/module/inventory';
 import { isResponseValidationError } from '@/platform/http';
+import { Field, FieldLabel, FieldLegend, FieldSet } from '@/ui/field';
+
+const formFieldId = useId();
 
 const props = defineProps<{ scope: StorageScope; contextKey: string; node?: StorageNodeDetail }>();
 const open = defineModel<boolean>('open', { default: false });
@@ -252,8 +255,8 @@ async function synchronize() {
                 </Button>
             </template>
             <form v-else class="space-y-5" @submit.prevent="submit">
-                <fieldset :disabled="locked" class="space-y-4">
-                    <legend class="mb-3 text-sm font-semibold">目标位置</legend>
+                <FieldSet :disabled="locked">
+                    <FieldLegend class="mb-3 font-semibold">目标位置</FieldLegend>
                     <FacilityPicker
                         v-model="targetId"
                         :scope="scope"
@@ -276,23 +279,23 @@ async function synchronize() {
                         root-label="设施顶层"
                     />
                     <div class="grid gap-3 sm:grid-cols-3">
-                        <label class="grid gap-2 text-sm">
-                            目标编号
-                            <Input v-model="code" maxlength="160" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            所在行（可空）
-                            <Input v-model="row" type="number" min="1" max="10000" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            所在列（可空）
-                            <Input v-model="column" type="number" min="1" max="10000" />
-                        </label>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-1'">目标编号</FieldLabel>
+                            <Input :id="formFieldId + '-1'" v-model="code" maxlength="160" />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-2'">所在行（可空）</FieldLabel>
+                            <Input :id="formFieldId + '-2'" v-model="row" type="number" min="1" max="10000" />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-3'">所在列（可空）</FieldLabel>
+                            <Input :id="formFieldId + '-3'" v-model="column" type="number" min="1" max="10000" />
+                        </Field>
                     </div>
                     <Button type="button" variant="outline" :disabled="!canPreview" @click="inspect">
                         {{ loading ? '正在检查影响' : preview ? '重新预览影响' : '预览搬迁影响' }}
                     </Button>
-                </fieldset>
+                </FieldSet>
                 <section v-if="preview" class="space-y-4 border-t pt-4" aria-label="搬迁影响预览">
                     <h3 class="text-sm font-semibold">搬迁影响</h3>
                     <div class="grid gap-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
@@ -350,14 +353,22 @@ async function synchronize() {
                             结构管理与共享范围将按目标设施规则生效；库存仍归原工作区所有，不向目标设施管理员自动开放库存明细。全部实物一起搬迁，任一校验失败则整次不执行。
                         </p>
                     </div>
-                    <label class="grid gap-2 text-sm">
-                        搬迁原因
-                        <Textarea v-model="reason" required maxlength="1000" :disabled="locked" />
-                    </label>
-                    <label class="flex items-start gap-3 text-sm">
-                        <Checkbox v-model="confirmed" :disabled="locked" class="mt-0.5" />
-                        <span>我已核对全部受影响实物，并确认搬迁后的结构管理与共享范围。</span>
-                    </label>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-4'">搬迁原因</FieldLabel>
+                        <Textarea
+                            :id="formFieldId + '-4'"
+                            v-model="reason"
+                            required
+                            maxlength="1000"
+                            :disabled="locked"
+                        />
+                    </Field>
+                    <Field orientation="horizontal" class="items-start">
+                        <Checkbox :id="formFieldId + '-5'" v-model="confirmed" :disabled="locked" class="mt-0.5" />
+                        <FieldLabel class="font-normal" :for="formFieldId + '-5'">
+                            我已核对全部受影响实物，并确认搬迁后的结构管理与共享范围。
+                        </FieldLabel>
+                    </Field>
                 </section>
                 <div class="flex justify-end gap-2 border-t pt-4">
                     <Button type="button" variant="outline" :disabled="locked" @click="open = false">取消</Button>

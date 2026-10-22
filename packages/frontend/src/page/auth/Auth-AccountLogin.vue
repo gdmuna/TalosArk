@@ -42,7 +42,7 @@
             </Field>
         </FieldGroup>
 
-        <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+        <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
         <Button type="submit" class="w-full" :disabled="pending">
             <LoaderCircle v-if="pending" class="size-4 animate-spin" aria-hidden="true" />
             {{ pending ? '正在登录' : '登录' }}
@@ -57,7 +57,7 @@ import { LoaderCircle } from '@lucide/vue';
 import { PasswordLoginBodySchema } from '@talos-ark/contracts/auth';
 import { authErrorMessage, useAuthApi } from '@/module/auth';
 import { Button } from '@/ui/button';
-import { Field, FieldGroup, FieldLabel } from '@/ui/field';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
 
 const api = useAuthApi();

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch, useId } from 'vue';
 import { InventoryActionSchema } from '@talos-ark/contracts/inventory';
 import { isResponseValidationError } from '@/platform/http';
 import {
@@ -18,6 +18,9 @@ import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { Checkbox } from '@/ui/checkbox';
 import { InventoryPositionPicker } from '@/module/inventory';
+import { Field, FieldLabel, FieldSet } from '@/ui/field';
+
+const formFieldId = useId();
 
 const props = defineProps<{
     scope: InventoryScope | null;
@@ -246,13 +249,21 @@ async function synchronize() {
                             <dd class="mt-1 tabular-nums">{{ stock.quantity }} {{ stock.quantityUnit }}</dd>
                         </div>
                     </dl>
-                    <fieldset :disabled="locked || needsReload" class="space-y-4">
-                        <label v-if="kind === 'consume' || kind === 'adjust'" class="grid gap-2 text-sm">
-                            {{ kind === 'consume' ? '本次实际消耗量' : '核实后的实际剩余量' }}（{{
-                                stock.quantityUnit
-                            }}）
-                            <Input v-model="quantity" inputmode="decimal" autocomplete="off" required />
-                        </label>
+                    <FieldSet :disabled="locked || needsReload">
+                        <Field v-if="kind === 'consume' || kind === 'adjust'">
+                            <FieldLabel :for="formFieldId + '-1'">
+                                {{ kind === 'consume' ? '本次实际消耗量' : '核实后的实际剩余量' }}（{{
+                                    stock.quantityUnit
+                                }}）
+                            </FieldLabel>
+                            <Input
+                                :id="formFieldId + '-1'"
+                                v-model="quantity"
+                                inputmode="decimal"
+                                autocomplete="off"
+                                required
+                            />
+                        </Field>
                         <InventoryPositionPicker
                             v-if="kind === 'transfer' && scope"
                             :key="positionRevision"
@@ -263,16 +274,18 @@ async function synchronize() {
                             <p class="text-sm leading-6 text-muted-foreground">
                                 本件实物将结束库存管理，账面余量归零并释放存放位置；保留实物资料和历史。这不代表现实中的销毁程序已完成。
                             </p>
-                            <label class="flex items-start gap-3 text-sm">
-                                <Checkbox v-model="confirmed" class="mt-0.5" />
-                                <span>确认移出管理并释放占位</span>
-                            </label>
+                            <Field orientation="horizontal" class="items-start">
+                                <Checkbox :id="formFieldId + '-2'" v-model="confirmed" class="mt-0.5" />
+                                <FieldLabel class="font-normal" :for="formFieldId + '-2'">
+                                    确认移出管理并释放占位
+                                </FieldLabel>
+                            </Field>
                         </template>
-                        <label class="grid gap-2 text-sm">
-                            原因或备注（选填）
-                            <Textarea v-model="reason" maxlength="1000" />
-                        </label>
-                    </fieldset>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-3'">原因或备注（选填）</FieldLabel>
+                            <Textarea :id="formFieldId + '-3'" v-model="reason" maxlength="1000" />
+                        </Field>
+                    </FieldSet>
                     <p v-if="kind && !stock.actions[kind]" role="status" class="text-sm text-muted-foreground">
                         当前权限或实物、存储状态不允许此操作。
                     </p>

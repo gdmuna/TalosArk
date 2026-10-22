@@ -12,7 +12,7 @@ const props = defineProps<{
         data-slot="field-set"
         :class="
             cn(
-                'gap-4 has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3 flex flex-col',
+                'min-w-0 gap-4 has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3 flex flex-col',
                 props.class
             )
         "

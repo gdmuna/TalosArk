@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, useId } from 'vue';
 import { Plus, Pencil, Archive, ArchiveRestore, Save, X } from '@lucide/vue';
 import { MaterialTypeWriteSchema, type MaterialType } from '@talos-ark/contracts/material';
 import { useMaterialStore } from '../model/store';
@@ -8,6 +8,9 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/ui/sheet';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { ScrollArea } from '@/ui/scroll-area';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const open = defineModel<boolean>('open', { default: false });
 const store = useMaterialStore();
@@ -69,18 +72,30 @@ async function archive(item: MaterialType) {
                     <form class="space-y-4" @submit.prevent="submit">
                         <h3 class="font-medium">{{ editId ? '编辑分类' : '新建分类' }}</h3>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="space-y-2 text-sm">
-                                <span>分类编号</span>
-                                <Input v-model="code" maxlength="80" required :disabled="store.busy" />
-                            </label>
-                            <label class="space-y-2 text-sm">
-                                <span>分类名称</span>
-                                <Input v-model="name" maxlength="200" required :disabled="store.busy" />
-                            </label>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-1'">分类编号</FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-1'"
+                                    v-model="code"
+                                    maxlength="80"
+                                    required
+                                    :disabled="store.busy"
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-2'">分类名称</FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-2'"
+                                    v-model="name"
+                                    maxlength="200"
+                                    required
+                                    :disabled="store.busy"
+                                />
+                            </Field>
                         </div>
-                        <p v-if="validation || store.error" role="alert" class="text-sm text-destructive">
+                        <FieldError v-if="validation || store.error" role="alert" class="text-sm text-destructive">
                             {{ validation || store.error }}
-                        </p>
+                        </FieldError>
                         <div class="flex justify-end gap-2">
                             <Button v-if="editId" type="button" variant="outline" :disabled="store.busy" @click="clear">
                                 <X />

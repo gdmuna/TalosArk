@@ -7,6 +7,8 @@ import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { HttpError } from '@/platform/http';
 import ReadFeedback from './ReadFeedback.vue';
+import { FieldLegend, FieldSet } from '@/ui/field';
+
 const props = defineProps<{
     scope: StorageScope;
     contextKey: string;
@@ -85,8 +87,8 @@ function more() {
 }
 </script>
 <template>
-    <fieldset class="space-y-2">
-        <legend class="mb-2 text-sm font-medium">{{ label }}</legend>
+    <FieldSet>
+        <FieldLegend class="mb-2 font-medium">{{ label }}</FieldLegend>
         <div class="flex gap-2">
             <Input
                 v-model="draft"
@@ -135,5 +137,5 @@ function more() {
         <p class="break-all text-xs text-muted-foreground">
             {{ model ? `已选择：${choices.find((item) => item.id === model)?.name ?? model}` : rootLabel }}
         </p>
-    </fieldset>
+    </FieldSet>
 </template>

@@ -25,7 +25,7 @@
                 <p v-if="accepted" role="status" class="text-sm leading-6 text-foreground">
                     申请已受理。如该邮箱对应可恢复的账户，系统将尝试发送重设密码邮件。未收到时可检查垃圾邮件或稍后重新申请。
                 </p>
-                <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
                 <Button type="submit" class="w-full" :disabled="pending || remaining > 0">
                     <LoaderCircle v-if="pending" class="size-4 animate-spin" aria-hidden="true" />
                     <Mail v-else class="size-4" aria-hidden="true" />
@@ -58,7 +58,7 @@ import { PasswordRecoveryRequestBodySchema } from '@talos-ark/contracts/auth';
 import { useAuthApi } from '@/module/auth';
 import { HttpError, isResponseValidationError } from '@/platform/http';
 import { Button } from '@/ui/button';
-import { Field, FieldLabel } from '@/ui/field';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
 
 const api = useAuthApi();

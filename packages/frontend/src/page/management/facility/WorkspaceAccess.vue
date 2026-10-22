@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { useWorkspaceStore } from '@/module/workspace';
 import { useFacilityDataSource, useFacilityRead, type FacilityDetail, type FacilityScope } from '@/module/facility';
 import { Button } from '@/ui/button';
 import { SelectField } from '@/component/select-field';
 import { DataSyncNotice } from '@/component/data-sync';
 import ReadFeedback from './ReadFeedback.vue';
+const standaloneFieldId = useId();
+
+import { Field, FieldLabel } from '@/ui/field';
+
 const props = defineProps<{ facility: FacilityDetail; scope: FacilityScope; contextKey: string }>();
 const emit = defineEmits<{ changed: [] }>();
 const source = useFacilityDataSource(),
@@ -114,23 +118,29 @@ async function save(id: string, next: 'USE' | 'MANAGE' | null) {
             class="flex flex-wrap items-end gap-3"
             @submit.prevent="save(workspaceId, level === 'MANAGE' ? 'MANAGE' : 'USE')"
         >
-            <SelectField
-                v-model="workspaceId"
-                label="共享工作区"
-                :options="options"
-                :disabled="disabled"
-                class="w-64 max-w-full"
-            />
-            <SelectField
-                v-model="level"
-                label="关系"
-                :options="[
-                    { value: 'USE', label: '使用' },
-                    { value: 'MANAGE', label: '管理' },
-                ]"
-                :disabled="disabled"
-                class="w-36"
-            />
+            <Field class="w-64 max-w-full">
+                <FieldLabel :for="standaloneFieldId + '-1'">共享工作区</FieldLabel>
+                <SelectField
+                    :id="standaloneFieldId + '-1'"
+                    v-model="workspaceId"
+                    label="共享工作区"
+                    :options="options"
+                    :disabled="disabled"
+                />
+            </Field>
+            <Field class="w-36">
+                <FieldLabel :for="standaloneFieldId + '-2'">关系</FieldLabel>
+                <SelectField
+                    :id="standaloneFieldId + '-2'"
+                    v-model="level"
+                    label="关系"
+                    :options="[
+                        { value: 'USE', label: '使用' },
+                        { value: 'MANAGE', label: '管理' },
+                    ]"
+                    :disabled="disabled"
+                />
+            </Field>
             <Button :disabled="disabled || !workspaceId">保存共享关系</Button>
         </form>
     </div>

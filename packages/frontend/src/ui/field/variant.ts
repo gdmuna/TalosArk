@@ -1,7 +1,7 @@
 import type { VariantProps } from 'class-variance-authority';
 import { cva } from 'class-variance-authority';
 export const fieldVariants = cva(
-    'data-[invalid=true]:text-destructive gap-2 group/field flex w-full',
+    'data-[invalid=true]:text-destructive gap-2 group/field flex min-w-0 w-full',
     {
         variants: {
             orientation: {

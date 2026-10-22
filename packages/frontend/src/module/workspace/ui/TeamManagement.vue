@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     Plus,
@@ -39,6 +39,10 @@ import TeamPermissionField from './TeamPermissionField.vue';
 import TeamPermissionMatrix from './TeamPermissionMatrix.vue';
 import type { TeamManagementContext } from './team-context';
 import type { TeamManagementListState } from './team-list-state';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 const props = defineProps<{
     view: 'members' | 'roles';
@@ -573,13 +577,19 @@ async function submit() {
                     class="flex w-full gap-2 @min-[600px]/team-management:ml-auto @min-[600px]/team-management:w-auto"
                     @submit.prevent="searchMembers"
                 >
-                    <Input
-                        v-model="search"
-                        :aria-label="tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱'"
-                        :placeholder="tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱'"
-                        class="min-w-0 flex-1 @min-[600px]/team-management:w-60"
-                        maxlength="100"
-                    />
+                    <Field class="min-w-0 flex-1 @min-[600px]/team-management:w-60">
+                        <FieldLabel :for="formFieldId + '-search'" class="sr-only">
+                            {{ tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱' }}
+                        </FieldLabel>
+                        <Input
+                            :id="formFieldId + '-search'"
+                            v-model="search"
+                            :aria-label="tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱'"
+                            :placeholder="tab === 'members' ? '搜索姓名或邮箱' : '搜索邀请邮箱'"
+                            class="min-w-0 flex-1 @min-[600px]/team-management:w-60"
+                            maxlength="100"
+                        />
+                    </Field>
                     <Button variant="outline" :disabled="team.loading || team.busy">搜索</Button>
                 </form>
             </div>
@@ -951,35 +961,53 @@ async function submit() {
             </DialogHeader>
             <form class="space-y-4" @submit.prevent="submit">
                 <p v-if="modal === 'confirm'" class="break-words text-sm">{{ confirmationDescription }}</p>
-                <label v-if="modal === 'invite' || modal === 'add-member'" class="grid gap-2 text-sm">
-                    账户邮箱
-                    <Input v-model="email" type="email" required maxlength="254" :disabled="team.busy" />
-                </label>
+                <Field v-if="modal === 'invite' || modal === 'add-member'">
+                    <FieldLabel :for="formFieldId + '-1'">账户邮箱</FieldLabel>
+                    <Input
+                        :id="formFieldId + '-1'"
+                        v-model="email"
+                        type="email"
+                        required
+                        maxlength="254"
+                        :disabled="team.busy"
+                    />
+                </Field>
                 <template v-if="modal === 'role'">
-                    <label class="grid gap-2 text-sm">
-                        角色名称
-                        <Input v-model="roleName" required maxlength="40" :disabled="team.busy" />
-                    </label>
-                    <label v-if="!selectedRole" class="grid gap-2 text-sm">
-                        角色标识
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-2'">角色名称</FieldLabel>
                         <Input
+                            :id="formFieldId + '-2'"
+                            v-model="roleName"
+                            required
+                            maxlength="40"
+                            :disabled="team.busy"
+                        />
+                    </Field>
+                    <Field v-if="!selectedRole">
+                        <FieldLabel :for="formFieldId + '-3'">角色标识</FieldLabel>
+                        <Input
+                            :id="formFieldId + '-3'"
                             v-model="roleCode"
                             required
                             pattern="[a-z][a-z0-9-]*"
                             maxlength="120"
                             :disabled="team.busy"
                         />
-                    </label>
-                    <SelectField
-                        v-model="roleScope"
-                        label="角色作用域"
-                        :options="[
-                            { value: 'ORGANIZATION', label: '组织' },
-                            { value: 'WORKSPACE', label: '工作区' },
-                        ]"
-                        :disabled="!!selectedRole || team.busy"
-                        @update:model-value="permissions = []"
-                    />
+                    </Field>
+                    <Field>
+                        <FieldLabel :for="standaloneFieldId + '-1'">角色作用域</FieldLabel>
+                        <SelectField
+                            :id="standaloneFieldId + '-1'"
+                            v-model="roleScope"
+                            label="角色作用域"
+                            :options="[
+                                { value: 'ORGANIZATION', label: '组织' },
+                                { value: 'WORKSPACE', label: '工作区' },
+                            ]"
+                            :disabled="!!selectedRole || team.busy"
+                            @update:model-value="permissions = []"
+                        />
+                    </Field>
                     <TeamPermissionField
                         :key="roleScope"
                         v-model="permissions"
@@ -988,14 +1016,16 @@ async function submit() {
                     />
                 </template>
                 <div v-if="modal === 'bindings'" class="grid gap-3">
-                    <label
+                    <Field
                         v-for="role in team.data?.roles.filter(
                             (item) => item.grantable || selectedMember?.roles.some((binding) => binding.id === item.id)
                         )"
                         :key="role.id"
-                        class="flex items-center gap-3 text-sm"
+                        orientation="horizontal"
+                        class="items-center"
                     >
                         <Checkbox
+                            :id="formFieldId + '-4' + '-' + role.id"
                             :model-value="roleIds.includes(role.id)"
                             :disabled="
                                 disabled ||
@@ -1003,9 +1033,11 @@ async function submit() {
                             "
                             @update:model-value="(value) => (roleIds = toggle(roleIds, role.id, value))"
                         />
-                        {{ role.name }}
+                        <FieldLabel :for="formFieldId + '-4' + '-' + role.id" class="font-normal">
+                            {{ role.name }}
+                        </FieldLabel>
                         <span v-if="!role.grantable" class="text-xs text-muted-foreground">当前不可新增授予</span>
-                    </label>
+                    </Field>
                     <p
                         v-if="
                             !team.data?.roles.some(
@@ -1018,9 +1050,9 @@ async function submit() {
                         当前范围暂无可分配角色
                     </p>
                 </div>
-                <p v-if="formError" role="alert" class="text-sm text-destructive">
+                <FieldError v-if="formError" role="alert" class="text-sm text-destructive">
                     {{ formError }}
-                </p>
+                </FieldError>
                 <DataSyncNotice
                     scope="团队管理"
                     :error="team.syncError"

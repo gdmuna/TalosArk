@@ -2,7 +2,7 @@
 import { Terminal, Play, ChevronDown, Power } from '@lucide/vue';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
-import { Label } from '@/ui/label';
+import { SelectField } from '@/component/select-field';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/ui/collapsible';
 import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
 import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
@@ -12,6 +12,8 @@ import ResourceFactList from '../../resource/ResourceFactList.vue';
 import ResourceTable from '../../resource/ResourceTable.vue';
 import ResourceEmpty from '../../resource/ResourceEmpty.vue';
 import { useResource } from '../../resource/useResource';
+import { Field, FieldLabel } from '@/ui/field';
+
 const { resource, resourceId, workspace } = useResource('设备');
 useResourceBreadcrumb({
     domain: 'equipment',
@@ -48,20 +50,20 @@ useResourceBreadcrumb({
             <div class="grid min-w-0 gap-8 @min-[1000px]:grid-cols-2">
                 <ResourceSection title="指令配置">
                     <div class="space-y-5">
-                        <div class="space-y-2">
-                            <Label for="equipment-command">指令</Label>
-                            <select
+                        <Field>
+                            <FieldLabel for="equipment-command">指令</FieldLabel>
+                            <SelectField
                                 id="equipment-command"
-                                class="h-9 w-full rounded-md border bg-background px-3 text-sm text-muted-foreground disabled:opacity-50"
+                                model-value=""
+                                label="设备指令能力未加载"
+                                :options="[]"
                                 disabled
-                            >
-                                <option>设备指令能力未加载</option>
-                            </select>
-                        </div>
-                        <div class="space-y-2">
-                            <Label for="equipment-parameter">参数</Label>
+                            />
+                        </Field>
+                        <Field>
+                            <FieldLabel for="equipment-parameter">参数</FieldLabel>
                             <Input id="equipment-parameter" readonly placeholder="未加载" />
-                        </div>
+                        </Field>
                         <Button disabled>
                             <Play aria-hidden="true" />
                             准备执行

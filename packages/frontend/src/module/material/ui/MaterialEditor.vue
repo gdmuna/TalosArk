@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, reactive, ref, watch, useId } from 'vue';
 import { Plus, Trash2, Save } from '@lucide/vue';
 import { MaterialWriteSchema, type Material, type MaterialBranch } from '@talos-ark/contracts/material';
 import { useMaterialStore, materialErrorMessage } from '../model/store';
@@ -11,6 +11,9 @@ import { Textarea } from '@/ui/textarea';
 import { ScrollArea } from '@/ui/scroll-area';
 import { SelectField } from '@/component/select-field';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog';
+import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/ui/field';
+
+const formFieldId = useId();
 
 const props = defineProps<{ material?: Material }>();
 const open = defineModel<boolean>('open', { default: false });
@@ -52,6 +55,13 @@ const typeOptions = computed(() =>
         .map((item) => ({ value: item.id, label: item.name + (item.archivedAt ? '（已归档）' : '') }))
 );
 const locked = computed(() => !!props.material?.instanceCount);
+function focusFirstField(event: Event) {
+    const input = formElement.value?.querySelector<HTMLInputElement>('input:not(:disabled)');
+    if (input) {
+        event.preventDefault();
+        input.focus({ preventScroll: true });
+    }
+}
 async function loadTypes() {
     typeError.value = '';
     try {
@@ -172,6 +182,7 @@ async function submit() {
     <Sheet v-model:open="dialogOpen">
         <SheetContent
             class="w-full gap-0 p-0 sm:max-w-2xl"
+            @open-auto-focus="focusFirstField"
             @interact-outside="store.busy && $event.preventDefault()"
             @escape-key-down="store.busy && $event.preventDefault()"
         >
@@ -181,73 +192,170 @@ async function submit() {
             </div>
             <form ref="formElement" class="flex min-h-0 flex-1 flex-col" @submit.prevent="submit">
                 <ScrollArea class="min-h-0 flex-1">
-                    <fieldset class="space-y-6 p-6 [&_[data-slot=select-trigger]]:w-full" :disabled="store.busy">
-                        <section class="space-y-4">
-                            <h3 class="border-b pb-2 font-medium">基本信息</h3>
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <label data-field="code" class="space-y-2 text-sm">
-                                    <span>材料编号 *</span>
-                                    <Input v-model="form.code" maxlength="80" required />
-                                    <p v-if="validation?.field === 'code'" class="text-destructive" aria-hidden="true">
+                    <FieldSet class="gap-8 p-6 [&_[data-slot=select-trigger]]:w-full" :disabled="store.busy">
+                        <FieldSet class="gap-5">
+                            <FieldLegend class="mb-5 w-full border-b pb-3 text-sm">基本信息</FieldLegend>
+                            <FieldGroup class="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+                                <Field :data-invalid="validation?.field === 'name' || undefined" data-field="name">
+                                    <FieldLabel :for="formFieldId + '-2'">材料名称 *</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-2'"
+                                        v-model="form.name"
+                                        :aria-describedby="
+                                            validation?.field === 'name' ? formFieldId + '-2' + '-error' : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'name' || undefined"
+                                        maxlength="200"
+                                        required
+                                    />
+                                    <FieldError
+                                        v-if="validation?.field === 'name'"
+                                        :id="formFieldId + '-2' + '-error'"
+                                        class="text-destructive"
+                                    >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="name" class="space-y-2 text-sm">
-                                    <span>材料名称 *</span>
-                                    <Input v-model="form.name" maxlength="200" required />
-                                    <p v-if="validation?.field === 'name'" class="text-destructive" aria-hidden="true">
+                                    </FieldError>
+                                </Field>
+                                <Field :data-invalid="validation?.field === 'code' || undefined" data-field="code">
+                                    <FieldLabel :for="formFieldId + '-1'">材料编号 *</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-1'"
+                                        v-model="form.code"
+                                        :aria-describedby="
+                                            validation?.field === 'code' ? formFieldId + '-1' + '-error' : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'code' || undefined"
+                                        maxlength="80"
+                                        required
+                                    />
+                                    <FieldError
+                                        v-if="validation?.field === 'code'"
+                                        :id="formFieldId + '-1' + '-error'"
+                                        class="text-destructive"
+                                    >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="branch" class="space-y-2 text-sm">
-                                    <span>业务分支 *</span>
+                                    </FieldError>
+                                </Field>
+                                <Field :data-invalid="validation?.field === 'branch' || undefined" data-field="branch">
+                                    <FieldLabel :for="formFieldId + '-3'">业务分支 *</FieldLabel>
                                     <SelectField
+                                        :id="formFieldId + '-3'"
                                         v-model="form.branch"
+                                        :aria-describedby="
+                                            validation?.field === 'branch' ? formFieldId + '-3' + '-error' : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'branch' || undefined"
                                         label="业务分支"
                                         :options="
                                             materialBranches.map((item) => ({ value: item.id, label: item.label }))
                                         "
                                         :disabled="store.busy || locked"
                                     />
-                                    <p
+                                    <FieldError
                                         v-if="validation?.field === 'branch'"
+                                        :id="formFieldId + '-3' + '-error'"
                                         class="text-destructive"
-                                        aria-hidden="true"
                                     >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="typeId" class="space-y-2 text-sm">
-                                    <span>材料分类 *</span>
+                                    </FieldError>
+                                </Field>
+                                <Field :data-invalid="validation?.field === 'typeId' || undefined" data-field="typeId">
+                                    <FieldLabel :for="formFieldId + '-4'">材料分类 *</FieldLabel>
                                     <SelectField
+                                        :id="formFieldId + '-4'"
                                         v-model="form.typeId"
+                                        :aria-describedby="
+                                            validation?.field === 'typeId' ? formFieldId + '-4' + '-error' : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'typeId' || undefined"
                                         label="材料分类"
                                         :options="typeOptions"
                                         :disabled="store.busy"
                                     />
-                                    <p
+                                    <FieldError
                                         v-if="validation?.field === 'typeId'"
+                                        :id="formFieldId + '-4' + '-error'"
                                         class="text-destructive"
-                                        aria-hidden="true"
                                     >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="quantityUnit" class="space-y-2 text-sm">
-                                    <span>计量单位 *</span>
-                                    <Input v-model="form.quantityUnit" maxlength="32" :disabled="locked" required />
-                                    <p
-                                        v-if="validation?.field === 'quantityUnit'"
-                                        class="text-destructive"
-                                        aria-hidden="true"
-                                    >
-                                        {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="quantityScale" class="space-y-2 text-sm">
-                                    <span>数量小数位数 *</span>
+                                    </FieldError>
+                                </Field>
+                            </FieldGroup>
+                            <p v-if="!store.types.length && !typeError" class="text-sm text-muted-foreground">
+                                请先在材料列表的“管理分类”中创建分类。
+                            </p>
+                            <FieldError v-if="typeError" role="alert" class="text-sm text-destructive">
+                                {{ typeError }}
+                                <Button type="button" variant="link" size="sm" @click="loadTypes">重试</Button>
+                            </FieldError>
+                            <Field
+                                :data-invalid="validation?.field === 'description' || undefined"
+                                data-field="description"
+                            >
+                                <FieldLabel :for="formFieldId + '-9'">描述</FieldLabel>
+                                <Textarea
+                                    :id="formFieldId + '-9'"
+                                    v-model="form.description"
+                                    :aria-describedby="
+                                        validation?.field === 'description' ? formFieldId + '-9' + '-error' : undefined
+                                    "
+                                    :aria-invalid="validation?.field === 'description' || undefined"
+                                    rows="3"
+                                    maxlength="4000"
+                                />
+                                <FieldError
+                                    v-if="validation?.field === 'description'"
+                                    :id="formFieldId + '-9' + '-error'"
+                                    class="text-destructive"
+                                >
+                                    {{ validation.message }}
+                                </FieldError>
+                            </Field>
+                        </FieldSet>
+                        <FieldSet class="gap-5">
+                            <FieldLegend class="mb-5 w-full border-b pb-3 text-sm">计量与来源</FieldLegend>
+                            <FieldGroup class="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+                                <Field
+                                    :data-invalid="validation?.field === 'quantityUnit' || undefined"
+                                    data-field="quantityUnit"
+                                >
+                                    <FieldLabel :for="formFieldId + '-5'">计量单位 *</FieldLabel>
                                     <Input
+                                        :id="formFieldId + '-5'"
+                                        v-model="form.quantityUnit"
+                                        :aria-describedby="
+                                            validation?.field === 'quantityUnit'
+                                                ? formFieldId + '-5' + '-error'
+                                                : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'quantityUnit' || undefined"
+                                        maxlength="32"
+                                        :disabled="locked"
+                                        required
+                                    />
+                                    <FieldError
+                                        v-if="validation?.field === 'quantityUnit'"
+                                        :id="formFieldId + '-5' + '-error'"
+                                        class="text-destructive"
+                                    >
+                                        {{ validation.message }}
+                                    </FieldError>
+                                </Field>
+                                <Field
+                                    class="max-w-40"
+                                    :data-invalid="validation?.field === 'quantityScale' || undefined"
+                                    data-field="quantityScale"
+                                >
+                                    <FieldLabel :for="formFieldId + '-6'">数量小数位数 *</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-6'"
                                         v-model.number="form.quantityScale"
+                                        :aria-describedby="
+                                            validation?.field === 'quantityScale'
+                                                ? formFieldId + '-6' + '-error'
+                                                : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'quantityScale' || undefined"
                                         type="number"
                                         min="0"
                                         max="6"
@@ -255,113 +363,191 @@ async function submit() {
                                         :disabled="locked"
                                         required
                                     />
-                                    <p
+                                    <FieldError
                                         v-if="validation?.field === 'quantityScale'"
+                                        :id="formFieldId + '-6' + '-error'"
                                         class="text-destructive"
-                                        aria-hidden="true"
                                     >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="manufacturer" class="space-y-2 text-sm">
-                                    <span>厂家</span>
-                                    <Input v-model="form.manufacturer" maxlength="200" />
-                                    <p
+                                    </FieldError>
+                                </Field>
+                                <Field
+                                    :data-invalid="validation?.field === 'manufacturer' || undefined"
+                                    data-field="manufacturer"
+                                >
+                                    <FieldLabel :for="formFieldId + '-7'">厂家</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-7'"
+                                        v-model="form.manufacturer"
+                                        :aria-describedby="
+                                            validation?.field === 'manufacturer'
+                                                ? formFieldId + '-7' + '-error'
+                                                : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'manufacturer' || undefined"
+                                        maxlength="200"
+                                    />
+                                    <FieldError
                                         v-if="validation?.field === 'manufacturer'"
+                                        :id="formFieldId + '-7' + '-error'"
                                         class="text-destructive"
-                                        aria-hidden="true"
                                     >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                                <label data-field="catalogNumber" class="space-y-2 text-sm">
-                                    <span>货号</span>
-                                    <Input v-model="form.catalogNumber" maxlength="200" />
-                                    <p
+                                    </FieldError>
+                                </Field>
+                                <Field
+                                    :data-invalid="validation?.field === 'catalogNumber' || undefined"
+                                    data-field="catalogNumber"
+                                >
+                                    <FieldLabel :for="formFieldId + '-8'">货号</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-8'"
+                                        v-model="form.catalogNumber"
+                                        :aria-describedby="
+                                            validation?.field === 'catalogNumber'
+                                                ? formFieldId + '-8' + '-error'
+                                                : undefined
+                                        "
+                                        :aria-invalid="validation?.field === 'catalogNumber' || undefined"
+                                        maxlength="200"
+                                    />
+                                    <FieldError
                                         v-if="validation?.field === 'catalogNumber'"
+                                        :id="formFieldId + '-8' + '-error'"
                                         class="text-destructive"
-                                        aria-hidden="true"
                                     >
                                         {{ validation.message }}
-                                    </p>
-                                </label>
-                            </div>
-                            <p v-if="!store.types.length && !typeError" class="text-sm text-muted-foreground">
-                                请先在材料列表的“管理分类”中创建分类。
-                            </p>
-                            <p v-if="typeError" role="alert" class="text-sm text-destructive">
-                                {{ typeError }}
-                                <Button type="button" variant="link" size="sm" @click="loadTypes">重试</Button>
-                            </p>
-                            <label data-field="description" class="block space-y-2 text-sm">
-                                <span>描述</span>
-                                <Textarea v-model="form.description" rows="3" maxlength="4000" />
-                                <p
-                                    v-if="validation?.field === 'description'"
-                                    class="text-destructive"
-                                    aria-hidden="true"
+                                    </FieldError>
+                                </Field>
+                            </FieldGroup>
+                        </FieldSet>
+                        <FieldSet class="gap-5">
+                            <FieldLegend class="mb-5 w-full border-b pb-3 text-sm">
+                                {{ branchPresentation(form.branch).label }}属性
+                            </FieldLegend>
+                            <FieldGroup class="grid gap-x-5 gap-y-5 sm:grid-cols-2">
+                                <Field
+                                    v-for="field in branchPresentation(form.branch).fields"
+                                    :key="field.key"
+                                    class="sm:last:col-span-2"
+                                    :data-invalid="validation?.field === `attributes.${field.key}` || undefined"
+                                    :data-field="`attributes.${field.key}`"
                                 >
-                                    {{ validation.message }}
-                                </p>
-                            </label>
-                        </section>
-                        <section class="space-y-4">
-                            <h3 class="border-b pb-2 font-medium">{{ branchPresentation(form.branch).label }}属性</h3>
-                            <label
-                                v-for="field in branchPresentation(form.branch).fields"
-                                :key="field.key"
-                                :data-field="`attributes.${field.key}`"
-                                class="block space-y-2 text-sm"
-                            >
-                                <span>{{ field.label }}</span>
-                                <Input
-                                    v-model="attributes[field.key]"
-                                    :maxlength="
-                                        ['species', 'molecularFormula', 'physicalForm'].includes(field.key) ? 200 : 300
+                                    <FieldLabel :for="formFieldId + '-10' + '-' + field.key">
+                                        {{ field.label }}
+                                    </FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-10' + '-' + field.key"
+                                        v-model="attributes[field.key]"
+                                        :aria-describedby="
+                                            validation?.field === `attributes.${field.key}`
+                                                ? formFieldId + '-10' + '-' + field.key + '-error'
+                                                : undefined
+                                        "
+                                        :aria-invalid="validation?.field === `attributes.${field.key}` || undefined"
+                                        :maxlength="
+                                            ['species', 'molecularFormula', 'physicalForm'].includes(field.key)
+                                                ? 200
+                                                : 300
+                                        "
+                                    />
+                                    <FieldError
+                                        v-if="validation?.field === `attributes.${field.key}`"
+                                        :id="formFieldId + '-10' + '-' + field.key + '-error'"
+                                        class="text-destructive"
+                                    >
+                                        {{ validation.message }}
+                                    </FieldError>
+                                </Field>
+                            </FieldGroup>
+                        </FieldSet>
+                        <FieldSet class="gap-5">
+                            <FieldLegend class="mb-5 w-full border-b pb-3 text-sm">别名与外部标识</FieldLegend>
+                            <Field :data-invalid="validation?.field === 'aliases' || undefined" data-field="aliases">
+                                <FieldLabel :for="formFieldId + '-11'">别名（每行一项）</FieldLabel>
+                                <Textarea
+                                    :id="formFieldId + '-11'"
+                                    v-model="aliases"
+                                    :aria-describedby="
+                                        validation?.field === 'aliases' ? formFieldId + '-11' + '-error' : undefined
                                     "
+                                    :aria-invalid="validation?.field === 'aliases' || undefined"
+                                    rows="3"
                                 />
-                                <p
-                                    v-if="validation?.field === `attributes.${field.key}`"
+                                <FieldError
+                                    v-if="validation?.field === 'aliases'"
+                                    :id="formFieldId + '-11' + '-error'"
                                     class="text-destructive"
-                                    aria-hidden="true"
                                 >
                                     {{ validation.message }}
-                                </p>
-                            </label>
-                        </section>
-                        <section class="space-y-4">
-                            <h3 class="border-b pb-2 font-medium">别名与外部标识</h3>
-                            <label data-field="aliases" class="block space-y-2 text-sm">
-                                <span>别名（每行一项）</span>
-                                <Textarea v-model="aliases" rows="3" />
-                                <p v-if="validation?.field === 'aliases'" class="text-destructive" aria-hidden="true">
-                                    {{ validation.message }}
-                                </p>
-                            </label>
-                            <div data-field="identifiers" class="space-y-3">
-                                <div v-for="(item, index) in identifiers" :key="index" class="space-y-2">
-                                    <div class="flex items-center gap-2">
-                                        <Input
-                                            v-model="item.scheme"
-                                            :data-field="`identifiers.${index}.scheme`"
-                                            class="w-28"
-                                            aria-label="标识体系"
-                                            placeholder="cas / rrid"
-                                            maxlength="40"
-                                            required
-                                        />
-                                        <Input
-                                            v-model="item.value"
-                                            :data-field="`identifiers.${index}.value`"
-                                            class="min-w-0 flex-1"
-                                            aria-label="标识值"
-                                            maxlength="200"
-                                            required
-                                        />
+                                </FieldError>
+                            </Field>
+                            <FieldSet
+                                data-field="identifiers"
+                                :data-invalid="validation?.field === 'identifiers' || undefined"
+                            >
+                                <FieldLegend variant="label">外部标识</FieldLegend>
+                                <FieldGroup class="gap-4">
+                                    <div
+                                        v-for="(item, index) in identifiers"
+                                        :key="index"
+                                        class="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-start gap-3"
+                                    >
+                                        <Field
+                                            :data-invalid="
+                                                validation?.field === 'identifiers.' + index + '.scheme' || undefined
+                                            "
+                                        >
+                                            <FieldLabel :for="formFieldId + '-identifier-' + index + '-scheme'">
+                                                标识体系
+                                            </FieldLabel>
+                                            <Input
+                                                :id="formFieldId + '-identifier-' + index + '-scheme'"
+                                                v-model="item.scheme"
+                                                :data-field="'identifiers.' + index + '.scheme'"
+                                                placeholder="cas / rrid"
+                                                maxlength="40"
+                                                required
+                                                :aria-invalid="
+                                                    validation?.field === 'identifiers.' + index + '.scheme' ||
+                                                    undefined
+                                                "
+                                                :aria-describedby="
+                                                    validation?.field === 'identifiers.' + index + '.scheme'
+                                                        ? formFieldId + '-identifier-' + index + '-error'
+                                                        : undefined
+                                                "
+                                            />
+                                        </Field>
+                                        <Field
+                                            :data-invalid="
+                                                validation?.field === 'identifiers.' + index + '.value' || undefined
+                                            "
+                                        >
+                                            <FieldLabel :for="formFieldId + '-identifier-' + index + '-value'">
+                                                标识值
+                                            </FieldLabel>
+                                            <Input
+                                                :id="formFieldId + '-identifier-' + index + '-value'"
+                                                v-model="item.value"
+                                                :data-field="'identifiers.' + index + '.value'"
+                                                maxlength="200"
+                                                required
+                                                :aria-invalid="
+                                                    validation?.field === 'identifiers.' + index + '.value' || undefined
+                                                "
+                                                :aria-describedby="
+                                                    validation?.field === 'identifiers.' + index + '.value'
+                                                        ? formFieldId + '-identifier-' + index + '-error'
+                                                        : undefined
+                                                "
+                                            />
+                                        </Field>
                                         <Button
                                             type="button"
                                             variant="ghost"
-                                            size="icon-sm"
+                                            size="icon"
+                                            class="mt-7"
                                             use-tooltip
                                             tooltip="移除此标识"
                                             aria-label="移除此标识"
@@ -369,35 +555,41 @@ async function submit() {
                                         >
                                             <Trash2 />
                                         </Button>
+                                        <FieldError
+                                            v-if="validation?.field.startsWith('identifiers.' + index + '.')"
+                                            :id="formFieldId + '-identifier-' + index + '-error'"
+                                            class="col-span-full"
+                                        >
+                                            {{ validation.message }}
+                                        </FieldError>
                                     </div>
-                                    <p
-                                        v-if="validation?.field.startsWith(`identifiers.${index}.`)"
-                                        class="text-sm text-destructive"
-                                    >
-                                        {{ validation.message }}
-                                    </p>
-                                </div>
+                                </FieldGroup>
                                 <Button
                                     type="button"
                                     variant="outline"
                                     size="sm"
+                                    class="self-start"
                                     :disabled="identifiers.length >= 50"
                                     @click="identifiers.push({ scheme: '', value: '' })"
                                 >
                                     <Plus />
                                     添加外部标识
                                 </Button>
-                                <p v-if="validation?.field === 'identifiers'" class="text-sm text-destructive">
+                                <FieldError v-if="validation?.field === 'identifiers'">
                                     {{ validation.message }}
-                                </p>
-                            </div>
-                        </section>
-                    </fieldset>
+                                </FieldError>
+                            </FieldSet>
+                        </FieldSet>
+                    </FieldSet>
                 </ScrollArea>
                 <div class="shrink-0 space-y-3 border-t p-6">
-                    <p v-if="error || store.error" role="alert" class="text-sm text-destructive">
+                    <FieldError
+                        v-if="!validation && (error || store.error)"
+                        role="alert"
+                        class="text-sm text-destructive"
+                    >
                         {{ error || store.error }}
-                    </p>
+                    </FieldError>
                     <div class="flex justify-end gap-2">
                         <Button type="button" variant="outline" :disabled="store.busy" @click="dialogOpen = false">
                             取消

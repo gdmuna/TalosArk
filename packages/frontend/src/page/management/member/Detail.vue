@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { refDebounced } from '@vueuse/core';
 import type { MemberWorkspacePage } from '@talos-ark/contracts/team';
 import type { PaginationState } from '@tanstack/vue-table';
@@ -21,6 +21,9 @@ import { useDraftGuard } from '../detail/useDraftGuard';
 import ManagementSection from '../component/ManagementSection.vue';
 import { useManagementView } from '../useManagementView';
 import { useDetailRead, useDetailActivity, detailDate, memberStatus } from '../detail/read';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const route = useRoute(),
     router = useRouter(),
@@ -358,12 +361,13 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
                 <p v-if="roleCatalog.loading.value" role="status" class="text-sm text-muted-foreground">
                     正在加载可分配角色
                 </p>
-                <p v-if="roleCatalog.error.value" role="alert" class="text-sm text-destructive">
+                <FieldError v-if="roleCatalog.error.value" role="alert" class="text-sm text-destructive">
                     {{ roleCatalog.error.value }}
                     <Button type="button" variant="link" @click="roleCatalog.refresh">重试读取</Button>
-                </p>
-                <label v-for="role in organizationRoles" :key="role.id" class="flex items-start gap-3 text-sm">
+                </FieldError>
+                <Field v-for="role in organizationRoles" :key="role.id" orientation="horizontal" class="items-start">
                     <Checkbox
+                        :id="formFieldId + '-1' + '-' + role.id"
                         :model-value="selectedRoles.includes(role.id)"
                         :disabled="busy || roleCatalog.loading.value || !!roleCatalog.error.value"
                         @update:model-value="
@@ -374,9 +378,11 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
                                         : selectedRoles.filter((id) => id !== role.id))
                         "
                     />
-                    <span>{{ role.name }}</span>
-                </label>
-                <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                    <FieldLabel class="font-normal" :for="formFieldId + '-1' + '-' + role.id">
+                        {{ role.name }}
+                    </FieldLabel>
+                </Field>
+                <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
                 <DialogFooter>
                     <Button type="button" variant="outline" :disabled="busy" @click="bindingOpen = false">取消</Button>
                     <Button

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
     Calendar,
@@ -24,6 +24,10 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/
 import ManagementPage from './component/ManagementPage.vue';
 import EventInspector from './audit/EventInspector.vue';
 import { auditListPath, useAuditQuery } from './audit/query';
+import { Field, FieldLabel } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 const route = useRoute(),
     router = useRouter(),
@@ -188,22 +192,46 @@ const columns: DataTableColumn<AuditRecord>[] = [
                 <SelectField v-model="selectedWorkspace" label="审计范围" :options="workspaceOptions" class="w-52" />
             </div>
             <form class="flex flex-wrap items-end gap-3" @submit.prevent="applyFilters">
-                <label class="grid min-w-0 gap-2 text-sm">
-                    开始时间（含）
-                    <Input v-model="from" type="datetime-local" aria-label="开始时间" class="w-52" />
-                </label>
-                <label class="grid min-w-0 gap-2 text-sm">
-                    结束时间（不含）
-                    <Input v-model="until" type="datetime-local" aria-label="结束时间" class="w-52" />
-                </label>
-                <label class="grid min-w-0 gap-2 text-sm">
-                    动作标识
-                    <Input v-model="action" placeholder="全部动作" maxlength="120" class="w-48" />
-                </label>
-                <label class="grid min-w-0 gap-2 text-sm">
-                    资源 ID
-                    <Input v-model="resource" placeholder="全部资源" maxlength="160" class="w-52" />
-                </label>
+                <Field class="w-52 max-w-full">
+                    <FieldLabel :for="formFieldId + '-1'">开始时间（含）</FieldLabel>
+                    <Input
+                        :id="formFieldId + '-1'"
+                        v-model="from"
+                        type="datetime-local"
+                        aria-label="开始时间"
+                        class="w-52"
+                    />
+                </Field>
+                <Field class="w-52 max-w-full">
+                    <FieldLabel :for="formFieldId + '-2'">结束时间（不含）</FieldLabel>
+                    <Input
+                        :id="formFieldId + '-2'"
+                        v-model="until"
+                        type="datetime-local"
+                        aria-label="结束时间"
+                        class="w-52"
+                    />
+                </Field>
+                <Field class="w-52 max-w-full">
+                    <FieldLabel :for="formFieldId + '-3'">动作标识</FieldLabel>
+                    <Input
+                        :id="formFieldId + '-3'"
+                        v-model="action"
+                        placeholder="全部动作"
+                        maxlength="120"
+                        class="w-48"
+                    />
+                </Field>
+                <Field class="w-52 max-w-full">
+                    <FieldLabel :for="formFieldId + '-4'">资源 ID</FieldLabel>
+                    <Input
+                        :id="formFieldId + '-4'"
+                        v-model="resource"
+                        placeholder="全部资源"
+                        maxlength="160"
+                        class="w-52"
+                    />
+                </Field>
                 <Button type="submit" variant="outline">查询</Button>
                 <Button
                     type="button"
@@ -241,9 +269,10 @@ const columns: DataTableColumn<AuditRecord>[] = [
                 <template #footer>
                     <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
                         <span role="status" class="text-muted-foreground">本批 {{ data?.items.length ?? 0 }} 项</span>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <span>每批</span>
+                        <Field class="flex flex-wrap items-center">
+                            <FieldLabel :for="standaloneFieldId + '-1'">每批</FieldLabel>
                             <SelectField
+                                :id="standaloneFieldId + '-1'"
                                 v-model="limit"
                                 hide-title
                                 label="每批条数"
@@ -267,7 +296,7 @@ const columns: DataTableColumn<AuditRecord>[] = [
                                 下一批
                                 <ChevronRight aria-hidden="true" />
                             </Button>
-                        </div>
+                        </Field>
                     </div>
                 </template>
             </DataTable>

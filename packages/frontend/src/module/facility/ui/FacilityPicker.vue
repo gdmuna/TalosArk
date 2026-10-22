@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import { Search, ChevronLeft, ChevronRight } from '@lucide/vue';
 import { useFacilityDataSource, useFacilityRead } from '../model/read';
 import type { FacilityScope } from '../data/source';
@@ -7,6 +7,8 @@ import { SelectField } from '@/component/select-field';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import ReadFeedback from './ReadFeedback.vue';
+import { Field, FieldLabel } from '@/ui/field';
+const fieldId = useId();
 const props = defineProps<{ scope: FacilityScope; contextKey: string; label?: string }>();
 const model = defineModel<string>({ required: true });
 const source = useFacilityDataSource();
@@ -57,14 +59,18 @@ function search() {
             </Button>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <SelectField
-                v-model="model"
-                label="设施"
-                hide-title
-                :options="options"
-                :disabled="loading"
-                class="min-w-0 flex-1"
-            />
+            <Field class="min-w-0 flex-1">
+                <FieldLabel :for="fieldId" class="sr-only">设施</FieldLabel>
+                <SelectField
+                    :id="fieldId"
+                    v-model="model"
+                    label="设施"
+                    hide-title
+                    :options="options"
+                    :disabled="loading"
+                    class="w-full min-w-0"
+                />
+            </Field>
             <Button
                 type="button"
                 variant="ghost"

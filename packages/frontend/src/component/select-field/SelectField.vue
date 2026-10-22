@@ -3,6 +3,8 @@ import { computed, useId } from 'vue';
 import { PopoverTitle } from '@/ui/popover';
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/ui/select';
 
+defineOptions({ inheritAttrs: false });
+
 const props = defineProps<{
     label: string;
     options: ReadonlyArray<{ value: string; label: string }>;
@@ -16,8 +18,8 @@ const titleId = useId();
 
 <template>
     <Select v-model="model" :disabled="disabled">
-        <SelectTrigger class="h-9 min-w-32 max-w-full rounded-md bg-card" :aria-label="label">
-            <SelectValue :placeholder="label">{{ selectedLabel }}</SelectValue>
+        <SelectTrigger v-bind="$attrs" class="h-9 min-w-32 max-w-full rounded-md bg-card" :aria-label="label">
+            <SelectValue :placeholder="label">{{ selectedLabel ?? label }}</SelectValue>
         </SelectTrigger>
         <SelectContent
             position="popper"

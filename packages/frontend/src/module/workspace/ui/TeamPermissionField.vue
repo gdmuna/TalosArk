@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
 import type { TeamManagement } from '@talos-ark/contracts/team';
 import { Checkbox } from '@/ui/checkbox';
 import { Input } from '@/ui/input';
+import { Field, FieldLabel, FieldLegend, FieldSet } from '@/ui/field';
+
+const formFieldId = useId();
 
 const props = defineProps<{ definitions: TeamManagement['definitions']; disabled: boolean }>();
 const selected = defineModel<string[]>({ required: true });
@@ -29,32 +32,36 @@ function toggle(code: string, value: boolean | 'indeterminate') {
 </script>
 
 <template>
-    <fieldset class="min-w-0 space-y-3" :disabled="disabled">
-        <legend class="mb-2 text-sm font-medium">权限目录</legend>
+    <FieldSet class="min-w-0" :disabled="disabled">
+        <FieldLegend class="mb-2 font-medium">权限目录</FieldLegend>
         <Input v-model="query" aria-label="搜索权限" placeholder="搜索权限" :disabled="disabled" />
-        <label class="flex items-center gap-3 border-b pb-3 text-sm">
+        <Field orientation="horizontal" class="items-center border-b pb-3">
             <Checkbox
+                :id="formFieldId + '-1'"
                 aria-label="全选当前结果"
                 :model-value="checked"
                 :disabled="disabled || !visible.length"
                 @update:model-value="toggleAll"
             />
-            全选当前结果
+            <FieldLabel :for="formFieldId + '-1'" class="font-normal">全选当前结果</FieldLabel>
             <span class="ml-auto text-xs text-muted-foreground">已选 {{ selected.length }} 项</span>
-        </label>
+        </Field>
         <div class="max-h-60 overflow-y-auto scroll-smooth motion-reduce:scroll-auto">
-            <label v-for="item in visible" :key="item.code" class="flex min-h-9 items-start gap-3 py-2 text-sm">
+            <Field v-for="item in visible" :key="item.code" orientation="horizontal" class="min-h-9 items-start py-2">
                 <Checkbox
+                    :id="formFieldId + '-2' + '-' + item.code"
                     class="mt-0.5"
                     :model-value="selected.includes(item.code)"
                     :disabled="disabled"
                     @update:model-value="(value) => toggle(item.code, value)"
                 />
-                <span class="min-w-0 break-words">{{ item.name }}</span>
-            </label>
+                <FieldLabel :for="formFieldId + '-2' + '-' + item.code" class="min-w-0 break-words font-normal">
+                    {{ item.name }}
+                </FieldLabel>
+            </Field>
             <p v-if="!visible.length" class="py-5 text-center text-sm text-muted-foreground">
                 {{ definitions.length ? '没有匹配的权限' : '当前作用域暂无可用权限' }}
             </p>
         </div>
-    </fieldset>
+    </FieldSet>
 </template>

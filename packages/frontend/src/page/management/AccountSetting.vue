@@ -5,12 +5,12 @@ import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { DataSyncNotice } from '@/component/data-sync';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
-import { Label } from '@/ui/label';
 import ManagementPage from './component/ManagementPage.vue';
 import ManagementSection from './component/ManagementSection.vue';
 import ManagementViewNav from './component/ManagementViewNav.vue';
 import PersonalNotificationSetting from './component/PersonalNotificationSetting.vue';
 import { useManagementView } from './useManagementView';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
 
 const account = useAccountStore();
 const views = [
@@ -61,8 +61,8 @@ async function save() {
                     </span>
                     <span class="min-w-0 break-words font-medium">{{ account.profile?.displayName }}</span>
                 </div>
-                <div class="space-y-2">
-                    <Label for="account-display-name">显示名称</Label>
+                <Field>
+                    <FieldLabel for="account-display-name">显示名称</FieldLabel>
                     <Input
                         id="account-display-name"
                         v-model="displayName"
@@ -73,9 +73,9 @@ async function save() {
                             !account.profile || account.busy || account.syncPending || !account.canUpdateDisplayName
                         "
                     />
-                </div>
-                <div class="space-y-2">
-                    <Label for="account-email">邮箱</Label>
+                </Field>
+                <Field>
+                    <FieldLabel for="account-email">邮箱</FieldLabel>
                     <Input
                         id="account-email"
                         :model-value="account.profile?.email"
@@ -83,9 +83,9 @@ async function save() {
                         readonly
                         class="bg-muted text-muted-foreground"
                     />
-                </div>
+                </Field>
             </ManagementSection>
-            <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+            <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
             <p v-if="saved" role="status" class="text-sm text-success">资料已保存</p>
             <DataSyncNotice
                 scope="账户资料"

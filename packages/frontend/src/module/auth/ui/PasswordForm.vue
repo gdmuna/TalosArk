@@ -3,7 +3,7 @@ import { onBeforeUnmount, ref } from 'vue';
 import { Eye, EyeOff, KeyRound, LoaderCircle } from '@lucide/vue';
 import { LocalPasswordBounds, LocalPasswordSchema } from '@talos-ark/contracts/auth';
 import { Button } from '@/ui/button';
-import { Field, FieldLabel } from '@/ui/field';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
 
 defineProps<{ pending: boolean; error: string; label: string }>();
@@ -79,9 +79,9 @@ function submit() {
                 :disabled="pending"
             />
         </Field>
-        <p v-if="validationError || error" role="alert" class="text-sm text-destructive">
+        <FieldError v-if="validationError || error" role="alert" class="text-sm text-destructive">
             {{ validationError || error }}
-        </p>
+        </FieldError>
         <Button type="submit" class="w-full" :disabled="pending">
             <LoaderCircle v-if="pending" class="size-4 animate-spin" aria-hidden="true" />
             <KeyRound v-else class="size-4" aria-hidden="true" />

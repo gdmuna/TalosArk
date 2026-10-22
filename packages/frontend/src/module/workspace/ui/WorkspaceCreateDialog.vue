@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import { SelectField } from '@/component/select-field';
 import { DataSyncNotice } from '@/component/data-sync';
 import { useWorkspaceStore } from '../model/store';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const open = defineModel<boolean>('open', { default: false });
 const props = defineProps<{ mode: 'organization' | 'workspace' | 'join'; organizationId?: string }>();
@@ -71,21 +74,23 @@ async function submit() {
             <DialogTitle>{{ title }}</DialogTitle>
             <DialogDescription class="sr-only">{{ title }}</DialogDescription>
             <form class="space-y-4" @submit.prevent="submit">
-                <label v-if="mode === 'workspace'" class="block space-y-2">
-                    <span>所属组织</span>
+                <Field v-if="mode === 'workspace'">
+                    <FieldLabel :for="formFieldId + '-1'">所属组织</FieldLabel>
                     <SelectField
+                        :id="formFieldId + '-1'"
                         v-model="organizationId"
                         label="所属组织"
                         class="w-full"
                         :options="options"
                         :disabled="workspace.busy || committed"
                     />
-                </label>
-                <label class="block space-y-2">
-                    <span>
+                </Field>
+                <Field>
+                    <FieldLabel :for="formFieldId + '-2'">
                         {{ mode === 'organization' ? '组织名称' : mode === 'workspace' ? '工作区名称' : '邀请码' }}
-                    </span>
+                    </FieldLabel>
                     <Input
+                        :id="formFieldId + '-2'"
                         v-model="name"
                         maxlength="40"
                         required
@@ -94,18 +99,19 @@ async function submit() {
                             mode === 'organization' ? '组织名称' : mode === 'workspace' ? '工作区名称' : '邀请码'
                         "
                     />
-                </label>
-                <label v-if="mode === 'organization'" class="block space-y-2">
-                    <span>首个工作区名称</span>
+                </Field>
+                <Field v-if="mode === 'organization'">
+                    <FieldLabel :for="formFieldId + '-3'">首个工作区名称</FieldLabel>
                     <Input
+                        :id="formFieldId + '-3'"
                         v-model="workspaceName"
                         maxlength="40"
                         required
                         aria-label="首个工作区名称"
                         :disabled="workspace.busy || committed"
                     />
-                </label>
-                <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                </Field>
+                <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
                 <DataSyncNotice
                     scope="工作区"
                     :error="workspace.syncError"

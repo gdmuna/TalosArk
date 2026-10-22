@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
 import type { TeamManagement } from '@talos-ark/contracts/team';
 import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/checkbox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/ui/table';
+import { Field, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
+
 const props = defineProps<{ definitions: TeamManagement['definitions']; disabled: boolean; scope: string }>();
 const selected = defineModel<string[]>({ required: true });
 const query = ref('');
@@ -48,15 +52,16 @@ function toggleAll(value: boolean | 'indeterminate') {
                 <TableBody>
                     <TableRow v-if="visible.length">
                         <TableCell class="sticky left-0 z-10 bg-card">
-                            <label class="flex items-center gap-2">
+                            <Field orientation="horizontal" class="items-center">
                                 <Checkbox
+                                    :id="formFieldId + '-1'"
                                     :model-value="checked"
                                     :disabled="disabled"
                                     aria-label="全选当前权限结果"
                                     @update:model-value="toggleAll"
                                 />
-                                {{ scope }}
-                            </label>
+                                <FieldLabel :for="formFieldId + '-1'" class="font-normal">{{ scope }}</FieldLabel>
+                            </Field>
                         </TableCell>
                         <TableCell v-for="definition in visible" :key="definition.code" class="text-center">
                             <Checkbox

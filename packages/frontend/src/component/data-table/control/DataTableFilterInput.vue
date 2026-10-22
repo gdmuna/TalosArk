@@ -7,6 +7,7 @@ import { Input } from '@/ui/input';
 import { Button } from '@/ui/button';
 import type { DataTableFilter } from '../type';
 import { ScrollSurface } from '@/component/scroll-surface';
+import { Field, FieldLabel } from '@/ui/field';
 const props = defineProps<{ label: string; options: DataTableFilter<unknown>['options']; mode: 'options' | 'text' }>();
 const selected = defineModel<string[]>({ required: true });
 const inputId = useId();
@@ -47,12 +48,13 @@ function toggle(value: string, checked: boolean) {
         </Button>
     </div>
     <DropdownMenuSeparator />
-    <div
+    <Field
         v-if="mode === 'text'"
+        orientation="horizontal"
         class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 p-2"
         @keydown="$event.key !== 'Escape' && $event.stopPropagation()"
     >
-        <label :for="inputId" class="text-xs text-muted-foreground">包含</label>
+        <FieldLabel :for="inputId" class="text-xs font-normal text-muted-foreground">包含</FieldLabel>
         <Input
             :id="inputId"
             :model-value="selected[0] ?? ''"
@@ -61,7 +63,7 @@ function toggle(value: string, checked: boolean) {
             class="h-8 min-w-0"
             @update:model-value="selected = $event ? [String($event)] : []"
         />
-    </div>
+    </Field>
     <ScrollSurface v-if="mode === 'options'" edge-effect="line" class="max-h-64">
         <DropdownMenuItem
             v-for="option in options"

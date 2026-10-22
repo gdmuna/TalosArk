@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router';
 import { ClipboardCheck, ScanLine, Save, Check } from '@lucide/vue';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
-import { Label } from '@/ui/label';
 import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { useNavigationStore } from '@/platform/navigation';
@@ -15,6 +14,8 @@ import ResourceFactList from '../../resource/ResourceFactList.vue';
 import ResourceTable from '../../resource/ResourceTable.vue';
 import ResourceEmpty from '../../resource/ResourceEmpty.vue';
 import { useResourceView } from '../../resource/useResourceView';
+import { Field, FieldLabel } from '@/ui/field';
+
 const route = useRoute();
 const taskId = computed(() => String(route.params.taskId));
 const navigation = useNavigationStore();
@@ -95,14 +96,14 @@ const { view, select } = useResourceView(tabs.map((tab) => tab.id));
                 </ResourceSection>
                 <ResourceSection title="当前记录">
                     <ResourceEmpty text="选择盘点记录" />
-                    <div class="space-y-3">
-                        <Label for="stocktake-count">实盘数量</Label>
+                    <Field>
+                        <FieldLabel for="stocktake-count">实盘数量</FieldLabel>
                         <Input id="stocktake-count" type="number" readonly placeholder="未加载" />
                         <Button class="w-full" disabled>
                             <Check aria-hidden="true" />
                             确认记录
                         </Button>
-                    </div>
+                    </Field>
                 </ResourceSection>
             </div>
         </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import {
     StorageNodeCreateSchema,
     StorageNodeUpdateSchema,
@@ -21,6 +21,10 @@ import { HttpError } from '@/platform/http';
 import FacilityPicker from './FacilityPicker.vue';
 import NodePicker from './NodePicker.vue';
 import ReadFeedback from './ReadFeedback.vue';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 const props = defineProps<{
     scope: StorageScope;
@@ -281,89 +285,128 @@ async function reload() {
             />
             <form v-if="data" class="space-y-4" @submit.prevent="submit">
                 <template v-if="mode === 'create' || mode === 'edit'">
-                    <SelectField
-                        v-if="mode === 'create'"
-                        v-model="kind"
-                        label="节点类型"
-                        :options="[
-                            { value: 'CONTAINER', label: '容器' },
-                            { value: 'POSITION', label: '物理位置' },
-                        ]"
-                        :disabled="disabled"
-                        class="w-full"
-                    />
-                    <label class="grid gap-2 text-sm">
-                        编号
-                        <Input v-model="code" required maxlength="160" :disabled="disabled" />
-                    </label>
-                    <label class="grid gap-2 text-sm">
-                        名称
-                        <Input v-model="name" required maxlength="160" :disabled="disabled" />
-                    </label>
-                    <SelectField
-                        v-if="kind === 'CONTAINER'"
-                        v-model="containerType"
-                        label="容器分类"
-                        :options="typeOptions"
-                        :disabled="disabled"
-                        class="w-full"
-                    />
+                    <Field v-if="mode === 'create'" class="w-full">
+                        <FieldLabel :for="standaloneFieldId + '-1'">节点类型</FieldLabel>
+                        <SelectField
+                            :id="standaloneFieldId + '-1'"
+                            v-model="kind"
+                            label="节点类型"
+                            :options="[
+                                { value: 'CONTAINER', label: '容器' },
+                                { value: 'POSITION', label: '物理位置' },
+                            ]"
+                            :disabled="disabled"
+                        />
+                    </Field>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-1'">编号</FieldLabel>
+                        <Input :id="formFieldId + '-1'" v-model="code" required maxlength="160" :disabled="disabled" />
+                    </Field>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-2'">名称</FieldLabel>
+                        <Input :id="formFieldId + '-2'" v-model="name" required maxlength="160" :disabled="disabled" />
+                    </Field>
+                    <Field v-if="kind === 'CONTAINER'" class="w-full">
+                        <FieldLabel :for="standaloneFieldId + '-2'">容器分类</FieldLabel>
+                        <SelectField
+                            :id="standaloneFieldId + '-2'"
+                            v-model="containerType"
+                            label="容器分类"
+                            :options="typeOptions"
+                            :disabled="disabled"
+                        />
+                    </Field>
                     <div v-if="kind === 'CONTAINER'" class="grid grid-cols-2 gap-3">
-                        <label class="grid gap-2 text-sm">
-                            网格行数（可空）
-                            <Input v-model="rowCount" type="number" min="1" max="10000" :disabled="disabled" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            网格列数（可空）
-                            <Input v-model="columnCount" type="number" min="1" max="10000" :disabled="disabled" />
-                        </label>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-3'">网格行数（可空）</FieldLabel>
+                            <Input
+                                :id="formFieldId + '-3'"
+                                v-model="rowCount"
+                                type="number"
+                                min="1"
+                                max="10000"
+                                :disabled="disabled"
+                            />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-4'">网格列数（可空）</FieldLabel>
+                            <Input
+                                :id="formFieldId + '-4'"
+                                v-model="columnCount"
+                                type="number"
+                                min="1"
+                                max="10000"
+                                :disabled="disabled"
+                            />
+                        </Field>
                     </div>
-                    <label class="grid gap-2 text-sm">
-                        描述
-                        <Textarea v-model="description" maxlength="2000" :disabled="disabled" />
-                    </label>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-5'">描述</FieldLabel>
+                        <Textarea
+                            :id="formFieldId + '-5'"
+                            v-model="description"
+                            maxlength="2000"
+                            :disabled="disabled"
+                        />
+                    </Field>
                 </template>
                 <template v-if="mode === 'create' || mode === 'edit' || mode === 'move'">
                     <div class="grid grid-cols-2 gap-3">
-                        <label class="grid gap-2 text-sm">
-                            所在行
-                            <Input v-model="rowIndex" type="number" min="1" max="10000" :disabled="disabled" />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            所在列
-                            <Input v-model="columnIndex" type="number" min="1" max="10000" :disabled="disabled" />
-                        </label>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-6'">所在行</FieldLabel>
+                            <Input
+                                :id="formFieldId + '-6'"
+                                v-model="rowIndex"
+                                type="number"
+                                min="1"
+                                max="10000"
+                                :disabled="disabled"
+                            />
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-7'">所在列</FieldLabel>
+                            <Input
+                                :id="formFieldId + '-7'"
+                                v-model="columnIndex"
+                                type="number"
+                                min="1"
+                                max="10000"
+                                :disabled="disabled"
+                            />
+                        </Field>
                     </div>
                 </template>
                 <template v-if="mode === 'grid'">
                     <p class="text-sm text-muted-foreground">
                         仅生成实际位置，不按网格规格推算空位或库存容量；若任一编号或坐标冲突，整批不写入。
                     </p>
-                    <label class="grid gap-2 text-sm">
-                        编号前缀
-                        <Input v-model="prefix" maxlength="120" :disabled="disabled" />
-                    </label>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-8'">编号前缀</FieldLabel>
+                        <Input :id="formFieldId + '-8'" v-model="prefix" maxlength="120" :disabled="disabled" />
+                    </Field>
                     <div class="grid grid-cols-2 gap-3">
-                        <label class="grid gap-2 text-sm">
-                            生成行数
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-9'">生成行数</FieldLabel>
                             <Input
+                                :id="formFieldId + '-9'"
                                 v-model="gridRows"
                                 type="number"
                                 min="1"
                                 :max="node?.rowCount ?? 1000"
                                 :disabled="disabled"
                             />
-                        </label>
-                        <label class="grid gap-2 text-sm">
-                            生成列数
+                        </Field>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-10'">生成列数</FieldLabel>
                             <Input
+                                :id="formFieldId + '-10'"
                                 v-model="gridColumns"
                                 type="number"
                                 min="1"
                                 :max="node?.columnCount ?? 1000"
                                 :disabled="disabled"
                             />
-                        </label>
+                        </Field>
                     </div>
                     <p class="text-sm">共 {{ Number(gridRows) * Number(gridColumns) }} 个，从第 1 行、第 1 列开始</p>
                 </template>
@@ -388,10 +431,10 @@ async function reload() {
                         label="目标父容器"
                         root-label="目标布局根级"
                     />
-                    <label class="grid gap-2 text-sm">
-                        目标编号
-                        <Input v-model="code" maxlength="160" :disabled="disabled" />
-                    </label>
+                    <Field>
+                        <FieldLabel :for="formFieldId + '-11'">目标编号</FieldLabel>
+                        <Input :id="formFieldId + '-11'" v-model="code" maxlength="160" :disabled="disabled" />
+                    </Field>
                 </template>
                 <NodePicker
                     v-if="mode === 'reorder' && node"
@@ -406,7 +449,9 @@ async function reload() {
                 <p v-if="mode === 'state'" class="text-sm text-muted-foreground">
                     停用阻止新增存放；归档需先处理占用和活动子节点，不删除历史。
                 </p>
-                <p v-if="validation" role="alert" class="text-sm text-destructive">{{ validation }}</p>
+                <FieldError v-if="validation" role="alert" class="text-sm text-destructive">
+                    {{ validation }}
+                </FieldError>
                 <div class="flex justify-end gap-2">
                     <Button type="button" variant="outline" :disabled="busy" @click="open = false">关闭</Button>
                     <Button

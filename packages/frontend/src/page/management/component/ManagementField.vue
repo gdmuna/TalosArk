@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useId } from 'vue';
 import { Input } from '@/ui/input';
-import { Label } from '@/ui/label';
+import { Field, FieldLabel } from '@/ui/field';
 import { Textarea } from '@/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/ui/select';
 
@@ -18,8 +18,8 @@ const id = useId();
 </script>
 
 <template>
-    <div class="space-y-2">
-        <Label :for="id" :class="hideLabel && 'sr-only'">{{ label }}</Label>
+    <Field>
+        <FieldLabel :for="id" :class="hideLabel && 'sr-only'">{{ label }}</FieldLabel>
         <Select v-if="options" :model-value="value" disabled>
             <SelectTrigger :id="id" class="w-full bg-card">
                 <SelectValue :placeholder="placeholder ?? '未设置'" />
@@ -45,5 +45,5 @@ const id = useId();
             class="bg-card"
             readonly
         />
-    </div>
+    </Field>
 </template>

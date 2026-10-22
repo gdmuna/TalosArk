@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { refDebounced } from '@vueuse/core';
 import type { PaginationState } from '@tanstack/vue-table';
 import type { RoleBindingPage } from '@talos-ark/contracts/team';
@@ -21,6 +21,9 @@ import ManagementSection from '../component/ManagementSection.vue';
 import { useManagementView } from '../useManagementView';
 import { useDetailRead, useDetailActivity, detailDate } from '../detail/read';
 import PermissionMatrix from './PermissionMatrix.vue';
+import { Field, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const route = useRoute(),
     router = useRouter(),
@@ -189,10 +192,10 @@ async function save() {
             </div>
             <form v-if="view === 'permission'" class="space-y-6" @submit.prevent="save">
                 <ManagementSection title="角色定义">
-                    <label v-if="data.canEdit" class="grid max-w-[480px] gap-2 text-sm">
-                        角色名称
-                        <Input v-model="name" required maxlength="40" :disabled="busy" />
-                    </label>
+                    <Field v-if="data.canEdit" class="max-w-[480px]">
+                        <FieldLabel :for="formFieldId + '-1'">角色名称</FieldLabel>
+                        <Input :id="formFieldId + '-1'" v-model="name" required maxlength="40" :disabled="busy" />
+                    </Field>
                     <FactList v-else :fields="[{ label: '角色名称', value: data.role.name }]" />
                 </ManagementSection>
                 <ManagementSection title="已注册权限">

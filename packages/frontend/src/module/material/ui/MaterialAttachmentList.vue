@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch, useId } from 'vue';
 import { MaterialAttachmentUploadModeSchema } from '@talos-ark/contracts/material';
 import { Download, File, RefreshCw, Trash2, Upload } from '@lucide/vue';
 import type { MaterialAttachmentReference } from '@talos-ark/contracts/material';
@@ -18,6 +18,9 @@ import { Button } from '@/ui/button';
 import { SelectField } from '@/component/select-field';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/ui/table';
+import { Field, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 const props = defineProps<{ materialId: string; canManage: boolean }>();
 const material = useMaterialStore();
@@ -218,17 +221,28 @@ function previous() {
         </div>
         <div v-if="canManage || job" class="space-y-3">
             <div class="flex flex-wrap items-center gap-3">
-                <label v-if="canManage && !job?.reference" class="min-w-0 text-sm">
-                    <span class="sr-only">{{ job ? '重新选择原文件' : '选择附件' }}</span>
+                <Field v-if="canManage && !job?.reference" class="min-w-0 flex-1">
+                    <FieldLabel :for="formFieldId + '-1'" class="sr-only">
+                        {{ job ? '重新选择原文件' : '选择附件' }}
+                    </FieldLabel>
                     <input
+                        :id="formFieldId + '-1'"
                         type="file"
                         :accept="materialAttachmentAccept"
                         :disabled="busy || !!upload.recoveryError"
                         class="max-w-full text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-2"
                         @change="selectFile"
                     />
-                </label>
-                <SelectField v-if="canManage && !job" v-model="uploadMode" label="上传方式" :options="uploadModes" />
+                </Field>
+                <Field v-if="canManage && !job" class="w-36 shrink-0">
+                    <FieldLabel :for="formFieldId + '-mode'" class="sr-only">上传方式</FieldLabel>
+                    <SelectField
+                        :id="formFieldId + '-mode'"
+                        v-model="uploadMode"
+                        label="上传方式"
+                        :options="uploadModes"
+                    />
+                </Field>
                 <Button
                     v-if="canManage && !job?.reference"
                     :disabled="busy || (!file && !job) || !!upload.recoveryError"
