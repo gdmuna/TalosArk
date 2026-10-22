@@ -14,7 +14,10 @@ import { storageConfig } from '../src/config/storage.config.js';
 const command = new Command()
     .description('Check or explicitly initialize object storage buckets and browser CORS.')
     .argument('<operation>', 'check (read-only) or init (create missing buckets and merge CORS)')
-    .option('--env-file <path...>', 'Runtime environment files, highest priority first')
+    .option(
+        '--env-file <path...>',
+        'Runtime environment files, highest priority first; ignores inherited S3 configuration'
+    )
     .requiredOption('--origin <origin...>', 'Exact HTTP(S) frontend origins, without a path');
 command.parse();
 const operation = command.args[0];
@@ -52,14 +55,40 @@ const covers = (rules: CORSRule[], origin: string) =>
 let currentBucket: string | undefined;
 try {
     if (options.envFile) {
-        const loaded = config({ path: options.envFile, quiet: true, strict: true });
+        const parsed: Record<string, string> = {};
+        const loaded = config({
+            path: options.envFile,
+            processEnv: parsed,
+            quiet: true,
+            strict: true,
+        });
         if (loaded.error) throw new Error('Environment loading failed.');
+
+        // Selected files own the complete S3 configuration, including omitted values.
+        for (const key of Object.keys(process.env)) {
+            if (key.toUpperCase().startsWith('S3_')) delete process.env[key];
+        }
+        for (const [key, value] of Object.entries(parsed)) {
+            if (key.startsWith('S3_')) process.env[key] = value;
+        }
     }
     const storage = storageConfig();
     const endpoint = new URL(storage.endpoint);
     if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash)
         throw new Error('S3_ENDPOINT must not contain credentials, a query, or a fragment.');
-    console.info(JSON.stringify({ operation, endpoint: endpoint.href, origins }));
+    console.info(
+        JSON.stringify({
+            operation,
+            envFiles: options.envFile ?? [],
+            endpoint: endpoint.href,
+            buckets: {
+                public: storage.bucketPublic,
+                private: storage.bucketPrivate,
+                staging: storage.bucketStaging,
+            },
+            origins,
+        })
+    );
     const client = new S3Client({
         endpoint: storage.endpoint,
         region: storage.region,

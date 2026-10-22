@@ -78,7 +78,13 @@ pnpm --filter @talos-ark/backend storage:check --env-file secrets/env/.env.devel
 
 `check` is read-only. To create missing configured buckets and merge browser CORS,
 run the same command with `storage:init`. Environment files are highest priority
-first; without `--env-file`, the command uses the injected process environment.
+first. With `--env-file`, only the selected files supply S3 configuration;
+inherited `S3_*` variables are ignored, and omitted values use the storage
+configuration's defaults or fail validation when required. Other variables from
+the selected files are not injected into the process environment. Without
+`--env-file`, the command uses the injected process environment. Before sending
+requests, it prints the selected files, final endpoint, bucket names and origins,
+without credentials.
 Pass every real frontend origin after `--origin`, separated by spaces. Origins
 must include the scheme and port, without a path or trailing slash. `init` preserves
 unrelated CORS rules and previously managed origins; it does not configure public
