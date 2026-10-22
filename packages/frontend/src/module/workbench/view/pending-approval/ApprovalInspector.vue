@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Check, ExternalLink, TriangleAlert, Undo2 } from '@lucide/vue';
 import { Button } from '@/ui/button';
+import { Textarea } from '@/ui/textarea';
 import { ScrollSurface as ScrollArea } from '@/component/scroll-surface';
 import { StateBadge } from '@/component/state-badge';
 import { CopyableId } from '@/component/inspector';
@@ -10,6 +11,7 @@ import { useWorkbenchStore } from '../../model/store';
 import { formatDateTime } from '@/shared/util/date-time';
 import { stateTone, type Approval, type Resource } from '../../model/workbench';
 import WorkbenchSyncNotice from '../../ui/WorkbenchSyncNotice.vue';
+import { Field, FieldError, FieldLabel } from '@/ui/field';
 
 const props = defineProps<{ approval: Approval; resource?: Resource }>();
 const emit = defineEmits<{ close: []; resource: [resource: Resource] }>();
@@ -82,17 +84,17 @@ async function decide(status: '已批准' | '已退回') {
                     <ExternalLink aria-hidden="true" />
                     查看关联资源
                 </Button>
-                <section v-if="approval.status === '待审批'">
-                    <label for="approval-note" class="mb-3 block font-semibold">
+                <Field v-if="approval.status === '待审批'">
+                    <FieldLabel for="approval-note">
                         审批意见
                         <span class="ml-2 text-xs font-normal text-muted-foreground">退回时必填</span>
-                    </label>
-                    <textarea
+                    </FieldLabel>
+                    <Textarea
                         id="approval-note"
                         v-model="reviewNote"
                         rows="4"
                         maxlength="200"
-                        class="w-full resize-none rounded-md border border-input bg-card p-3"
+                        class="resize-none"
                         placeholder="填写审批意见"
                         :aria-invalid="!!error"
                         :aria-describedby="error ? 'approval-error' : undefined"
@@ -100,10 +102,10 @@ async function decide(status: '已批准' | '已退回') {
                     <p class="mt-1 text-right text-xs tabular-nums text-muted-foreground">
                         {{ reviewNote.length }} / 200
                     </p>
-                    <p v-if="error" id="approval-error" role="alert" class="mt-2 text-sm text-destructive">
+                    <FieldError v-if="error" id="approval-error">
                         {{ error }}
-                    </p>
-                </section>
+                    </FieldError>
+                </Field>
                 <section v-else>
                     <h3 class="mb-3 font-semibold">审批意见</h3>
                     <p class="rounded-md bg-muted p-3 leading-6">{{ approval.reviewNote || '无附加意见' }}</p>

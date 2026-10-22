@@ -41,6 +41,9 @@ export function inventoryErrorMessage(cause: unknown) {
         MATERIAL_BATCH_CONFLICT: '该材料已存在此批号，请选择已有批次',
         MATERIAL_CONFLICT: '批次资料已改变，请重新加载后再提交',
         MATERIAL_INVALID_INPUT: '生产日期不能晚于有效期，请检查批次日期',
+        FACILITY_OCCUPIED: '目标位置已被占用，请重新选择空位置',
+        FACILITY_CONFLICT: '存储结构已改变，请重新加载并核对位置',
+        FACILITY_INVALID_STATE: '设施或位置当前不可用，请重新加载并核对',
     };
     return (
         messages[cause.code ?? ''] ??

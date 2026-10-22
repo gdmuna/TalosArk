@@ -19,6 +19,7 @@ const moduleDependencies = {
     approval: new Set(['workspace', 'account', 'inventory']),
 };
 const componentDependencies = {
+    'batch-operation': new Set(['data-table', 'state-badge']),
     'data-table': new Set(['scroll-surface', 'select-field', 'inspector']),
     breadcrumb: new Set(['view-context']),
     'route-tab': new Set(['scroll-surface', 'view-context']),

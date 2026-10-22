@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, useId } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, Check, MapPin, Package, Plus, Send, Trash2 } from '@lucide/vue';
 import { z } from 'zod';
@@ -17,6 +17,10 @@ import { ButtonGroup } from '@/ui/button-group';
 import { useApprovalRead } from '../model/read';
 import { useApprovalOperationStore } from '../model/operation';
 import ApprovalOperationNotice from './ApprovalOperationNotice.vue';
+import { Field, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 type Position = InventoryReceipt['position'] & { path: string };
 type DraftLine = { id: string; stock: InventoryStock; quantity: string; position?: Position; note: string };
@@ -46,7 +50,15 @@ const context = useApprovalRead(
 );
 const scope = context.scope;
 const attempt = computed(() => store.current(scope.value));
-const locked = computed(() => store.busy || !!attempt.value || !!store.recoveryError);
+const locked = computed(
+    () =>
+        store.busy ||
+        !!attempt.value ||
+        !!store.recoveryError ||
+        store.batch.busy ||
+        !!store.batch.current(store.batchKey(scope.value)) ||
+        !!store.batch.error
+);
 const canApply = computed(() =>
     type.value === 'CONSUME'
         ? context.data.value?.capabilities.consumeApply
@@ -265,9 +277,9 @@ async function submit() {
             <p v-if="initial.error.value || context.error.value" role="alert" class="text-sm text-destructive">
                 {{ initial.error.value || context.error.value }}
             </p>
-            <fieldset :disabled="locked" class="grid gap-5 border-y py-5 sm:grid-cols-2">
-                <div>
-                    <label class="mb-2 block text-sm font-medium">申请类型</label>
+            <FieldSet :disabled="locked" class="grid gap-5 border-y py-5 sm:grid-cols-2">
+                <FieldSet>
+                    <FieldLegend variant="label">申请类型</FieldLegend>
                     <ButtonGroup aria-label="申请类型">
                         <Button
                             type="button"
@@ -288,16 +300,16 @@ async function submit() {
                             转移
                         </Button>
                     </ButtonGroup>
-                </div>
-                <label class="grid gap-2 text-sm">
-                    标题（选填）
-                    <Input v-model="title" placeholder="使用默认标题" maxlength="200" />
-                </label>
-                <label class="grid gap-2 text-sm sm:col-span-2">
-                    申请说明（选填）
-                    <Textarea v-model="description" maxlength="4000" />
-                </label>
-            </fieldset>
+                </FieldSet>
+                <Field>
+                    <FieldLabel :for="formFieldId + '-1'">标题（选填）</FieldLabel>
+                    <Input :id="formFieldId + '-1'" v-model="title" placeholder="使用默认标题" maxlength="200" />
+                </Field>
+                <Field class="sm:col-span-2">
+                    <FieldLabel :for="formFieldId + '-2'">申请说明（选填）</FieldLabel>
+                    <Textarea :id="formFieldId + '-2'" v-model="description" maxlength="4000" />
+                </Field>
+            </FieldSet>
             <section aria-label="申请明细" class="space-y-3">
                 <header class="flex items-center justify-between gap-3">
                     <h2 class="text-base font-semibold">
@@ -332,8 +344,12 @@ async function submit() {
                         <span class="mt-1 block text-xs text-muted-foreground">{{ row.stock.material.name }}</span>
                     </template>
                     <template #cell-intent="{ row }">
-                        <div v-if="type === 'CONSUME'" class="flex items-center gap-2">
+                        <Field v-if="type === 'CONSUME'" orientation="horizontal" class="gap-2">
+                            <FieldLabel :for="formFieldId + '-quantity-' + row.id" class="sr-only">
+                                申请消耗量 {{ row.stock.code }}
+                            </FieldLabel>
                             <Input
+                                :id="formFieldId + '-quantity-' + row.id"
                                 v-model="row.quantity"
                                 :disabled="locked"
                                 :aria-label="`申请消耗量 ${row.stock.code}`"
@@ -341,7 +357,7 @@ async function submit() {
                                 class="min-w-20"
                             />
                             <span class="shrink-0 text-sm text-muted-foreground">{{ row.stock.quantityUnit }}</span>
-                        </div>
+                        </Field>
                         <Button
                             v-else
                             type="button"
@@ -355,18 +371,25 @@ async function submit() {
                         </Button>
                     </template>
                     <template #cell-note="{ row }">
-                        <Input
-                            v-model="row.note"
-                            :disabled="locked"
-                            :aria-label="`申请备注 ${row.stock.code}`"
-                            maxlength="1000"
-                        />
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-note-' + row.id" class="sr-only">
+                                申请备注 {{ row.stock.code }}
+                            </FieldLabel>
+                            <Input
+                                :id="formFieldId + '-note-' + row.id"
+                                v-model="row.note"
+                                :disabled="locked"
+                                :aria-label="`申请备注 ${row.stock.code}`"
+                                maxlength="1000"
+                            />
+                        </Field>
                     </template>
                 </DataTable>
             </section>
-            <section aria-label="指定审批人" class="max-w-xl space-y-3 border-t pt-5">
-                <label class="block text-sm font-medium">审批人</label>
+            <Field aria-label="指定审批人" class="max-w-xl border-t pt-5">
+                <FieldLabel :for="standaloneFieldId + '-1'" class="font-medium">审批人</FieldLabel>
                 <SelectField
+                    :id="standaloneFieldId + '-1'"
                     v-model="approverId"
                     label="选择审批人"
                     :disabled="locked || !selection || candidates.loading.value"
@@ -374,9 +397,9 @@ async function submit() {
                         (candidates.data.value?.items ?? []).map((row) => ({ value: row.userId, label: row.name }))
                     "
                 />
-                <p v-if="candidates.error.value" role="alert" class="text-sm text-destructive">
+                <FieldError v-if="candidates.error.value" role="alert" class="text-sm text-destructive">
                     {{ candidates.error.value }}
-                </p>
+                </FieldError>
                 <p
                     v-else-if="selection && !candidates.loading.value && candidates.data.value?.items.length === 0"
                     role="status"
@@ -387,7 +410,7 @@ async function submit() {
                 <p v-if="context.data.value && !canApply" role="status" class="text-sm text-muted-foreground">
                     当前账户没有此动作的申请资格
                 </p>
-            </section>
+            </Field>
         </div>
         <Dialog v-model:open="picker">
             <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-4xl">

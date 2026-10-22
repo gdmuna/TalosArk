@@ -41,6 +41,7 @@ import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
 import ResourcePage from '../resource/ResourcePage.vue';
 import InventoryReceiptDialog from './component/InventoryReceiptDialog.vue';
+import InventoryReceiptBatchDialog from './component/InventoryReceiptBatchDialog.vue';
 import InventoryActionDialog from './component/InventoryActionDialog.vue';
 import { useResourceQuery } from '../resource/useResourceQuery';
 import { useQueryCommand } from '@/platform/navigation';
@@ -77,6 +78,8 @@ const bulkActions = computed<DataTableBulkAction<InventoryStock>[]>(() =>
     }))
 );
 const receiptStore = useInventoryReceiptStore();
+const batchOpen = ref(false);
+const receiptBatch = computed(() => receiptStore.batch.current(receiptStore.batchKey(scope.value)));
 const actionStore = useInventoryActionStore();
 const actionAttempt = computed(() => actionStore.current(scope.value));
 const actionOpen = ref(false);
@@ -121,6 +124,7 @@ watch(
         selectedId.value = '';
         checked.value = [];
         actionOpen.value = false;
+        batchOpen.value = false;
         actionStock.value = undefined;
         total.value = 0;
         pagination.value.pageIndex = 0;
@@ -218,12 +222,28 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
 <template>
     <ResourcePage label="库存列表" layout="data">
         <template #actions>
+            <Button
+                variant="outline"
+                :disabled="
+                    !receiptBatch &&
+                    (recovering ||
+                        receiptStore.busy ||
+                        !context.data.value?.capabilities.receive ||
+                        context.loading.value ||
+                        !!context.error.value)
+                "
+                @click="batchOpen = true"
+            >
+                <Plus />
+                {{ receiptBatch ? '核对批量入库' : '批量入库' }}
+            </Button>
             <Button v-if="actionAttempt || actionStore.recoveryError" variant="outline" @click="actionOpen = true">
                 核对上次库存操作
             </Button>
             <Button
                 :disabled="
-                    !recovering && (!context.data.value?.capabilities.receive || !!context.error.value || loading)
+                    !!receiptBatch ||
+                    (!recovering && (!context.data.value?.capabilities.receive || !!context.error.value || loading))
                 "
                 @click="receiptOpen = true"
             >
@@ -331,6 +351,16 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
             :on-committed="async () => refresh()"
             :sync-failure="failure"
             @refresh-context="context.refresh"
+        />
+        <InventoryReceiptBatchDialog
+            v-model:open="batchOpen"
+            :scope="scope"
+            :can-receive="
+                !context.loading.value && !context.error.value && (context.data.value?.capabilities.receive ?? false)
+            "
+            :can-manage-batch="context.data.value?.capabilities.manageBatch ?? false"
+            :business-date="context.data.value?.businessDate"
+            :on-synchronized="async () => (await refresh()) && (await context.refresh())"
         />
     </ResourcePage>
 </template>

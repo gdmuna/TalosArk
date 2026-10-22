@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { ClipboardCheck, Clock3, Eye, FileText, Plus, RotateCw } from '@lucide/vue';
+import { Check, X, ClipboardCheck, Clock3, Eye, FileText, Plus, RotateCw } from '@lucide/vue';
 import type { PaginationState } from '@tanstack/vue-table';
 import type { ApprovalQuery, ApprovalRequest } from '@talos-ark/contracts/approval';
-import { DataTable, type DataTableColumn } from '@/component/data-table';
+import { DataTable, type DataTableBulkAction, type DataTableColumn } from '@/component/data-table';
 import { StateBadge } from '@/component/state-badge';
 import { ButtonGroup } from '@/ui/button-group';
 import { Button } from '@/ui/button';
@@ -12,6 +12,8 @@ import { useApprovalRead } from '../model/read';
 import { useApprovalOperationStore } from '../model/operation';
 import { approvalStatusLabel, approvalTypeLabel } from '../model/presentation';
 import ApprovalOperationNotice from './ApprovalOperationNotice.vue';
+import ApprovalBatchSheet from './ApprovalBatchSheet.vue';
+import type { ApprovalBatchSelection } from '../model/batch';
 import { isResponseValidationError } from '@/platform/http';
 const props = withDefaults(defineProps<{ initialView?: 'review' | 'execute'; allowMine?: boolean }>(), {
     initialView: 'execute',
@@ -22,6 +24,9 @@ const route = useRoute(),
     store = useApprovalOperationStore();
 const mode = computed(() => (props.allowMine && route.query.view === 'mine' ? 'mine' : props.initialView));
 const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 10 });
+const checked = ref<string[]>([]),
+    batchOpen = ref(false),
+    batchSelection = ref<ApprovalBatchSelection>();
 const query = computed<ApprovalQuery>(() => ({
     view: mode.value,
     page: pagination.value.pageIndex + 1,
@@ -39,6 +44,8 @@ watch(
     [mode, list.scope],
     () => {
         pagination.value.pageIndex = 0;
+        checked.value = [];
+        batchOpen.value = false;
     },
     { flush: 'sync' }
 );
@@ -66,6 +73,28 @@ const columns: DataTableColumn<ApprovalRequest>[] = [
 const open = (row: ApprovalRequest) => {
     void router.push(`/main/workbench/request/${row.id}`);
 };
+const batch = computed(() => store.batch.current(store.batchKey(list.scope.value)));
+const bulkActions = computed<DataTableBulkAction<ApprovalRequest>[]>(() =>
+    mode.value !== 'review'
+        ? []
+        : (['APPROVED', 'REJECTED'] as const).map((decision) => ({
+              id: decision,
+              label: decision === 'APPROVED' ? '批量批准' : '批量拒绝',
+              icon: decision === 'APPROVED' ? Check : X,
+              disabled: (rows) =>
+                  rows.length > 100 ||
+                  rows.some((row) => !row.actions.decide) ||
+                  store.busy ||
+                  !!store.current(list.scope.value) ||
+                  !!batch.value ||
+                  !!store.recoveryError ||
+                  !!store.batch.error,
+              run: (rows) => {
+                  batchSelection.value = { kind: 'decide', decision, requestIds: rows.map((row) => row.id) };
+                  batchOpen.value = true;
+              },
+          }))
+);
 async function synchronize() {
     const current = list.scope.value;
     if (
@@ -74,8 +103,11 @@ async function synchronize() {
         current &&
         current.organizationId === list.scope.value?.organizationId &&
         current.workspaceId === list.scope.value?.workspaceId
-    )
+    ) {
         store.acknowledge(current);
+        return true;
+    }
+    return false;
 }
 </script>
 <template>
@@ -121,6 +153,7 @@ async function synchronize() {
                 </ButtonGroup>
                 <h1 v-else class="text-lg font-semibold">{{ title }}</h1>
                 <div class="flex items-center gap-2">
+                    <Button v-if="batch" variant="outline" @click="batchOpen = true">核对批量操作</Button>
                     <Button
                         variant="outline"
                         size="icon"
@@ -154,6 +187,7 @@ async function synchronize() {
                 <Button variant="outline" @click="synchronize">重新加载</Button>
             </div>
             <DataTable
+                v-model:selected="checked"
                 v-model:pagination="pagination"
                 :data="list.data.value?.items ?? []"
                 :columns="columns"
@@ -161,6 +195,8 @@ async function synchronize() {
                 :searchable="false"
                 :filtering="false"
                 :busy="list.loading.value"
+                :selectable="mode === 'review' ? (row) => row.actions.decide : undefined"
+                :bulk-actions="bulkActions"
                 :preview="open"
                 :actions="[{ id: 'detail', label: '详情', icon: Eye, primary: true, run: open }]"
                 :empty-text="
@@ -202,5 +238,11 @@ async function synchronize() {
             </DataTable>
             <p v-if="allowMine" role="status" class="text-sm text-muted-foreground">普通任务暂不可用</p>
         </div>
+        <ApprovalBatchSheet
+            v-model:open="batchOpen"
+            :scope="list.scope.value"
+            :selection="batchSelection"
+            :on-synchronized="synchronize"
+        />
     </main>
 </template>

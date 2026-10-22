@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue';
+import { computed, onScopeDispose, ref, shallowRef, watch, useId } from 'vue';
 import { AlertTriangle, CheckCircle2, PackagePlus } from '@lucide/vue';
 import { ReceiptSchema } from '@talos-ark/contracts/inventory';
 import type { MaterialBatchQuery } from '@/module/material';
@@ -15,6 +15,11 @@ import { Input } from '@/ui/input';
 import { SelectField } from '@/component/select-field';
 import { CopyableId } from '@/component/inspector';
 import type { InventoryOperationReceipt, InventoryReceipt, InventoryScope } from '@/module/inventory';
+import type { ReceiptDraft } from './receipt-draft';
+import { Field, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/ui/field';
+const standaloneFieldId = useId();
+
+const formFieldId = useId();
 
 const open = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ refreshContext: [] }>();
@@ -26,6 +31,8 @@ const props = defineProps<{
     initialMaterialId?: string;
     initialBatchId?: string;
     initialPosition?: InventoryReceipt['position'];
+    initialReceipt?: InventoryReceipt;
+    onPrepared?: (draft: ReceiptDraft) => string | void;
     onCommitted?: (receipt: InventoryOperationReceipt) => Promise<boolean>;
     syncFailure?: unknown;
 }>();
@@ -53,7 +60,7 @@ const selectedPosition = ref<{ facilityId: string; topologyId: string; nodeId: s
 const error = ref('');
 const submitting = computed(() => receiptStore.busy);
 const syncing = ref(false);
-const attempt = computed(() => receiptStore.current(props.scope));
+const attempt = computed(() => (props.onPrepared ? undefined : receiptStore.current(props.scope)));
 const committed = computed(() => attempt.value?.receipt);
 const pending = computed(() => (attempt.value && !attempt.value.receipt ? attempt.value : undefined));
 const syncPending = ref(false);
@@ -146,6 +153,9 @@ const canSubmit = computed(
         !!props.scope &&
         props.canReceive &&
         !receiptStore.recoveryError &&
+        !receiptStore.batch.error &&
+        (!!props.onPrepared ||
+            (!receiptStore.batch.busy && !receiptStore.batch.current(receiptStore.batchKey(props.scope)))) &&
         !!props.businessDate &&
         !submitting.value &&
         !syncPending.value &&
@@ -188,11 +198,13 @@ function reset() {
     materialPage.value = batchPage.value = 1;
 }
 
+let appliedBatch = '';
 watch(open, (value) => {
     if (!value) return;
     session++;
-    if (!attempt.value) {
-        reset();
+    reset();
+    const body = props.initialReceipt ?? attempt.value?.body;
+    if (!body) {
         materialId.value = props.initialMaterialId ?? '';
         if (materialId.value && props.initialBatchId) {
             batchMode.value = 'existing';
@@ -200,7 +212,6 @@ watch(open, (value) => {
         }
         return;
     }
-    const body = attempt.value.body;
     materialId.value = body.materialId;
     batchMode.value = body.batch.kind === 'none' ? 'none' : body.batch.kind === 'existing' ? 'existing' : 'create';
     batchId.value = body.batch.kind === 'existing' ? body.batch.id : '';
@@ -219,7 +230,8 @@ watch(open, (value) => {
     expiryKind.value = body.expiry.kind;
     expiryDate.value = body.expiry.kind === 'DATED' ? body.expiry.date : '';
     confirmExpired.value = body.confirmExpired;
-    selectedPosition.value = { ...body.position, path: body.position.nodeId };
+    selectedPosition.value = body.position.nodeId ? { ...body.position, path: body.position.nodeId } : undefined;
+    appliedBatch = body.batch.kind === 'existing' ? body.batch.id : '';
     error.value = receiptStore.error;
 });
 watch(
@@ -257,7 +269,6 @@ watch(
 watch(selectedMaterial, (value) => {
     quantityUnit.value = value?.quantityUnit ?? '';
 });
-let appliedBatch = '';
 watch(
     [materialId, batchMode, batchId],
     () => {
@@ -317,7 +328,9 @@ function batchPayload(): InventoryReceipt['batch'] {
     return { kind: 'none' };
 }
 async function submit() {
-    if (!canSubmit.value || !props.scope) return;
+    const material = selectedMaterial.value,
+        position = selectedPosition.value;
+    if (!canSubmit.value || !props.scope || !material || !position) return;
     error.value = '';
     const openedDate = openedAt.value ? new Date(openedAt.value) : undefined;
     if (openedDate && Number.isNaN(openedDate.getTime())) {
@@ -364,7 +377,16 @@ async function submit() {
         error.value = '生产日期不能晚于有效期';
         return;
     }
-    if (receiptStore.begin(props.scope, parsed.data)) await sendPending();
+    if (props.onPrepared) {
+        const failure = props.onPrepared({
+            body: parsed.data,
+            materialName: material.name,
+            quantityUnit: material.quantityUnit,
+            positionPath: position.path,
+        });
+        if (failure) error.value = failure;
+        else open.value = false;
+    } else if (receiptStore.begin(props.scope, parsed.data)) await sendPending();
 }
 async function sendPending() {
     if (!pending.value || !props.scope || !props.canReceive || submitting.value) return;
@@ -406,47 +428,52 @@ async function reloadOnly() {
             <header class="shrink-0 space-y-2 border-b p-6 pr-12">
                 <SheetTitle class="flex items-center gap-2">
                     <PackagePlus class="size-5 text-primary" />
-                    登记入库
+                    {{ onPrepared ? '编辑入库项目' : '登记入库' }}
                 </SheetTitle>
                 <SheetDescription>工作区 · {{ workspace.current?.name }}</SheetDescription>
             </header>
             <form class="flex min-h-0 flex-1 flex-col" @submit.prevent="submit">
                 <ScrollSurface class="min-h-0 flex-1">
-                    <fieldset
-                        class="space-y-5 border-0 p-6 [&_[data-slot=select-trigger]]:w-full"
-                        :disabled="formLocked"
-                    >
-                        <label class="grid gap-2 text-sm">
-                            <span>搜索材料</span>
-                            <Input v-model="materialSearch" placeholder="按名称、编号搜索材料" />
-                        </label>
+                    <FieldSet class="border-0 p-6 [&_[data-slot=select-trigger]]:w-full" :disabled="formLocked">
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-1'">搜索材料</FieldLabel>
+                            <Input
+                                :id="formFieldId + '-1'"
+                                v-model="materialSearch"
+                                placeholder="按名称、编号搜索材料"
+                            />
+                        </Field>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="grid gap-2 text-sm">
-                                <span>材料</span>
+                            <Field>
+                                <FieldLabel :for="standaloneFieldId + '-1'">材料</FieldLabel>
                                 <SelectField
+                                    :id="standaloneFieldId + '-1'"
                                     v-model="materialId"
                                     label="材料"
                                     :options="materialOptions"
                                     :disabled="formLocked"
                                 />
-                            </div>
-                            <label class="grid gap-2 text-sm">
-                                <span>数量{{ quantityUnit ? `（${quantityUnit}）` : '' }}</span>
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-2'">
+                                    数量{{ quantityUnit ? `（${quantityUnit}）` : '' }}
+                                </FieldLabel>
                                 <Input
+                                    :id="formFieldId + '-2'"
                                     v-model="quantity"
                                     inputmode="decimal"
                                     placeholder="例如 1.5"
                                     :disabled="submitting || !!committed || !materialId"
                                     required
                                 />
-                            </label>
+                            </Field>
                         </div>
                         <div v-if="materials.error.value" class="text-sm text-destructive">
                             {{ materials.error.value }}
                         </div>
-                        <p v-if="materialDetail.error.value" role="alert" class="text-sm text-destructive">
+                        <FieldError v-if="materialDetail.error.value" role="alert" class="text-sm text-destructive">
                             {{ materialDetail.error.value }}
-                        </p>
+                        </FieldError>
                         <div class="flex justify-end gap-2">
                             <Button
                                 type="button"
@@ -477,39 +504,46 @@ async function reloadOnly() {
                                 精度 {{ selectedMaterial.quantityScale }} 位小数
                             </span>
                         </div>
-                        <fieldset class="space-y-3 rounded-md border p-4">
-                            <legend class="px-1 text-sm font-medium">来源批次</legend>
-                            <div class="grid gap-2 text-sm">
-                                <span>批次方式</span>
+                        <FieldSet class="rounded-md border p-4">
+                            <FieldLegend class="px-1 font-medium">来源批次</FieldLegend>
+                            <Field>
+                                <FieldLabel :for="standaloneFieldId + '-2'">批次方式</FieldLabel>
                                 <SelectField
+                                    :id="standaloneFieldId + '-2'"
                                     v-model="batchMode"
                                     label="批次方式"
                                     :options="batchModes"
                                     :disabled="formLocked || !materialId"
                                 />
-                            </div>
-                            <Input
-                                v-if="batchMode === 'existing'"
-                                v-model="batchSearch"
-                                aria-label="搜索来源批次"
-                                placeholder="搜索批号"
-                            />
-                            <div v-if="batchMode === 'existing'" class="grid gap-2 text-sm">
-                                <span>已有批次</span>
+                            </Field>
+                            <Field v-if="batchMode === 'existing'">
+                                <FieldLabel :for="formFieldId + '-batch-search'" class="sr-only">
+                                    搜索来源批次
+                                </FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-batch-search'"
+                                    v-model="batchSearch"
+                                    aria-label="搜索来源批次"
+                                    placeholder="搜索批号"
+                                />
+                            </Field>
+                            <Field v-if="batchMode === 'existing'">
+                                <FieldLabel :for="standaloneFieldId + '-3'">已有批次</FieldLabel>
                                 <SelectField
+                                    :id="standaloneFieldId + '-3'"
                                     v-model="batchId"
                                     label="已有批次"
                                     :options="batchOptions"
                                     :disabled="formLocked || batchLoading"
                                 />
-                            </div>
-                            <p
+                            </Field>
+                            <FieldError
                                 v-if="batches.error.value || batchDetail.error.value"
                                 role="alert"
                                 class="text-sm text-destructive"
                             >
                                 {{ batches.error.value || batchDetail.error.value }}
-                            </p>
+                            </FieldError>
                             <div v-if="batchMode === 'existing'" class="flex justify-end gap-2">
                                 <Button
                                     type="button"
@@ -533,32 +567,52 @@ async function reloadOnly() {
                                 </Button>
                             </div>
                             <div v-if="batchMode === 'create'" class="grid gap-3 sm:grid-cols-2">
-                                <label class="grid gap-2 text-sm">
-                                    <span>批号</span>
-                                    <Input v-model="batchNumber" required :disabled="submitting || !!committed" />
-                                </label>
-                                <label class="grid gap-2 text-sm">
-                                    <span>备注</span>
-                                    <Input v-model="batchNotes" :disabled="submitting || !!committed" />
-                                </label>
+                                <Field>
+                                    <FieldLabel :for="formFieldId + '-3'">批号</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-3'"
+                                        v-model="batchNumber"
+                                        required
+                                        :disabled="submitting || !!committed"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel :for="formFieldId + '-4'">备注</FieldLabel>
+                                    <Input
+                                        :id="formFieldId + '-4'"
+                                        v-model="batchNotes"
+                                        :disabled="submitting || !!committed"
+                                    />
+                                </Field>
                             </div>
-                        </fieldset>
+                        </FieldSet>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="grid gap-2 text-sm">
-                                <span>生产日期</span>
-                                <Input v-model="manufacturedOn" type="date" :disabled="submitting || !!committed" />
-                            </label>
-                            <label class="grid gap-2 text-sm">
-                                <span>到货日期</span>
-                                <Input v-model="receivedOn" type="date" :disabled="submitting || !!committed" />
-                            </label>
-                            <label class="grid gap-2 text-sm">
-                                <span>开封时间</span>
-                                <Input v-model="openedAt" type="datetime-local" />
-                            </label>
-                            <div class="grid gap-2 text-sm">
-                                <span>有效期</span>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-5'">生产日期</FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-5'"
+                                    v-model="manufacturedOn"
+                                    type="date"
+                                    :disabled="submitting || !!committed"
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-6'">到货日期</FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-6'"
+                                    v-model="receivedOn"
+                                    type="date"
+                                    :disabled="submitting || !!committed"
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-7'">开封时间</FieldLabel>
+                                <Input :id="formFieldId + '-7'" v-model="openedAt" type="datetime-local" />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="standaloneFieldId + '-4'">有效期</FieldLabel>
                                 <SelectField
+                                    :id="standaloneFieldId + '-4'"
                                     v-model="expiryKind"
                                     label="有效期"
                                     :options="[
@@ -568,70 +622,90 @@ async function reloadOnly() {
                                     ]"
                                     :disabled="formLocked"
                                 />
-                            </div>
-                            <label v-if="expiryKind === 'DATED'" class="grid gap-2 text-sm">
-                                <span>有效期至</span>
+                            </Field>
+                            <Field v-if="expiryKind === 'DATED'">
+                                <FieldLabel :for="formFieldId + '-8'">有效期至</FieldLabel>
                                 <Input
+                                    :id="formFieldId + '-8'"
                                     v-model="expiryDate"
                                     type="date"
                                     required
                                     :disabled="submitting || !!committed"
                                 />
-                            </label>
+                            </Field>
                         </div>
-                        <label class="grid gap-2 text-sm">
-                            <span>实例编号（可选）</span>
+                        <Field>
+                            <FieldLabel :for="formFieldId + '-9'">实例编号（可选）</FieldLabel>
                             <Input
+                                :id="formFieldId + '-9'"
                                 v-model="code"
                                 maxlength="160"
                                 placeholder="留空则由系统生成 INS- 编号"
                                 :disabled="submitting || !!committed"
                             />
-                        </label>
+                        </Field>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <label class="grid gap-2 text-sm">
-                                <span>标签</span>
-                                <Input v-model="label" maxlength="200" :disabled="submitting || !!committed" />
-                            </label>
-                            <label class="grid gap-2 text-sm">
-                                <span>备注</span>
-                                <Input v-model="notes" maxlength="4000" :disabled="submitting || !!committed" />
-                            </label>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-10'">标签</FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-10'"
+                                    v-model="label"
+                                    maxlength="200"
+                                    :disabled="submitting || !!committed"
+                                />
+                            </Field>
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-11'">备注</FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-11'"
+                                    v-model="notes"
+                                    maxlength="4000"
+                                    :disabled="submitting || !!committed"
+                                />
+                            </Field>
                         </div>
-                        <fieldset class="space-y-3 rounded-md border p-4">
-                            <legend class="px-1 text-sm font-medium">存储位置</legend>
+                        <FieldSet class="rounded-md border p-4">
+                            <FieldLegend class="px-1 font-medium">存储位置</FieldLegend>
                             <InventoryPositionPicker
                                 v-if="scope && !formLocked"
                                 v-model="selectedPosition"
                                 :scope="scope"
-                                :initial-position="initialPosition"
+                                :initial-position="
+                                    initialReceipt?.position.nodeId ? initialReceipt.position : initialPosition
+                                "
                             />
                             <p v-if="selectedPosition" class="text-sm text-muted-foreground">
                                 已选择：{{ selectedPosition.path }}
                                 <CopyableId :value="selectedPosition.nodeId" label="位置 ID" />
                             </p>
-                        </fieldset>
-                        <label
+                        </FieldSet>
+                        <Field
                             v-if="expiryExpired"
-                            class="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft p-3 text-sm text-warning-soft-foreground"
+                            orientation="horizontal"
+                            class="items-start rounded-md border border-warning/40 bg-warning-soft p-3 text-warning-soft-foreground"
                         >
                             <input
+                                :id="formFieldId + '-12'"
                                 v-model="confirmExpired"
                                 type="checkbox"
                                 class="mt-1"
                                 :disabled="submitting || !!committed"
                             />
-                            <span>
+                            <FieldLabel class="font-normal" :for="formFieldId + '-12'">
                                 <AlertTriangle class="mr-1 inline size-4" aria-hidden="true" />
                                 该实物已超过有效期，确认仍要登记。
-                            </span>
-                        </label>
-                    </fieldset>
+                            </FieldLabel>
+                        </Field>
+                    </FieldSet>
                 </ScrollSurface>
                 <footer class="shrink-0 space-y-3 border-t p-6">
-                    <p v-if="error || receiptStore.recoveryError" role="alert" class="text-sm text-destructive">
+                    <FieldError
+                        v-if="error || receiptStore.recoveryError"
+                        role="alert"
+                        class="text-sm text-destructive"
+                    >
                         {{ error || receiptStore.recoveryError }}
-                    </p>
+                    </FieldError>
                     <p
                         v-if="pending && !pending.responseValidationFailed && !submitting"
                         role="status"
@@ -671,7 +745,7 @@ async function reloadOnly() {
                             {{ submitting ? '正在确认' : '重试原请求' }}
                         </Button>
                         <Button v-else-if="!committed" type="submit" :disabled="!canSubmit">
-                            {{ submitting ? '登记中' : '登记入库' }}
+                            {{ onPrepared ? '保存至待提交清单' : submitting ? '登记中' : '登记入库' }}
                         </Button>
                     </div>
                 </footer>

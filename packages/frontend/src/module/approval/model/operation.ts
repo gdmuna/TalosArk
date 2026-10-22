@@ -8,6 +8,7 @@ import {
 } from '@talos-ark/contracts/approval';
 import { HttpError, isResponseValidationError } from '@/platform/http';
 import { useWorkspaceStore } from '@/module/workspace';
+import { createCommandBatch } from '@/component/batch-operation';
 import {
     approvalMutationSchema,
     type ApprovalDataSource,
@@ -21,6 +22,12 @@ const attemptSchema = z.object({
     responseValidationFailed: z.boolean().optional(),
 });
 type Attempt = z.infer<typeof attemptSchema>;
+const isRejection = (cause: unknown) =>
+    cause instanceof HttpError &&
+    cause.kind === 'api' &&
+    (cause.status ?? 500) >= 400 &&
+    (cause.status ?? 500) < 500 &&
+    !['APPROVAL_RESULT_UNAVAILABLE', 'INVENTORY_RESULT_UNAVAILABLE'].includes(cause.code ?? '');
 export const useApprovalOperationStore = defineStore('approval-operation', () => {
     const attempts = shallowRef<Attempt[]>([]),
         busy = ref(false),
@@ -40,6 +47,45 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
                       item.scope.workspaceId === scope.workspaceId
               )
             : undefined;
+    const batchKey = (scope: ApprovalScope | null) =>
+        scope ? `${scope.organizationId}/${scope.workspaceId}` : '';
+    const activeScope = () =>
+        workspace.current
+            ? {
+                  organizationId: workspace.current.organizationId,
+                  workspaceId: workspace.current.id,
+              }
+            : null;
+    const batch = createCommandBatch({
+        key: 'approval',
+        input: z.object({
+            scope: ApprovalScopeSchema,
+            mutation: approvalMutationSchema.refine(
+                (value) => value.kind === 'execute' || value.kind === 'decide'
+            ),
+        }),
+        result: ApprovalOperationResultSchema,
+        activeScope: () => batchKey(activeScope()),
+        scopeOf: (input) => batchKey(input.scope),
+        canStart: () => !busy.value && !recoveryError.value && !current(activeScope()),
+        send: (input, signal) => source.mutate(input.scope, input.mutation, signal),
+        verify: async (input, original, signal) => {
+            const id =
+                original.kind === 'approval'
+                    ? original.receipt.operationId
+                    : original.receipt.receipt.operationId;
+            const value = await source.operation(input.scope, id, signal);
+            if (
+                value.kind !== original.kind ||
+                value.receipt.requestId !== original.receipt.requestId ||
+                value.receipt.lineId !== original.receipt.lineId
+            )
+                throw new HttpError('批次回执与原操作不一致', 'protocol');
+            return value;
+        },
+        message: approvalErrorMessage,
+        isRejection,
+    });
     function persist() {
         try {
             sessionStorage.setItem(storageKey(), JSON.stringify(attempts.value));
@@ -52,6 +98,7 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
     }
     function connect(value: ApprovalDataSource, userId?: string) {
         source = value;
+        batch.connect(userId);
         if (owner === userId) return;
         request?.abort();
         if (storageOwner && (userId === '' || (userId && userId !== storageOwner))) {
@@ -75,7 +122,15 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
         }
     }
     async function send(attempt: Attempt, recovering: boolean) {
-        if (!owner || busy.value || !persist()) return;
+        if (
+            !owner ||
+            busy.value ||
+            batch.busy ||
+            batch.error ||
+            batch.current(batchKey(attempt.scope)) ||
+            !persist()
+        )
+            return;
         const controller = new AbortController();
         request = controller;
         busy.value = true;
@@ -104,15 +159,7 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
             attempts.value = attempts.value.map((item) => (item === attempt ? saved : item));
         } catch (cause) {
             if (controller.signal.aborted) return;
-            const rejected =
-                !recovering &&
-                cause instanceof HttpError &&
-                cause.kind === 'api' &&
-                (cause.status ?? 500) >= 400 &&
-                (cause.status ?? 500) < 500 &&
-                !['APPROVAL_RESULT_UNAVAILABLE', 'INVENTORY_RESULT_UNAVAILABLE'].includes(
-                    cause.code ?? ''
-                );
+            const rejected = !recovering && isRejection(cause);
             if (rejected) attempts.value = attempts.value.filter((item) => item !== attempt);
             else
                 attempts.value = attempts.value.map((item) =>
@@ -133,6 +180,9 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
             !owner ||
             busy.value ||
             recoveryError.value ||
+            batch.busy ||
+            batch.error ||
+            batch.current(batchKey(scope)) ||
             current(scope) ||
             workspace.current?.id !== scope.workspaceId ||
             workspace.current.organizationId !== scope.organizationId
@@ -166,5 +216,7 @@ export const useApprovalOperationStore = defineStore('approval-operation', () =>
         execute,
         recover,
         acknowledge,
+        batch,
+        batchKey,
     };
 });

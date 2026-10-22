@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, onScopeDispose, ref, watch, useId } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft, Ban, Check, ClipboardCheck, ExternalLink, Play, RotateCw, Send, Undo2, X } from '@lucide/vue';
 import { ApprovalDecisionSchema, type ApprovalLine } from '@talos-ark/contracts/approval';
-import { DataTable, type DataTableAction, type DataTableColumn } from '@/component/data-table';
+import {
+    DataTable,
+    type DataTableAction,
+    type DataTableBulkAction,
+    type DataTableColumn,
+} from '@/component/data-table';
 import { StateBadge } from '@/component/state-badge';
 import { SelectField } from '@/component/select-field';
 import { Button } from '@/ui/button';
@@ -22,6 +27,11 @@ import {
     blockedLabel,
 } from '../model/presentation';
 import ApprovalOperationNotice from './ApprovalOperationNotice.vue';
+import ApprovalBatchSheet from './ApprovalBatchSheet.vue';
+import type { ApprovalBatchSelection } from '../model/batch';
+import { Field, FieldLabel } from '@/ui/field';
+
+const formFieldId = useId();
 
 type ReviewLine = ApprovalLine & { reviewDecision: 'UNDECIDED' | 'APPROVED' | 'REJECTED'; reviewOpinion: string };
 const route = useRoute(),
@@ -47,6 +57,10 @@ const history = useApprovalRead(
     (source, scope, signal) => source.events(scope, id.value, { page: eventPage.value, pageSize: 10 }, signal)
 );
 const attempt = computed(() => store.current(scope.value));
+const checked = ref<string[]>([]),
+    batchOpen = ref(false),
+    batchSelection = ref<ApprovalBatchSelection>();
+const batch = computed(() => store.batch.current(store.batchKey(scope.value)));
 const reviewLines = ref<ReviewLine[]>(),
     reviewVersion = ref(0),
     reviewLoading = ref(false),
@@ -59,7 +73,27 @@ const confirmation = ref<{
     version: number;
 }>();
 const reason = ref('');
-const locked = computed(() => store.busy || !!attempt.value || !!store.recoveryError);
+const locked = computed(
+    () =>
+        store.busy ||
+        !!attempt.value ||
+        !!store.recoveryError ||
+        store.batch.busy ||
+        !!batch.value ||
+        !!store.batch.error
+);
+const bulkActions = computed<DataTableBulkAction<ApprovalLine>[]>(() => [
+    {
+        id: 'execute',
+        label: '执行所选明细',
+        icon: Play,
+        disabled: (rows) => locked.value || rows.length > 100 || rows.some((row) => !row.actions.execute),
+        run: (rows) => {
+            batchSelection.value = { kind: 'execute', requestId: id.value, lineIds: rows.map((row) => row.id) };
+            batchOpen.value = true;
+        },
+    },
+]);
 watch(
     [id, scope],
     () => {
@@ -70,6 +104,8 @@ watch(
         reviewError.value = '';
         pagination.value.pageIndex = 0;
         eventPage.value = 1;
+        checked.value = [];
+        batchOpen.value = false;
     },
     { flush: 'sync' }
 );
@@ -126,7 +162,9 @@ async function synchronize() {
     ) {
         store.acknowledge(current);
         reviewLines.value = undefined;
+        return true;
     }
+    return false;
 }
 // A submitted intent is already fixed; read its request before discarding the successful receipt.
 watch(request.data, (value) => {
@@ -294,6 +332,7 @@ const eventLabel: Record<string, string> = {
                     </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                    <Button v-if="batch" variant="outline" @click="batchOpen = true">核对批量操作</Button>
                     <Button
                         variant="outline"
                         size="icon"
@@ -416,30 +455,42 @@ const eventLabel: Record<string, string> = {
                             <span class="mt-1 block text-xs text-muted-foreground">{{ row.stock?.materialName }}</span>
                         </template>
                         <template #cell-reviewDecision="{ row }">
-                            <SelectField
-                                v-model="row.reviewDecision"
-                                :label="`审批结论 ${row.stock?.code ?? row.lineNumber}`"
-                                :disabled="locked"
-                                :options="[
-                                    { value: 'UNDECIDED', label: '待选择' },
-                                    { value: 'APPROVED', label: '批准' },
-                                    { value: 'REJECTED', label: '拒绝' },
-                                ]"
-                            />
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-decision-' + row.lineNumber" class="sr-only">
+                                    审批结论 {{ row.stock?.code ?? row.lineNumber }}
+                                </FieldLabel>
+                                <SelectField
+                                    :id="formFieldId + '-decision-' + row.lineNumber"
+                                    v-model="row.reviewDecision"
+                                    :label="`审批结论 ${row.stock?.code ?? row.lineNumber}`"
+                                    :disabled="locked"
+                                    :options="[
+                                        { value: 'UNDECIDED', label: '待选择' },
+                                        { value: 'APPROVED', label: '批准' },
+                                        { value: 'REJECTED', label: '拒绝' },
+                                    ]"
+                                />
+                            </Field>
                         </template>
                         <template #cell-reviewOpinion="{ row }">
-                            <Input
-                                v-model="row.reviewOpinion"
-                                :aria-label="`明细意见 ${row.stock?.code ?? row.lineNumber}`"
-                                :disabled="locked"
-                                maxlength="1000"
-                            />
+                            <Field>
+                                <FieldLabel :for="formFieldId + '-opinion-' + row.lineNumber" class="sr-only">
+                                    明细意见 {{ row.stock?.code ?? row.lineNumber }}
+                                </FieldLabel>
+                                <Input
+                                    :id="formFieldId + '-opinion-' + row.lineNumber"
+                                    v-model="row.reviewOpinion"
+                                    :aria-label="`明细意见 ${row.stock?.code ?? row.lineNumber}`"
+                                    :disabled="locked"
+                                    maxlength="1000"
+                                />
+                            </Field>
                         </template>
                     </DataTable>
-                    <label class="grid max-w-xl gap-2 text-sm">
-                        整体意见（选填）
-                        <Textarea v-model="note" :disabled="locked" maxlength="1000" />
-                    </label>
+                    <Field class="max-w-xl">
+                        <FieldLabel :for="formFieldId + '-1'">整体意见（选填）</FieldLabel>
+                        <Textarea :id="formFieldId + '-1'" v-model="note" :disabled="locked" maxlength="1000" />
+                    </Field>
                     <div class="flex flex-wrap items-center justify-between gap-3 border-y py-4">
                         <p class="text-sm text-muted-foreground">
                             批准 {{ approvedCount }} 件 · 拒绝
@@ -474,6 +525,7 @@ const eventLabel: Record<string, string> = {
                         {{ lineRead.error.value }}
                     </p>
                     <DataTable
+                        v-model:selected="checked"
                         v-model:pagination="pagination"
                         :data="lineRead.data.value?.items ?? []"
                         :columns="columns"
@@ -482,6 +534,8 @@ const eventLabel: Record<string, string> = {
                         :filtering="false"
                         :actions="actions"
                         :busy="lineRead.loading.value"
+                        :selectable="(row) => row.actions.execute"
+                        :bulk-actions="bulkActions"
                     >
                         <template #cell-stock="{ row }">
                             <span class="font-medium">{{ row.stock?.code ?? '资源受限' }}</span>
@@ -553,6 +607,12 @@ const eventLabel: Record<string, string> = {
                 </section>
             </template>
         </div>
+        <ApprovalBatchSheet
+            v-model:open="batchOpen"
+            :scope="scope"
+            :selection="batchSelection"
+            :on-synchronized="synchronize"
+        />
         <Dialog
             :open="!!confirmation"
             @update:open="
@@ -575,10 +635,10 @@ const eventLabel: Record<string, string> = {
                         }}
                     </p>
                 </template>
-                <label v-else class="grid gap-2 text-sm">
-                    原因或意见（选填）
-                    <Textarea v-model="reason" :disabled="store.busy" maxlength="1000" />
-                </label>
+                <Field v-else>
+                    <FieldLabel :for="formFieldId + '-2'">原因或意见（选填）</FieldLabel>
+                    <Textarea :id="formFieldId + '-2'" v-model="reason" :disabled="store.busy" maxlength="1000" />
+                </Field>
                 <p v-if="store.error" role="alert" class="text-sm text-destructive">{{ store.error }}</p>
                 <div class="flex justify-end gap-2">
                     <Button variant="outline" :disabled="store.busy" @click="confirmation = undefined">取消</Button>

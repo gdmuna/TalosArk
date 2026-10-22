@@ -121,6 +121,24 @@ The inventory module exports its existing position picker for receipt, direct
 actions and approval forms. See docs/design/mvp-p12-2026-10-20.md and the product
 joint acceptance record; Tauri and production are not covered by local Web proof.
 
+P13 composes the existing receipt and approval commands into client batches,
+without new backend bulk routes or a second permission/stock engine. The reusable
+`component/batch-operation` owns sequential dispatch, per-unit outcomes and the
+account-owned tab-session journal; business Stores supply schemas, rejection
+classification, sends and receipt reads. Each batch has at most 100 physical
+items, approval requests or approved lines, never a new limit on a single P12
+request's lines. Cross-request review loads every line before confirmation;
+mixed line decisions stay in the original detail. Receipt staging reuses the
+single-item form and position picker, with no pre-confirmation inventory writes.
+Known rejection continues to other units; uncertainty pauses and preserves the
+exact scope/body/key. Known success recovers by reads only. Synchronization owns
+the whole receipt-and-page refresh phase; obsolete completions cannot clear the
+journal. Temporary sync errors belong to one batch, not another workspace.
+Account changes clear ownership, scope changes cancel, and returning requires
+explicit continuation. Unsubmitted drafts are memory-only; confirmed intents
+survive same-tab reload, not closed tabs or cleared storage. See
+`../../docs/product/mvp-p13-2026-10-22.md` for local Web/HTTP/database evidence.
+
 P04's workspace HTTP adapter uses contracts/team and validates a selected tenant/
 workspace pair on the server before publishing it. It never treats local selection
 or canCreateWorkspace as authorization. Context changes invalidate old workspace

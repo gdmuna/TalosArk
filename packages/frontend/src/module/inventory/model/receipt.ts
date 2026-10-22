@@ -3,6 +3,8 @@ import { defineStore } from 'pinia';
 import { z } from 'zod';
 import { ReceiptSchema, OperationReceiptSchema } from '@talos-ark/contracts/inventory';
 import { HttpError, isResponseValidationError } from '@/platform/http';
+import { createCommandBatch } from '@/component/batch-operation';
+import { useWorkspaceStore } from '@/module/workspace';
 import type { InventoryDataSource, InventoryReceipt, InventoryScope } from '../data/source';
 import { inventoryErrorMessage } from './read';
 
@@ -14,6 +16,12 @@ const attemptSchema = z.object({
     responseValidationFailed: z.boolean().optional(),
 });
 type Attempt = z.infer<typeof attemptSchema>;
+const isRejection = (cause: unknown) =>
+    cause instanceof HttpError &&
+    cause.kind === 'api' &&
+    (cause.status ?? 500) >= 400 &&
+    (cause.status ?? 500) < 500 &&
+    cause.code !== 'INVENTORY_RESULT_UNAVAILABLE';
 const sameScope = (a: InventoryScope, b: InventoryScope) =>
     a.organizationId === b.organizationId && a.workspaceId === b.workspaceId;
 
@@ -29,6 +37,41 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
     const storageKey = () => `talos.inventory.receipt.${storageOwner}`;
     const current = (scope: InventoryScope | null) =>
         scope ? attempts.value.find((item) => sameScope(item.scope, scope)) : undefined;
+    const workspace = useWorkspaceStore();
+    const batchKey = (scope: InventoryScope | null) =>
+        scope ? `${scope.organizationId}/${scope.workspaceId}` : '';
+    const activeScope = () =>
+        workspace.current
+            ? {
+                  organizationId: workspace.current.organizationId,
+                  workspaceId: workspace.current.id,
+              }
+            : null;
+    const batch = createCommandBatch({
+        key: 'receipt',
+        input: z.object({ scope: attemptSchema.shape.scope, body: ReceiptSchema }),
+        result: OperationReceiptSchema,
+        activeScope: () => batchKey(activeScope()),
+        scopeOf: (input) => batchKey(input.scope),
+        canStart: () => !busy.value && !recoveryError.value && !current(activeScope()),
+        send: (input, signal) => source.receive(input.scope, input.body, signal),
+        verify: async (input, original, signal) => {
+            const value = await source.operation(
+                input.scope.organizationId,
+                original.operationId,
+                signal
+            );
+            if (
+                value.kind !== 'inventory.receive' ||
+                value.stockItemId !== original.stockItemId ||
+                value.instanceId !== original.instanceId
+            )
+                throw new HttpError('批次回执与原入库不一致', 'protocol');
+            return value;
+        },
+        message: inventoryErrorMessage,
+        isRejection,
+    });
 
     function persist() {
         try {
@@ -42,6 +85,7 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
     }
     function connect(value: InventoryDataSource, userId?: string) {
         source = value;
+        batch.connect(userId);
         if (owner === userId) return;
         request?.abort();
         if (storageOwner && (userId === '' || (userId && userId !== storageOwner))) {
@@ -69,13 +113,33 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
         }
     }
     function begin(scope: InventoryScope, body: InventoryReceipt) {
-        if (!owner || busy.value || recoveryError.value || current(scope)) return false;
+        if (
+            !owner ||
+            busy.value ||
+            batch.busy ||
+            batch.error ||
+            batch.current(batchKey(scope)) ||
+            recoveryError.value ||
+            current(scope)
+        )
+            return false;
         attempts.value = [...attempts.value, { scope: { ...scope }, body, uncertain: false }];
         return persist();
     }
     async function send(scope: InventoryScope) {
         const attempt = current(scope);
-        if (!owner || !source || !attempt || attempt.receipt || busy.value || !persist()) return;
+        if (
+            !owner ||
+            !source ||
+            !attempt ||
+            attempt.receipt ||
+            busy.value ||
+            batch.busy ||
+            batch.error ||
+            batch.current(batchKey(scope)) ||
+            !persist()
+        )
+            return;
         const controller = new AbortController();
         request = controller;
         busy.value = true;
@@ -88,13 +152,7 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
             );
         } catch (cause) {
             if (controller.signal.aborted) return;
-            const rejected =
-                !attempt.uncertain &&
-                cause instanceof HttpError &&
-                cause.kind === 'api' &&
-                (cause.status ?? 500) >= 400 &&
-                (cause.status ?? 500) < 500 &&
-                cause.code !== 'INVENTORY_RESULT_UNAVAILABLE';
+            const rejected = !attempt.uncertain && isRejection(cause);
             attempts.value = rejected
                 ? attempts.value.filter((item) => item !== attempt)
                 : attempts.value.map((item) =>
@@ -126,5 +184,17 @@ export const useInventoryReceiptStore = defineStore('inventory-receipt', () => {
         return true;
     }
     onScopeDispose(() => request?.abort());
-    return { attempts, busy, error, recoveryError, current, connect, begin, send, acknowledge };
+    return {
+        attempts,
+        busy,
+        error,
+        recoveryError,
+        current,
+        connect,
+        begin,
+        send,
+        acknowledge,
+        batch,
+        batchKey,
+    };
 });
