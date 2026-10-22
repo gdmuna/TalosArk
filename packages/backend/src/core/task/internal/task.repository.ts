@@ -8,11 +8,41 @@ import type { TaskValue } from '../task.types.js';
 export const jsonInput = (value: TaskValue): Prisma.InputJsonValue | typeof Prisma.JsonNull =>
     value === null ? Prisma.JsonNull : value;
 
+export interface TaskBacklogSample {
+    readonly state: 'PENDING' | 'QUEUED' | 'RUNNING';
+    readonly jobs: number;
+    readonly oldestReady: Date | null;
+}
+
+export const backlogSampleLimit = 10_000;
+
 @Injectable()
 export class TaskRepository {
     constructor(readonly database: DatabaseRuntime) {}
     get(id: string) {
         return this.database.queryClient.backgroundJob.findUnique({ where: { id } });
+    }
+
+    /** Bounded active metadata; no terminal-history aggregation or borrowed business transaction. */
+    backlog(): Promise<TaskBacklogSample[]> {
+        return this.database.transaction.run(
+            async () => {
+                await this.database.queryClient.$executeRaw`SET LOCAL statement_timeout = '500ms'`;
+                return this.database.queryClient.$queryRaw<TaskBacklogSample[]>`
+                SELECT s.status::text AS state, count(j."availableAt")::int AS jobs,
+                    min(j."availableAt") FILTER (
+                        WHERE j."availableAt" <= CURRENT_TIMESTAMP
+                        AND (j."expiresAt" IS NULL OR j."expiresAt" > CURRENT_TIMESTAMP)
+                    ) AS "oldestReady"
+                FROM unnest(ARRAY['PENDING','QUEUED','RUNNING']::"BackgroundJobStatus"[]) AS s(status)
+                LEFT JOIN LATERAL (
+                    SELECT "availableAt", "expiresAt" FROM "BackgroundJob"
+                    WHERE status = s.status ORDER BY "availableAt", id LIMIT ${backlogSampleLimit + 1}
+                ) AS j ON true GROUP BY s.status
+            `;
+            },
+            { propagation: 'requiresNew', maxWait: 200, timeout: 1000 }
+        );
     }
 
     async claim(limit: number, leaseMs: number): Promise<BackgroundJob[]> {

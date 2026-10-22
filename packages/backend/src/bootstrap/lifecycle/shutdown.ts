@@ -6,11 +6,14 @@ import { PinoLogger } from 'nestjs-pino';
 import type { LifecycleConfig } from '@/config/lifecycle.config.js';
 import { HealthState } from '@/system/health/health.state.js';
 import { BullmqRuntime } from '@/infra/queue/bullmq/index.js';
+import type { ObservabilityRuntime } from '@/platform/observability/observability.runtime.js';
+import { observeLifecycle } from '@/platform/observability/metrics/lifecycle.metric.js';
 
 /** The process owns signals and the deadline; Nest still owns resource hooks. */
 export async function installProcessShutdown(
     app: INestApplicationContext,
-    config: LifecycleConfig
+    config: LifecycleConfig,
+    observability?: ObservabilityRuntime
 ) {
     const health = app.get(HealthState);
     const logger = (await app.resolve(PinoLogger)).logger;
@@ -32,14 +35,16 @@ export async function installProcessShutdown(
         const deadline = new Promise<never>((_, reject) => {
             timer = setTimeout(
                 () => reject(new Error('Application cleanup exceeded its shutdown budget')),
-                config.shutdownTimeoutMs - config.logFlushTimeoutMs
+                config.shutdownTimeoutMs - config.logFlushTimeoutMs - config.telemetryFlushTimeoutMs
             );
         });
         let failure: unknown;
         let failed = false;
         logger.info({ signal }, 'Application shutdown started');
         try {
-            await Promise.race([drainAndClose(signal), deadline]);
+            await observeLifecycle('shutdown', () =>
+                Promise.race([drainAndClose(signal), deadline])
+            );
             logger.info('Application resources closed');
         } catch (error) {
             failed = true;
@@ -47,6 +52,13 @@ export async function installProcessShutdown(
             logger.error({ err: error }, 'Application shutdown failed');
         } finally {
             clearTimeout(timer);
+            try {
+                await observability?.shutdown(config.telemetryFlushTimeoutMs);
+            } catch {
+                logger.warn(
+                    'Telemetry shutdown failed or timed out; application cleanup continues'
+                );
+            }
             try {
                 await flushLogs();
             } catch (error) {
@@ -74,7 +86,7 @@ export async function installProcessShutdown(
             (httpApp.getHttpServer() as Server).closeAllConnections();
         }, config.httpDrainTimeoutMs);
         try {
-            await httpApp.getHttpAdapter().close();
+            await observeLifecycle('http-drain', () => httpApp.getHttpAdapter().close());
         } finally {
             clearTimeout(timer);
         }

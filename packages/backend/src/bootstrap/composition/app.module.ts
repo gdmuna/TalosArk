@@ -37,7 +37,7 @@ import { PlatformLoggerModule } from '@/platform/observability/logger/logger.mod
 import { AuthGuard } from '@/platform/http/guards/auth.guard.js';
 import { RouteContractGuard } from '@/platform/http/route/route.guard.js';
 import { RouteContractInterceptor } from '@/platform/http/route/route.interceptor.js';
-import { PerformanceInterceptor } from '@/platform/http/interceptors/performance.interceptor.js';
+import { HttpObservation } from '@/platform/http/http.observation.js';
 import { TimeoutInterceptor } from '@/platform/http/interceptors/timeout.interceptor.js';
 import { CorsMiddleware } from '@/platform/http/middleware/cors.middleware.js';
 import { RequestPreprocessingMiddleware } from '@/platform/http/middleware/request-preprocessing.middleware.js';
@@ -114,6 +114,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
         MaintenanceModule,
     ],
     providers: [
+        HttpObservation,
         ...errorProviders,
         {
             provide: APP_GUARD,
@@ -128,10 +129,6 @@ import { ZodValidationPipe } from 'nestjs-zod';
             useClass: AuthGuard,
         },
         // Route contracts validate inputs before pipes, and the final envelope on output.
-        {
-            provide: APP_INTERCEPTOR,
-            useClass: PerformanceInterceptor,
-        },
         {
             provide: APP_INTERCEPTOR,
             useClass: TimeoutInterceptor,

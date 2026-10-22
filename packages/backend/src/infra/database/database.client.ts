@@ -2,6 +2,8 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { normalizeDatabaseError } from './database.error.normalize.js';
 import { createDatabaseQueryClient } from './database.query.js';
 import { DatabaseTransactionContext } from './transaction/transaction.context.js';
+import { observeDatabasePool } from './database.telemetry.js';
+import { Pool } from 'pg';
 
 import { AllConfig } from '@/config/index.js';
 
@@ -23,6 +25,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 export class DatabaseClient implements OnApplicationShutdown, OnModuleInit {
     readonly client: PrismaClient<'query'>;
     readonly managed: ReturnType<typeof createDatabaseQueryClient>;
+    private readonly stopPoolObservation: () => void;
 
     constructor(
         private readonly configService: ConfigService<AllConfig, true>,
@@ -34,13 +37,15 @@ export class DatabaseClient implements OnApplicationShutdown, OnModuleInit {
         if (!DATABASE_URL) {
             throw new Error('DATABASE_URL environment variable is not set');
         }
-        const adapter = new PrismaPg({
+        const pool = new Pool({
             connectionString: DATABASE_URL,
             max: 12,
             min: 2, // 最小保持 2 个连接
             idleTimeoutMillis: 30000, // 30秒空闲超时
             connectionTimeoutMillis: 2000, // 2秒连接超时
         });
+        const adapter = new PrismaPg(pool, { disposeExternalPool: true });
+        this.stopPoolObservation = observeDatabasePool(pool);
 
         this.client = new PrismaClient({
             adapter,
@@ -107,6 +112,8 @@ export class DatabaseClient implements OnApplicationShutdown, OnModuleInit {
             await this.client.$disconnect();
         } catch (error) {
             throw normalizeDatabaseError(error);
+        } finally {
+            this.stopPoolObservation();
         }
         this.logger.info({ event: 'database.disconnected' }, 'Database disconnected');
     }

@@ -2,10 +2,31 @@
 
 ## Scope
 
-Pino and nestjs-pino remain the logger and Nest integration. Development writes
-pretty console output through one asynchronous worker; other environments retain
-the existing asynchronous JSON file destination. This change does not introduce
-new output modes, sampling, remote sinks, severity policies, or retry behavior.
+Pino and nestjs-pino remain the logger and Nest integration. `LOG_OUTPUT` selects
+console, file or both, independent of NODE_ENV. Console supports the existing
+pretty renderer or JSON; files always contain JSON. Every enabled destination runs
+asynchronously in one Pino worker. With no explicit output/format, development
+keeps pretty console output and other environments keep JSON files.
+
+Output configuration, examples and deployment limits live in
+[the environment reference](../../secrets/env/README.md#可观测性和生命周期).
+The global log level gates emission; each output may impose an additional level.
+An optional main-thread hook samples trace/debug/info before serialization, once
+per record for all outputs. Warn/error/fatal bypass sampling but still obey level
+filters. Rate 1 installs no sampling hook. This is record sampling, not trace
+sampling, and does not affect transactional business audit records.
+
+File rotation is opt-in by time, size or both through pinned pino-roll 4.0.0.
+Retention counts archived files in addition to the active file and runs on rotation,
+including matching files from previous runs. One file prefix must have one writer;
+replicas and separate HTTP/Worker processes use distinct paths or volumes.
+Rotation disabled preserves the existing app.log path without retention cleanup.
+Containers can emit JSON stdout to an external collector; remote sink delivery
+and retry remain collector responsibilities.
+The Docker image and full Compose default to JSON stdout. HTTP startup buffers
+Nest initialization logs until the configured Pino logger is available, matching
+the Worker entry. The decorative startup banner appears only with pretty console
+output, keeping file-only and JSON output free of that bypass.
 
 The same Pino root serves request children and out-of-context logs. Log messages
 and pretty summaries use English unless Chinese is explicitly requested. Existing
@@ -65,7 +86,7 @@ Example summaries (values are illustrative):
 
 ```text
 WARN ... [DatabaseClient] Slow query · 132ms
-DEBUG ... [PerformanceInterceptor] GET /api/materials → 200 · 24ms
+DEBUG ... [HttpObservation] GET /api/materials → 200 · 24ms
 DEBUG ... [HttpClientFactory] casdoor · fetch-user → 200 · 86ms
 ERROR ... [KvsClient] Valkey connection refused
 ```
@@ -158,15 +179,26 @@ were used, and no maintained test script was added.
 ## Runtime
 
 `pino-abstract-transport` parses the Pino stream using its standard implementation.
-The Nest logger factory waits for the pretty transport's `ready` event before
-publishing the logger. A five-second deadline, missing required module or duplicate
-event fails startup before listen/readiness. Failure cleanup waits for stream close
+The Nest logger factory waits for all enabled transports' `ready` event before
+publishing the logger. File adapters await the actual asynchronous file open,
+including rolling files. The default five-second deadline is configurable;
+an unavailable destination, missing required pretty module or duplicate event
+fails startup before listen/readiness. Disabled pretty output does not load adapters.
+Failure cleanup waits for stream close
 as well as native worker exit, retaining an error listener for delayed notifications.
 Declarations are collected after Nest scans modules but before provider initialization;
 instance/method contributions use the separate post-module-init discovery path.
 The worker loads its adapters once, dispatches by map lookup, writes each complete
-formatted record asynchronously and honors destination backpressure. Graceful
-close waits for the destination to flush before completing. On failure the
+formatted record asynchronously and honors destination backpressure. JSON retains
+the original line and fields. Pretty rendering is loaded only for pretty console;
+the file adapter and rotation library load only when their capabilities are enabled.
+Graceful
+close waits for the destinations to flush before completing. The output worker
+implements the thread-stream 4 flush protocol: an input barrier drains parser
+buffers, a sequence barrier waits for asynchronous rendering, then every sink
+flushes. The existing process shutdown's asynchronous root.flush therefore waits
+for all enabled outputs within the log-flush budget, without calling the main
+thread's potentially blocking ThreadStream.end. On failure the
 destination is destroyed and the original error is propagated instead of being
 swallowed by the close hook. Existing process shutdown still owns the overall
 deadline.
@@ -176,6 +208,18 @@ of dist. Startup gates validate enabled worker imports/initialization, not every
 future event callback or a future bundler's output. No build generator, separate
 deployment probe, worker recovery or external alert integration is introduced.
 See [implementation record](logger-contribution-2026-10-15.md) for boundaries and evidence.
+
+Output configuration verification on 2026-10-22 used disposable probes, not new
+maintained test scripts. Production build and focused ESLint passed. Real Pino
+workers covered console/file/both, JSON/pretty, level filtering, disabled output,
+sampling rates 0/0.5/1, consistent samples across sinks, adapter failures, file-open
+failure and worker startup timeout. Reading 2,500 records immediately after flush,
+before stream end, verified the asynchronous sink barrier. Actual size rotation
+and retention across two writer lifetimes passed; daily/hourly configuration and
+filenames were checked without waiting for a real calendar boundary. A minimal
+Nest/Fastify server verified buffered initialization and injected request-child logs.
+Full Compose configuration validation passed; no production services, container
+runtime, external collector or Loki delivery were exercised.
 
 Timestamps and the entire process metadata block are gray, contexts cyan, level
 labels use the existing severity palette, and message text uses the terminal's

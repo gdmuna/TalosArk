@@ -7,6 +7,7 @@ import { MAIL_OPTIONS, resolveSmtpOptions, type MailModuleOptions } from './mail
 import { MailTransport } from './mail.transport.js';
 import { mailboxSchema } from './mail.address.js';
 import { validationDiagnostics } from '@/platform/error/error.validation.js';
+import { observeMailOperation } from './mail.telemetry.js';
 
 const messageSchema = z
     .strictObject({
@@ -45,58 +46,65 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
 
     async onModuleDestroy(): Promise<void> {
-        await this.transport.close();
-        this.logger.debug({ event: 'mail.smtp.closed' }, 'SMTP resources closed');
+        return observeMailOperation('close', async () => {
+            await this.transport.close();
+            this.logger.debug({ event: 'mail.smtp.closed' }, 'SMTP resources closed');
+        });
     }
 
     /** Connects and authenticates without sending a message; does not prove sender acceptance. */
     async verify(): Promise<void> {
-        const started = performance.now();
-        await this.transport.verify();
-        this.logger.info(
-            { event: 'mail.smtp.verified', durationMs: performance.now() - started },
-            'SMTP connection verified'
-        );
+        return observeMailOperation('verify', async () => {
+            const started = performance.now();
+            await this.transport.verify();
+            this.logger.info(
+                { event: 'mail.smtp.verified', durationMs: performance.now() - started },
+                'SMTP connection verified'
+            );
+        });
     }
 
     async sendMail(message: MailMessage, options: MailSendOptions = {}): Promise<MailSendResult> {
-        const input = messageSchema.safeParse(message, { reportInput: true });
-        if (!input.success) {
-            throw new MailError(
+        return observeMailOperation('send', async () => {
+            const input = messageSchema.safeParse(message, { reportInput: true });
+            if (!input.success) {
+                throw new MailError(
+                    {
+                        reason: 'invalid-request',
+                        operation: 'send',
+                        phase: 'configuration',
+                        outcome: 'not-sent',
+                    },
+                    {
+                        validationIssues: validationDiagnostics(input.error, message, {
+                            fields: {
+                                to: {
+                                    expected:
+                                        'a valid mailbox, or an array of 1-50 valid mailboxes',
+                                },
+                                subject: {
+                                    hint: 'Provide a subject of 1-998 characters without CR/LF.',
+                                },
+                                text: { customExpected: 'nonempty text or html body' },
+                                html: {},
+                            },
+                        }),
+                    }
+                );
+            }
+            const started = performance.now();
+            const result = await this.transport.send(input.data, options);
+            this.logger.debug(
                 {
-                    reason: 'invalid-request',
-                    operation: 'send',
-                    phase: 'configuration',
-                    outcome: 'not-sent',
+                    event: 'mail.smtp.accepted',
+                    status: result.status,
+                    acceptedCount: result.accepted.length,
+                    rejectedCount: result.rejected.length,
+                    durationMs: performance.now() - started,
                 },
-                {
-                    validationIssues: validationDiagnostics(input.error, message, {
-                        fields: {
-                            to: {
-                                expected: 'a valid mailbox, or an array of 1-50 valid mailboxes',
-                            },
-                            subject: {
-                                hint: 'Provide a subject of 1-998 characters without CR/LF.',
-                            },
-                            text: { customExpected: 'nonempty text or html body' },
-                            html: {},
-                        },
-                    }),
-                }
+                'SMTP message accepted'
             );
-        }
-        const started = performance.now();
-        const result = await this.transport.send(input.data, options);
-        this.logger.debug(
-            {
-                event: 'mail.smtp.accepted',
-                status: result.status,
-                acceptedCount: result.accepted.length,
-                rejectedCount: result.rejected.length,
-                durationMs: performance.now() - started,
-            },
-            'SMTP message accepted'
-        );
-        return result;
+            return result;
+        });
     }
 }

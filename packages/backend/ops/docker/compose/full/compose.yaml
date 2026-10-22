@@ -112,6 +112,8 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-production}
+      LOG_OUTPUT: ${LOG_OUTPUT:-console}
+      LOG_CONSOLE_FORMAT: ${LOG_CONSOLE_FORMAT:-json}
       PORT: '3000'
       DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env.}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env.}?schema=public
       SHADOW_DATABASE_URL: postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env.}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.}@postgres:5432/${POSTGRES_SHADOW_DB:?Set POSTGRES_SHADOW_DB in .env.}?schema=public

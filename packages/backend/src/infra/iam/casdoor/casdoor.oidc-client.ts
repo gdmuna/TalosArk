@@ -9,6 +9,7 @@ import { resolveIamOptions, type CasdoorIamOptions } from '../iam.options.js';
 import { IamError } from '../iam.error.js';
 import { normalizeIamHttpError } from './casdoor.error.normalize.js';
 import { CasdoorTokenVerifier } from './casdoor.token-verifier.js';
+import { observeIamOperation } from '../iam.telemetry.js';
 
 export class CasdoorOidcClient {
     private readonly http: HttpClient;
@@ -40,24 +41,26 @@ export class CasdoorOidcClient {
     }
 
     async resolveIdentity(input: ResolveOidcIdentityInput): Promise<VerifiedExternalIdentity> {
-        const tokens = await this.exchangeAuthorizationCode(input);
-        const verified = this.verifier.verifyIdToken(tokens.idToken, input.expectedNonce);
-        if (!this.verifier.verifyAccessToken(tokens.accessToken) || !verified) {
-            throw new IamError({ reason: 'invalid-response' });
-        }
-        const { claims } = verified;
-        return {
-            issuer: verified.issuer,
-            subject: verified.subject,
-            profile: {
-                username: typeof claims.name === 'string' ? claims.name : undefined,
-                email: typeof claims.email === 'string' ? claims.email : undefined,
-                nickname:
-                    typeof claims.displayName === 'string' || claims.displayName === null
-                        ? claims.displayName
-                        : undefined,
-            },
-        };
+        return observeIamOperation('resolve-identity', async () => {
+            const tokens = await this.exchangeAuthorizationCode(input);
+            const verified = this.verifier.verifyIdToken(tokens.idToken, input.expectedNonce);
+            if (!this.verifier.verifyAccessToken(tokens.accessToken) || !verified) {
+                throw new IamError({ reason: 'invalid-response' });
+            }
+            const { claims } = verified;
+            return {
+                issuer: verified.issuer,
+                subject: verified.subject,
+                profile: {
+                    username: typeof claims.name === 'string' ? claims.name : undefined,
+                    email: typeof claims.email === 'string' ? claims.email : undefined,
+                    nickname:
+                        typeof claims.displayName === 'string' || claims.displayName === null
+                            ? claims.displayName
+                            : undefined,
+                },
+            };
+        });
     }
 
     private async exchangeAuthorizationCode(

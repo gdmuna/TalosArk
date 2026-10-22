@@ -13,6 +13,7 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AllConfig } from '@/config/index.js';
+import { observeKvsClient } from './kvs.telemetry.js';
 
 /**
  * Valkey 的应用入口，负责客户端连接生命周期与按数据类型组织的原子 Lua 操作。
@@ -26,12 +27,17 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
     public readonly lAtomic: KvsListAtomic;
     public readonly sAtomic: KvsSetAtomic;
     private closing?: Promise<void>;
+    private readonly stopObservation: () => void;
 
     public constructor(
         @Inject(REDIS_CLIENT) public readonly redisClient: RedisClient,
         @InjectPinoLogger(KvsClient.name) private readonly logger: PinoLogger,
         private readonly config: ConfigService<AllConfig, true>
     ) {
+        this.stopObservation = observeKvsClient(
+            redisClient,
+            config.get('observability.telemetry', { infer: true })
+        );
         this.atomic = new KvsStringAtomic(redisClient);
         this.hAtomic = new KvsHashAtomic(redisClient);
         this.lAtomic = new KvsListAtomic(redisClient);
@@ -71,7 +77,7 @@ export class KvsClient implements OnModuleInit, OnModuleDestroy {
 
     /** Pending commands drain within a budget; destroy rejects them on timeout. */
     public onModuleDestroy(): Promise<void> {
-        return (this.closing ??= this.close());
+        return (this.closing ??= this.close().finally(this.stopObservation));
     }
 
     private async close(): Promise<void> {

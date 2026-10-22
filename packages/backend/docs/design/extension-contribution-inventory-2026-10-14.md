@@ -116,7 +116,7 @@ Mail 不接管 KVS 错误；KVS projector 还识别特定连接错误及网络 c
 
 - [小接口](../../src/platform/observability/logger/pretty/pretty.adapter.ts)。
 - [引用收集](../../src/platform/observability/logger/logger.registry.ts)（原组合根路径清单已移除）。
-- [worker 加载与冲突检查](../../src/platform/observability/logger/pretty.transport.ts)。
+- [worker 加载与冲突检查](../../src/platform/observability/logger/output.transport.ts)。
 - [执行与降级](../../src/platform/observability/logger/pretty/pretty.renderer.ts)。
 - [现有设计说明](logger-pretty.md)。
 

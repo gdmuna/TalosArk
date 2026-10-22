@@ -4,6 +4,8 @@ import { AppModule } from './composition/app.module.js';
 import { installProcessShutdown } from './lifecycle/shutdown.js';
 import { HealthState } from '@/system/health/health.state.js';
 import { BullmqRuntime } from '@/infra/queue/bullmq/index.js';
+import type { ObservabilityRuntime } from '@/platform/observability/observability.runtime.js';
+import { HttpObservation } from '@/platform/http/http.observation.js';
 
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
@@ -25,15 +27,26 @@ import { ulid } from 'ulid';
  * 进程入口只调用本函数；所有网络监听和框架级副作用都集中在这里，便于测试、
  * CLI 复用及有限关闭策略。
  */
-export async function bootstrap() {
+export async function bootstrap(observability?: ObservabilityRuntime) {
     const adapter = new FastifyAdapter({
         genReqId: () => ulid(),
         logger: false,
         forceCloseConnections: 'idle',
     });
     adapter.getInstance().decorateRequest('authentication', null);
+    if (observability?.tracing) {
+        const { FastifyOtelInstrumentation } = await import('@fastify/otel');
+        await adapter.getInstance().register(
+            new FastifyOtelInstrumentation({
+                instrumentHooks: false,
+                instrumentHandler: false,
+                recordExceptions: false,
+            }).plugin()
+        );
+    }
     const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
-        bufferLogs: false,
+        // bufferLogs: true,
+        abortOnError: false,
     });
     app.useLogger(app.get(NestPinoLogger));
 
@@ -42,10 +55,12 @@ export async function bootstrap() {
     const { port } = configService.get('app', { infer: true });
     const close = await installProcessShutdown(
         app,
-        configService.get('lifecycle', { infer: true })
+        configService.get('lifecycle', { infer: true }),
+        observability
     );
 
     try {
+        app.get(HttpObservation).register(adapter.getInstance());
         await app.register(fastifyHelmet, {
             contentSecurityPolicy: {
                 directives: {
@@ -78,7 +93,10 @@ export async function bootstrap() {
         await app.listen(port, '0.0.0.0');
         app.get(HealthState).markReady();
         logger.log(`Server started at: http://localhost:${port}`);
-        await printStartupBanner();
+        const { logging } = configService.get('observability', { infer: true });
+        if (logging.output !== 'file' && logging.console.format === 'pretty')
+            await printStartupBanner();
+        return { app, close };
     } catch (error) {
         logListenFailure(logger, port, error);
         app.flushLogs();

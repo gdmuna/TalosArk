@@ -6,6 +6,7 @@ import { Prisma } from '@root/prisma/generated/client.js';
 import { DatabaseClient } from '../database.client.js';
 import { normalizeDatabaseError } from '../database.error.normalize.js';
 import type { DatabaseQueryClient } from '../database.type.js';
+import { observeDatabaseTransaction } from '../database.telemetry.js';
 import {
     DatabaseTransactionContext,
     type DatabaseTransactionScope,
@@ -100,29 +101,31 @@ export class DatabaseTransactionManager {
         };
         let result: T;
         try {
-            result = await this.root.managed.$transaction(async (client) => {
-                scope.deadline = performance.now() + scope.options.timeout;
-                const timer = setTimeout(() => this.expire(scope), scope.options.timeout);
-                timer.unref();
-                this.clients.set(scope, client);
-                try {
-                    return await this.context.run(scope, async () => {
-                        const value = await work();
-                        this.assertActive(scope);
-                        if (scope.rollbackOnly) {
-                            throw new DatabaseTransactionError(
-                                { reason: 'rollback-only', transactionId: scope.id },
-                                { cause: scope.rollbackCause }
-                            );
-                        }
-                        return value;
-                    });
-                } finally {
-                    clearTimeout(timer);
-                    if (scope.state === 'active') scope.state = 'finishing';
-                    this.clients.delete(scope);
-                }
-            }, scope.options);
+            result = await observeDatabaseTransaction(() =>
+                this.root.managed.$transaction(async (client) => {
+                    scope.deadline = performance.now() + scope.options.timeout;
+                    const timer = setTimeout(() => this.expire(scope), scope.options.timeout);
+                    timer.unref();
+                    this.clients.set(scope, client);
+                    try {
+                        return await this.context.run(scope, async () => {
+                            const value = await work();
+                            this.assertActive(scope);
+                            if (scope.rollbackOnly) {
+                                throw new DatabaseTransactionError(
+                                    { reason: 'rollback-only', transactionId: scope.id },
+                                    { cause: scope.rollbackCause }
+                                );
+                            }
+                            return value;
+                        });
+                    } finally {
+                        clearTimeout(timer);
+                        if (scope.state === 'active') scope.state = 'finishing';
+                        this.clients.delete(scope);
+                    }
+                }, scope.options)
+            );
             scope.outcome = 'committed';
         } catch (error) {
             scope.outcome = 'unconfirmed';

@@ -62,7 +62,9 @@ ARG GIT_COMMIT=''
 ENV APP_VERSION=$APP_VERSION \
     APP_NAME='' \
     GIT_COMMIT=$GIT_COMMIT \
-    NODE_ENV=production
+    NODE_ENV=production \
+    LOG_OUTPUT=console \
+    LOG_CONSOLE_FORMAT=json
 
 EXPOSE 3000
 

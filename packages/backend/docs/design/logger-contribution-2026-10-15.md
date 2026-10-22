@@ -56,7 +56,7 @@ platform/observability/logger/
   logger.registry.ts                  发现、去重、回调/URL 快照
   logger.diagnostic.ts                JSON-like 投影类型
   logger.transport.ts                 worker 就绪门禁及失败清理
-  pretty.transport.ts                 worker 内导入与渲染
+  output.transport.ts                 worker 内导入与渲染（原 pretty.transport.ts）
 
 infra/<领域>/
   <领域>.log.contribution.ts
@@ -82,7 +82,7 @@ export default { /* event -> record => string | undefined */ } satisfies PrettyA
 ```
 
 Database、HTTP gateway、IAM、KVS、Mail、Storage 声明在已有 Module 上。
-入站 HTTP 性能贡献声明在已有 PerformanceInterceptor 上，因为没有独立 HTTP Module。
+入站 HTTP 性能贡献现声明在 HttpObservation Provider 上，因为没有独立 HTTP Module；2026-10-22 已由 Fastify 生命周期观测替代 PerformanceInterceptor，覆盖 Guard 拒绝与未匹配路由。
 不新增为了返回常量而存在的 Provider，不靠全局 import 副作用注册。
 
 主线程按贡献 ID 的字符顺序构建固定首匹配 projector 链，不使用 Nest 遍历顺序。

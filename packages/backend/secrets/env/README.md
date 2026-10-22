@@ -242,6 +242,17 @@ Origin 列表不是登录跳转 URL，也不是激活链接 URL。
 | 变量                    | 必填性 / 默认值                                           | 作用                                     |
 | ----------------------- | --------------------------------------------------------- | ---------------------------------------- |
 | `LOG_LEVEL`             | 可选，`info`                                              | trace/debug/info/warn/error/fatal/silent |
+| `LOG_OUTPUT`            | 可选；空值时 development=`console`，test/production=`file` | console/file/both，独立于运行环境选择输出 |
+| `LOG_CONSOLE_FORMAT`    | 可选；空值时 development=`pretty`，其他=`json`              | 控制台格式；文件始终是逐行 JSON |
+| `LOG_CONSOLE_COLOR`     | 可选，`auto`                                              | auto/always/never；auto 仅在 stdout 为 TTY 时启用颜色 |
+| `LOG_CONSOLE_LEVEL`     | 可选；空值继承 `LOG_LEVEL`                                 | 控制台的附加等级过滤，不能绕过全局等级 |
+| `LOG_FILE_LEVEL`        | 可选；空值继承 `LOG_LEVEL`                                 | 文件的附加等级过滤，不能绕过全局等级 |
+| `LOG_FILE_PATH`         | 可选，`./data/logs/app.log`                                | 相对进程工作目录或绝对路径；父目录自动创建 |
+| `LOG_FILE_ROTATION`     | 可选，`none`                                              | none/hourly/daily；时间轮转按进程本地时区 |
+| `LOG_FILE_MAX_SIZE_MB`  | 可选，`0`，范围 0–1024                                    | MiB；0 关闭大小轮转，可与时间轮转同时启用 |
+| `LOG_FILE_RETAIN_COUNT` | 可选，`14`，范围 1–10000                                   | 最多保留的归档文件数，另加当前文件；仅轮转时清理 |
+| `LOG_SAMPLE_RATE`       | 可选，`1`，范围 0–1                                       | trace/debug/info 的逐条保留概率；warn/error/fatal 不采样 |
+| `LOG_WORKER_START_TIMEOUT_MS` | 可选，`5000`，范围 1–60000                          | 等待全部已启用输出初始化的期限 |
 | `SLOW_REQUEST_WARN_MS`  | 可选，`1000`                                              | 慢 HTTP 请求告警阈值                     |
 | `SLOW_REQUEST_ERROR_MS` | 可选，`3000`                                              | 慢 HTTP 请求错误阈值                     |
 | `SLOW_QUERY_WARN_MS`    | 可选，`100`                                               | 慢数据库查询告警阈值                     |
@@ -251,8 +262,88 @@ Origin 列表不是登录跳转 URL，也不是激活链接 URL。
 | `SHUTDOWN_TIMEOUT_MS`   | 可选，`10000`                                             | 整个进程停止预算，1000–120000ms          |
 | `HTTP_DRAIN_TIMEOUT_MS` | 可选，`5000`                                              | 等待在途 HTTP 请求完成的预算，正整数毫秒 |
 | `LOG_FLUSH_TIMEOUT_MS`  | 可选，`500`                                               | 日志刷新预算，正整数毫秒                 |
+| `TELEMETRY_FLUSH_TIMEOUT_MS` | 可选，`1000`，范围 100–10000 | 遥测 SDK 的关闭/最后导出预算，毫秒 |
 
-HTTP drain + log flush 必须小于 shutdown 总预算，以给资源清理留出时间。
+HTTP drain + telemetry flush + log flush 必须小于 shutdown 总预算，以给资源清理留出时间。
+关闭遥测时不预留 telemetry flush 预算，延续原有关闭时限的校验规则。
+
+#### 指标与链路追踪
+
+应用侧基于 OpenTelemetry，统一位于 `platform/observability`。默认不启用网络导出，
+日志继续按原有设置运行。以下配置只支持 OTLP HTTP/protobuf，不自动启动 Collector。
+
+| 变量 | 必填性 / 默认值 | 作用 |
+| --- | --- | --- |
+| `OTEL_SDK_DISABLED` | 可选，`true` | 本应用默认 opt-in；false 才初始化遥测 SDK |
+| `OTEL_SERVICE_NAME` | 可选，空值继承 `APP_NAME` | 服务身份，不使用请求中的数据 |
+| `OTEL_TRACES_EXPORTER` | 可选，`otlp` | otlp/none，独立开关追踪导出 |
+| `OTEL_METRICS_EXPORTER` | 可选，`otlp` | otlp/none，独立开关指标导出 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | 启用任一导出时必填 | HTTP(S) Collector base URL；不能含账号、密码、query 或 fragment；追加 /v1/traces 和 /v1/metrics |
+| `OTEL_EXPORTER_OTLP_HEADERS` | 可选，空 | 认证等请求头，逗号分隔 name=percent-encoded-value；敏感值应放 local 或进程 secret |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | 可选，`3000`，范围 100–30000 | 单次导出超时，毫秒 |
+| `OTEL_METRIC_EXPORT_INTERVAL` | 可选，`15000`，范围 1000–120000 | 指标聚合导出周期，必须大于导出超时 |
+| `OTEL_TRACES_SAMPLER_ARG` | 可选，`0.1`，范围 0–1 | parent-based ratio 的根 trace 采样率；不影响指标，不保证保留所有错误 trace |
+| `OTEL_BSP_MAX_QUEUE_SIZE` | 可选，`2048`，范围 16–16384 | 进程内安全 span 缓冲数量上限 |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | 可选，`256`，范围 1–4096 | 追踪导出批量上限，不能超过 queue size |
+
+示例（需要已有 Collector）：
+
+```dotenv
+OTEL_SDK_DISABLED=false
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_TRACES_SAMPLER_ARG=1
+# OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20replace-with-token
+```
+
+保持现有启动命令即可，例如 `pnpm start:local`。仅采指标时使用
+`OTEL_TRACES_EXPORTER=none`；仅将采样率设为 0 时仍可能有 trace ID，但没有对应
+trace 被导出。指标不采样，日志采样继续由 `LOG_SAMPLE_RATE` 独立控制。
+Collector 断开只影响观测数据，不阻塞业务或让 readiness 失败；导出缓冲不是持久化队列。
+首轮指标目录、事件口径和验证边界见
+[应用链路可观测性](../../docs/design/observability-application-loop.md)。
+
+`LOG_LEVEL` 是第一道过滤，输出等级是第二道过滤。例如需要文件保留 debug、
+控制台只显示 info，设置 `LOG_LEVEL=debug`、`LOG_FILE_LEVEL=debug`、
+`LOG_CONSOLE_LEVEL=info`。`silent` 会关闭对应过滤范围内的全部日志。
+采样在序列化之前只判定一次，因此同一条记录不会在两路产生不同的采样结果。
+它不影响数据库业务审计；采样没有整条请求或跨进程 trace 一致性的保证。
+
+常用配置（未列出的变量采用上述默认值）：
+
+```dotenv
+# Local console; keeps the existing domain pretty adapters.
+LOG_OUTPUT=console
+LOG_CONSOLE_FORMAT=pretty
+LOG_CONSOLE_COLOR=auto
+```
+
+```dotenv
+# Container JSON stdout; collected by an external agent for Loki or another sink.
+LOG_OUTPUT=console
+LOG_CONSOLE_FORMAT=json
+```
+
+```dotenv
+# Console plus bounded rolling JSON files.
+LOG_OUTPUT=both
+LOG_CONSOLE_FORMAT=pretty
+LOG_FILE_PATH=./data/logs/app.log
+LOG_FILE_ROTATION=daily
+LOG_FILE_MAX_SIZE_MB=100
+LOG_FILE_RETAIN_COUNT=14
+LOG_SAMPLE_RATE=0.1
+```
+
+轮转使用 `pino-roll`，例如 `app.2026-10-22.1.log`。清理包括同一路径前缀下先前进程
+生成的轮转文件，在下一次轮转时执行；保留数不是保留天数，大小阈值也不是严格磁盘配额。
+默认 `none` + `0` 延续单一 `app.log`，没有轮转或自动清理。
+同一文件前缀只能由一个进程写入；HTTP、独立 Worker 和不同副本须用不同路径或独立卷，
+例如 Worker 设置 `LOG_FILE_PATH=./data/logs/worker.log`。不要同时让外部轮转器管理同一组文件。
+容器收集使用 JSON stdout；远端投递、缓冲与重试由外部收集器管理，本模块不直连 Loki。
+Docker 镜像与 full Compose 默认设置 `LOG_OUTPUT=console`、`LOG_CONSOLE_FORMAT=json`，
+覆盖普通 production profile 的文件输出回退。HTTP 与 Worker 的 Nest 启动日志先缓冲再交给 Pino；
+装饰性启动横幅只在 pretty 控制台模式显示。Pino 尚未建立时的最后兜底错误仍可写入 stderr。
+正常停机在现有日志预算内等待 worker 处理完在途记录并刷新两路输出；强制终止不保证末尾日志落盘。
 
 ## 工具与部署配置
 
@@ -265,7 +356,7 @@ HTTP drain + log flush 必须小于 shutdown 总预算，以给资源清理留�
 - `BACKEND_URL`：OpenAPI 导出脚本的可选地址；未配置时使用 `http://localhost:${PORT || 3000}`。
   导出脚本不会自动加载 runtime env，须通过进程环境注入，或明确用 dotenvx 包裹该命令。
 - `CI`、`GITHUB_REF`、`GITHUB_OUTPUT` 等由执行平台注入的变量，以及 Node 自带的运行参数，
-  不属于应用配置模板。dotenvx 的公钥/私钥元数据也不计入 80 个业务运行配置。
+  不属于应用配置模板。dotenvx 的公钥/私钥元数据也不计入业务运行配置。
 
 旧 profile 中的 ALLOWED_ORIGINS__、JWT_REFRESH__、JWT_ACCESS_ALGORITHM、VITE_* 被保留以避免
 改变已有文件，但当前后端不读取它们；`.env.example` 不再把它们呈现为可用配置。

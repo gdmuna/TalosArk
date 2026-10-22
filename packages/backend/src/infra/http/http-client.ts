@@ -5,6 +5,7 @@ import { RequestQueue } from './request-queue.js';
 import { assertDuration, createRequestScope, delay, waitFor } from './request-scope.js';
 import { parseRetryAfter, retryDelay, validateRetryPolicy, type RetryPolicy } from './retry.js';
 import { Singleflight } from './singleflight.js';
+import { observeHttpAttempt, observeHttpCall, observeHttpWait } from './http.telemetry.js';
 import type {
     DecodedHttpRequest,
     HttpClient,
@@ -129,21 +130,40 @@ export function createHttpClient(
                 signal.throwIfAborted();
                 if (lease) {
                     gate?.assertCurrent(lease);
-                    lease = await gate?.acquire(signal, input.authWait);
+                    lease = gate
+                        ? await observeHttpWait(options.name, input.operation, 'credential', () =>
+                              gate.acquire(signal, input.authWait)
+                          )
+                        : undefined;
                 }
-                const release = await queue.acquire(input.operation, signal);
+                const release = await observeHttpWait(
+                    options.name,
+                    input.operation,
+                    'send-slot',
+                    () => queue.acquire(input.operation, signal)
+                );
                 let response: HttpResponse | undefined;
                 let error: unknown;
                 try {
                     signal.throwIfAborted();
                     if (lease) gate?.assertCurrent(lease);
                     attempts++;
-                    response = await transport.send(
-                        {
-                            ...wire,
-                            headers: { ...wire.headers, ...normalizeHeaders(lease?.headers ?? {}) },
-                        },
-                        signal
+                    response = await observeHttpAttempt(
+                        options.name,
+                        input.operation,
+                        input.method,
+                        attempts,
+                        () =>
+                            transport.send(
+                                {
+                                    ...wire,
+                                    headers: {
+                                        ...wire.headers,
+                                        ...normalizeHeaders(lease?.headers ?? {}),
+                                    },
+                                },
+                                signal
+                            )
                     );
                     finalResponse = response;
                 } catch (cause) {
@@ -174,7 +194,13 @@ export function createHttpClient(
                             throw error;
                         }
                         // Refresh uses a separate ungated client, outside this client's admission queue.
-                        lease = await gate.recover(lease, signal, input.authWait);
+                        const previous = lease;
+                        lease = await observeHttpWait(
+                            options.name,
+                            input.operation,
+                            'credential',
+                            () => gate.recover(previous, signal, input.authWait)
+                        );
                         recovered = true;
                         continue;
                     }
@@ -205,6 +231,13 @@ export function createHttpClient(
     function request(input: HttpRequest): Promise<HttpResponse>;
     // eslint-disable-next-line no-redeclare -- Implementation of the overloads above.
     async function request<T>(
+        input: HttpRequest | DecodedHttpRequest<T>
+    ): Promise<HttpResponse | T> {
+        assertLabel(input.operation);
+        return observeHttpCall(options.name, input.operation, () => performRequest(input));
+    }
+
+    async function performRequest<T>(
         input: HttpRequest | DecodedHttpRequest<T>
     ): Promise<HttpResponse | T> {
         input = {
@@ -251,7 +284,9 @@ export function createHttpClient(
                 });
             const lease =
                 gate && input.auth !== 'none'
-                    ? await gate.acquire(scope.signal, input.authWait)
+                    ? await observeHttpWait(options.name, input.operation, 'credential', () =>
+                          gate.acquire(scope.signal, input.authWait)
+                      )
                     : undefined;
             scope.link(lease?.signal);
             const send = async (signal: AbortSignal, budget = input.timeoutMs ?? timeoutMs) => {

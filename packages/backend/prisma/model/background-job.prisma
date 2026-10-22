@@ -18,6 +18,9 @@ model BackgroundJob {
   executionToken     String?             @db.Uuid
   executionUntil     DateTime?           @db.Timestamptz(3)
   sourceRequestId    String?
+  /// W3C source context, not an authentication credential. Older jobs may lack it.
+  traceParent        String?             @db.VarChar(256)
+  traceState         String?             @db.VarChar(512)
   startedAt          DateTime?           @db.Timestamptz(3)
   finishedAt         DateTime?           @db.Timestamptz(3)
   result             Json?
@@ -27,6 +30,7 @@ model BackgroundJob {
   updatedAt          DateTime            @updatedAt @db.Timestamptz(3)
 
   @@index([status, checkAt, id])
+  @@index([status, availableAt, id])
   @@index([status, finishedAt, id])
   @@index([kind, createdAt, id])
 }

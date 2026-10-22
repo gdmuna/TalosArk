@@ -39,6 +39,12 @@ import type {
 } from './storage.contract.js';
 import { StorageError, type StorageOperation } from './storage.error.js';
 import { normalizeStorageError } from './storage.error.normalize.js';
+import {
+    observeStorageClient,
+    observeStorageOperation,
+    observeStorageDownload,
+    recordStorageRead,
+} from './storage.telemetry.js';
 
 const DEFAULT_PRESIGN_EXPIRES = 3600;
 const MAX_PRESIGN_EXPIRES = 604800;
@@ -65,7 +71,9 @@ export class StorageService implements OnModuleDestroy {
         private readonly s3Client: S3Client,
         @Inject(S3_OPTIONS) private readonly opts: StorageModuleOptions,
         @InjectPinoLogger(StorageService.name) private readonly logger: PinoLogger
-    ) {}
+    ) {
+        observeStorageClient(s3Client);
+    }
 
     onModuleDestroy(): void {
         this.s3Client.destroy();
@@ -187,35 +195,42 @@ export class StorageService implements OnModuleDestroy {
         object: ObjectLocation,
         options: StorageRequestOptions = {}
     ): Promise<Readable> {
-        const response = await this.execute('download', () =>
-            this.s3Client.send(new GetObjectCommand({ Bucket: object.bucket, Key: object.key }), {
-                abortSignal: options.signal,
-            })
-        );
-        if (!response.Body) {
-            throw new StorageError({ reason: 'invalid-response', operation: 'download' });
-        }
-        const body = response.Body as Readable;
-        // Normalize errors from consuming the body, not just acquiring the response.
-        const stream = Readable.from(
-            (async function* () {
-                try {
-                    for await (const chunk of body) yield chunk;
-                } catch (error) {
-                    throw normalizeStorageError(error, 'download') ?? error;
-                } finally {
-                    body.destroy();
+        return this.execute('download', async () => {
+            const response = await this.s3Client.send(
+                new GetObjectCommand({ Bucket: object.bucket, Key: object.key }),
+                {
+                    abortSignal: options.signal,
                 }
-            })(),
-            { objectMode: false }
-        );
-        const forwardError = (error: Error) =>
-            stream.destroy(normalizeStorageError(error, 'download') ?? error);
-        body.once('error', forwardError);
-        body.once('close', () => body.removeListener('error', forwardError));
-        stream.once('close', () => body.destroy());
-        if (options.signal) addAbortSignal(options.signal, body);
-        return stream;
+            );
+            if (!response.Body) {
+                throw new StorageError({ reason: 'invalid-response', operation: 'download' });
+            }
+            const body = response.Body as Readable;
+            // Normalize errors from consuming the body, not just acquiring the response.
+            const stream = Readable.from(
+                (async function* () {
+                    try {
+                        for await (const chunk of body) {
+                            recordStorageRead(chunk);
+                            yield chunk;
+                        }
+                    } catch (error) {
+                        throw normalizeStorageError(error, 'download') ?? error;
+                    } finally {
+                        body.destroy();
+                    }
+                })(),
+                { objectMode: false }
+            );
+            const forwardError = (error: Error) =>
+                stream.destroy(normalizeStorageError(error, 'download') ?? error);
+            body.once('error', forwardError);
+            body.once('close', () => body.removeListener('error', forwardError));
+            stream.once('close', () => body.destroy());
+            if (options.signal) addAbortSignal(options.signal, body);
+            observeStorageDownload(stream);
+            return stream;
+        });
     }
 
     statObject(object: ObjectLocation, options: ObjectStatOptions = {}): Promise<ObjectStat> {
@@ -529,12 +544,14 @@ export class StorageService implements OnModuleDestroy {
     }
 
     private async execute<T>(operation: StorageOperation, run: () => PromiseLike<T>): Promise<T> {
-        try {
-            const result = await run();
-            this.logger.debug({ operation }, 'Storage operation completed');
-            return result;
-        } catch (error) {
-            throw normalizeStorageError(error, operation) ?? error;
-        }
+        return observeStorageOperation(operation, async () => {
+            try {
+                const result = await run();
+                this.logger.debug({ operation }, 'Storage operation completed');
+                return result;
+            } catch (error) {
+                throw normalizeStorageError(error, operation) ?? error;
+            }
+        });
     }
 }

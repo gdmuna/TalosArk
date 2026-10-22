@@ -3,6 +3,7 @@ import { createPublicKey, type KeyObject } from 'node:crypto';
 import type { CasdoorIamOptions } from '../iam.options.js';
 import { IamError } from '../iam.error.js';
 import { configurationIssue } from '@/platform/error/error.validation.js';
+import { observeIamVerification } from '../iam.telemetry.js';
 
 interface VerifiedToken {
     issuer: string;
@@ -53,13 +54,23 @@ export class CasdoorTokenVerifier {
     }
 
     verifyAccessToken(token: string): boolean {
-        return this.verifyToken(token) !== null;
+        return observeIamVerification(
+            'verify-access-token',
+            () => this.verifyToken(token) !== null,
+            (accepted) => accepted
+        );
     }
 
     verifyIdToken(token: string, expectedNonce: string): VerifiedToken | null {
-        const verified = this.verifyToken(token);
-        if (!expectedNonce || verified?.claims.nonce !== expectedNonce) return null;
-        return verified;
+        return observeIamVerification(
+            'verify-id-token',
+            () => {
+                const verified = this.verifyToken(token);
+                if (!expectedNonce || verified?.claims.nonce !== expectedNonce) return null;
+                return verified;
+            },
+            (verified) => verified !== null
+        );
     }
 
     private verifyToken(token: string): VerifiedToken | null {

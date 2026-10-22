@@ -14,6 +14,7 @@ import dayjs from 'dayjs';
 import { createHash, createPrivateKey, createPublicKey, type KeyObject } from 'crypto';
 import { SignJWT, errors, jwtVerify, type JWTPayload } from 'jose';
 import { validate as isUuid, v7 as uuidv7 } from 'uuid';
+import { observeSessionVerification } from './session.telemetry.js';
 
 const ACCESS_TOKEN_ISSUER = 'talos-ark';
 const ACCESS_TOKEN_AUDIENCE = 'talos-ark-api';
@@ -194,91 +195,93 @@ export class SessionKernel {
     async verifyAccessToken(
         input: Session.VerifyAccessTokenInput
     ): Promise<Session.VerifyAccessTokenOutput> {
-        let payload: JWTPayload;
-        try {
-            ({ payload } = await jwtVerify(input.accessToken, this.verificationKey, {
-                algorithms: [ACCESS_TOKEN_ALGORITHM],
-                typ: 'at+jwt',
-                issuer: ACCESS_TOKEN_ISSUER,
-                audience: ACCESS_TOKEN_AUDIENCE,
-                requiredClaims: ['sub', 'sid', 'sv', 'tpi', 'jti', 'iat', 'exp'],
-            }));
-        } catch (error) {
-            if (error instanceof errors.JOSEError) return null;
-            throw error;
-        }
+        return observeSessionVerification(async () => {
+            let payload: JWTPayload;
+            try {
+                ({ payload } = await jwtVerify(input.accessToken, this.verificationKey, {
+                    algorithms: [ACCESS_TOKEN_ALGORITHM],
+                    typ: 'at+jwt',
+                    issuer: ACCESS_TOKEN_ISSUER,
+                    audience: ACCESS_TOKEN_AUDIENCE,
+                    requiredClaims: ['sub', 'sid', 'sv', 'tpi', 'jti', 'iat', 'exp'],
+                }));
+            } catch (error) {
+                if (error instanceof errors.JOSEError) return null;
+                throw error;
+            }
 
-        if (
-            typeof payload.sub !== 'string' ||
-            !isUuid(payload.sub) ||
-            typeof payload.sid !== 'string' ||
-            !isUuid(payload.sid) ||
-            typeof payload.tpi !== 'string' ||
-            !isUuid(payload.tpi) ||
-            typeof payload.jti !== 'string' ||
-            !isUuid(payload.jti) ||
-            typeof payload.sv !== 'number' ||
-            !Number.isSafeInteger(payload.sv) ||
-            payload.sv < 1 ||
-            typeof payload.iat !== 'number' ||
-            !Number.isSafeInteger(payload.iat) ||
-            typeof payload.exp !== 'number' ||
-            !Number.isSafeInteger(payload.exp) ||
-            payload.aud !== ACCESS_TOKEN_AUDIENCE
-        ) {
-            return null;
-        }
+            if (
+                typeof payload.sub !== 'string' ||
+                !isUuid(payload.sub) ||
+                typeof payload.sid !== 'string' ||
+                !isUuid(payload.sid) ||
+                typeof payload.tpi !== 'string' ||
+                !isUuid(payload.tpi) ||
+                typeof payload.jti !== 'string' ||
+                !isUuid(payload.jti) ||
+                typeof payload.sv !== 'number' ||
+                !Number.isSafeInteger(payload.sv) ||
+                payload.sv < 1 ||
+                typeof payload.iat !== 'number' ||
+                !Number.isSafeInteger(payload.iat) ||
+                typeof payload.exp !== 'number' ||
+                !Number.isSafeInteger(payload.exp) ||
+                payload.aud !== ACCESS_TOKEN_AUDIENCE
+            ) {
+                return null;
+            }
 
-        const accessToken = await this.execute(() =>
-            this.database.queryClient.accessToken.findUnique({
-                where: { id: payload.jti },
-                select: {
-                    expiresAt: true,
-                    tokenPair: {
-                        select: {
-                            id: true,
-                            generation: true,
-                            revokedAt: true,
-                            session: {
-                                select: {
-                                    id: true,
-                                    userId: true,
-                                    idleExpiresAt: true,
-                                    revokedAt: true,
+            const accessToken = await this.execute(() =>
+                this.database.queryClient.accessToken.findUnique({
+                    where: { id: payload.jti },
+                    select: {
+                        expiresAt: true,
+                        tokenPair: {
+                            select: {
+                                id: true,
+                                generation: true,
+                                revokedAt: true,
+                                session: {
+                                    select: {
+                                        id: true,
+                                        userId: true,
+                                        idleExpiresAt: true,
+                                        revokedAt: true,
+                                    },
                                 },
                             },
                         },
                     },
-                },
-            })
-        );
+                })
+            );
 
-        if (!accessToken) return null;
+            if (!accessToken) return null;
 
-        const now = new Date();
-        const tokenPair = accessToken.tokenPair;
-        const session = tokenPair.session;
-        // Rotation advances the RT generation, not the validity of older, unexpired ATs.
-        if (
-            accessToken.expiresAt <= now ||
-            tokenPair.id !== payload.tpi ||
-            tokenPair.generation !== payload.sv ||
-            session.id !== payload.sid ||
-            session.userId !== payload.sub ||
-            !isTokenPairActive(tokenPair, now)
-        ) {
-            return null;
-        }
+            const now = new Date();
+            const tokenPair = accessToken.tokenPair;
+            const session = tokenPair.session;
+            // Rotation advances the RT generation, not the validity of older, unexpired ATs.
+            if (
+                accessToken.expiresAt <= now ||
+                tokenPair.id !== payload.tpi ||
+                tokenPair.generation !== payload.sv ||
+                session.id !== payload.sid ||
+                session.userId !== payload.sub ||
+                !isTokenPairActive(tokenPair, now)
+            ) {
+                return null;
+            }
 
-        return {
-            sub: payload.sub,
-            sid: payload.sid,
-            sv: payload.sv,
-            tpi: payload.tpi,
-            jti: payload.jti,
-            iat: payload.iat,
-            exp: payload.exp,
-        };
+            return {
+                sub: payload.sub,
+                sid: payload.sid,
+                sv: payload.sv,
+                tpi: payload.tpi,
+                jti: payload.jti,
+                iat: payload.iat,
+                exp: payload.exp,
+            };
+        });
     }
 
     async revokeUserSession(

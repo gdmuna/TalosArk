@@ -5,7 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import pino, { type LoggerOptions } from 'pino';
 import { LoggerContributionModule, LoggerContributions } from './logger.registry.js';
-import { createReadyPrettyTransport } from './logger.transport.js';
+import { createReadyLogTransport } from './logger.transport.js';
+import { samplingHooks } from './logger.sampling.js';
+import { currentTraceContext } from '../tracing/trace.context.js';
 
 @Module({})
 export class PlatformLoggerModule {
@@ -22,10 +24,12 @@ export class PlatformLoggerModule {
                         configService: ConfigService<AllConfig, true>,
                         contributions: LoggerContributions
                     ) => {
-                        const { isDev, isProd, appName } = configService.get('app', {
+                        const { appName } = configService.get('app', {
                             infer: true,
                         });
-                        const { logLevel } = configService.get('observability', { infer: true });
+                        const { logLevel, logging } = configService.get('observability', {
+                            infer: true,
+                        });
                         const snapshot = contributions.collect();
                         const serializers = {
                             err: (error: unknown) => serializeError(error, contributions.project),
@@ -33,19 +37,15 @@ export class PlatformLoggerModule {
                         };
                         const options: LoggerOptions = {
                             name: appName,
-                            level: logLevel ?? (!isProd ? 'trace' : 'info'),
+                            level: logLevel,
                             serializers,
+                            hooks: samplingHooks(logging.sampleRate),
+                            mixin: currentTraceContext,
                         };
-                        const logger = isDev
-                            ? pino(options, await createReadyPrettyTransport(snapshot.pretty))
-                            : pino(
-                                  options,
-                                  pino.destination({
-                                      dest: './data/logs/app.log',
-                                      sync: false,
-                                      mkdir: true,
-                                  })
-                              );
+                        const logger = pino(
+                            options,
+                            await createReadyLogTransport(logging, snapshot.pretty)
+                        );
 
                         return {
                             forRoutes: [{ path: '*path', method: RequestMethod.ALL }],
@@ -53,7 +53,7 @@ export class PlatformLoggerModule {
                                 logger,
                                 serializers,
                                 wrapSerializers: false,
-                                // TODO: The first platform telemetry implementation owns access logs.
+                                // Fastify lifecycle observation owns the single access record.
                                 autoLogging: false,
                             },
                         };

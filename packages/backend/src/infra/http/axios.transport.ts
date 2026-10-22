@@ -1,4 +1,5 @@
 import { HttpError } from './http.error.js';
+import { injectTraceContext } from '@/platform/observability/tracing/trace.context.js';
 import type {
     HttpBody,
     HttpClient,
@@ -54,10 +55,12 @@ export function createAxiosTransport(options: HttpClientOptions, concurrency: nu
     return {
         async send(input: WireRequest, signal: AbortSignal): Promise<HttpResponse> {
             try {
+                const traceHeaders = { ...input.headers };
+                injectTraceContext(traceHeaders);
                 const response = await transport.request<unknown>({
                     method: input.method,
                     url: input.url,
-                    headers: { ...input.headers },
+                    headers: traceHeaders,
                     data: input.body,
                     responseType: input.responseType === 'binary' ? 'arraybuffer' : 'text',
                     signal,

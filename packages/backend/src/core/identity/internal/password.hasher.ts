@@ -5,6 +5,7 @@ import { argon2id, hash, verify } from 'argon2';
 import { randomBytes } from 'node:crypto';
 import type { AllConfig } from '@/config/index.js';
 import { IdentityError } from '../identity.error.js';
+import { observePassword } from './password.telemetry.js';
 
 const profile = Object.freeze({
     type: argon2id,
@@ -46,31 +47,38 @@ export class IdentityPasswordHasher implements OnModuleInit {
     }
 
     async onModuleInit(): Promise<void> {
-        this.dummyHash = await this.compute(() => hash(randomBytes(32), profile));
+        this.dummyHash = await this.compute('initialize', () => hash(randomBytes(32), profile));
     }
 
     hash(password: string): Promise<string> {
-        return this.compute(() => hash(password, profile));
+        return this.compute('hash', () => hash(password, profile));
     }
 
     async verify(password: string, encoded: string | null): Promise<boolean> {
         const dummyHash = this.dummyHash;
         if (!dummyHash) throw new Error('Password hasher has not initialized');
         const supported = isSupportedHash(encoded);
-        const matched = await this.compute(() => verify(supported ? encoded : dummyHash, password));
+        const matched = await this.compute('verify', () =>
+            verify(supported ? encoded : dummyHash, password)
+        );
         return supported && matched;
     }
 
-    private async compute<T>(operation: () => Promise<T>): Promise<T> {
-        if (this.active >= this.concurrency)
-            throw new IdentityError({ reason: 'login-unavailable' }, { retryAfterSeconds: 1 });
-        this.active++;
-        try {
-            return await operation();
-        } catch (cause) {
-            throw new IdentityError({ reason: 'login-unavailable' }, { cause });
-        } finally {
-            this.active--;
-        }
+    private async compute<T>(
+        kind: 'initialize' | 'hash' | 'verify',
+        operation: () => Promise<T>
+    ): Promise<T> {
+        return observePassword(kind, async () => {
+            if (this.active >= this.concurrency)
+                throw new IdentityError({ reason: 'login-unavailable' }, { retryAfterSeconds: 1 });
+            this.active++;
+            try {
+                return await operation();
+            } catch (cause) {
+                throw new IdentityError({ reason: 'login-unavailable' }, { cause });
+            } finally {
+                this.active--;
+            }
+        });
     }
 }

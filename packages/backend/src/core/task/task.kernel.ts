@@ -5,6 +5,9 @@ import { TaskHandlerRegistry } from './task-handler.registry.js';
 import { TaskError } from './task.error.js';
 import { taskValue } from './internal/task.input.js';
 import type { TaskDefinition, TaskEnqueueOptions } from './task.types.js';
+import { SpanKind } from '@opentelemetry/api';
+import { withSpan } from '@/platform/observability/tracing/trace.span.js';
+import { captureTraceCarrier } from '@/platform/observability/tracing/trace.context.js';
 
 @Injectable()
 export class TaskKernel {
@@ -31,19 +34,32 @@ export class TaskKernel {
                         !/^[a-zA-Z0-9_.-]{1,100}$/.test(options.sourceRequestId))
                 )
                     throw new TaskError({ reason: 'invalid-input' });
-                return this.database.queryClient.backgroundJob.create({
-                    data: {
-                        kind: definition.kind,
-                        version: definition.version,
-                        payload: jsonInput(taskValue(parsed.data)),
-                        policy: jsonInput(taskValue(registered.definition.policy)),
-                        availableAt,
-                        checkAt: availableAt,
-                        expiresAt: options.expiresAt,
-                        sourceRequestId: options.sourceRequestId,
-                    },
-                    select: { id: true, kind: true, version: true, status: true, createdAt: true },
-                });
+                return withSpan(
+                    'task.enqueue',
+                    { 'task.kind': definition.kind },
+                    () =>
+                        this.database.queryClient.backgroundJob.create({
+                            data: {
+                                kind: definition.kind,
+                                version: definition.version,
+                                payload: jsonInput(taskValue(parsed.data)),
+                                policy: jsonInput(taskValue(registered.definition.policy)),
+                                availableAt,
+                                checkAt: availableAt,
+                                expiresAt: options.expiresAt,
+                                sourceRequestId: options.sourceRequestId,
+                                ...captureTraceCarrier(),
+                            },
+                            select: {
+                                id: true,
+                                kind: true,
+                                version: true,
+                                status: true,
+                                createdAt: true,
+                            },
+                        }),
+                    { kind: SpanKind.PRODUCER }
+                );
             },
             { propagation: 'mandatory' }
         );
