@@ -493,8 +493,11 @@ without application authentication. R06 resumes multipart uploads from validated
 server part sizes/ETags and the original completion manifest, without persisting a
 second local part list. Its isolated browser checks cover upload/recovery and Batch
 inventory interaction. Local real-storage browser PUT/download/ETag/CORS and
-two-part backend SHA-256/recovery checks now pass; authenticated multipart UI and
-deployment acceptance remain separate gates. See docs/remediation/2026-10-15/r06/audit-2026-10-21.md and
+two-part backend SHA-256/recovery checks now pass. The 2026-10-22 acceptance also
+verifies authenticated multipart UI, partial/finalizing recovery and current grants
+against PostgreSQL and isolated RustFS; deployment and cleanup scheduling remain
+separate gates. See ../../docs/product/mvp-p10-acceptance-2026-10-22.md,
+docs/remediation/2026-10-15/r06/audit-2026-10-21.md and
 the material-p10 acceptance record.
 
 The frontend is in a rapid-iteration phase. Do not add, backfill, or maintain
