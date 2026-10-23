@@ -167,7 +167,7 @@ const columns: DataTableColumn<AuditRecord>[] = [
 </script>
 
 <template>
-    <ManagementPage title="审计日志" layout="tool" :context="context">
+    <ManagementPage title="审计日志" layout="table" :context="context">
         <template #actions>
             <Button v-if="source" variant="outline" :disabled="loading || !key" @click="refresh">
                 <RotateCw aria-hidden="true" />

@@ -51,22 +51,24 @@ provideBreadcrumbs(() => [
 
 <template>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col" data-slot="audit-detail">
-        <header class="shrink-0 space-y-4 border-b p-4 lg:p-6">
-            <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(navigation.origin, listTo)">
-                <ArrowLeft aria-hidden="true" />
-                {{ navigation.origin?.label ?? '审计日志' }}
-            </Button>
-            <div class="flex min-w-0 items-start gap-4">
-                <div class="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary">
-                    <ClipboardList class="size-6" aria-hidden="true" />
-                </div>
-                <div class="min-w-0 space-y-2">
-                    <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
-                    <CopyableId :value="id" label="事件 ID" />
-                </div>
-            </div>
-        </header>
         <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
+            <header class="shrink-0 space-y-4 border-b p-4 lg:p-6">
+                <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(navigation.origin, listTo)">
+                    <ArrowLeft aria-hidden="true" />
+                    {{ navigation.origin?.label ?? '审计日志' }}
+                </Button>
+                <div class="flex min-w-0 items-start gap-4">
+                    <div
+                        class="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary"
+                    >
+                        <ClipboardList class="size-6" aria-hidden="true" />
+                    </div>
+                    <div class="min-w-0 space-y-2">
+                        <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
+                        <CopyableId :value="id" label="事件 ID" />
+                    </div>
+                </div>
+            </header>
             <main class="@container mx-auto w-full max-w-[1328px] space-y-6 p-4 lg:p-6" :aria-label="title">
                 <p v-if="!source" role="status" class="text-sm text-muted-foreground">审计查询服务尚未开放</p>
                 <p v-else-if="invalid || !scope.organizationId" role="alert" class="text-sm text-destructive">

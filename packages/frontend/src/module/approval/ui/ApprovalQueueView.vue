@@ -112,7 +112,7 @@ async function synchronize() {
 </script>
 <template>
     <main :aria-label="title" class="min-w-0 flex-1 p-4 pt-2 lg:p-6 lg:pt-2">
-        <div class="mx-auto w-full max-w-[1200px] space-y-5" data-slot="approval-queue">
+        <div class="mx-auto w-fit min-w-0 max-w-full space-y-5" data-slot="approval-queue">
             <section aria-label="审批概览" class="flex flex-wrap gap-3">
                 <div
                     v-for="item in [

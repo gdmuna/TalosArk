@@ -25,7 +25,7 @@ useResourceBreadcrumb({
 });
 </script>
 <template>
-    <ResourceDetailPage label="设备操作台" layout="tool">
+    <ResourceDetailPage label="设备操作台">
         <template #header>
             <ResourceObjectHeader
                 :id="resourceId"

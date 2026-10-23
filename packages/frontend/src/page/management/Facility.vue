@@ -164,7 +164,11 @@ const columns: DataTableColumn<FacilitySummary>[] = [
 </script>
 
 <template>
-    <ManagementPage title="设施" layout="tool" :context="organization?.name ?? '组织不可用'">
+    <ManagementPage
+        title="设施"
+        :layout="view === 'list' ? 'table' : 'tool'"
+        :context="organization?.name ?? '组织不可用'"
+    >
         <template #navigation><ManagementViewNav v-model="view" :items="views" label="设施视图" /></template>
         <template #actions>
             <SelectField v-model="organizationId" :options="options" label="组织" hide-title class="w-56 max-w-full" />

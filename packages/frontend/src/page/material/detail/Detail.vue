@@ -6,13 +6,14 @@ import { Archive, ArchiveRestore, FlaskConical, Pencil, Boxes, Clock, Tag, Arrow
 import {
     useMaterialRead,
     useMaterialStore,
+    useMaterialDataSource,
+    materialErrorMessage,
     MaterialFacts,
     MaterialEditor,
     MaterialBatchList,
     MaterialAttachmentList,
     branchPresentation,
 } from '@/module/material';
-import { useNavigationStore } from '@/platform/navigation';
 import { useWorkspaceStore } from '@/module/workspace';
 import {
     useInventoryDataSource,
@@ -21,7 +22,6 @@ import {
     InventoryStockInspector,
     inventoryStatusLabel,
 } from '@/module/inventory';
-import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { Button } from '@/ui/button';
 import MaterialInventoryPanel from './MaterialInventoryPanel.vue';
 import ResourceDetailPage from '../../resource/ResourceDetailPage.vue';
@@ -30,10 +30,11 @@ import ResourceViewNav from '../../resource/ResourceViewNav.vue';
 import ResourceSection from '../../resource/ResourceSection.vue';
 import ResourceEmpty from '../../resource/ResourceEmpty.vue';
 import { useResourceView } from '../../resource/useResourceView';
+import { useResourceBreadcrumb } from '../../resource/useResourceBreadcrumb';
 
 const route = useRoute(),
-    store = useMaterialStore(),
-    navigation = useNavigationStore();
+    store = useMaterialStore();
+const materialSource = useMaterialDataSource();
 const workspace = useWorkspaceStore();
 const id = computed(() => String(route.params.resourceId));
 const { data, loading, error, failure, reload } = useMaterialRead(
@@ -74,14 +75,46 @@ function edit() {
     editing.value = material.value;
     editorOpen.value = !!editing.value;
 }
+async function searchMaterials(query: string, page: number, signal: AbortSignal) {
+    const scope = store.scope;
+    if (!scope) return { items: [], total: 0 };
+    try {
+        const result = await materialSource.list(
+            scope,
+            {
+                page,
+                pageSize: 20,
+                q: query,
+                state: 'all',
+                sort: 'name:asc',
+            },
+            signal
+        );
+        const current = material.value ? { id: material.value.id, name: material.value.name } : undefined;
+        const items = result.items.map((item) => ({ id: item.id, name: item.name }));
+        const normalizedQuery = query.trim().toLocaleLowerCase();
+        const currentMatches =
+            !normalizedQuery ||
+            current?.name.toLocaleLowerCase().includes(normalizedQuery) ||
+            current?.id.toLocaleLowerCase().includes(normalizedQuery);
+        if (page === 1 && current && currentMatches && !items.some((item) => item.id === current.id))
+            items.unshift(current);
+        return { items, total: result.total };
+    } catch (cause) {
+        throw new Error(materialErrorMessage(cause), { cause });
+    }
+}
 watch(data, (value) => {
     if (value) store.capabilities = value.capabilities;
 });
-const returnTo = computed(() => navigation.lastLocation('/main/material/list'));
-provideBreadcrumbs(() => [
-    { id: 'material-list', label: '材料列表', to: returnTo.value },
-    { id: 'material', label: material.value?.name ?? '材料详情' },
-]);
+const { returnTo } = useResourceBreadcrumb({
+    domain: 'material',
+    kind: '材料定义',
+    listLabel: '材料列表',
+    resource: computed(() => (material.value ? { name: material.value.name } : undefined)),
+    resourceId: id,
+    search: searchMaterials,
+});
 </script>
 <template>
     <ResourceDetailPage label="材料详情">

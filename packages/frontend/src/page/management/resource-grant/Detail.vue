@@ -133,49 +133,49 @@ const contentTo = computed(() => {
 </script>
 <template>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col" data-slot="resource-access-detail">
-        <header class="shrink-0 space-y-4 border-b px-4 pt-4 lg:px-6">
-            <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(navigation.origin, listTo)">
-                <ArrowLeft aria-hidden="true" />
-                {{ navigation.origin?.label ?? '资源授权' }}
-            </Button>
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="flex min-w-0 flex-1 items-start gap-4">
-                    <div
-                        class="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary"
-                    >
-                        <Package class="size-6" aria-hidden="true" />
-                    </div>
-                    <div class="min-w-0 space-y-2">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
-                            <StateBadge v-if="data" tone="neutral">
-                                {{ data.resource.archivedAt ? '已归档' : '未归档' }}
-                            </StateBadge>
-                        </div>
-                        <CopyableId :value="id" label="资源 ID" />
-                        <p v-if="data" class="break-words text-sm text-muted-foreground">
-                            {{ data.resource.type.label }} · {{ data.resource.workspace.name }} ·
-                            {{ organization?.name }}
-                        </p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <Button v-if="contentTo" variant="outline" as-child>
-                        <RouterLink :to="contentTo">
-                            <ArrowUpRight aria-hidden="true" />
-                            资源详情
-                        </RouterLink>
-                    </Button>
-                    <Button v-if="source" variant="outline" :disabled="loading || !key" @click="refresh">
-                        <RotateCw aria-hidden="true" />
-                        刷新
-                    </Button>
-                </div>
-            </div>
-            <ManagementViewNav v-model="view" :items="views" label="资源授权详情视图" />
-        </header>
         <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
-            <main :aria-label="title" class="@container/access mx-auto w-full max-w-[1328px] space-y-6 p-4 lg:p-6">
+            <header class="shrink-0 space-y-4 border-b px-4 pt-4 lg:px-6">
+                <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(navigation.origin, listTo)">
+                    <ArrowLeft aria-hidden="true" />
+                    {{ navigation.origin?.label ?? '资源授权' }}
+                </Button>
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="flex min-w-0 flex-1 items-start gap-4">
+                        <div
+                            class="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary"
+                        >
+                            <Package class="size-6" aria-hidden="true" />
+                        </div>
+                        <div class="min-w-0 space-y-2">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
+                                <StateBadge v-if="data" tone="neutral">
+                                    {{ data.resource.archivedAt ? '已归档' : '未归档' }}
+                                </StateBadge>
+                            </div>
+                            <CopyableId :value="id" label="资源 ID" />
+                            <p v-if="data" class="break-words text-sm text-muted-foreground">
+                                {{ data.resource.type.label }} · {{ data.resource.workspace.name }} ·
+                                {{ organization?.name }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <Button v-if="contentTo" variant="outline" as-child>
+                            <RouterLink :to="contentTo">
+                                <ArrowUpRight aria-hidden="true" />
+                                资源详情
+                            </RouterLink>
+                        </Button>
+                        <Button v-if="source" variant="outline" :disabled="loading || !key" @click="refresh">
+                            <RotateCw aria-hidden="true" />
+                            刷新
+                        </Button>
+                    </div>
+                </div>
+                <ManagementViewNav v-model="view" :items="views" label="资源授权详情视图" />
+            </header>
+            <main :aria-label="title" class="@container/access mx-auto w-full min-w-0 space-y-6 p-4 lg:p-6">
                 <p v-if="invalid" role="alert" class="text-sm text-destructive">{{ invalid }}</p>
                 <p v-else-if="!source" role="status" class="text-sm text-muted-foreground">资源授权查询服务尚未开放</p>
                 <p v-if="loading" role="status" class="text-sm text-muted-foreground">正在读取资源授权信息</p>

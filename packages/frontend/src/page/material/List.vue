@@ -176,7 +176,7 @@ watch(
 
 <template>
     <main aria-label="材料列表" class="w-full min-w-0 px-4 pb-6 lg:px-6">
-        <div class="mx-auto w-full min-w-0 max-w-[1200px] space-y-4">
+        <div class="mx-auto w-fit min-w-0 max-w-full space-y-4">
             <div
                 v-if="error"
                 role="alert"

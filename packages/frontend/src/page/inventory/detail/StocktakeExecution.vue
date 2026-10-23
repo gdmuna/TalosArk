@@ -33,7 +33,7 @@ const tabs = [
 const { view, select } = useResourceView(tabs.map((tab) => tab.id));
 </script>
 <template>
-    <ResourceDetailPage label="盘点执行" layout="tool">
+    <ResourceDetailPage label="盘点执行">
         <template #header>
             <ResourceObjectHeader
                 :id="taskId"

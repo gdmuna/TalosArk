@@ -8,7 +8,7 @@ const { state, update } = useTeamListQuery('members');
 </script>
 
 <template>
-    <ManagementPage title="成员" layout="table" :context="context">
+    <ManagementPage title="成员" layout="tool" :context="context">
         <TeamManagement
             view="members"
             :list-state="state"

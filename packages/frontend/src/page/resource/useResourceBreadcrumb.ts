@@ -10,8 +10,13 @@ export function useResourceBreadcrumb(options: {
     domain: ResourceDomain;
     kind: Resource['kind'];
     listLabel: string;
-    resource: Ref<Resource | undefined>;
+    resource: Ref<{ name: string } | undefined>;
     resourceId: Ref<string>;
+    search?: (
+        query: string,
+        page: number,
+        signal: AbortSignal
+    ) => Promise<{ items: Pick<Resource, 'id' | 'name'>[]; total: number }>;
     parents?: () => BreadcrumbEntry[];
 }) {
     const route = useRoute();
@@ -31,6 +36,7 @@ export function useResourceBreadcrumb(options: {
                 resources: workbench.currentResources.filter(
                     (resource) => resource.kind === options.kind
                 ),
+                search: options.search,
                 onSelect: (resource: Resource) => {
                     const currentPath = `/main/${options.domain}/detail/${encodeURIComponent(options.resourceId.value)}`;
                     return navigation.pushPreservingOrigin({

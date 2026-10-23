@@ -29,11 +29,15 @@ export function findCenteredContainer(frame: HTMLElement) {
 }
 
 export function isTableCentered(container: HTMLElement | null, frame: HTMLElement | null) {
+    if (!container || !frame) return false;
+    const width = layoutValue(container, 'width');
+    const frameWidth = frame.getBoundingClientRect().width;
+    // Only intrinsic-width containers move with the table; full-width or clamped frames do not.
     return (
-        !!container &&
-        !!frame &&
+        (width === 'auto' || width === 'fit-content' || width === 'max-content') &&
         parseFloat(getComputedStyle(container).marginLeft) > 0 &&
-        Math.abs(container.getBoundingClientRect().width - frame.getBoundingClientRect().width) < 1
+        Math.abs(container.getBoundingClientRect().width - frameWidth) < 1 &&
+        Math.abs(parseFloat(frame.style.width) - frameWidth) < 1
     );
 }
 

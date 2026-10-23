@@ -322,7 +322,7 @@ const eventLabel: Record<string, string> = {
 </script>
 <template>
     <main aria-label="申请详情" class="min-w-0 p-4 pt-2 lg:p-6 lg:pt-2">
-        <div class="mx-auto w-full max-w-[1200px] space-y-6">
+        <div class="mx-auto w-fit min-w-0 max-w-full space-y-6">
             <header class="flex flex-wrap items-start justify-between gap-3">
                 <div class="flex min-w-0 items-start gap-3">
                     <Button

@@ -21,10 +21,13 @@ const workspace = useWorkspaceStore();
             <div class="w-full min-w-0 p-4 lg:p-6">
                 <div
                     data-slot="management-content"
-                    class="@container mx-auto w-full min-w-0 space-y-6"
-                    :class="
-                        layout === 'form' ? 'max-w-[720px]' : layout === 'tool' ? 'max-w-[1440px]' : 'max-w-[1200px]'
-                    "
+                    class="mx-auto min-w-0 space-y-6"
+                    :class="{
+                        'w-fit max-w-full': layout === 'table',
+                        '@container w-full': layout !== 'table',
+                        'max-w-[720px]': layout === 'form',
+                        'max-w-[1200px]': layout === 'wide',
+                    }"
                 >
                     <header class="flex flex-wrap items-center justify-between gap-3">
                         <div class="min-w-0">

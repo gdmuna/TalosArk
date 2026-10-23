@@ -8,7 +8,7 @@ const { state, update } = useTeamListQuery('roles');
 </script>
 
 <template>
-    <ManagementPage title="角色与权限" layout="table" :context="context">
+    <ManagementPage title="角色与权限" layout="tool" :context="context">
         <TeamManagement view="roles" :list-state="state" @update:list-state="update" @scope-label="context = $event" />
     </ManagementPage>
 </template>

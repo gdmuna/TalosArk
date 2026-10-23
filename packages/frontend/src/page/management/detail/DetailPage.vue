@@ -58,35 +58,35 @@ provideBreadcrumbs(() => [
 </script>
 <template>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col" data-slot="management-detail-page">
-        <header class="shrink-0 space-y-4 border-b px-4 pt-4 lg:px-6" data-slot="management-detail-header">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(origin, listTo)">
-                    <ArrowLeft />
-                    {{ origin?.label ?? listLabel }}
-                </Button>
-            </div>
-            <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="flex min-w-0 flex-1 gap-4">
-                    <div
-                        class="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary"
-                    >
-                        <component :is="icon" class="size-6" />
-                    </div>
-                    <div class="min-w-0 space-y-2">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
-                            <StateBadge v-if="status" tone="neutral">{{ status }}</StateBadge>
-                        </div>
-                        <CopyableId :value="id" label="对象 ID" />
-                        <p v-if="subtitle" class="break-words text-sm text-muted-foreground">{{ subtitle }}</p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap items-center gap-2"><slot name="actions" /></div>
-            </div>
-            <ManagementViewNav v-model="view" :items="views" :label="`${listLabel}详情视图`" />
-        </header>
         <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
-            <main :aria-label="title" class="@container mx-auto w-full max-w-[1328px] space-y-6 p-4 lg:p-6">
+            <header class="shrink-0 space-y-4 border-b px-4 pt-4 lg:px-6" data-slot="management-detail-header">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(origin, listTo)">
+                        <ArrowLeft />
+                        {{ origin?.label ?? listLabel }}
+                    </Button>
+                </div>
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="flex min-w-0 flex-1 gap-4">
+                        <div
+                            class="flex size-12 shrink-0 items-center justify-center rounded-md bg-primary-soft text-primary"
+                        >
+                            <component :is="icon" class="size-6" />
+                        </div>
+                        <div class="min-w-0 space-y-2">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h1 class="break-words text-xl font-semibold">{{ title }}</h1>
+                                <StateBadge v-if="status" tone="neutral">{{ status }}</StateBadge>
+                            </div>
+                            <CopyableId :value="id" label="对象 ID" />
+                            <p v-if="subtitle" class="break-words text-sm text-muted-foreground">{{ subtitle }}</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2"><slot name="actions" /></div>
+                </div>
+                <ManagementViewNav v-model="view" :items="views" :label="`${listLabel}详情视图`" />
+            </header>
+            <main :aria-label="title" class="@container mx-auto w-full min-w-0 space-y-6 p-4 lg:p-6">
                 <p v-if="loading" role="status" class="text-sm text-muted-foreground">正在加载详情</p>
                 <div v-if="error" role="alert" class="flex flex-wrap items-center gap-3 text-sm text-destructive">
                     {{ error }}

@@ -235,7 +235,7 @@ const filterFields = computed<DataTableFilter<ResourceGrant>[]>(() => [
 ]);
 </script>
 <template>
-    <ManagementPage title="资源授权" layout="tool" :context="organization?.name ?? '组织不可用'">
+    <ManagementPage title="资源授权" layout="table" :context="organization?.name ?? '组织不可用'">
         <template #actions>
             <AccessScopeField v-model="organizationId" :options="organizationOptions" label="组织" />
             <Button v-if="source" variant="outline" :disabled="!key || loading" @click="refresh">
