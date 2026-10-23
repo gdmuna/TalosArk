@@ -39,7 +39,7 @@
   "rust-analyzer.linkedProjects": ["packages/frontend/src-tauri/Cargo.toml"],
 
   // ===== NPM 配置 =====
-  "npm.exclude": ["**/dist", "**/output"], // 排除 dist 目录下的 package.json
+  "npm.exclude": ["**/dist", "**/dist/**", "**/output", "**/output/**"], // 排除若干目录下的 package.json
 
   // ===== JSON Schema 配置 =====
   "json.schemaDownload.enable": true, // 允许下载远程 JSON Schema（用于 tauri.conf.json 等）
