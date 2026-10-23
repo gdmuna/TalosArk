@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { managementPath } from '@/router/management-navigation';
 import { workbenchPage } from '@/module/workbench/navigation';
 import { unrefElement } from '@vueuse/core';
-import { ChevronDown, ChevronRight, Info, ListTodo, LogOut, Settings, UserRound, UsersRound } from '@lucide/vue';
+import { ChevronDown, ChevronRight, Info, ListTodo, LogOut, UserRound, UsersRound } from '@lucide/vue';
 import { WorkspaceSwitcher } from '@/module/workspace/ui';
 import { Button } from '@/ui/button';
 import {
@@ -69,7 +69,6 @@ function signOut() {
     void authApi.logout();
     void router.replace('/auth/login');
 }
-defineExpose({ openSettings });
 </script>
 
 <template>
@@ -134,10 +133,6 @@ defineExpose({ openSettings });
             <DropdownMenuItem class="min-h-9 gap-3 px-3" @select="openSettings">
                 <UserRound aria-hidden="true" />
                 账户设置
-            </DropdownMenuItem>
-            <DropdownMenuItem class="min-h-9 gap-3 px-3" @select="openApplication()">
-                <Settings aria-hidden="true" />
-                应用设置
             </DropdownMenuItem>
             <DropdownMenuItem class="min-h-9 gap-3 px-3" @select="router.push(workbenchPage.task.path)">
                 <ListTodo aria-hidden="true" />

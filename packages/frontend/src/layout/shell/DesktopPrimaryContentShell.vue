@@ -71,14 +71,14 @@
                         variant="ghost"
                         size="icon"
                         use-tooltip
-                        title="账户设置"
-                        @click="accountMenu?.openSettings()"
+                        title="应用设置"
+                        @click="applicationSetting.show('general')"
                     >
-                        <span class="sr-only">账户设置</span>
+                        <span class="sr-only">应用设置</span>
                         <Settings aria-hidden="true" class="size-5" />
                     </Button>
                 </div>
-                <UserMenu ref="accountMenu" />
+                <UserMenu />
             </div>
         </div>
         <DataSyncStatus />
@@ -91,7 +91,7 @@ import { provideRouteTabContext, useRouteTab } from '@/component/route-tab';
 import { BreadcrumbTrail, provideBreadcrumbContext } from '@/component/breadcrumb';
 import { matchesRoutePath } from '@/shared/util';
 import { useNavigationStore } from '@/platform/navigation';
-import { computed, useTemplateRef } from 'vue';
+import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { Button } from '@/ui/button';
@@ -113,7 +113,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ 'toggle-sidebar': [] }>();
-const accountMenu = useTemplateRef('accountMenu');
 const applicationSetting = useApplicationSetting();
 provideRouteTabContext();
 const { tabEntity } = useRouteTab();

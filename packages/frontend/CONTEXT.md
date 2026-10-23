@@ -313,15 +313,18 @@ Account Settings is an uncategorized top management entry. Its profile and perso
 notification views use the real current-account context. Profile editing retains
 the optional `account.updateDisplayName` data-source capability, but real-source
 profile writes and notification writes remain disabled until their API contracts
-exist. The account page links to authenticated first-password setup. The header settings button
-and user menu route here instead of maintaining a second profile Dialog. R08-B
+exist. The account page links to authenticated first-password setup. The user menu
+routes here instead of maintaining a second profile Dialog; the adjacent settings
+icon opens Application Settings, not Account Settings. R08-B
 renders readonly profile facts when the optional write source is absent. Editable
 sources retain draft guards and read-only synchronization recovery, clearing drafts
 on account-ID changes even when display names match. Normal synchronization errors
 use the shell notice once; silent pending recovery remains available on the page.
 
 R08-B's application-setting layout context owns one local preference/help/about
-Dialog, shared by the anonymous titlebar, user menu, help button and command palette.
+Dialog, shared by the anonymous titlebar, authenticated settings/help buttons,
+the user menu's About item and the command palette. The user menu has no separate
+Application Settings item.
 It stores no account/business state and adds no generic settings registry. Public
 unmatched routes use the statically imported NotFound page without protected data
 reads. Workspace switching keeps its original anchor, explicit server selection and
@@ -382,12 +385,16 @@ with object workspaces in each owner's `detail/`. `page/resource/` shares only
 application-level presentation and scoped resource-summary composition; it is not
 a business module or an API contract. `router/resource-navigation.ts` owns domain
 descriptions; `router/resource.ts` assembles static routes. Domain tabs stay outside the body scroll owner. Object routes
-use `ResourceDetailPage`: the object header and local query-backed navigation share
-a full-width top region outside the body scroll owner. The body uses a centered,
-full-width canvas capped at 1280px (1440px for tool workspaces), without moving
-the top region. Ordinary management/resource canvases are capped at 1200px,
-single forms at 720px, and topology/tool canvases at 1440px. Inventory's ledger
-uses the centered 1440px data canvas. Page canvases do not shrink with
+use `ResourceDetailPage`: the full-width object header, summary and local query-backed
+navigation scroll together with the body. Management object details follow the
+same rule; domain-level page tabs remain outside the body scroll owner. Table/data
+list canvases shrink-wrap their content with auto margins and a viewport-relative
+maximum, not a fixed pixel cap. Their shrink-wrapping wrapper is not an inline-size
+query container. Tool workspaces (including the query-container-based team UI)
+and table-bearing object details also have no fixed maximum width, but retain
+their fluid grid layouts.
+Ordinary overview/read canvases remain capped at 1200px and single forms at 720px.
+Page canvases do not shrink with
 table columns or row counts; fixed/manual table widths remain independent and
 start at the canvas's left edge. Body padding is 16px, or 24px from desktop lg.
 `component/breadcrumb` combines provider-owned layers, labels and actions; the

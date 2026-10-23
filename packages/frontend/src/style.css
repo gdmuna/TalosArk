@@ -137,7 +137,7 @@
     --destructive-soft-foreground: oklch(0.5 0.13 29.08);
     --destructive-hover: color-mix(in oklch, var(--destructive) 94%, var(--surface-tint-base));
     --destructive-active: oklch(0.66834 0.22629 29.08);
-    --destructive-foreground: var(--foreground);
+    --destructive-foreground: oklch(1 0 0);
     --success: oklch(0.63339 0.14652 158.65);
     --success-soft: color-mix(in oklch, var(--success) 11%, var(--surface-tint-base));
     --success-soft-foreground: oklch(0.5 0.1 158.65);
