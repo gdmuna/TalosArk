@@ -16,7 +16,8 @@ The package is intentionally in a structure-first phase:
   synchronization uses pnpm db:push. The approved native DDL under prisma/ddl
   installs database prerequisites before synchronization and storage-tree
   invariants afterward; it is not a replayable Prisma business migration history.
-  Do not recreate historical migrations or a seed script during this phase.
+  Do not recreate historical migrations or the removed legacy seed. The approved
+  development/test seed tool is a new, business-backed implementation described below.
 - Most files in the new core, modules, platform, and future Infra areas are
   TODO-only seams. A directory or class is not evidence that its runtime
   behavior exists. main.ts, bootstrap/composition/app.module.ts, and
@@ -39,6 +40,46 @@ CI/non-interactive calls must select explicitly; there is no implicit dev fallba
 `pnpm db:init` runs only prisma/ddl/init SQL against the selected primary database,
 and db:prepare remains an alias. It never synchronizes business tables or applies
 upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.md.
+
+## Development/test seeding
+
+`pnpm db:seed` runs the separately compiled `tooling/seed` entry. Dataset definitions
+and deterministic factories are pure; groups compose ordered datasets and pass typed
+output references to later inputs. Tags select independent datasets without resolving
+dependencies. Business seeders call existing application services, preserving actor,
+authorization, resource, audit, topology and inventory rules. `seed.module.ts` is a
+dedicated composition root without AppModule, HTTP/WS listeners, IAM, mail, S3, KVS
+or queue connections by default. An attachment integration group explicitly opts into
+S3 using a separate storage-only configuration. MaterialCatalogModule separates catalog/batch capabilities
+from attachment infrastructure; ordinary MaterialModule composes both as before.
+
+Without an existing actor, groups can provision real local credentials and scopes.
+Governance compositions cover accounts, profiles, organizations, workspaces, roles,
+membership and invitation lifecycles, including explicit negative authorization checks.
+Local credentials live in IdentityCredentialModule so tooling does not need external
+IAM or KVS. Organization invitations use a small delivery port: normal application
+composition keeps SMTP delivery; seed uses a real in-memory inbox after commit.
+Credentials are random and exported only to an explicit, exclusive private file.
+Groups may instead use an existing actor and organization/workspace pair without repairing
+grants. `init` explicitly opts a development/test database and role into seeding and
+creates only the tool-owned `seed` schema. Apply/verify require the database/role/OID
+marker, explicit database confirmation and native-DDL preflight. Production profiles
+and NODE_ENV=production reject. This marker is an operator opt-in, not proof that an
+arbitrary database contains no production data. The Prisma wrapper remains DB-only.
+
+One session advisory lock serializes seed commands per database. Each bounded business
+operation and its receipt commit in the same managed transaction. External file workflows
+explicitly retain their own transactions; file publication and the seed receipt are not
+atomic and failures require inspection/normal file cleanup. Final snapshots are taken
+after all scenario mutations. Completed plans reverify these final snapshots on reuse;
+changed content, parameters, scope, actor or versions fail
+instead of overwriting. Failed/interrupted runs keep committed receipts and require
+inspection; v1 has no automatic replay, cleanup, reset or blanket rollback. Reference
+dates control generated content, never the real business clock. Usage, extension
+examples and validation boundaries live in tooling/seed/README.md; coverage.md distinguishes
+implemented fixtures from unavailable business capabilities. Data/parameter/output types
+derive from contracts or kernel inputs, with NoInfer-pinned bindings and a dedicated
+seed:typecheck CI job. Runtime validation remains necessary for semantic constraints.
 
 ## Current iteration policy
 
@@ -160,6 +201,22 @@ No read/startup path repairs grants. P07 does not activate inventory, attachment
 QC or culture. Real test-database service acceptance and synthetic-HTTP browser
 acceptance, not full live Web end-to-end acceptance, are recorded in
 docs/design/mvp-p07-2026-10-18.md.
+
+## Optional business codes
+
+Material, MaterialType, Facility, StorageNode, MaterialInstance and the Equipment
+schema have nullable business codes. They are user-owned labels, not system IDs:
+missing, empty and whitespace-only input stores null; no UUID or INS fallback is
+generated. Existing nonempty codes and their scoped uniqueness remain. Update
+omission preserves a code; explicit null or blank clears it where code editing
+already exists. MaterialInstance still retains its existing immutable-code rule.
+ApprovalLine.codeSnapshot preserves the nullable event-time fact. Read contracts
+require the code property and accept null; they do not fabricate a label as a code.
+Resource/audit labels and location paths use existing names when codes are absent.
+After schema synchronization, reapply prisma/ddl/schema/storage-node.sql: its move
+function now accepts null as the new code, while the writer resolves omitted codes
+to the existing value. Manufacturer batch numbers, catalog/external identifiers
+and permission codes are not part of this optional-label policy.
 
 ## Business audit
 
