@@ -219,7 +219,7 @@ const unavailable: Record<string, string> = {
                 <div class="min-w-0">
                     <h2 class="break-words text-base font-semibold">{{ facility.name }}</h2>
                     <p class="mt-1 break-words text-xs text-muted-foreground">
-                        {{ facility.code }} · {{ facility.topology?.name ?? '存储布局不可用' }}
+                        {{ [facility.code, facility.topology?.name ?? '存储布局不可用'].filter(Boolean).join(' · ') }}
                     </p>
                 </div>
             </div>
@@ -431,7 +431,7 @@ const unavailable: Record<string, string> = {
                             <span v-if="item.occupied" class="absolute right-0.5 top-0.5" aria-hidden="true">
                                 <MapPin class="size-2.5" />
                             </span>
-                            <span class="truncate">{{ item.code }}</span>
+                            <span class="truncate">{{ item.code ?? item.name }}</span>
                         </Button>
                     </div>
                 </div>
@@ -471,7 +471,9 @@ const unavailable: Record<string, string> = {
                                 />
                                 <span class="min-w-0">
                                     <span class="block break-words text-sm font-medium">{{ item.name }}</span>
-                                    <span class="block break-all text-xs text-muted-foreground">{{ item.code }}</span>
+                                    <span v-if="item.code" class="block break-all text-xs text-muted-foreground">
+                                        {{ item.code }}
+                                    </span>
                                 </span>
                             </span>
                             <StateBadge
@@ -527,7 +529,7 @@ const unavailable: Record<string, string> = {
                     <dl class="space-y-3 text-sm">
                         <div class="flex justify-between gap-3">
                             <dt class="text-muted-foreground">编号</dt>
-                            <dd class="break-all">{{ node.data.value.code }}</dd>
+                            <dd class="break-all">{{ node.data.value.code ?? '未填写' }}</dd>
                         </div>
                         <div class="flex justify-between gap-3">
                             <dt class="text-muted-foreground">类型</dt>

@@ -51,7 +51,7 @@ class StockResource implements ResourceProvider {
             where: this.instance
                 ? { instance: { resourceId: input.resourceId } }
                 : { resourceId: input.resourceId },
-            include: { instance: true },
+            include: { instance: { include: { material: { select: { name: true } } } } },
         });
         if (!row) return null;
         const decision = await this.authorization.check({
@@ -76,7 +76,7 @@ class StockResource implements ResourceProvider {
             kind: this.instance ? ('MATERIAL_INSTANCE' as const) : ('STOCK_ITEM' as const),
             objectId: this.instance ? row.instanceId : row.id,
             scope: decision.context.scope,
-            label: row.instance.code,
+            label: row.instance.code ?? (row.instance.label || row.instance.material.name),
             href: `/main/inventory/detail/${row.id}?organization=${row.organizationId}&workspace=${row.workspaceId}`,
             archivedAt: row.instance.archivedAt,
         };

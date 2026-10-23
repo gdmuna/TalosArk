@@ -218,7 +218,7 @@ async function reloadDraft() {
         <SheetContent class="w-full gap-0 p-0 sm:max-w-xl">
             <div class="shrink-0 border-b p-6 pr-12">
                 <SheetTitle>更正实例资料</SheetTitle>
-                <SheetDescription>{{ stock.code }} · {{ stock.material.name }}</SheetDescription>
+                <SheetDescription>{{ [stock.code, stock.material.name].filter(Boolean).join(' · ') }}</SheetDescription>
             </div>
             <ScrollArea class="min-h-0 flex-1">
                 <form class="space-y-5 p-6" @submit.prevent="submit">

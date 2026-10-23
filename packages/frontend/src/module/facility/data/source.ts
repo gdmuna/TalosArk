@@ -41,7 +41,7 @@ export type StorageScope = FacilityScope & { facilityId: string; topologyId: str
 export type StorageNode = z.infer<typeof StorageNodeSchema> & StorageScope;
 export type StorageNodeDetail = z.infer<typeof StorageNodeDetailSchema>['node'] &
     StorageScope & {
-        ancestors: { id: string; name: string; code: string }[];
+        ancestors: { id: string; name: string; code: string | null }[];
         revision: number;
         capabilities: FacilityCapabilities;
     };

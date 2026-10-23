@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { NulFreeTextSchema, UuidSchema } from '../protocol/scalar.js';
+import { BusinessCodeInputSchema, NulFreeTextSchema, UuidSchema } from '../protocol/scalar.js';
 import { WorkspaceContextParamsSchema } from '../team/team.http.js';
 
 const singleLine = (max: number) =>
@@ -52,7 +52,7 @@ const identifiers = z
         'Identifiers must be unique within a material'
     );
 const write = z.strictObject({
-    code: text(80),
+    code: BusinessCodeInputSchema(80),
     name: text(200),
     typeId: UuidSchema.toLowerCase(),
     description: NulFreeTextSchema.trim().max(4000).default(''),
@@ -74,7 +74,10 @@ export const MaterialWriteSchema = z.discriminatedUnion('branch', [
         attributes: MaterialAttributesSchema.biological,
     }),
 ]);
-export const MaterialTypeWriteSchema = z.strictObject({ code: text(80), name: text(200) });
+export const MaterialTypeWriteSchema = z.strictObject({
+    code: BusinessCodeInputSchema(80),
+    name: text(200),
+});
 export const MaterialArchiveSchema = z.strictObject({ archived: z.boolean() });
 export const MaterialScopeSchema = WorkspaceContextParamsSchema;
 export const MaterialParamsSchema = MaterialScopeSchema.extend({
@@ -115,11 +118,12 @@ export const MaterialTypeSchema = z.object({
     id: UuidSchema,
     organizationId: UuidSchema,
     workspaceId: UuidSchema,
-    code: z.string(),
+    code: z.string().nullable(),
     name: z.string(),
     archivedAt: z.iso.datetime().nullable(),
 });
 const snapshot = write.extend({
+    code: text(80).nullable(),
     id: UuidSchema,
     resourceId: UuidSchema,
     organizationId: UuidSchema,

@@ -33,7 +33,11 @@ const { data, error, loading, refresh } = useFacilityRead(
         Promise.resolve(undefined)
 );
 const options = computed(() => {
-    const items = data.value?.items.map((item) => ({ value: item.id, label: `${item.name} · ${item.code}` })) ?? [];
+    const items =
+        data.value?.items.map((item) => ({
+            value: item.id,
+            label: [item.name, item.code].filter(Boolean).join(' · '),
+        })) ?? [];
     if (model.value && !items.some((item) => item.value === model.value))
         items.unshift({ value: model.value, label: props.label ?? model.value });
     return items;

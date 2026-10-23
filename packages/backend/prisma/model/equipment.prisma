@@ -5,7 +5,7 @@ model Equipment {
   workspaceId    String          @db.Uuid
   resourceId     String          @db.Uuid
   facilityId     String?         @db.Uuid
-  code           String
+  code           String?
   name           String
   manufacturer   String?
   modelNumber    String?

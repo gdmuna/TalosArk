@@ -138,7 +138,9 @@ const summaryStatus = (status: string) =>
                                     <FlaskConical class="size-4 shrink-0 text-primary" aria-hidden="true" />
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate font-medium">{{ item.name }}</span>
-                                        <span class="mt-1 block text-xs text-muted-foreground">{{ item.code }}</span>
+                                        <span v-if="item.code" class="mt-1 block text-xs text-muted-foreground">
+                                            {{ item.code }}
+                                        </span>
                                     </span>
                                     <ArrowRight class="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                                 </RouterLink>
@@ -165,7 +167,9 @@ const summaryStatus = (status: string) =>
                                         <span class="block truncate font-medium">
                                             {{ item.label || item.material.name }}
                                         </span>
-                                        <span class="mt-1 block text-xs text-muted-foreground">{{ item.code }}</span>
+                                        <span v-if="item.code" class="mt-1 block text-xs text-muted-foreground">
+                                            {{ item.code }}
+                                        </span>
                                     </span>
                                     <span class="shrink-0 text-sm tabular-nums">
                                         {{ item.quantity }} {{ item.quantityUnit }}

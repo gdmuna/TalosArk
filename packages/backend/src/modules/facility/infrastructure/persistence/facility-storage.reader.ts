@@ -16,7 +16,7 @@ export interface StorageFact {
     organizationId: string;
     topologyId: string;
     parentId: string | null;
-    code: string;
+    code: string | null;
     name: string;
     kind: 'CONTAINER' | 'POSITION';
     containerType:
@@ -73,7 +73,9 @@ export class FacilityStorageReader {
             AND node.id IN (${Prisma.join(nodeIds.map((id) => Prisma.sql`${id}::uuid`))})`);
     }
     async ancestors(node: StorageFact) {
-        return this.database.queryClient.$queryRaw<{ id: string; code: string; name: string }[]>`
+        return this.database.queryClient.$queryRaw<
+            { id: string; code: string | null; name: string }[]
+        >`
             SELECT id, code, name FROM "StorageNode" WHERE "organizationId" = ${node.organizationId}::uuid
             AND "topologyId" = ${node.topologyId}::uuid AND path @> ${node.path}::ltree AND id <> ${node.id}::uuid ORDER BY nlevel(path)`;
     }

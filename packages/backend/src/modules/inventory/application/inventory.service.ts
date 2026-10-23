@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { Prisma, MaterialInstance } from '@root/prisma/generated/client.js';
 import {
@@ -271,23 +271,7 @@ export class InventoryService {
                                 ...body.position,
                                 subject: this.subject(),
                             });
-                            let code = body.code;
-                            for (let attempt = 0; !code && attempt < 5; attempt++) {
-                                const candidate = `INS-${randomUUID().replaceAll('-', '').slice(0, 20).toUpperCase()}`;
-                                if (
-                                    !(await this.database.queryClient.materialInstance.findUnique({
-                                        where: {
-                                            workspaceId_code: {
-                                                workspaceId: scope.workspaceId,
-                                                code: candidate,
-                                            },
-                                        },
-                                        select: { id: true },
-                                    }))
-                                )
-                                    code = candidate;
-                            }
-                            if (!code) throw new InventoryError({ reason: 'conflict' });
+                            const code = body.code ?? null;
                             const resource = await this.resources.create({
                                 organizationId: scope.organizationId,
                                 kind: 'MATERIAL_INSTANCE',
@@ -347,19 +331,25 @@ export class InventoryService {
                                     },
                                 },
                             });
-                            await this.record(scope, 'inventory.receive', stock.resourceId, code, {
-                                operationId: operation.id,
-                                quantity: formatInventoryQuantity(quantity),
-                                unit: material.quantityUnit,
-                                batchId,
-                                instanceId: instance.id,
-                                position: {
-                                    facilityId: position.facilityId,
-                                    topologyId: position.topologyId,
-                                    nodeId: position.id,
-                                },
-                                facts: this.factSnapshot(instance),
-                            });
+                            await this.record(
+                                scope,
+                                'inventory.receive',
+                                stock.resourceId,
+                                code ?? (body.label || material.name),
+                                {
+                                    operationId: operation.id,
+                                    quantity: formatInventoryQuantity(quantity),
+                                    unit: material.quantityUnit,
+                                    batchId,
+                                    instanceId: instance.id,
+                                    position: {
+                                        facilityId: position.facilityId,
+                                        topologyId: position.topologyId,
+                                        nodeId: position.id,
+                                    },
+                                    facts: this.factSnapshot(instance),
+                                }
+                            );
                             return {
                                 operationId: operation.id,
                                 kind: 'inventory.receive' as const,
@@ -403,7 +393,7 @@ export class InventoryService {
                         scope,
                         'inventory.facts.correct',
                         before.resourceId,
-                        after.code,
+                        after.code ?? (after.label || before.instance.material.name),
                         {
                             reason: body.reason,
                             before: this.factSnapshot(before.instance),

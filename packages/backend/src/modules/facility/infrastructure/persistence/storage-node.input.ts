@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { StorageContainerTypeSchema } from '@talos-ark/contracts/facility';
+import { BusinessCodeInputSchema } from '@talos-ark/contracts/protocol';
 import { validationDiagnostics } from '@/platform/error/error.validation.js';
 import { FacilityError } from '../../facility.error.js';
 
@@ -51,10 +52,7 @@ export const storageNodeCreateSchema = z.strictObject({
     id: storageNodeIdSchema,
     resourceId: storageNodeIdSchema,
     parentId: storageNodeIdSchema.nullable(),
-    code: z
-        .string()
-        .min(1)
-        .refine((value) => !value.includes('\u0000')),
+    code: BusinessCodeInputSchema(160),
     name: z
         .string()
         .min(1)
@@ -73,7 +71,7 @@ export const storageNodeMoveSchema = z.strictObject({
     targetTopologyId: storageNodeIdSchema,
     nodeId: storageNodeIdSchema,
     parentId: storageNodeIdSchema.nullable(),
-    code: z.string().trim().min(1).max(160).optional(),
+    code: BusinessCodeInputSchema(160),
     rowIndex: z.number().int().min(1).max(10000).optional(),
     columnIndex: z.number().int().min(1).max(10000).optional(),
 });

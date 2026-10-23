@@ -21,7 +21,7 @@ export interface StorageNodeFact {
     readonly resourceId: string;
     readonly parentId: string | null;
     readonly path: string;
-    readonly code: string;
+    readonly code: string | null;
     readonly name: string;
     readonly kind: StorageNodeKind;
     readonly rowIndex: number | null;
@@ -65,7 +65,7 @@ export interface StorageNodeMutationInput {
     readonly topologyId: string;
     readonly resourceId: string;
     readonly parentId: string | null;
-    readonly code: string;
+    readonly code?: string | null;
     readonly name: string;
     readonly kind: StorageNodeKind;
     readonly containerType?:
@@ -92,7 +92,7 @@ export interface StorageNodeMoveInput {
     readonly targetTopologyId: string;
     readonly nodeId: string;
     readonly parentId: string | null;
-    readonly code?: string;
+    readonly code?: string | null;
     readonly rowIndex?: number;
     readonly columnIndex?: number;
 }

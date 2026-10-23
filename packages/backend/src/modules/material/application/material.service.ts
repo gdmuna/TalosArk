@@ -301,7 +301,12 @@ export class MaterialService {
                 kind: 'MATERIAL',
             });
             const row = await this.database.queryClient.material.create({
-                data: { ...scope, resourceId: identity.id, ...this.fields(body) },
+                data: {
+                    ...scope,
+                    resourceId: identity.id,
+                    ...this.fields(body),
+                    code: body.code ?? null,
+                },
                 select: materialSelect,
             });
             const material = materialView(row);
@@ -409,7 +414,7 @@ export class MaterialService {
             body = MaterialTypeWriteSchema.parse(request);
         return this.write(scope, permission.manageType, undefined, async () => {
             const row = await this.database.queryClient.materialType.create({
-                data: { ...scope, ...body },
+                data: { ...scope, ...body, code: body.code ?? null },
                 select: materialTypeSelect,
             });
             await this.record(scope, 'material.type.create', {

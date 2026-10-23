@@ -48,7 +48,7 @@ const rowIndex = ref<string | number>(''),
     columnCount = ref<string | number>('');
 const gridRows = ref<string | number>(1),
     gridColumns = ref<string | number>(1),
-    prefix = ref('P-');
+    prefix = ref('');
 const targetId = ref(''),
     targetParent = ref<string | null>(null),
     beforeId = ref<string | null>(null);
@@ -237,7 +237,9 @@ async function submit() {
             columns <= (node.columnCount ?? 0)
         ) {
             const positions = Array.from({ length: rows * columns }, (_, index) => ({
-                code: `${prefix.value}${Math.floor(index / columns) + 1}-${(index % columns) + 1}`,
+                code: prefix.value.trim()
+                    ? `${prefix.value.trim()}${Math.floor(index / columns) + 1}-${(index % columns) + 1}`
+                    : null,
                 name: `${prefix.value}${Math.floor(index / columns) + 1}-${(index % columns) + 1}`,
                 rowIndex: Math.floor(index / columns) + 1,
                 columnIndex: (index % columns) + 1,
@@ -254,7 +256,7 @@ async function submit() {
             targetTopologyId: topology.id,
             targetRevision: topology.revision,
             parentId: targetParent.value,
-            code: code.value || undefined,
+            code: code.value,
             rowIndex: number(rowIndex.value),
             columnIndex: number(columnIndex.value),
         });
@@ -295,8 +297,9 @@ async function reload() {
         <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
             <DialogTitle>{{ title }}</DialogTitle>
             <DialogDescription>
-                {{ data?.node ? `${data.node.name} · ${data.node.code}` : '当前布局根级' }}。位置坐标从 1
-                开始；操作由服务端再次检查权限、状态和布局版本。
+                {{
+                    data?.node ? [data.node.name, data.node.code].filter(Boolean).join(' · ') : '当前布局根级'
+                }}。位置坐标从 1 开始；操作由服务端再次检查权限、状态和布局版本。
             </DialogDescription>
             <ReadFeedback :error="error" :loading="loading" @retry="reload" />
             <DataSyncNotice
@@ -322,8 +325,8 @@ async function reload() {
                         />
                     </Field>
                     <Field>
-                        <FieldLabel :for="formFieldId + '-1'">编号</FieldLabel>
-                        <Input :id="formFieldId + '-1'" v-model="code" required maxlength="160" :disabled="disabled" />
+                        <FieldLabel :for="formFieldId + '-1'">编号（可选）</FieldLabel>
+                        <Input :id="formFieldId + '-1'" v-model="code" maxlength="160" :disabled="disabled" />
                     </Field>
                     <Field>
                         <FieldLabel :for="formFieldId + '-2'">名称</FieldLabel>
@@ -404,7 +407,7 @@ async function reload() {
                         仅生成实际位置，不按网格规格推算空位或库存容量；若任一编号或坐标冲突，整批不写入。
                     </p>
                     <Field>
-                        <FieldLabel :for="formFieldId + '-8'">编号前缀</FieldLabel>
+                        <FieldLabel :for="formFieldId + '-8'">编号前缀（可选）</FieldLabel>
                         <Input :id="formFieldId + '-8'" v-model="prefix" maxlength="120" :disabled="disabled" />
                     </Field>
                     <div class="grid grid-cols-2 gap-3">

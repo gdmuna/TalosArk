@@ -97,6 +97,13 @@ library is required here.
 
 ## Transport Rules
 
+Business `code` fields for materials, classifications, facilities, storage nodes
+and physical items are optional request inputs, not UUID identities. Blank input
+normalizes to null; no automatic business code is generated. Read projections
+require `code: string | null`. Editable-code updates preserve omitted codes and
+clear explicit null/blank values. Nonempty codes retain their scoped uniqueness.
+Batch numbers, external identifiers and technical permission codes are distinct.
+
 - HTTP/WS timestamps are UTC ISO 8601 strings ending in `Z`. Convert backend
   `Date` values with `toISOString()` before response validation. No implicit
   date coercion is performed by the shared schemas.

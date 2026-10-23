@@ -6,7 +6,7 @@ import { Badge } from '@/ui/badge';
 
 const props = defineProps<{ material: Material; compact?: boolean }>();
 const facts = computed(() => [
-    { label: '材料编号', value: props.material.code },
+    { label: '材料编号', value: props.material.code ?? '未填写' },
     { label: '业务分支', value: branchPresentation(props.material.branch).label },
     { label: '材料分类', value: props.material.type.name + (props.material.type.archivedAt ? '（已归档）' : '') },
     { label: '计量单位', value: props.material.quantityUnit },

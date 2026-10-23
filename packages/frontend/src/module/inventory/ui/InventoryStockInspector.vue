@@ -3,7 +3,12 @@ import { computed, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { ArrowUpRight, Package } from '@lucide/vue';
 import { useInventoryDataSource, useInventoryRead } from '../model/read';
-import { inventoryStatusLabel, inventoryStatusTone, inventoryExpiryLabel } from '../model/presentation';
+import {
+    inventoryStockLabel,
+    inventoryStatusLabel,
+    inventoryStatusTone,
+    inventoryExpiryLabel,
+} from '../model/presentation';
 import { SheetInspector, CopyableId } from '@/component/inspector';
 import { StateBadge } from '@/component/state-badge';
 import { ScrollSurface } from '@/component/scroll-surface';
@@ -52,7 +57,11 @@ const facts = computed(() =>
 </script>
 
 <template>
-    <SheetInspector v-model:open="open" :title="data?.code ?? '库存实例预览'" description="库存实例事实">
+    <SheetInspector
+        v-model:open="open"
+        :title="data ? inventoryStockLabel(data) : '库存实例预览'"
+        description="库存实例事实"
+    >
         <ScrollSurface class="min-h-0 flex-1">
             <div class="space-y-6 p-6 pr-10">
                 <p v-if="loading && !data" role="status" class="text-sm text-muted-foreground">正在加载库存实例</p>
@@ -64,7 +73,7 @@ const facts = computed(() =>
                     <header class="flex items-start gap-3">
                         <Package class="mt-1 size-5 shrink-0 text-primary" aria-hidden="true" />
                         <div class="min-w-0 space-y-2">
-                            <h2 class="break-words text-lg font-semibold">{{ data.code }}</h2>
+                            <h2 class="break-words text-lg font-semibold">{{ inventoryStockLabel(data) }}</h2>
                             <p class="break-words text-sm text-muted-foreground">
                                 {{ data.label || data.material.name }}
                             </p>

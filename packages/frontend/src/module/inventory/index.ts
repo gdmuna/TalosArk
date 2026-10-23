@@ -9,6 +9,7 @@ export { useInventoryReceiptStore } from './model/receipt';
 export { useInventoryActionStore } from './model/action';
 export { useInventoryRelocationStore, relocationErrorMessage } from './model/relocation';
 export {
+    inventoryStockLabel,
     inventoryStatusLabel,
     inventoryStatusTone,
     inventoryExpiryLabel,

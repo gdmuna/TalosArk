@@ -49,7 +49,7 @@ const { data, loading, error, refresh } = useFacilityRead(
                 <div class="min-w-0">
                     <p class="break-words font-medium">{{ item.name }}</p>
                     <p class="text-sm text-muted-foreground">
-                        {{ item.code }} ·
+                        <template v-if="item.code">{{ item.code }} ·</template>
                         {{
                             item.managementWorkspaceId === scope.workspaceId ? '管理工作区设施' : '其他工作区管理的设施'
                         }}

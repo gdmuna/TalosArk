@@ -39,7 +39,7 @@ export class StorageNodeWriter implements FacilityStorageTopologyWriter {
                     const value = parseStorageNodeInput(storageNodeCreateSchema, item);
                     return Prisma.sql`(
                         ${value.id}::uuid, ${value.organizationId}::uuid, ${value.topologyId}::uuid,
-                        ${value.resourceId}::uuid, ${value.parentId}::uuid, ${value.code}, ${value.name},
+                        ${value.resourceId}::uuid, ${value.parentId}::uuid, ${value.code ?? null}, ${value.name},
                         ${value.kind}::public."StorageNodeKind", ${value.rowIndex ?? null},
                         ${value.columnIndex ?? null}, ${value.sortOrder}, CURRENT_TIMESTAMP,
                         ${value.kind === 'CONTAINER' ? (value.containerType ?? 'OTHER') : null}::public."StorageContainerType",
@@ -62,10 +62,15 @@ export class StorageNodeWriter implements FacilityStorageTopologyWriter {
         return this.database.transaction.run(
             async () => {
                 const value = parseStorageNodeInput(storageNodeMoveSchema, input);
+                // Omission preserves the code; explicit null clears it in the native move.
+                const code =
+                    value.code === undefined
+                        ? Prisma.sql`(SELECT code FROM public."StorageNode" WHERE id = ${value.nodeId}::uuid AND "organizationId" = ${value.organizationId}::uuid AND "topologyId" = ${value.topologyId}::uuid)`
+                        : value.code;
                 await this.database.queryClient.$executeRaw`
                     SELECT public.storage_node_move(
                         ${value.organizationId}::uuid, ${value.topologyId}::uuid, ${value.targetTopologyId}::uuid,
-                        ${value.nodeId}::uuid, ${value.parentId}::uuid, ${value.code ?? null},
+                        ${value.nodeId}::uuid, ${value.parentId}::uuid, ${code},
                         ${value.rowIndex ?? null}, ${value.columnIndex ?? null}
                     )
                 `;

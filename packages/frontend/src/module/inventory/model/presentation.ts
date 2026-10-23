@@ -1,6 +1,10 @@
 import type { InventoryStock } from '../data/source';
 import type { StateTone } from '@/component/state-badge';
 
+export function inventoryStockLabel(stock: Pick<InventoryStock, 'code' | 'label' | 'material'>) {
+    return stock.code ?? (stock.label || stock.material.name);
+}
+
 export const inventoryStatusTone: Record<InventoryStock['status'], StateTone> = {
     IN_STOCK: 'success',
     CHECKED_OUT: 'primary',

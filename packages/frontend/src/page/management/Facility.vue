@@ -133,7 +133,7 @@ function detail(id: string) {
 }
 const columns: DataTableColumn<FacilitySummary>[] = [
     { id: 'name', label: '设施', size: 260, fill: true, icon: Building2, sortable: false, value: (row) => row.name },
-    { id: 'code', label: '编号', size: 150, icon: Hash, sortable: false, value: (row) => row.code },
+    { id: 'code', label: '编号', size: 150, icon: Hash, sortable: false, value: (row) => row.code ?? '未填写' },
     {
         id: 'location',
         label: '位置',
@@ -309,7 +309,7 @@ const columns: DataTableColumn<FacilitySummary>[] = [
                                     {{ item.name }}
                                 </Button>
                                 <p class="break-words text-sm text-muted-foreground">
-                                    {{ item.code }} · {{ item.location ?? '位置未提供' }}
+                                    {{ [item.code, item.location ?? '位置未提供'].filter(Boolean).join(' · ') }}
                                 </p>
                                 <p class="break-words text-sm">
                                     管理工作区：{{

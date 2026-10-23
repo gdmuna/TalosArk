@@ -12,6 +12,12 @@
 
 `App.vue`, `router/`, `main.ts`, and `style.css` remain conventional Vite entry files. Do not recreate broad top-level `app/`, `composable/`, `event/`, `lib/`, or `util/` directories. Generic functional components belong in `component/`; business UI belongs in its module.
 
+Business codes are optional user labels and may remain null. Forms neither require
+them nor promise automatic numbering. Facts show an unfilled value; titles, pickers,
+grid cells and approval rows use existing names/physical labels when codes are
+absent. Missing codes never mean restricted access and are not replaced with UUIDs.
+Grid generation only assigns position codes when the user supplies a code prefix.
+
 R04-A1 adds the independent `module/audit` read-source contract and cancellable
 reader. No production audit source is registered until public read/authorization
 contracts exist; missing sources show unavailable, never fixture fallback. Audit

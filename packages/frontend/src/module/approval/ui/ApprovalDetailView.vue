@@ -21,6 +21,7 @@ import { HttpError, isResponseValidationError } from '@/platform/http';
 import type { ApprovalMutation } from '../data/source';
 import {
     approvalStatusLabel,
+    approvalStockLabel,
     approvalTypeLabel,
     decisionLabel,
     executionLabel,
@@ -239,7 +240,7 @@ const columns: DataTableColumn<ApprovalLine>[] = [
         size: 230,
         fill: true,
         sortable: false,
-        value: (row) => row.stock?.code ?? '资源受限',
+        value: (row) => approvalStockLabel(row.stock),
     },
     {
         id: 'intent',
@@ -462,7 +463,7 @@ const eventLabel: Record<string, string> = {
                     </header>
                     <DataTable :data="reviewLines" :columns="reviewColumns" :filtering="false" :searchable="false">
                         <template #cell-stock="{ row }">
-                            <span class="font-medium">{{ row.stock?.code ?? '资源受限' }}</span>
+                            <span class="font-medium">{{ approvalStockLabel(row.stock) }}</span>
                             <span class="mt-1 block text-xs text-muted-foreground">{{ row.stock?.materialName }}</span>
                         </template>
                         <template #cell-reviewDecision="{ row }">
@@ -549,7 +550,7 @@ const eventLabel: Record<string, string> = {
                         :bulk-actions="bulkActions"
                     >
                         <template #cell-stock="{ row }">
-                            <span class="font-medium">{{ row.stock?.code ?? '资源受限' }}</span>
+                            <span class="font-medium">{{ approvalStockLabel(row.stock) }}</span>
                             <span class="mt-1 block text-xs text-muted-foreground">{{ row.stock?.materialName }}</span>
                         </template>
                         <template #cell-decision="{ row }">

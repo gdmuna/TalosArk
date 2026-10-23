@@ -287,9 +287,9 @@ export class StorageStructureService {
             const coordinates = new Set<string>();
             for (const item of body.positions) {
                 const coordinate = `${item.rowIndex}:${item.columnIndex}`;
-                if (codes.has(item.code) || coordinates.has(coordinate))
+                if ((item.code && codes.has(item.code)) || coordinates.has(coordinate))
                     throw new FacilityError({ reason: 'code-conflict' });
-                codes.add(item.code);
+                if (item.code) codes.add(item.code);
                 coordinates.add(coordinate);
                 if (item.rowIndex > parent.rowCount || item.columnIndex > parent.columnCount)
                     throw new FacilityError({ reason: 'invalid-input' });

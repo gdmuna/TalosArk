@@ -42,7 +42,7 @@ const {
     discard: discardDraft,
 } = useOverlayDraft(open, () => JSON.stringify(drafts.value), { saved: () => !!batch.value });
 const columns: DataTableColumn<Row>[] = [
-    { id: 'code', label: '实例编号', value: (row) => row.body.code ?? '系统生成', size: 170 },
+    { id: 'code', label: '实例编号', value: (row) => row.body.code ?? '未填写', size: 170 },
     { id: 'material', label: '材料', value: (row) => row.materialName, size: 240, fill: true },
     { id: 'quantity', label: '数量', value: (row) => `${row.body.quantity} ${row.quantityUnit}`, size: 120 },
     { id: 'position', label: '存储位置', value: (row) => row.positionPath, size: 260, wrap: true },

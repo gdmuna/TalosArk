@@ -126,7 +126,9 @@ async function refresh() {
                             >
                                 <span class="min-w-0">
                                     <span class="block break-words font-medium">{{ item.material.name }}</span>
-                                    <span class="mt-1 block text-xs text-muted-foreground">{{ item.code }}</span>
+                                    <span v-if="item.code" class="mt-1 block text-xs text-muted-foreground">
+                                        {{ item.code }}
+                                    </span>
                                 </span>
                                 <StateBadge :tone="inventoryStatusTone[item.status]">
                                     {{ inventoryStatusLabel[item.status] }}

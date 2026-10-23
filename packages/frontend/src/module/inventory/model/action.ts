@@ -15,7 +15,7 @@ const attemptSchema = z.object({
     scope: z.object({ organizationId: z.uuid(), workspaceId: z.uuid() }),
     stockItemId: z.uuid(),
     instanceId: z.uuid(),
-    code: z.string(),
+    code: z.string().nullable(),
     command: InventoryActionSchema,
     receipt: OperationReceiptSchema.optional(),
     responseValidationFailed: z.boolean().optional(),

@@ -3,7 +3,7 @@ model MaterialType {
   id             String    @id @default(uuid(7)) @db.Uuid
   organizationId String    @db.Uuid
   workspaceId    String    @db.Uuid
-  code           String
+  code           String?
   name           String
   archivedAt     DateTime? @db.Timestamptz(3)
   createdAt      DateTime  @default(now()) @db.Timestamptz(3)
@@ -23,7 +23,7 @@ model Material {
   workspaceId    String         @db.Uuid
   resourceId     String         @db.Uuid
   typeId         String         @db.Uuid
-  code           String
+  code           String?
   name           String
   description    String?
   branch         MaterialBranch
@@ -125,7 +125,7 @@ model MaterialInstance {
   resourceId      String             @db.Uuid
   materialId      String             @db.Uuid
   batchId         String?            @db.Uuid
-  code            String
+  code            String?
   label           String?
   initialQuantity Decimal            @db.Decimal(20, 6)
   manufacturedOn  DateTime?          @db.Date

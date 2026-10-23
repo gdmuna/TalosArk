@@ -23,7 +23,7 @@ export interface InventoryActionFact {
         version: number;
         status: string;
         quantity: string;
-        code: string;
+        code: string | null;
         materialName: string;
         quantityUnit: string;
         quantityScale: number;

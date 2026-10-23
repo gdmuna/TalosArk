@@ -159,7 +159,7 @@ async function inspect() {
         targetTopologyId: targetScope.value.topologyId,
         targetWorkspaceId: props.scope.workspaceId,
         parentId: parentId.value,
-        code: code.value.trim() || undefined,
+        code: code.value.trim() || null,
         rowIndex: row.value === '' ? null : Number(row.value),
         columnIndex: column.value === '' ? null : Number(column.value),
     });
@@ -241,7 +241,7 @@ async function synchronize() {
             <DialogTitle>带存量容器搬迁</DialogTitle>
             <DialogDescription>
                 {{
-                    node ? `${node.name} · ${node.code}` : '恢复原搬迁操作'
+                    node ? [node.name, node.code].filter(Boolean).join(' · ') : '恢复原搬迁操作'
                 }}。整体移动容器、下属结构与实物；库存工作区归属和数量不变。
             </DialogDescription>
             <p v-if="store.recoveryError" role="alert" class="text-sm text-destructive">{{ store.recoveryError }}</p>
@@ -353,7 +353,7 @@ async function synchronize() {
                             </thead>
                             <tbody>
                                 <tr v-for="item in preview.impact.items" :key="item.stockItemId" class="border-t">
-                                    <td class="break-all p-2">{{ item.code }}</td>
+                                    <td class="break-all p-2">{{ item.code ?? '未填写' }}</td>
                                     <td class="break-all p-2">{{ workspaceName(item.workspaceId) }}</td>
                                     <td class="break-all p-2 text-right tabular-nums">{{ item.quantity }}</td>
                                 </tr>

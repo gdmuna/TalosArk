@@ -4,7 +4,7 @@ model Facility {
   organizationId        String    @db.Uuid
   managementWorkspaceId String    @db.Uuid
   resourceId            String    @db.Uuid
-  code                  String
+  code                  String?
   name                  String
   description           String?
   location              String?
@@ -70,7 +70,7 @@ model StorageNode {
   parentId       String?               @db.Uuid
   /// Native, non-null path maintained with parentId by the storage-node DDL.
   path           Unsupported("ltree")
-  code           String
+  code           String?
   name           String
   kind           StorageNodeKind
   containerType  StorageContainerType?

@@ -13,6 +13,7 @@ import {
     useInventoryScope,
     useInventoryReceiptStore,
     InventoryStockInspector,
+    inventoryStockLabel,
     inventoryStatusLabel,
     inventoryStatusTone,
     type InventoryQuery,
@@ -158,7 +159,7 @@ async function afterReceipt() {
     return results.every(Boolean);
 }
 const inventoryColumns: DataTableColumn<InventoryStock>[] = [
-    { id: 'code', label: '实例编号', icon: Boxes, size: 190, fill: true, sortable: false, value: (row) => row.code },
+    { id: 'code', label: '库存实例', icon: Boxes, size: 190, fill: true, sortable: false, value: inventoryStockLabel },
     { id: 'batch', label: '来源批次', size: 180, sortable: false, value: (row) => row.batch?.batchNumber ?? '未关联' },
     {
         id: 'quantity',

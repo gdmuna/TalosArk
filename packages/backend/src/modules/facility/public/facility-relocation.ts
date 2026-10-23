@@ -17,7 +17,7 @@ export interface StorageRelocationInput {
     parentId: string | null;
     sourceWorkspaceId?: string;
     targetWorkspaceId?: string;
-    code?: string;
+    code?: string | null;
     rowIndex?: number | null;
     columnIndex?: number | null;
 }
@@ -130,6 +130,7 @@ export class FacilityRelocation {
         if (!sourceLocation || (parent && !parentLocation))
             throw new Error('Relocation source or parent location is missing');
         const sourcePath = sourceLocation.path;
+        const targetCode = input.code === undefined ? root.code : input.code;
         const parentPath = parentLocation?.path ?? target.facility.name;
         const accessWorkspaceIds = (facilityId: string, managementWorkspaceId: string) => [
             ...new Set([
@@ -151,7 +152,7 @@ export class FacilityRelocation {
             target: {
                 facilityId: target.facility.id,
                 topologyId: targetLayout.id,
-                path: `${parentPath} / ${root.name} [${input.code ?? root.code}]`,
+                path: `${parentPath} / ${root.name}${targetCode ? ` [${targetCode}]` : ''}`,
                 managementWorkspaceId: target.facility.managementWorkspaceId,
                 accessWorkspaceIds: accessWorkspaceIds(
                     target.facility.id,

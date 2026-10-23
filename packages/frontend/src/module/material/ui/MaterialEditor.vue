@@ -73,7 +73,7 @@ watch(open, (value) => {
         form,
         material
             ? {
-                  code: material.code,
+                  code: material.code ?? '',
                   name: material.name,
                   typeId: material.typeId,
                   branch: material.branch,
@@ -210,7 +210,7 @@ async function submit() {
                                     </FieldError>
                                 </Field>
                                 <Field :data-invalid="validation?.field === 'code' || undefined" data-field="code">
-                                    <FieldLabel :for="formFieldId + '-1'">材料编号 *</FieldLabel>
+                                    <FieldLabel :for="formFieldId + '-1'">材料编号（可选）</FieldLabel>
                                     <Input
                                         :id="formFieldId + '-1'"
                                         v-model="form.code"
@@ -219,7 +219,6 @@ async function submit() {
                                         "
                                         :aria-invalid="validation?.field === 'code' || undefined"
                                         maxlength="80"
-                                        required
                                     />
                                     <FieldError
                                         v-if="validation?.field === 'code'"

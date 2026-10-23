@@ -48,7 +48,7 @@ watch(open, (value) => {
     if (!value) clear();
 });
 function edit(item: MaterialType) {
-    code.value = item.code;
+    code.value = item.code ?? '';
     name.value = item.name;
     editId.value = item.id;
     validation.value = '';
@@ -57,7 +57,7 @@ function edit(item: MaterialType) {
 async function submit() {
     const input = MaterialTypeWriteSchema.safeParse({ code: code.value, name: name.value });
     if (!input.success) {
-        validation.value = '请填写有效的分类编号和名称';
+        validation.value = '请填写分类名称，并检查字段格式和长度';
         return;
     }
     const result = await store.mutate(({ source, scope, signal }) =>
@@ -84,14 +84,8 @@ async function archive(item: MaterialType) {
                         <h3 class="font-medium">{{ editId ? '编辑分类' : '新建分类' }}</h3>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <Field>
-                                <FieldLabel :for="formFieldId + '-1'">分类编号</FieldLabel>
-                                <Input
-                                    :id="formFieldId + '-1'"
-                                    v-model="code"
-                                    maxlength="80"
-                                    required
-                                    :disabled="store.busy"
-                                />
+                                <FieldLabel :for="formFieldId + '-1'">分类编号（可选）</FieldLabel>
+                                <Input :id="formFieldId + '-1'" v-model="code" maxlength="80" :disabled="store.busy" />
                             </Field>
                             <Field>
                                 <FieldLabel :for="formFieldId + '-2'">分类名称</FieldLabel>
@@ -135,7 +129,9 @@ async function archive(item: MaterialType) {
                                         已归档
                                     </span>
                                 </p>
-                                <p class="mt-1 break-all font-mono text-xs text-muted-foreground">{{ item.code }}</p>
+                                <p v-if="item.code" class="mt-1 break-all font-mono text-xs text-muted-foreground">
+                                    {{ item.code }}
+                                </p>
                             </div>
                             <Button
                                 variant="ghost"

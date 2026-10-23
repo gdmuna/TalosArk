@@ -125,7 +125,9 @@ const { returnTo } = useResourceBreadcrumb({
                 :icon="FlaskConical"
                 :subtitle="
                     material
-                        ? `${material.code} · ${branchPresentation(material.branch).label} · ${material.type.name}`
+                        ? [material.code, branchPresentation(material.branch).label, material.type.name]
+                              .filter(Boolean)
+                              .join(' · ')
                         : undefined
                 "
                 :status="material ? (material.archivedAt ? '已归档' : '有效') : undefined"

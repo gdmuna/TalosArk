@@ -297,7 +297,12 @@ export class FacilityService {
                         kind: 'STORAGE_TOPOLOGY',
                     });
                     const facility = await this.database.queryClient.facility.create({
-                        data: { organizationId, resourceId: resource.id, ...body },
+                        data: {
+                            organizationId,
+                            resourceId: resource.id,
+                            ...body,
+                            code: body.code ?? null,
+                        },
                     });
                     await this.database.queryClient.storageTopology.create({
                         data: {

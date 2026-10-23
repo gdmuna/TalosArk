@@ -224,9 +224,11 @@ watch(
                             <span class="block font-medium group-hover:underline group-focus-visible:underline">
                                 {{ row.name }}
                             </span>
-                            <span class="mt-1 block break-all text-xs text-muted-foreground">
-                                {{ row.code }}
-                                <template v-if="row.catalogNumber">· {{ row.catalogNumber }}</template>
+                            <span
+                                v-if="row.code || row.catalogNumber"
+                                class="mt-1 block break-all text-xs text-muted-foreground"
+                            >
+                                {{ [row.code, row.catalogNumber].filter(Boolean).join(' · ') }}
                             </span>
                         </span>
                     </button>

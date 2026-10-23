@@ -25,6 +25,7 @@ import {
     inventoryActionLabel,
 } from '@/module/inventory';
 import {
+    inventoryStockLabel,
     inventoryStatusLabel,
     inventoryStatusTone,
     inventoryExpiryLabel,
@@ -145,7 +146,15 @@ watch(receiptOpen, (value) => {
 });
 const rows = computed(() => data.value?.items ?? []);
 const columns: DataTableColumn<InventoryStock>[] = [
-    { id: 'code', label: '库存实例', icon: Package, size: 260, fill: true, sortable: false, value: (row) => row.code },
+    {
+        id: 'code',
+        label: '库存实例',
+        icon: Package,
+        size: 260,
+        fill: true,
+        sortable: false,
+        value: inventoryStockLabel,
+    },
     { id: 'material', label: '材料', icon: Tag, size: 220, sortable: false, value: (row) => row.material.name },
     { id: 'batch', label: '批次', size: 180, sortable: false, value: (row) => row.batch?.batchNumber ?? '—' },
     {
@@ -279,7 +288,8 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
             :empty-text="error ? '库存加载失败' : loading ? '正在加载库存' : '暂无库存实例'"
             search-label="搜索库存实例、材料或编号"
             :search-text="
-                (row) => `${row.code} ${row.material.name} ${row.material.code} ${row.batch?.batchNumber ?? ''}`
+                (row) =>
+                    `${row.code ?? ''} ${row.label} ${row.material.name} ${row.material.code ?? ''} ${row.batch?.batchNumber ?? ''}`
             "
             :preview="(row) => (selectedId = row.id)"
         >
@@ -291,10 +301,10 @@ const actions = computed<DataTableAction<InventoryStock>[]>(() => [
                     <Package class="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
                     <span class="min-w-0">
                         <span class="block font-medium group-hover:underline group-focus-visible:underline">
-                            {{ row.code }}
+                            {{ inventoryStockLabel(row) }}
                         </span>
                         <span class="mt-1 block truncate text-xs text-muted-foreground">
-                            {{ row.label || row.material.code }}
+                            {{ row.code ? row.label || row.material.name : row.material.code }}
                         </span>
                     </span>
                 </button>

@@ -97,7 +97,7 @@ async function changeState() {
         v-model="view"
         :title="data?.name ?? '设施详情'"
         :icon="Building2"
-        :subtitle="data ? `${data.code} · ${organization?.name}` : organization?.name"
+        :subtitle="[data?.code, organization?.name].filter(Boolean).join(' · ')"
         :status="status"
         list-label="设施"
         :list-path="facilityPath"

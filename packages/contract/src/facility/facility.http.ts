@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BusinessCodeInputSchema } from '../protocol/scalar.js';
 
 const id = z.uuid().toLowerCase();
 const text = z
@@ -30,7 +31,7 @@ export const FacilityQuerySchema = FacilityReadQuerySchema.extend({
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export const FacilityWriteSchema = z.strictObject({
-    code: text,
+    code: BusinessCodeInputSchema(160),
     name: text,
     description: z.string().trim().max(2000).nullable().default(null),
     location: z.string().trim().max(500).nullable().default(null),
@@ -58,7 +59,7 @@ export const StorageContainerTypeSchema = z.enum([
     'OTHER',
 ]);
 const nodeFields = {
-    code: text,
+    code: BusinessCodeInputSchema(160),
     name: text,
     description: z.string().trim().max(2000).nullable().default(null),
     containerType: StorageContainerTypeSchema.nullable().default(null),
@@ -87,7 +88,7 @@ export const StorageNodeMoveSchema = z.strictObject({
     targetTopologyId: id,
     targetRevision: revision,
     parentId: id.nullable(),
-    code: text.optional(),
+    code: BusinessCodeInputSchema(160),
     rowIndex: coordinate.default(null),
     columnIndex: coordinate.default(null),
 });
@@ -102,7 +103,7 @@ export const StorageGridSchema = z.strictObject({
     positions: z
         .array(
             z.strictObject({
-                code: text,
+                code: BusinessCodeInputSchema(160),
                 name: text,
                 rowIndex: coordinate.unwrap(),
                 columnIndex: coordinate.unwrap(),
@@ -129,7 +130,7 @@ export const FacilitySchema = z.strictObject({
     id,
     resourceId: id,
     organizationId: id,
-    code: z.string(),
+    code: z.string().nullable(),
     name: z.string(),
     description: z.string().nullable(),
     location: z.string().nullable(),
@@ -163,7 +164,7 @@ export const StorageNodeSchema = z.strictObject({
     facilityId: id,
     topologyId: id,
     parentId: id.nullable(),
-    code: z.string(),
+    code: z.string().nullable(),
     name: z.string(),
     kind: z.enum(['CONTAINER', 'POSITION']),
     containerType: StorageContainerTypeSchema.nullable(),
@@ -185,7 +186,7 @@ export const StorageNodeSchema = z.strictObject({
 export const StorageNodeDetailSchema = z.strictObject({
     node: StorageNodeSchema,
     revision,
-    ancestors: z.array(z.strictObject({ id, code: z.string(), name: z.string() })),
+    ancestors: z.array(z.strictObject({ id, code: z.string().nullable(), name: z.string() })),
     capabilities: FacilityCapabilitiesSchema,
 });
 export const StorageNodePageSchema = z.strictObject({

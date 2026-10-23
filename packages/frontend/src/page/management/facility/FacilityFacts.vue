@@ -10,7 +10,7 @@ const workspace = useWorkspaceStore();
     <FactList
         :fields="[
             { label: '设施名称', value: data.name },
-            { label: '设施编号', value: data.code },
+            { label: '设施编号', value: data.code ?? '未填写' },
             { label: '所属组织', value: organizationName ?? data.organizationId },
             { label: '位置', value: data.location },
             {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BusinessCodeInputSchema } from '../protocol/scalar.js';
 import { WorkspaceContextParamsSchema } from '../team/team.http.js';
 import {
     BatchSchema,
@@ -27,7 +28,7 @@ export const InstanceFactsSchema = MaterialDatesSchema.extend({
 });
 export const ReceiptSchema = InstanceFactsSchema.extend({
     materialId: id,
-    code: InventoryText(160).min(1).optional(),
+    code: BusinessCodeInputSchema(160),
     quantity: QuantitySchema,
     batch: z
         .discriminatedUnion('kind', [
@@ -91,7 +92,7 @@ export const StockSchema = InstanceFactsSchema.extend({
     resourceId: id,
     instanceId: id,
     instanceResourceId: id,
-    code: z.string(),
+    code: z.string().nullable(),
     initialQuantity: QuantitySchema,
     quantity: QuantitySchema,
     quantityUnit: z.string(),
@@ -102,7 +103,7 @@ export const StockSchema = InstanceFactsSchema.extend({
     createdAt: z.iso.datetime(),
     material: z.object({
         id,
-        code: z.string(),
+        code: z.string().nullable(),
         name: z.string(),
         archivedAt: z.iso.datetime().nullable(),
     }),
@@ -202,7 +203,7 @@ export const RelocationSchema = z.strictObject({
     parentId: id.nullable(),
     sourceWorkspaceId: id.optional(),
     targetWorkspaceId: id.optional(),
-    code: InventoryText(160).min(1).optional(),
+    code: BusinessCodeInputSchema(160),
     rowIndex: revision.nullable().optional(),
     columnIndex: revision.nullable().optional(),
 });
@@ -224,7 +225,12 @@ export const RelocationPreviewSchema = z.object({
     sourceAccessWorkspaceIds: z.array(id),
     targetAccessWorkspaceIds: z.array(id),
     items: z.array(
-        z.object({ stockItemId: id, code: z.string(), workspaceId: id, quantity: QuantitySchema })
+        z.object({
+            stockItemId: id,
+            code: z.string().nullable(),
+            workspaceId: id,
+            quantity: QuantitySchema,
+        })
     ),
 });
 export type InventoryScope = z.infer<typeof InventoryScopeSchema>;

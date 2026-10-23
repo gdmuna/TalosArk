@@ -237,7 +237,7 @@ BEGIN
     UPDATE "StorageNode" SET
         "topologyId" = target_topology_id,
         "parentId" = CASE WHEN id = node_id THEN parent_id ELSE "parentId" END,
-        code = CASE WHEN id = node_id THEN coalesce(target_code, code) ELSE code END,
+        code = CASE WHEN id = node_id THEN target_code ELSE code END,
         "rowIndex" = CASE WHEN id = node_id THEN target_row ELSE "rowIndex" END,
         "columnIndex" = CASE WHEN id = node_id THEN target_column ELSE "columnIndex" END,
         path = CASE WHEN id = node_id THEN new_path

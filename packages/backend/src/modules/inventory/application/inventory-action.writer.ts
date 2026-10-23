@@ -235,7 +235,9 @@ export class InventoryActionWriter {
                     resources: [
                         {
                             resourceId: stock.resourceId,
-                            labelSnapshot: stock.instance.code,
+                            labelSnapshot:
+                                stock.instance.code ??
+                                (stock.instance.label || stock.instance.material.name),
                         },
                     ],
                     details: {

@@ -18,6 +18,7 @@ export class MaterialReceiptSource {
         if (material.archivedAt) throw new MaterialReceiptError('archived');
         return {
             id: material.id,
+            name: material.name,
             quantityUnit: material.quantityUnit,
             quantityScale: material.quantityScale,
         };

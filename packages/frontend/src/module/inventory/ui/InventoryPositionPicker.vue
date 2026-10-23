@@ -138,7 +138,7 @@ function previous() {
                     :class="{ 'bg-primary-soft text-primary': candidateId === item.id }"
                     @click="candidateId = item.id"
                 >
-                    {{ item.name }} · {{ item.code }}
+                    {{ [item.name, item.code].filter(Boolean).join(' · ') }}
                 </Button>
                 <p v-if="!positions.loading.value && !items.length" class="p-3 text-sm text-muted-foreground">
                     本批暂无可用的空位置

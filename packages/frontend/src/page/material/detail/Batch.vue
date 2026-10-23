@@ -7,6 +7,7 @@ import type { PaginationState } from '@tanstack/vue-table';
 import { MaterialBatchEditor, useMaterialBatchRecovery, useMaterialRead, useMaterialStore } from '@/module/material';
 import {
     InventoryStockInspector,
+    inventoryStockLabel,
     inventoryStatusLabel,
     inventoryStatusTone,
     useInventoryDataSource,
@@ -95,7 +96,15 @@ watch(
     { flush: 'sync' }
 );
 const inventoryColumns: DataTableColumn<InventoryStock>[] = [
-    { id: 'code', label: '实例编号', icon: Package, size: 190, fill: true, sortable: false, value: (row) => row.code },
+    {
+        id: 'code',
+        label: '库存实例',
+        icon: Package,
+        size: 190,
+        fill: true,
+        sortable: false,
+        value: inventoryStockLabel,
+    },
     { id: 'material', label: '材料', icon: Tag, size: 220, sortable: false, value: (row) => row.material.name },
     {
         id: 'quantity',

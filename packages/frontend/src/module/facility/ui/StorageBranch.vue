@@ -97,8 +97,15 @@ function toggle(id: string) {
                         />
                         <span class="min-w-0">
                             <span class="block break-words">{{ node.name }}</span>
-                            <span class="block break-all text-xs text-muted-foreground">
-                                {{ node.code }}{{ node.archivedAt ? ' · 已归档' : node.disabledAt ? ' · 已停用' : '' }}
+                            <span
+                                v-if="node.code || node.archivedAt || node.disabledAt"
+                                class="block break-all text-xs text-muted-foreground"
+                            >
+                                {{
+                                    [node.code, node.archivedAt ? '已归档' : node.disabledAt ? '已停用' : '']
+                                        .filter(Boolean)
+                                        .join(' · ')
+                                }}
                             </span>
                         </span>
                     </button>

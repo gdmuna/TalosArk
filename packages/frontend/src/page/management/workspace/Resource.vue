@@ -60,7 +60,7 @@ async function openMaterial(row: Material) {
 }
 const columns: DataTableColumn<Material>[] = [
     { id: 'name', label: '材料', icon: FlaskConical, size: 280, fill: true, sortable: false, value: (row) => row.name },
-    { id: 'code', label: '编号', size: 160, sortable: false, value: (row) => row.code },
+    { id: 'code', label: '编号', size: 160, sortable: false, value: (row) => row.code ?? '未填写' },
     {
         id: 'branch',
         label: '业务分支',

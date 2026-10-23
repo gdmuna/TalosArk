@@ -58,6 +58,15 @@ See [the CLI guide](../../ops/prisma/README.md) for selection and automation.
 
 No script runs on application startup, client generation, or container startup.
 Executing DDL is an operator action against an explicitly selected environment.
+
+## Optional Business Codes
+
+Business codes and ApprovalLine.codeSnapshot are nullable in the Prisma model.
+Synchronize the selected database schema, then reapply schema/storage-node.sql.
+The native move function treats a null target_code as clearing the code; the
+application writer resolves an omitted input to the existing code before calling it.
+Existing nonempty values and unique indexes remain unchanged. Null codes do not
+reserve a shared empty code, and storage paths retain names for unnumbered nodes.
 The database administrator must make the extension available on the PostgreSQL
 server and grant the deployment account permission to install it. The baseline
 expects the `public` schema; it refuses a pre-existing `ltree` in another schema

@@ -128,7 +128,7 @@ function more() {
                 :class="{ 'bg-primary-soft text-primary': model === item.id }"
                 @click="model = item.id"
             >
-                {{ item.name }} · {{ item.code }}
+                {{ [item.name, item.code].filter(Boolean).join(' · ') }}
             </Button>
             <Button v-if="data?.nextCursor" type="button" variant="link" :disabled="loading || !!error" @click="more">
                 加载更多节点

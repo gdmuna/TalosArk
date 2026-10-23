@@ -161,7 +161,7 @@ export const ApprovalLineSchema = z.object({
         .object({
             stockItemId: id,
             instanceId: id,
-            code: z.string(),
+            code: z.string().nullable(),
             materialName: z.string(),
             quantity: QuantitySchema,
             quantityUnit: z.string(),

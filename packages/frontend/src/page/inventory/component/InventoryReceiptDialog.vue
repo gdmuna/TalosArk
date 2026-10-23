@@ -130,7 +130,7 @@ const materialOptions = computed(() => {
     const items = [...(materials.data.value?.items ?? [])];
     if (selectedMaterial.value && !items.some((item) => item.id === selectedMaterial.value?.id))
         items.unshift(selectedMaterial.value);
-    return items.map((item) => ({ value: item.id, label: `${item.name} · ${item.code}` }));
+    return items.map((item) => ({ value: item.id, label: [item.name, item.code].filter(Boolean).join(' · ') }));
 });
 const batchRequest = computed<MaterialBatchQuery>(() => ({
     q: batchSearch.value.trim(),
@@ -361,7 +361,7 @@ async function submit() {
     }
     const parsed = ReceiptSchema.safeParse({
         materialId: materialId.value,
-        code: code.value.trim() || undefined,
+        code: code.value.trim() || null,
         quantity: quantity.value.trim(),
         label: label.value.trim(),
         notes: notes.value,
@@ -662,7 +662,6 @@ async function reloadOnly() {
                                 :id="formFieldId + '-9'"
                                 v-model="code"
                                 maxlength="160"
-                                placeholder="留空则由系统生成 INS- 编号"
                                 :disabled="submitting || !!committed"
                             />
                         </Field>

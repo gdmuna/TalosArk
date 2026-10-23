@@ -1,4 +1,7 @@
-import type { ApprovalRequest } from '@talos-ark/contracts/approval';
+import type { ApprovalLine, ApprovalRequest } from '@talos-ark/contracts/approval';
+export function approvalStockLabel(stock: ApprovalLine['stock']) {
+    return stock ? (stock.code ?? stock.materialName) : '资源受限';
+}
 export const approvalTypeLabel = { CONSUME: '消耗申请', TRANSFER: '转移申请' } as const;
 export const decisionLabel = {
     UNDECIDED: '待审批',

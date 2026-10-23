@@ -92,7 +92,7 @@ async function submit() {
         description: description.value.trim() || null,
         managementWorkspaceId: managementWorkspaceId.value,
     });
-    validation.value = parsed.success ? '' : '请填写有效的编号、名称和同组织管理工作区，并检查字段长度。';
+    validation.value = parsed.success ? '' : '请填写有效的名称和同组织管理工作区，并检查字段格式与长度。';
     if (!parsed.success) return;
     const scope = props.scope,
         detail = data.value?.detail;
@@ -127,8 +127,8 @@ async function submit() {
             />
             <form v-if="data" class="space-y-4" @submit.prevent="submit">
                 <Field>
-                    <FieldLabel :for="formFieldId + '-1'">设施编号</FieldLabel>
-                    <Input :id="formFieldId + '-1'" v-model="code" required maxlength="160" :disabled="disabled" />
+                    <FieldLabel :for="formFieldId + '-1'">设施编号（可选）</FieldLabel>
+                    <Input :id="formFieldId + '-1'" v-model="code" maxlength="160" :disabled="disabled" />
                 </Field>
                 <Field>
                     <FieldLabel :for="formFieldId + '-2'">设施名称</FieldLabel>

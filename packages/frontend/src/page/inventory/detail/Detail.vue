@@ -18,6 +18,7 @@ import {
     InventoryTransactionInspector,
     InventoryMovementList,
     InventoryStockInspector,
+    inventoryStockLabel,
     inventoryStatusLabel,
     inventoryStatusTone,
     inventoryExpiryLabel,
@@ -103,7 +104,7 @@ watch(editorOpen, (value) => {
 });
 provideBreadcrumbs(() => [
     { id: 'inventory-list', label: '库存列表', to: returnTo.value },
-    { id: 'inventory-stock', label: data.value?.code ?? '库存实例详情' },
+    { id: 'inventory-stock', label: data.value ? inventoryStockLabel(data.value) : '库存实例详情' },
 ]);
 const locationPath = computed(() =>
     data.value?.location
@@ -120,7 +121,7 @@ const locationPath = computed(() =>
         <template #header>
             <ResourceObjectHeader
                 :id="id"
-                :title="data?.code ?? '库存实例详情'"
+                :title="data ? inventoryStockLabel(data) : '库存实例详情'"
                 :icon="Package"
                 :subtitle="data ? `${data.material.name}${data.label ? ` · ${data.label}` : ''}` : undefined"
                 :status="statusLabel"
@@ -222,7 +223,7 @@ const locationPath = computed(() =>
                     </template>
                     <ResourceFactList
                         :fields="[
-                            { label: '实例编号', value: data.code },
+                            { label: '实例编号', value: data.code ?? '未填写' },
                             { label: '材料', value: data.material.name },
                             { label: '批次', value: data.batch?.batchNumber ?? '未关联' },
                             { label: '初始数量', value: `${data.initialQuantity} ${data.quantityUnit}` },

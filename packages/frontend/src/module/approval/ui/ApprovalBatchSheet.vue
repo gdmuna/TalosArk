@@ -15,7 +15,7 @@ import {
     type ApprovalBatchSelection,
     type ApprovalBatchPreview,
 } from '../model/batch';
-import { approvalTypeLabel } from '../model/presentation';
+import { approvalStockLabel, approvalTypeLabel } from '../model/presentation';
 import { Field, FieldLabel } from '@/ui/field';
 import { useWorkspaceStore } from '@/module/workspace';
 
@@ -163,7 +163,7 @@ async function submit() {
                             <ul class="divide-y">
                                 <li v-for="line in group.lines" :key="line.id" class="space-y-1 py-3 text-sm">
                                     <p class="font-medium">
-                                        {{ line.stock?.code ?? '资源受限' }} · {{ line.stock?.materialName }}
+                                        {{ approvalStockLabel(line.stock) }}
                                     </p>
                                     <p>
                                         {{

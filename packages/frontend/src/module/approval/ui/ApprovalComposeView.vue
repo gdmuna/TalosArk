@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { HttpError, isResponseValidationError } from '@/platform/http';
 import { ApprovalSelectionSchema, type ApprovalSelection, type ApprovalType } from '@talos-ark/contracts/approval';
 import type { InventoryStock, InventoryReceipt } from '@/module/inventory';
-import { useInventoryDataSource, InventoryPositionPicker } from '@/module/inventory';
+import { useInventoryDataSource, InventoryPositionPicker, inventoryStockLabel } from '@/module/inventory';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
 import { SelectField } from '@/component/select-field';
 import { Button } from '@/ui/button';
@@ -180,7 +180,7 @@ const columns = computed<DataTableColumn<DraftLine>[]>(() => [
         size: 220,
         fill: true,
         sortable: false,
-        value: (row) => row.stock.code,
+        value: (row) => inventoryStockLabel(row.stock),
     },
     {
         id: 'remaining',
@@ -200,7 +200,7 @@ const columns = computed<DataTableColumn<DraftLine>[]>(() => [
     { id: 'note', label: '备注', size: 240, sortable: false, value: (row) => row.note },
 ]);
 const stockColumns: DataTableColumn<InventoryStock>[] = [
-    { id: 'code', label: '库存实例', size: 190, fill: true, sortable: false, value: (row) => row.code },
+    { id: 'code', label: '库存实例', size: 190, fill: true, sortable: false, value: inventoryStockLabel },
     { id: 'material', label: '材料', size: 200, sortable: false, value: (row) => row.material.name },
     {
         id: 'quantity',
@@ -340,19 +340,19 @@ async function submit() {
                     empty-text="尚未选择实物"
                 >
                     <template #cell-code="{ row }">
-                        <span class="font-medium">{{ row.stock.code }}</span>
+                        <span class="font-medium">{{ inventoryStockLabel(row.stock) }}</span>
                         <span class="mt-1 block text-xs text-muted-foreground">{{ row.stock.material.name }}</span>
                     </template>
                     <template #cell-intent="{ row }">
                         <Field v-if="type === 'CONSUME'" orientation="horizontal" class="gap-2">
                             <FieldLabel :for="formFieldId + '-quantity-' + row.id" class="sr-only">
-                                申请消耗量 {{ row.stock.code }}
+                                申请消耗量 {{ inventoryStockLabel(row.stock) }}
                             </FieldLabel>
                             <Input
                                 :id="formFieldId + '-quantity-' + row.id"
                                 v-model="row.quantity"
                                 :disabled="locked"
-                                :aria-label="`申请消耗量 ${row.stock.code}`"
+                                :aria-label="`申请消耗量 ${inventoryStockLabel(row.stock)}`"
                                 inputmode="decimal"
                                 class="min-w-20"
                             />
@@ -373,13 +373,13 @@ async function submit() {
                     <template #cell-note="{ row }">
                         <Field>
                             <FieldLabel :for="formFieldId + '-note-' + row.id" class="sr-only">
-                                申请备注 {{ row.stock.code }}
+                                申请备注 {{ inventoryStockLabel(row.stock) }}
                             </FieldLabel>
                             <Input
                                 :id="formFieldId + '-note-' + row.id"
                                 v-model="row.note"
                                 :disabled="locked"
-                                :aria-label="`申请备注 ${row.stock.code}`"
+                                :aria-label="`申请备注 ${inventoryStockLabel(row.stock)}`"
                                 maxlength="1000"
                             />
                         </Field>
@@ -469,7 +469,7 @@ async function submit() {
         >
             <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
                 <DialogTitle>选择目标位置</DialogTitle>
-                <DialogDescription>{{ target?.stock.code }}</DialogDescription>
+                <DialogDescription>{{ target ? inventoryStockLabel(target.stock) : '' }}</DialogDescription>
                 <InventoryPositionPicker
                     v-if="target && scope"
                     :key="target.id"

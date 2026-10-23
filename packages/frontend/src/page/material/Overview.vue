@@ -120,7 +120,7 @@ function list(branch?: string) {
                                                 >
                                                     {{ item.name }}
                                                 </span>
-                                                <span class="mt-1 block text-xs text-muted-foreground">
+                                                <span v-if="item.code" class="mt-1 block text-xs text-muted-foreground">
                                                     {{ item.code }}
                                                 </span>
                                             </span>
