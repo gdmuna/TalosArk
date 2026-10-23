@@ -6,6 +6,7 @@ import { HealthState } from '@/system/health/health.state.js';
 import { BullmqRuntime } from '@/infra/queue/bullmq/index.js';
 import type { ObservabilityRuntime } from '@/platform/observability/observability.runtime.js';
 import { HttpObservation } from '@/platform/http/http.observation.js';
+import { WsAdapter, WsRuntime } from '@/platform/websocket/index.js';
 
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
@@ -60,6 +61,7 @@ export async function bootstrap(observability?: ObservabilityRuntime) {
     );
 
     try {
+        app.useWebSocketAdapter(new WsAdapter(app, app.get(WsRuntime)));
         app.get(HttpObservation).register(adapter.getInstance());
         await app.register(fastifyHelmet, {
             contentSecurityPolicy: {

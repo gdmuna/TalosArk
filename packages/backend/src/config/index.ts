@@ -13,6 +13,7 @@ import { storageConfig, StorageConfig } from './storage.config.js';
 import { teamConfig, type TeamConfig } from './team.config.js';
 import { inventoryConfig, type InventoryConfig } from './inventory.config.js';
 import { queueConfig, type QueueConfig } from './queue.config.js';
+import { websocketConfig, type WebsocketConfig } from './websocket.config.js';
 
 // 导出所有配置
 
@@ -32,6 +33,7 @@ export type AllConfig = {
     team: TeamConfig;
     inventory: InventoryConfig;
     queue: QueueConfig;
+    websocket: WebsocketConfig;
 };
 
 export const allConfig = {
@@ -50,6 +52,7 @@ export const allConfig = {
     teamConfig,
     inventoryConfig,
     queueConfig,
+    websocketConfig,
 };
 
 export default [...Object.values(allConfig)];
@@ -65,3 +68,4 @@ export * from './storage.config.js';
 export * from './kvs.config.js';
 export * from './lifecycle.config.js';
 export * from './queue.config.js';
+export * from './websocket.config.js';

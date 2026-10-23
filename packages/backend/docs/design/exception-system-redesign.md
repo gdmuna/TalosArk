@@ -42,7 +42,7 @@ packages/backend/src/
   platform/request/request.error.ts
   platform/http/error/            inbound normalization, policy, terminal filter
   platform/http/route/            one OpenAPI/runtime route contract
-  platform/realtime/websocket/ws.error.adapter.ts
+  platform/websocket/ws.error.adapter.ts
   bootstrap/composition/error.provider.ts
   core/{identity,access}/*.error.ts
   core/{identity,access}/*.error.mapper.ts

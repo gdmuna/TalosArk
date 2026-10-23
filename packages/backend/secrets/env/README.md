@@ -29,17 +29,18 @@ I09 的 Background tasks 分组默认关闭；同步新增模型后用 `TASK_ENA
 
 1. Application：运行模式、端口和应用元数据。
 2. HTTP and browser access：浏览器来源、CORS、限流和请求超时。
-3. Access token：访问令牌密钥与有效期。
-4. Identity：密码哈希等身份能力参数。
-5. Authentication and account lifecycle：Cookie、激活、找回密码和登录尝试限制。
-6. Identity provider (Casdoor)：外部身份提供方。
-7. Database：主库与影子库。
-8. KVS：连接地址及连接/关闭时限。
-9. Object storage：S3 连接、凭据和桶。
-10. Mail (SMTP)：主机、TLS、认证、默认发件人、超时与并发。
-11. Observability：日志、慢请求/查询阈值及文档地址。
-12. Process lifecycle：进程关闭与 HTTP/log drain 预算。
-13. Tooling：OpenAPI 导出工具，不属于应用运行配置。
+3. WebSocket：复用 HTTP 来源策略的连接、消息、速率和时限预算。
+4. Access token：访问令牌密钥与有效期。
+5. Identity：密码哈希等身份能力参数。
+6. Authentication and account lifecycle：Cookie、激活、找回密码和登录尝试限制。
+7. Identity provider (Casdoor)：外部身份提供方。
+8. Database：主库与影子库。
+9. KVS：连接地址及连接/关闭时限。
+10. Object storage：S3 连接、凭据和桶。
+11. Mail (SMTP)：主机、TLS、认证、默认发件人、超时与并发。
+12. Observability：日志、慢请求/查询阈值及文档地址。
+13. Process lifecycle：进程关闭与 HTTP/log drain 预算。
+14. Tooling：OpenAPI 导出工具，不属于应用运行配置。
 
 历史 `ALLOWED_ORIGINS_*`、`JWT_REFRESH_*`、`JWT_ACCESS_ALGORITHM` 和 `VITE_*`
 若存在，统一放在最后的 Legacy 分组；仅保留原值，不代表当前后端会读取。
@@ -62,6 +63,29 @@ local 不等于天然被 Git 忽略，敏感值仍需按 dotenvx 流程加密或
 | SMTP                           | Web 启动已接入 MailModule；development 已通过连接和认证验证，其他环境仍须确认真实 SMTP 主机、发件身份、认证凭据及 TLS 配置                                                           |
 | production 文档/认证/来源 URL  | 必须匹配真实部署；此轮不猜测域名，不替换已有设置。新补 `ERROR_REFERENCE_URL` 维持代码原默认值，并加部署提醒                                                                          |
 | Prisma dev/test/prod 基础 env  | 两个数据库 URL 原先为空，已加必填标记；配置好的 local 文件仍作为独立可选 profile 使用                                                                                                |
+
+## WebSocket 变量
+
+Socket.IO 使用 HTTP 监听端口、`/socket.io` 路径与 `/app` namespace，复用
+`HTTP_BROWSER_ORIGIN_MODE` / `HTTP_BROWSER_ALLOWED_ORIGINS`。不使用 Cookie 认证，
+客户端通过 `handshake.auth.accessToken` 提供访问令牌。所有配置均非必填，未提供时使用下表默认值；
+基础 env 保留完整变量，local 仍为稀疏覆盖。修改配置后需要重启。
+
+| 变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `WS_MAX_CONNECTIONS` | `1000` | 进程连接上限，也限制未完成 namespace 认证的传输连接 |
+| `WS_MAX_CONNECTIONS_PER_USER` | `8` | 同一用户在该实例内的连接上限 |
+| `WS_MAX_PENDING_HANDSHAKES` | `32` | 同时验证访问令牌的握手上限 |
+| `WS_MAX_ACTIVE_MESSAGES` | `32` | 实际执行中的消息/推送授权工作上限 |
+| `WS_MAX_PENDING_MESSAGES` | `1024` | 全实例已接纳的待完成工作上限，包含执行中工作 |
+| `WS_MAX_PENDING_MESSAGES_PER_CONNECTION` | `16` | 单连接待完成工作上限，包含执行中工作 |
+| `WS_MAX_PAYLOAD_BYTES` | `65536` | 单条 JSON 输入、ACK 或推送的最大字节数 |
+| `WS_MESSAGES_PER_SECOND` | `30` | 单连接令牌桶每秒补充量及突发容量；超额断开连接 |
+| `WS_HANDSHAKE_TIMEOUT_MS` | `5000` | namespace 认证总时限，毫秒；超时不提前释放实际验证槽位 |
+| `WS_MESSAGE_TIMEOUT_MS` | `10000` | 消息总时限，包含排队；方法可缩短，不可延长 |
+
+心跳沿用 Socket.IO 默认值，当前不提供额外环境开关。WS 与 HTTP 共用
+`HTTP_DRAIN_TIMEOUT_MS` 关闭预算。限额都是单实例的，不代表集群级限额。
 
 ## Background tasks 变量
 

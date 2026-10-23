@@ -8,6 +8,7 @@ import { HealthState } from '@/system/health/health.state.js';
 import { BullmqRuntime } from '@/infra/queue/bullmq/index.js';
 import type { ObservabilityRuntime } from '@/platform/observability/observability.runtime.js';
 import { observeLifecycle } from '@/platform/observability/metrics/lifecycle.metric.js';
+import { WsRuntime } from '@/platform/websocket/ws.runtime.js';
 
 /** The process owns signals and the deadline; Nest still owns resource hooks. */
 export async function installProcessShutdown(
@@ -81,12 +82,20 @@ export async function installProcessShutdown(
         }
         const httpApp = app as NestFastifyApplication;
         // Nest close() destroys providers before disposing HTTP: drain HTTP first.
-        const timer = setTimeout(() => {
-            logger.warn('HTTP drain timed out; remaining connections aborted');
-            (httpApp.getHttpServer() as Server).closeAllConnections();
-        }, config.httpDrainTimeoutMs);
+        let timer: NodeJS.Timeout | undefined;
         try {
-            await observeLifecycle('http-drain', () => httpApp.getHttpAdapter().close());
+            await observeLifecycle('http-drain', () =>
+                Promise.race([
+                    Promise.all([httpApp.get(WsRuntime).stop(), httpApp.getHttpAdapter().close()]),
+                    new Promise<never>((_, reject) => {
+                        timer = setTimeout(() => {
+                            logger.warn('HTTP/WS drain timed out; remaining connections aborted');
+                            (httpApp.getHttpServer() as Server).closeAllConnections();
+                            reject(new Error('HTTP/WS drain exceeded its shutdown budget'));
+                        }, config.httpDrainTimeoutMs);
+                    }),
+                ])
+            );
         } finally {
             clearTimeout(timer);
         }

@@ -28,7 +28,9 @@ import { AuthorizationConfigurationModule } from '@/core/authorization/index.js'
 
 import { PlatformContextModule } from '@/platform/context/context.module.js';
 import { HttpErrorFilter } from '@/platform/http/error/http.error.filter.js';
-import { errorProviders } from './error.provider.js';
+import { ErrorCompositionModule } from './error.provider.js';
+import { WsModule } from '@/platform/websocket/index.js';
+import { WsErrorAdapter } from '@/platform/websocket/ws.error.adapter.js';
 import { permissionConfiguration } from './permission.provider.js';
 import { fileConfiguration } from './file.provider.js';
 import { FileModule } from '@/core/file/index.js';
@@ -72,11 +74,23 @@ import { ZodValidationPipe } from 'nestjs-zod';
                     {
                         ttl: throttleTtlMs,
                         limit: throttleLimit,
+                        skipIf: (context) => context.getType() !== 'http',
                     },
                 ];
             },
         }),
         PlatformLoggerModule.forRoot(),
+        ErrorCompositionModule,
+        WsModule.forRootAsync({
+            imports: [ErrorCompositionModule],
+            inject: [ConfigService, WsErrorAdapter],
+            useFactory: (config: ConfigService<AllConfig, true>, errors: WsErrorAdapter) => ({
+                ...config.get('websocket', { infer: true }),
+                browserOriginPolicy: config.get('http.browserOriginPolicy', { infer: true }),
+                version: config.get('app.appVersion', { infer: true }),
+                errors,
+            }),
+        }),
         permissionConfiguration,
         AuthorizationConfigurationModule.forRoot({
             required: ['material', 'stock-item', 'material-instance'],
@@ -115,7 +129,6 @@ import { ZodValidationPipe } from 'nestjs-zod';
     ],
     providers: [
         HttpObservation,
-        ...errorProviders,
         {
             provide: APP_GUARD,
             useClass: RouteContractGuard,

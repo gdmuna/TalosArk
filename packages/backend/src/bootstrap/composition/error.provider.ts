@@ -1,4 +1,4 @@
-import type { Provider } from '@nestjs/common';
+import { Module, type Provider } from '@nestjs/common';
 import { ErrorResolver } from '@/platform/error/error.resolver.js';
 import {
     IdentityErrorDefinition,
@@ -14,7 +14,7 @@ import {
     MaterialAttachmentErrorDefinition,
 } from '@talos-ark/contracts/backend';
 import { HttpErrorPolicy } from '@/platform/http/error/http.error.policy.js';
-import { WsErrorAdapter } from '@/platform/realtime/websocket/ws.error.adapter.js';
+import { WsErrorAdapter } from '@/platform/websocket/ws.error.adapter.js';
 
 export const errorProviders: Provider[] = [
     {
@@ -45,3 +45,9 @@ export const errorProviders: Provider[] = [
         useFactory: (resolver: ErrorResolver) => new WsErrorAdapter(resolver),
     },
 ];
+
+@Module({
+    providers: errorProviders,
+    exports: [ErrorResolver, HttpErrorPolicy, WsErrorAdapter],
+})
+export class ErrorCompositionModule {}

@@ -20,6 +20,7 @@ export class AuthGuard implements CanActivate {
     ) {}
 
     async canActivate(context: ExecutionContext) {
+        if (context.getType() !== 'http') return true;
         const request = context.switchToHttp().getRequest<FastifyRequest>();
         request.authentication = null;
 

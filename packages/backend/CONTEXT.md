@@ -262,6 +262,21 @@ unimplemented extension skeletons are not bulk moved. Interfaces and isolated ev
 live in docs/design/mvp-i03-extension-2026-10-15.md and
 docs/design/logger-contribution-2026-10-15.md.
 
+## WebSocket foundation
+
+platform/websocket now hosts Socket.IO on the API's Fastify HTTP server, path
+/socket.io and namespace /app. Public protocol helpers, payload/ACK schemas and
+derived frontend event maps live in contracts/protocol; future business events
+belong in domain-owned *.ws.ts files. There are no business subscriptions yet.
+Business gateways use ordinary Nest registration plus WsMessage/WsPayload/WsContext.
+Session verification runs at handshake and for each request/delivery, with fresh
+message ALS and OTel spans, bounded admission and cooperative cancellation.
+Rooms do not authorize; push callers must authorize each recipient. HTTP-only
+global guards/interceptors skip WS. Shutdown drains real WS work before shared
+dependencies close. Realtime Core/Infra placeholders were removed; SSE remains
+an independent TODO under platform/http/sse. No multi-instance adapter or frontend
+connection UI is included. Details and limits: docs/design/websocket.md.
+
 ## Cookie binding
 
 `platform/http/decorators/Cookie` selects one name, multiple names, or the complete
@@ -549,7 +564,7 @@ visibility; they are not an application-wide public surface.
     |   |   +-- error/                         # factory, reframe/catch helpers, resolver, diagnostics
     |   |   +-- request/                       # channel-neutral request rejection errors
     |   |   +-- http/                          # HTTP guards, filters, pipes, decorators
-    |   |   +-- realtime/                      # websocket and SSE adapters
+    |   |   +-- websocket/                     # authenticated Socket.IO boundary; SSE is under http/
     |   |   +-- context/                       # ALS runtime adapter
     |   |   +-- extensions/                    # pure typed contribution index; discovery/ Nest bridge
     |   |   +-- observability/                 # logger, OTel metrics/tracing and private exporters
@@ -559,7 +574,7 @@ visibility; they are not an application-wide public surface.
     |   |   +-- organization-context/ workspace-context/
     |   |   +-- resource/ permission/ authorization/ cache/ lock/ idempotency/
     |   |   +-- event/ task/ file/ quota/ risk/ audit/ notification/
-    |   |   +-- realtime/ background/ clock/
+    |   |   +-- background/ clock/
     |   +-- infra/
     |   |   +-- database/                      # database runtime, query view and transaction context
     |   |   +-- http/                          # factory-managed outbound HTTP clients
@@ -568,7 +583,7 @@ visibility; they are not an application-wide public surface.
     |   |   +-- queue/bullmq/                  # TODO adapters, not a running queue
     |   |   +-- storage/                       # retained S3-compatible adapter
     |   |   +-- mail/                          # retained generic SMTP adapter
-    |   |   `-- search/ realtime/              # TODO external adapters
+    |   |   `-- search/                        # TODO external adapters
     |   +-- modules/
     |   |   +-- auth/
     |   |   +-- organization/ workspace/ material/ inventory/

@@ -8,6 +8,7 @@ import {
 import { ErrorResolver, type ResolvedError } from '@/platform/error/error.resolver.js';
 import { definedErrorId, type DefinedError } from '@/platform/error/error.factory.js';
 
+/** Shared error projection for Socket.IO handshakes, ACKs and control events. */
 export class WsErrorAdapter {
     constructor(private readonly resolver: ErrorResolver) {}
 

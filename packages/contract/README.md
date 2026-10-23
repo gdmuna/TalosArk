@@ -23,7 +23,7 @@ src/
     context.ts       Allowlisted public response context
     error.ts         Shared error content and request rejection definitions
     http.ts          HTTP success/error envelopes
-    websocket.ts     WebSocket error message and optional correlation ID
+    websocket.ts     WS definitions, payload/ACK schemas and bidirectional event types
     index.ts
   team/
     team.http.ts    Organization/workspace creation, accessible context and projections
@@ -39,8 +39,18 @@ src/
 ```
 
 Each schema and its inferred type live together. Add new protocol files beside
-their owning domain, for example `workspace/workspace.ws.ts` when an actual
+their owning domain, for example `material/material.ws.ts` when an actual
 WebSocket protocol exists. Do not create placeholder domains or messages.
+
+`defineWsRequest({ event, payload, result })` describes a client request with a
+required `{ correlationId, payload }` envelope and one success/error ACK.
+`defineWsEvent({ event, payload })` describes a server push carrying that payload
+directly. `WsClientToServerEvents<RequestUnion>` and
+`WsServerToClientEvents<EventUnion>` derive Socket.IO-compatible event maps from
+domain definitions without importing its SDK. Runtime validation is still
+required on both ends; TypeScript types alone do not validate network messages.
+There are currently no installed business WS events. Transport activation and
+backend usage are documented in `../backend/docs/design/websocket.md`.
 
 This package does not own Prisma models, Core capability contracts, Nest DTO
 classes, IAM SDK types, configuration, signing keys, or business rules. Keep
