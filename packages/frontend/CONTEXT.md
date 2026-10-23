@@ -2,7 +2,7 @@
 
 ## Source layout
 
-- `layout/`: application shells and cross-business composition, including the command palette, user menu and custom paged sidebar. Sidebar expansion belongs to the primary shell and is passed by props/events; sidebar-page selection belongs to `layout/sidebar/`. Business layouts do not depend on shadcn SidebarProvider or useSidebar.
+- `layout/`: application shells and cross-business composition, including the command palette, user menu and custom paged sidebar. Sidebar expansion is an application-local preference provided by the root desktop shell through `layout/application-setting`, retaining the existing cookie; content shells receive it by props/events. Sidebar-page selection belongs to `layout/sidebar/`. Business layouts do not depend on shadcn SidebarProvider or useSidebar.
 - `page/`: route entry views and genuine page composition. `page/workbench/Workbench.vue` owns its tabs and RouterView; its business views live in `module/workbench/view/`. `page/management/` contains the administration skeletons and current-account settings, with private presentation helpers; it does not establish a catch-all management business module. `router/management-navigation.ts` owns their navigation descriptions and labels; `router/management.ts` assembles the statically imported pages.
 - `module/`: business ownership. Each module separates business state/actions in `model/` from external I/O and data-source contracts in `data/`. Account and workspace use Pinia and real HTTP readers. Retained workspace/workbench mock adapters are not selected by default. Auth uses a private, application-owned session runtime and an HTTP adapter. Module-owned UI and mature views live beside that business. Modules need not share the same state framework or have every possible subdirectory.
 - `component/`: reusable functional component modules without business semantics: DataTable, Inspector, ScrollSurface, SelectField, StateBadge, breadcrumb, route-tab, view-host and view-context. Each component owns its private interaction, state and context, not just Vue files. DataTable internals are organized under `control/`, `interaction/`, `layout/` and `model/`.
@@ -284,6 +284,17 @@ Auth follows the same responsibility layout as other modules: `data/api.ts` is a
 
 P03 connects password login, activation, first-password setup, OIDC, real current account and Cookie refresh/logout. Public SessionCredentials contains only session/AT data, never a readable RT; AT remains in memory. Cookie writes use one same-origin Web Lock, and storage events invalidate old account/workspace/workbench snapshots. Persistent browser storage contains only a coordination revision and sign-out/confirmation flags. Network-failed logout still clears local state, reports unconfirmed server revocation and suppresses automatic restoration across reload/reopen until explicit login. Cold restoration, invalid credentials, network failure and 403 remain distinct. Only confirmed anonymous sessions redirect protected entries to login. Restoration error keeps the protected URL and uses ApplicationStartup's failure/retry view without clearing Cookie or marking sign-out; manual retry retains query/hash and proceeds with remaining reads. Login has no duplicate restoration message/button; password/SSO errors and sign-out notices remain local feedback. Explicit public login does not automatically restore a session. Full-screen startup loading/error views use muted, matching the custom titlebar. The HTTP decoder accepts only explicitly declared empty 204 responses; JSON envelope/schema checks otherwise remain strict. Web browser-process persistence is verified; Tauri, cross-site hosting, different frontend origins and real Casdoor/provider delivery are not. Do not invent resource endpoints or pagination contracts before their slice exists.
 
+R08-A shares AuthPage and the Field-based PasswordForm across authentication pages.
+The auth shell owns vertical overflow without scrolling the titlebar. Local-password
+login and recovery retain a validated internal next path. OIDC adds a separate,
+tab-scoped sessionStorage record containing only its state and return path; the
+callback matches and consumes it once, never stores code or session credentials.
+Invitation tokens remain SPA-memory-only, with explicit reloading or account
+switching after failure. A confirmed acceptance recovers its directory by reads
+only, never by replaying accept. First-password eligibility still comes from the
+existing command response, not inferred profile data. R08-A isolated Web evidence
+and outstanding real-provider/platform checks are recorded under remediation/r08.
+
 P02 adds real request/confirm recovery adapters and `/auth/recovery` /
 `/auth/reset-password` forms. The reset form consumes the secret fragment with
 router.replace before requests, keeps it only in page memory, and clears it/passwords
@@ -303,7 +314,39 @@ notification views use the real current-account context. Profile editing retains
 the optional `account.updateDisplayName` data-source capability, but real-source
 profile writes and notification writes remain disabled until their API contracts
 exist. The account page links to authenticated first-password setup. The header settings button
-and user menu route here instead of maintaining a second profile Dialog.
+and user menu route here instead of maintaining a second profile Dialog. R08-B
+renders readonly profile facts when the optional write source is absent. Editable
+sources retain draft guards and read-only synchronization recovery, clearing drafts
+on account-ID changes even when display names match. Normal synchronization errors
+use the shell notice once; silent pending recovery remains available on the page.
+
+R08-B's application-setting layout context owns one local preference/help/about
+Dialog, shared by the anonymous titlebar, user menu, help button and command palette.
+It stores no account/business state and adds no generic settings registry. Public
+unmatched routes use the statically imported NotFound page without protected data
+reads. Workspace switching keeps its original anchor, explicit server selection and
+scoped cancellation; empty organizations are not hidden by search projection.
+The command palette labels unavailable resource search separately from no matches,
+preserves its focusInset and repeat-key scrolling, and ignores IME Enter. A file
+projection without an explicit material parent has no invented device/download
+link. Display-only Button tooltips are pointer-transparent through their Popper
+wrapper and unmount immediately on close, releasing their Escape layer; custom
+Tooltip content remains unchanged. See remediation/r08 for acceptance boundaries.
+
+R08-C uses SheetInspector for the legacy search resource preview as well; an
+explicit return-focus target supports command-palette handoff. DialogContent's
+default height and center respect the shared titlebar inset and bound long content
+to an internally scrollable viewport. Existing customized layouts, Portal order
+and transitions remain intact. `component/overlay-draft` protects unsent inputs in
+business editors against dismissal, navigation and unload; it captures initialized
+defaults after opening, and defers disposal until all navigation guards accept.
+Callers explicitly distinguish busy forms from commands already journaled or
+committed. Business owners retain cancellation, batch pause and read-only recovery;
+the draft helper never stores or replays a business command. P13 batch overlays
+show their explicit operation workspace without switching global context. G-12's
+object/action-qualified workspace candidates are not inferred from the directory;
+that contract and composite date filtering remain dependencies. See the R08-C
+acceptance record for isolated evidence and unverified platform/real-write gates.
 
 The user approved removal of the unused legacy `shared/api` adapters. Their missing-schema source errors are gone, but old tests still reference retired API paths and previously removed stores/pages/schemas. Do not repair this with compatibility stubs, placeholder types, `any`, or wider compiler exclusions. See `docs/reviews/frontend-api-platform-2026-10-08.md` for the current design and verification limits; the earlier migration record remains historical.
 
