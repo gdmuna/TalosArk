@@ -4,7 +4,7 @@
 
 ## 1. 现有 45 个叶子路由台账
 
-以下 45 项是整改计划建立时的基线，以当时 `src/router/index.ts`、`resource.ts`、`management.ts` 和 `module/workbench/route.ts` 为依据，不计 redirect 和纯容器。R03 另增工作区、组织成员、角色三个显式 Mock 详情叶子路由，故不能继续把 45 当成当前路由总量；新增项及查询视图见 [R03](r03/README.md)，也不算真实接口已接入。
+以下 45 项是整改计划建立时的基线，以当时 `src/router/index.ts`、`resource.ts`、`management.ts` 和 `module/workbench/route.ts` 为依据，不计 redirect 和纯容器。R03 新增的工作区、组织成员、角色详情已于 2026-10-18 从显式 Mock 切换真实 HTTP，后续也新增审计、资源授权、设施、集成与审批等路由，不能继续把 45 当成当前路由总量，也不能把有路由等同于有生产来源。新增项与证据见各包及 [当前状态台账](status-ledger.md)。
 
 | 序号 | 现有地址 | 整改归属 |
 | --- | --- | --- |
@@ -54,7 +54,9 @@
 | 44 | `/main/management/integration` | F-14 |
 | 45 | `/main/management/system-setting` | F-15 |
 
-## 2. 当前局部视图不能漏验
+## 2. 原始局部视图检查范围
+
+以下视图和无稿页面方案是整改目标，不是当前能力全部存在的声明。R03/R04/R05/R06/R08/P12 等后续实现改变了部分入口和内容；R09 应按当前路由/组件列举实际视图，并将无契约的目标标为延期，而非照旧表判为已实现或缺陷。
 
 | 页面 | 现有 query/view 或状态 | 独立整改要求 |
 | --- | --- | --- |
