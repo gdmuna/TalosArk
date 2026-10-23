@@ -1,11 +1,15 @@
 import { config } from '@dotenvx/dotenvx-ops';
 import { Command, CommanderError } from 'commander';
+import select from '@inquirer/select';
 import { existsSync, readdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REQUIRED_PRISMA_ENVIRONMENT_KEYS = ['DATABASE_URL', 'SHADOW_DATABASE_URL'] as const;
-const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const backendRoot = existsSync(resolve(scriptRoot, 'prisma.config.ts'))
+    ? scriptRoot
+    : resolve(scriptRoot, '..');
 const environmentDirectory = resolve(backendRoot, 'ops/prisma/env');
 
 /**
@@ -37,6 +41,30 @@ export interface PrismaEnvironment {
     source: PrismaEnvironmentSource;
     filePath: string;
     values: Record<PrismaEnvironmentKey, string>;
+}
+
+export async function choosePrismaEnvironment(
+    source?: PrismaEnvironmentSource
+): Promise<PrismaEnvironmentSource> {
+    if (source) return source;
+    if (process.env.CI || !process.stdin.isTTY || !process.stdout.isTTY)
+        throw new Error(
+            'No database environment selected. Use --env <profile> or --env-file <path> in CI/non-interactive terminals.'
+        );
+    const files = listPrismaEnvironments();
+    if (!files.length) throw new Error('No Prisma environment files found in ops/prisma/env.');
+    return select({
+        message: 'Select the Prisma database environment:',
+        choices: files.map(({ source: choice, filePath }) => ({
+            name: relative(process.cwd(), filePath),
+            value: choice,
+            description:
+                choice.kind === 'profile'
+                    ? `Profile: ${choice.name}${choice.name.startsWith('prod') ? ' (production)' : ''}`
+                    : 'Custom Prisma environment file',
+        })),
+        loop: false,
+    });
 }
 
 /**

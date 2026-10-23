@@ -22,6 +22,25 @@ env:
   DOTENV_PRIVATE_KEY_TEST: ${{ secrets.DOTENV_PRIVATE_KEY_TEST }}
 
 jobs:
+  seed-typecheck:
+    name: Seed contract typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @talos-ark/contracts build
+      - name: Generate Prisma types without connecting to a database
+        run: pnpm --filter @talos-ark/backend exec prisma generate
+        env:
+          DATABASE_URL: postgresql://seed:unused@127.0.0.1:1/seed_typecheck
+          SHADOW_DATABASE_URL: postgresql://seed:unused@127.0.0.1:1/seed_shadow
+      - run: pnpm --filter @talos-ark/backend seed:typecheck
+
   lint-and-format:
     name: Lint and format
     runs-on: ubuntu-latest
@@ -135,7 +154,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint-and-format, test]
+    needs: [lint-and-format, test, seed-typecheck]
 
     services:
       postgres:

@@ -9,7 +9,7 @@ function normalizeS3Endpoint(value: string) {
     return `http://${trimmed}`;
 }
 
-const StorageConfigValidateSchema = z
+export const StorageConfigValidateSchema = z
     .object({
         S3_ENDPOINT: z
             .string()

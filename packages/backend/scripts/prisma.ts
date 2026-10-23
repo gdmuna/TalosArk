@@ -1,4 +1,3 @@
-import select from '@inquirer/select';
 import { spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -8,12 +7,11 @@ import { fileURLToPath } from 'node:url';
 import {
     createPrismaProcessEnvironment,
     getPrismaWrapperHelp,
-    listPrismaEnvironments,
+    choosePrismaEnvironment,
     loadPrismaEnvironment,
     parsePrismaCommand,
     redactDatabaseUrl,
     type PrismaEnvironment,
-    type PrismaEnvironmentSource,
 } from './prisma-environment.js';
 
 /**
@@ -75,7 +73,7 @@ async function main(): Promise<number> {
         });
     }
 
-    const environment = loadPrismaEnvironment(await chooseEnvironment(command.source));
+    const environment = loadPrismaEnvironment(await choosePrismaEnvironment(command.source));
     displayEnvironment(environment);
 
     if (!command.initialize) return runPrisma(command.prismaArguments, environment.values);
@@ -98,37 +96,6 @@ async function main(): Promise<number> {
     }
     console.info(`[prisma] Database initialization complete (${files.length} SQL file(s)).`);
     return 0;
-}
-
-async function chooseEnvironment(
-    source?: PrismaEnvironmentSource
-): Promise<PrismaEnvironmentSource> {
-    if (source) return source;
-    if (process.env.CI || !process.stdin.isTTY || !process.stdout.isTTY) {
-        throw new Error(
-            'No database environment selected. Use --env <profile> or --env-file <path> in CI/non-interactive terminals.'
-        );
-    }
-
-    const files = listPrismaEnvironments();
-    if (!files.length) {
-        throw new Error(
-            'No Prisma environment files found. Copy ops/prisma/env/.env.example and configure the database URLs.'
-        );
-    }
-
-    return select({
-        message: 'Select the Prisma database environment:',
-        choices: files.map(({ source: choice, filePath }) => ({
-            name: relative(process.cwd(), filePath),
-            value: choice,
-            description:
-                choice.kind === 'profile'
-                    ? `Profile: ${choice.name}${choice.name.startsWith('prod') ? ' (production)' : ''}`
-                    : 'Custom Prisma environment file',
-        })),
-        loop: false,
-    });
 }
 
 function displayEnvironment(environment: PrismaEnvironment): void {

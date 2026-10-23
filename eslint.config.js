@@ -40,7 +40,12 @@ export default [
 
     // ── packages/backend: TypeScript ────────
     {
-        files: ['packages/backend/src/**/*.ts', 'packages/backend/test/**/*.ts'],
+        files: [
+            'packages/backend/src/**/*.ts',
+            'packages/backend/test/**/*.ts',
+            'packages/backend/tooling/**/*.ts',
+            'packages/backend/scripts/seed.ts',
+        ],
         languageOptions: {
             parser: tsParser,
             globals: {
@@ -62,6 +67,11 @@ export default [
             ...tsPlugin.configs.recommended.rules,
             ...commonRules,
         },
+    },
+
+    {
+        files: ['packages/backend/tooling/**/*.ts', 'packages/backend/scripts/seed.ts'],
+        rules: { 'no-console': 'off' },
     },
 
     // Shared contracts must not rely on Node.js or browser globals.

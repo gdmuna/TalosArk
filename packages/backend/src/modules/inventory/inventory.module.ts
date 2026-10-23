@@ -8,7 +8,7 @@ import { AuditModule } from '@/core/audit/index.js';
 import { ResourceModule } from '@/core/resource/index.js';
 import { IdempotencyKernel } from '@/core/idempotency/index.js';
 import { PlatformContextModule } from '@/platform/context/context.module.js';
-import { MaterialModule } from '../material/material.module.js';
+import { MaterialCatalogModule } from '../material/material-catalog.module.js';
 import { FacilityModule } from '../facility/facility.module.js';
 import { InventoryController, InventoryOperationController } from './api/inventory.controller.js';
 import { InventoryService } from './application/inventory.service.js';
@@ -36,7 +36,7 @@ import {
         AuditModule,
         ResourceModule,
         PlatformContextModule,
-        MaterialModule,
+        MaterialCatalogModule,
         FacilityModule,
     ],
     controllers: [InventoryController, InventoryOperationController],
@@ -62,6 +62,12 @@ import {
                 new IdempotencyKernel(database, repository),
         },
     ],
-    exports: [InventoryActionWriter, InventoryActionReader, InventoryOperationService],
+    exports: [
+        InventoryActionService,
+        InventoryActionWriter,
+        InventoryActionReader,
+        InventoryOperationService,
+        InventoryService,
+    ],
 })
 export class InventoryModule {}

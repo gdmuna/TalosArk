@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'node:crypto';
 import type { AllConfig } from '@/config/index.js';
@@ -12,7 +12,12 @@ import {
 import { OrganizationTeamService } from './team.service.js';
 import { TeamOperations } from './team.operations.js';
 import { TeamError } from './team.error.js';
-import { InvitationDelivery, invitationHash, type InvitationMail } from './invitation.delivery.js';
+import { invitationHash } from './invitation.delivery.js';
+import {
+    INVITATION_DELIVERY,
+    type InvitationMailDelivery,
+    type InvitationMail,
+} from './invitation-delivery.port.js';
 
 @Injectable()
 export class OrganizationInvitationService {
@@ -20,7 +25,7 @@ export class OrganizationInvitationService {
         private readonly database: DatabaseRuntime,
         private readonly team: OrganizationTeamService,
         private readonly operations: TeamOperations,
-        private readonly delivery: InvitationDelivery,
+        @Inject(INVITATION_DELIVERY) private readonly delivery: InvitationMailDelivery,
         private readonly governance: TeamGovernanceKernel,
         private readonly config: ConfigService<AllConfig, true>
     ) {}

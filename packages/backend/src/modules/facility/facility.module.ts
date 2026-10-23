@@ -53,6 +53,8 @@ import { FacilityStorageTopologyWriter } from './public/facility-storage-topolog
         { provide: FacilityStorageTopologyWriter, useExisting: StorageNodeWriter },
     ],
     exports: [
+        FacilityService,
+        StorageStructureService,
         FacilityStorageTopologyReader,
         FacilityStorageTopologyWriter,
         FacilityPositionReader,

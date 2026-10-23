@@ -34,6 +34,7 @@ import { ApprovalResourceProvider } from './extensions/approval-resource.provide
         InventoryModule,
     ],
     controllers: [ApprovalController, ApprovalGovernanceController],
+    exports: [ApprovalService, ApprovalExecutionService],
     providers: [
         ApprovalAccessService,
         ApprovalService,

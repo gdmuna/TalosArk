@@ -7,6 +7,7 @@ export interface ProvisionAccountInput {
     username: string;
     email: string;
     expiresAt: Date;
+    profile?: CreateUserProfileInput;
 }
 export interface ProvisionAccountOutput {
     userId: string;

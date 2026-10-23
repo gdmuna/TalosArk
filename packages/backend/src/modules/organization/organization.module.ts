@@ -15,6 +15,7 @@ import { InvitationController } from './api/invitation.controller.js';
 import { OrganizationTeamService } from './application/team.service.js';
 import { OrganizationInvitationService } from './application/invitation.service.js';
 import { InvitationDelivery } from './application/invitation.delivery.js';
+import { INVITATION_DELIVERY } from './application/invitation-delivery.port.js';
 import { TeamOperations } from './application/team.operations.js';
 import { TeamDetailController } from './api/team-detail.controller.js';
 import { TeamDetailService } from './application/team-detail.service.js';
@@ -42,6 +43,7 @@ import { TeamDetailService } from './application/team-detail.service.js';
         OrganizationTeamService,
         OrganizationInvitationService,
         InvitationDelivery,
+        { provide: INVITATION_DELIVERY, useExisting: InvitationDelivery },
         TeamOperations,
         TeamDetailService,
     ],

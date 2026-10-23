@@ -5,18 +5,13 @@ import { createHash } from 'node:crypto';
 import type { AllConfig } from '@/config/index.js';
 import { MailService } from '@/infra/mail/index.js';
 import { DatabaseRuntime } from '@/infra/database/database.runtime.js';
+import type { InvitationMail, InvitationMailDelivery } from './invitation-delivery.port.js';
 
-export interface InvitationMail {
-    id: string;
-    email: string;
-    token: string;
-    organizationName: string;
-}
 export const invitationHash = (token: string) =>
     createHash('sha256').update(token).digest('base64url');
 
 @Injectable()
-export class InvitationDelivery implements OnModuleDestroy {
+export class InvitationDelivery implements InvitationMailDelivery, OnModuleDestroy {
     private readonly queue: InvitationMail[] = [];
     private readonly active = new Map<AbortController, Promise<void>>();
     private closed = false;

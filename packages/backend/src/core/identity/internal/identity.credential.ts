@@ -33,6 +33,7 @@ export class IdentityCredential {
                 data: {
                     username: input.username.trim(),
                     email: input.email.trim().toLowerCase(),
+                    ...(input.profile ? { profile: { create: input.profile } } : {}),
                     activationTokens: {
                         create: {
                             tokenHash: tokenHash(token),
