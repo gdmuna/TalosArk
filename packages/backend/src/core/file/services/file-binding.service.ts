@@ -154,7 +154,7 @@ export class FileBindingService {
                 data: { removedAt: new Date() },
                 include,
             });
-            await this.files.retireAsset(row.assetId, row.asset.objectId, false);
+            await this.files.retireLockedAsset(row.assetId, row.asset.objectId, false);
             const reference = referenceSnapshot(removed);
             await purpose.provider.recordChange({
                 actor: { organizationId: value.organizationId, userId: value.userId },

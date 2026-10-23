@@ -471,8 +471,17 @@ export class FileRepository {
         });
     }
 
-    async retireAsset(id: string, objectId: string, onlyExpired: boolean): Promise<boolean> {
+    private async retireAsset(
+        id: string,
+        objectId: string,
+        onlyExpired: boolean
+    ): Promise<boolean> {
         await this.lockAsset(id, objectId);
+        return this.retireLockedAsset(id, objectId, onlyExpired);
+    }
+
+    /** Requires FileObject -> FileAsset locks held by the current transaction. */
+    async retireLockedAsset(id: string, objectId: string, onlyExpired: boolean): Promise<boolean> {
         const row = await this.database.queryClient.fileAsset.findUniqueOrThrow({
             where: { id },
             include: { references: { where: { removedAt: null }, select: { id: true } } },
