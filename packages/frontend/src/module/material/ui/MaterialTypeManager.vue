@@ -9,6 +9,7 @@ import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
 import { ScrollArea } from '@/ui/scroll-area';
 import { Field, FieldError, FieldLabel } from '@/ui/field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 
 const formFieldId = useId();
 
@@ -18,6 +19,11 @@ const code = ref(''),
     name = ref(''),
     editId = ref(''),
     validation = ref('');
+const { guardedOpen, confirmOpen, discard, markClean } = useOverlayDraft(
+    open,
+    () => JSON.stringify([code.value, name.value]),
+    { busy: () => store.busy }
+);
 const { data, loading, error, reload } = useMaterialRead((context, signal) =>
     context.source.types(context.scope, signal)
 );
@@ -36,12 +42,17 @@ watch(
 );
 function clear() {
     code.value = name.value = editId.value = validation.value = '';
+    markClean();
 }
+watch(open, (value) => {
+    if (!value) clear();
+});
 function edit(item: MaterialType) {
     code.value = item.code;
     name.value = item.name;
     editId.value = item.id;
     validation.value = '';
+    markClean();
 }
 async function submit() {
     const input = MaterialTypeWriteSchema.safeParse({ code: code.value, name: name.value });
@@ -61,7 +72,7 @@ async function archive(item: MaterialType) {
 }
 </script>
 <template>
-    <Sheet v-model:open="open">
+    <Sheet v-model:open="guardedOpen">
         <SheetContent class="w-full gap-0 p-0 sm:max-w-xl">
             <div class="shrink-0 border-b p-6 pr-12">
                 <SheetTitle>管理材料分类</SheetTitle>
@@ -152,4 +163,5 @@ async function archive(item: MaterialType) {
             </ScrollArea>
         </SheetContent>
     </Sheet>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

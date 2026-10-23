@@ -1,27 +1,40 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Box } from '@lucide/vue';
 import { authErrorMessage, useAuthApi } from '@/module/auth';
-import { PasswordForm } from '@/module/auth/ui';
+import { AuthPage, PasswordForm } from '@/module/auth/ui';
+import { HttpError } from '@/platform/http';
+import { useAccountStore } from '@/module/account';
 import { Button } from '@/ui/button';
 
 const api = useAuthApi();
 const router = useRouter();
+const account = useAccountStore();
 const pending = ref(false);
 const error = ref('');
+const blocked = ref(false);
+const reauthenticate = ref(false);
 const controller = new AbortController();
 onBeforeUnmount(() => controller.abort());
 async function submit(password: string) {
-    if (pending.value) return;
+    if (pending.value || blocked.value) return;
     pending.value = true;
     error.value = '';
     try {
         await api.setFirstPassword({ password }, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         await router.replace('/main/management/account-setting');
     } catch (cause) {
-        if (!controller.signal.aborted)
+        if (!controller.signal.aborted) {
             error.value = authErrorMessage(cause, '暂时无法确认设密结果。可稍后重试，或使用该密码尝试登录。');
+            if (
+                cause instanceof HttpError &&
+                ['AUTH_PASSWORD_PRESENT', 'AUTH_REAUTHENTICATION_REQUIRED'].includes(cause.code ?? '')
+            ) {
+                blocked.value = true;
+                reauthenticate.value = cause.code === 'AUTH_REAUTHENTICATION_REQUIRED';
+            }
+        }
     } finally {
         pending.value = false;
     }
@@ -29,17 +42,20 @@ async function submit(password: string) {
 </script>
 
 <template>
-    <main class="flex min-h-full w-full items-center justify-center px-4 py-8">
-        <section class="w-full max-w-md rounded-lg bg-card p-6 sm:p-8" aria-labelledby="first-password-title">
-            <div class="mb-6 flex items-center gap-2 font-semibold">
-                <Box class="size-6 text-primary" aria-hidden="true" />
-                璇玑云库
-            </div>
-            <h1 id="first-password-title" class="text-xl font-semibold">设置本地密码</h1>
-            <PasswordForm class="mt-6" :pending="pending" :error="error" label="保存密码" @submit="submit" />
-            <Button as-child variant="link" class="mt-5 w-full">
-                <RouterLink to="/main/management/account-setting">返回账户设置</RouterLink>
+    <AuthPage title="设置本地密码" description="为当前账户首次设置可用于登录的密码。">
+        <p v-if="account.profile" class="mb-5 break-all text-sm text-muted-foreground">{{ account.profile.email }}</p>
+        <template v-if="blocked">
+            <p role="alert" class="text-sm text-muted-foreground">{{ error }}</p>
+            <Button as-child class="mt-5 w-full">
+                <RouterLink v-if="reauthenticate" :to="{ path: '/auth/login', query: { next: '/auth/set-password' } }">
+                    重新认证
+                </RouterLink>
+                <RouterLink v-else to="/auth/recovery">找回密码</RouterLink>
             </Button>
-        </section>
-    </main>
+        </template>
+        <PasswordForm v-else :pending="pending" :error="error" label="保存密码" @submit="submit" />
+        <Button as-child variant="link" class="mt-5 w-full">
+            <RouterLink to="/main/management/account-setting">返回账户设置</RouterLink>
+        </Button>
+    </AuthPage>
 </template>

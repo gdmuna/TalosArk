@@ -1,61 +1,69 @@
 <template>
-    <Dialog v-model:open="open">
-        <DialogContent v-if="resource" class="sm:max-w-lg" @close-auto-focus="restoreFocus">
-            <DialogTitle class="pr-8">{{ resource.name }}</DialogTitle>
-            <CopyableId :value="resource.id" label="资源 ID" />
-            <DialogDescription>{{ resource.kind }}</DialogDescription>
-            <dl class="grid grid-cols-[5rem_1fr] gap-x-4 gap-y-4 border-y py-5">
-                <dt class="text-muted-foreground">工作区</dt>
-                <dd>{{ workspace.workspaces.find((item) => item.id === resource?.workspaceId)?.name }}</dd>
-                <dt class="text-muted-foreground">状态</dt>
-                <dd>
-                    <StateBadge :tone="stateTone(resource.status)">{{ resource.status }}</StateBadge>
-                </dd>
-                <dt class="text-muted-foreground">说明</dt>
-                <dd class="leading-6">{{ resource.description }}</dd>
-            </dl>
-            <div class="flex justify-end">
-                <Button @click="openList">
-                    <ArrowUpRight aria-hidden="true" />
-                    查看{{ resource.kind === '文件' ? '设备' : resource.kind }}列表
-                </Button>
+    <SheetInspector
+        v-model:open="open"
+        :title="resource?.name ?? '资源预览'"
+        description="资源基本事实"
+        :return-focus="returnFocus"
+    >
+        <ScrollSurface class="min-h-0 flex-1">
+            <div v-if="resource" class="space-y-5 p-6 pr-10">
+                <header class="space-y-2">
+                    <h2 class="break-words text-lg font-semibold">{{ resource.name }}</h2>
+                    <CopyableId :value="resource.id" label="资源 ID" />
+                    <p class="text-sm text-muted-foreground">{{ resource.kind }}</p>
+                </header>
+                <dl class="grid grid-cols-[5rem_1fr] gap-x-4 gap-y-4 border-y py-5">
+                    <dt class="text-muted-foreground">工作区</dt>
+                    <dd class="min-w-0 break-words">
+                        {{ workspace.workspaces.find((item) => item.id === resource?.workspaceId)?.name }}
+                    </dd>
+                    <dt class="text-muted-foreground">状态</dt>
+                    <dd>
+                        <StateBadge :tone="stateTone(resource.status)">{{ resource.status }}</StateBadge>
+                    </dd>
+                    <dt class="text-muted-foreground">说明</dt>
+                    <dd class="min-w-0 break-words leading-6">{{ resource.description }}</dd>
+                </dl>
             </div>
-        </DialogContent>
-    </Dialog>
+        </ScrollSurface>
+        <div v-if="resource && (resource.kind !== '文件' || resource.materialId)" class="shrink-0 border-t p-6">
+            <Button class="w-full" @click="openList">
+                <ArrowUpRight aria-hidden="true" />
+                {{ resource.kind === '文件' ? '查看所属材料' : `查看${resource.kind}列表` }}
+            </Button>
+        </div>
+    </SheetInspector>
 </template>
 <script setup lang="ts">
-import { watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowUpRight } from '@lucide/vue';
 import { useWorkspaceStore } from '@/module/workspace';
 import { StateBadge } from '@/component/state-badge';
-import { CopyableId } from '@/component/inspector';
+import { CopyableId, SheetInspector } from '@/component/inspector';
+import { ScrollSurface } from '@/component/scroll-surface';
 import { Button } from '@/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/ui/dialog';
 import { stateTone, type Resource } from '../model/workbench';
 import { useWorkbenchStore } from '../model/store';
 import { useResourcePreview } from '../model/resource-preview';
 
 const selection = defineModel<Resource | null>({ default: null });
-const props = defineProps<{ returnFocus?: HTMLElement | null }>();
+defineProps<{ returnFocus?: HTMLElement | null }>();
 const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
 const { resource, open } = useResourcePreview(selection, () => workbench.currentResources);
 const router = useRouter();
-let previousFocus: HTMLElement | null = null;
-watch(open, (value) => {
-    if (value) previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-});
-function restoreFocus(event: Event) {
-    const target = props.returnFocus ?? previousFocus;
-    if (target?.isConnected) {
-        event.preventDefault();
-        target.focus();
-    }
-}
 function openList() {
     const item = resource.value;
     if (!item) return;
+    if (item.kind === '文件') {
+        if (!item.materialId) return;
+        void router.push({
+            path: `/main/material/detail/${encodeURIComponent(item.materialId)}`,
+            query: { view: 'file' },
+        });
+        resource.value = null;
+        return;
+    }
     router.push({
         path:
             item.kind === '材料定义'

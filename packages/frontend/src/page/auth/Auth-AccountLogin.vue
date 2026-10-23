@@ -1,5 +1,5 @@
 <template>
-    <form class="space-y-5" @submit.prevent="submit">
+    <form class="space-y-5" :aria-busy="pending" @submit.prevent="submit">
         <FieldGroup>
             <Field>
                 <FieldLabel for="auth-account">账号或工作邮箱</FieldLabel>
@@ -12,6 +12,7 @@
                     maxlength="254"
                     required
                     :disabled="pending"
+                    :aria-describedby="error ? 'login-error' : undefined"
                 />
             </Field>
 
@@ -25,26 +26,46 @@
                         class="h-auto px-0 text-xs font-normal cursor-pointer"
                         as-child
                     >
-                        <RouterLink to="/auth/recovery">忘记密码？</RouterLink>
+                        <RouterLink :to="{ path: '/auth/recovery', query: { next: authReturnPath(route.query.next) } }">
+                            忘记密码？
+                        </RouterLink>
                     </Button>
                 </div>
-                <Input
-                    id="auth-password"
-                    v-model="password"
-                    name="password"
-                    type="password"
-                    autocomplete="current-password"
-                    placeholder="输入密码"
-                    maxlength="256"
-                    required
-                    :disabled="pending"
-                />
+                <div class="relative">
+                    <Input
+                        id="auth-password"
+                        v-model="password"
+                        name="password"
+                        :type="visible ? 'text' : 'password'"
+                        autocomplete="current-password"
+                        placeholder="输入密码"
+                        maxlength="256"
+                        required
+                        :disabled="pending"
+                        :aria-describedby="error ? 'login-error' : undefined"
+                        class="pr-10"
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        class="absolute right-1 top-1/2 -translate-y-1/2"
+                        :aria-label="visible ? '隐藏密码' : '显示密码'"
+                        :aria-pressed="visible"
+                        use-tooltip
+                        :tooltip="visible ? '隐藏密码' : '显示密码'"
+                        @click="visible = !visible"
+                    >
+                        <EyeOff v-if="visible" class="size-4" aria-hidden="true" />
+                        <Eye v-else class="size-4" aria-hidden="true" />
+                    </Button>
+                </div>
             </Field>
         </FieldGroup>
 
-        <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
+        <FieldError v-if="error" id="login-error">{{ error }}</FieldError>
         <Button type="submit" class="w-full" :disabled="pending">
-            <LoaderCircle v-if="pending" class="size-4 animate-spin" aria-hidden="true" />
+            <LoaderCircle v-if="pending" class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
             {{ pending ? '正在登录' : '登录' }}
         </Button>
     </form>
@@ -53,9 +74,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { LoaderCircle } from '@lucide/vue';
+import { Eye, EyeOff, LoaderCircle } from '@lucide/vue';
 import { PasswordLoginBodySchema } from '@talos-ark/contracts/auth';
-import { authErrorMessage, useAuthApi } from '@/module/auth';
+import { authErrorMessage, authReturnPath, useAuthApi } from '@/module/auth';
 import { Button } from '@/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/ui/field';
 import { Input } from '@/ui/input';
@@ -66,7 +87,8 @@ const route = useRoute();
 const identifier = ref('');
 const password = ref('');
 const error = ref('');
-const pending = ref(false);
+const pending = defineModel<boolean>('pending', { default: false });
+const visible = ref(false);
 const controller = new AbortController();
 onBeforeUnmount(() => {
     controller.abort();
@@ -84,15 +106,9 @@ async function submit() {
     error.value = '';
     try {
         await api.passwordLogin(body.data, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         password.value = '';
-        const next = route.query.next;
-        const destination =
-            typeof next === 'string' &&
-            !next.includes('\\') &&
-            (/^\/main(?:\/|\?|$)/.test(next) || next === '/auth/set-password' || next === '/auth/invitation')
-                ? next
-                : '/main';
-        await router.replace(destination);
+        await router.replace(authReturnPath(route.query.next));
     } catch (cause) {
         if (!controller.signal.aborted) error.value = authErrorMessage(cause, '暂时无法登录，请稍后重试。');
     } finally {

@@ -30,6 +30,7 @@ import ApprovalOperationNotice from './ApprovalOperationNotice.vue';
 import ApprovalBatchSheet from './ApprovalBatchSheet.vue';
 import type { ApprovalBatchSelection } from '../model/batch';
 import { Field, FieldLabel } from '@/ui/field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 
 const formFieldId = useId();
 
@@ -73,6 +74,16 @@ const confirmation = ref<{
     version: number;
 }>();
 const reason = ref('');
+const confirmationOpen = computed({
+    get: () => !!confirmation.value,
+    set: (value) => {
+        if (!value) confirmation.value = undefined;
+    },
+});
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(confirmationOpen, () => reason.value, {
+    busy: () => store.busy,
+    saved: () => !!attempt.value,
+});
 const locked = computed(
     () =>
         store.busy ||
@@ -613,14 +624,7 @@ const eventLabel: Record<string, string> = {
             :selection="batchSelection"
             :on-synchronized="synchronize"
         />
-        <Dialog
-            :open="!!confirmation"
-            @update:open="
-                (value) => {
-                    if (!value && !store.busy) confirmation = undefined;
-                }
-            "
-        >
+        <Dialog v-model:open="guardedOpen">
             <DialogContent>
                 <DialogTitle>{{ confirmation ? actionLabel[confirmation.kind] : '' }}</DialogTitle>
                 <DialogDescription>
@@ -641,10 +645,11 @@ const eventLabel: Record<string, string> = {
                 </Field>
                 <p v-if="store.error" role="alert" class="text-sm text-destructive">{{ store.error }}</p>
                 <div class="flex justify-end gap-2">
-                    <Button variant="outline" :disabled="store.busy" @click="confirmation = undefined">取消</Button>
+                    <Button variant="outline" :disabled="store.busy" @click="guardedOpen = false">取消</Button>
                     <Button :disabled="locked" @click="perform">{{ store.busy ? '提交中' : '确认' }}</Button>
                 </div>
             </DialogContent>
         </Dialog>
+        <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
     </main>
 </template>

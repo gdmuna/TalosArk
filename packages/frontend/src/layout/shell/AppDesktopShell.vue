@@ -9,12 +9,25 @@
             class="shrink-0 flex h-10 items-center justify-between bg-muted pointer-events-auto"
         >
             <div
-                class="application-brand flex items-center justify-between ml-4.5 gap-1 text-md select-none transition-[margin-left] duration-(--sidebar-transition-duration) ease-standard"
+                class="application-brand flex min-w-0 items-center justify-between ml-4.5 gap-1 text-md select-none transition-[margin-left] duration-(--sidebar-transition-duration) ease-standard"
             >
-                <Box class="fill-primary text-muted size-7.5" stroke-width="2.25" />
-                <span class="font-medium">璇玑云库</span>
+                <Box class="fill-primary text-muted size-7.5 shrink-0" stroke-width="2.25" />
+                <span class="truncate font-medium">璇玑云库</span>
             </div>
-            <div aria-hidden="true" class="w-36 shrink-0" />
+            <div class="flex items-center">
+                <Button
+                    v-if="route.meta.fluidLayout"
+                    variant="ghost"
+                    size="icon"
+                    use-tooltip
+                    title="应用设置"
+                    aria-label="应用设置"
+                    @click="applicationSetting.show()"
+                >
+                    <Settings class="size-4" aria-hidden="true" />
+                </Button>
+                <div aria-hidden="true" class="w-36 shrink-0" />
+            </div>
         </header>
         <div
             data-slot="window-controls"
@@ -51,6 +64,7 @@
             class="pointer-events-none fixed inset-0 z-50 isolate contain-layout"
             :style="{ '--overlay-chrome-height': titlebarHeight + 'px' }"
         />
+        <ApplicationSetting />
     </div>
 </template>
 
@@ -65,12 +79,15 @@ import ApplicationStartup from '../startup/ApplicationStartup.vue';
 import { useApplicationBootstrap } from '../startup/context';
 import { useAuthApi } from '@/module/auth';
 
-import { X, Square, Minus, Box, Copy } from '@lucide/vue';
+import { X, Square, Minus, Box, Copy, Settings } from '@lucide/vue';
+import ApplicationSetting from '../application-setting/ApplicationSetting.vue';
+import { provideApplicationSetting } from '../application-setting/context';
 
 const windowState = ref<'minimize' | 'maximize' | 'normal'>('maximize');
 const { state, start } = useApplicationBootstrap();
 const auth = useAuthApi();
 const route = useRoute();
+const applicationSetting = provideApplicationSetting();
 const showStartup = computed(
     () =>
         (route.meta.requiresApplicationData && state.value.status !== 'ready') ||

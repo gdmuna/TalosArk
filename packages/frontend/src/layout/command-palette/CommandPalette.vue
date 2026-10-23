@@ -6,8 +6,11 @@
             @close-auto-focus="restoreFocus"
         >
             <DialogTitle class="sr-only">搜索工作区或执行命令</DialogTitle>
-            <DialogDescription class="sr-only">搜索材料定义、库存实例、设施、设备、页面与命令</DialogDescription>
+            <DialogDescription class="sr-only">
+                {{ workbench.loaded ? '搜索当前工作区资源、页面与命令' : '搜索页面与命令' }}
+            </DialogDescription>
             <Command
+                :key="searchGeneration"
                 @keydown.capture="prepareKeyboardScroll"
                 @keyup.capture="finishKeyboardScroll"
                 @focusout.capture="restoreKeyboardScroll"
@@ -26,6 +29,9 @@
                         <X aria-hidden="true" />
                     </Button>
                 </div>
+                <p v-if="!workbench.loaded" role="status" class="shrink-0 px-4 pb-2 text-xs text-muted-foreground">
+                    资源搜索暂不可用，当前仅搜索页面与命令。
+                </p>
                 <ScrollSurface
                     ref="scrollSurface"
                     :edges="['top']"
@@ -34,7 +40,9 @@
                     class="max-h-[calc(75svh-3rem)] [--edge-surface:var(--card)]"
                 >
                     <CommandList class="min-h-36 max-h-none overflow-visible p-2 pt-0" aria-label="搜索结果">
-                        <CommandEmpty class="py-10 text-muted-foreground">没有找到匹配的资源、页面或命令</CommandEmpty>
+                        <CommandEmpty class="py-10 text-muted-foreground">
+                            {{ workbench.loaded ? '没有找到匹配的资源、页面或命令' : '没有找到匹配的页面或命令' }}
+                        </CommandEmpty>
                         <CommandGroup
                             v-for="group in groups"
                             :key="group.label"
@@ -48,11 +56,23 @@
                                 :text-value="result.label"
                                 :keywords="[result.keywords, result.resource?.status ?? '']"
                                 class="group/result min-h-8 gap-3 px-2.5"
-                                :disabled="workbench.busy || (result.command === 'inspection' && !!workbench.syncError)"
+                                :disabled="
+                                    result.command === 'inspection' &&
+                                    (workbench.busy || workbench.syncPending || !workspace.current || !workbench.loaded)
+                                "
                                 @select="execute(result)"
                             >
                                 <component :is="result.icon" class="size-4 shrink-0" aria-hidden="true" />
-                                <span class="min-w-0 flex-1 truncate">{{ result.label }}</span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate" :title="result.label">{{ result.label }}</span>
+                                    <span
+                                        v-if="result.resource"
+                                        class="mt-0.5 block truncate text-xs text-muted-foreground"
+                                        :title="result.description"
+                                    >
+                                        {{ result.description }}
+                                    </span>
+                                </span>
                                 <StateBadge v-if="result.resource" :tone="stateTone(result.resource.status)">
                                     {{ result.resource.status }}
                                 </StateBadge>
@@ -84,6 +104,8 @@ import {
     PackageSearch,
     Package,
     Plus,
+    Settings,
+    CircleHelp,
     X,
 } from '@lucide/vue';
 import { Button } from '@/ui/button';
@@ -98,6 +120,7 @@ import { managementNavigation, managementPath } from '@/router/management-naviga
 import { resourceNavigation, type ResourceDomain } from '@/router/resource-navigation';
 import { workbenchPage } from '@/module/workbench/navigation';
 import { stateTone, type Resource } from '@/module/workbench';
+import { useApplicationSetting } from '../application-setting/context';
 
 type Result = {
     id: string;
@@ -108,7 +131,7 @@ type Result = {
     icon: Component;
     path?: string;
     resource?: Resource;
-    command?: 'inspection';
+    command?: 'inspection' | 'settings' | 'help';
 };
 const open = defineModel<boolean>({ default: false });
 const preview = ref<Resource | null>(null);
@@ -117,6 +140,8 @@ const returnFocus = shallowRef<HTMLElement | null>(null);
 const workspace = useWorkspaceStore();
 const workbench = useWorkbenchStore();
 const router = useRouter();
+const applicationSetting = useApplicationSetting();
+const searchGeneration = ref(0);
 const focusInset = { top: 36, bottom: 36 };
 const scrollSurface = useTemplateRef<InstanceType<typeof ScrollSurface>>('scrollSurface');
 const navigationKeys = ['ArrowUp', 'ArrowDown', 'Home', 'End'];
@@ -126,7 +151,11 @@ function restoreKeyboardScroll() {
     restoreViewportScroll = undefined;
 }
 function prepareKeyboardScroll(event: KeyboardEvent) {
-    if (event.isComposing || !navigationKeys.includes(event.key)) return;
+    if (event.isComposing) {
+        if (event.key === 'Enter') event.stopPropagation();
+        return;
+    }
+    if (!navigationKeys.includes(event.key)) return;
     if (!event.repeat) return restoreKeyboardScroll();
     const viewport = scrollSurface.value?.viewportElement;
     if (!viewport || restoreViewportScroll) return;
@@ -183,12 +212,12 @@ const pages: Result[] = [
     }),
 ];
 const resourceIcons = { 材料定义: FlaskConical, 库存实例: Package, 设施: Building2, 设备: Monitor, 文件: FileText };
-const candidates = computed(() => {
+const candidates = computed<Result[]>(() => {
     const resourceItems: Result[] = workbench.currentResources.map((item) => ({
-        id: item.id,
+        id: `${item.kind}:${item.id}`,
         group: item.kind,
         label: item.name,
-        description: `${item.kind} · ${workspace.workspaces.find((entry) => entry.id === item.workspaceId)?.name} · ${item.description}`,
+        description: `${item.id} · ${workspace.workspaces.find((entry) => entry.id === item.workspaceId)?.name ?? '当前工作区'} · ${item.description}`,
         keywords: `${item.name} ${item.id} ${item.description}`,
         icon: resourceIcons[item.kind],
         resource: item,
@@ -204,7 +233,29 @@ const candidates = computed(() => {
         resource: undefined,
         command: 'inspection',
     }));
-    return [...resourceItems, ...pages, ...commands];
+    return [
+        ...resourceItems,
+        ...pages,
+        ...commands,
+        {
+            id: 'application-settings',
+            group: '命令',
+            label: '应用设置',
+            description: '',
+            keywords: '本地 偏好 侧栏',
+            icon: Settings,
+            command: 'settings' as const,
+        },
+        {
+            id: 'application-help',
+            group: '命令',
+            label: '帮助',
+            description: '',
+            keywords: '文档 关于',
+            icon: CircleHelp,
+            command: 'help' as const,
+        },
+    ];
 });
 const groups = computed(() =>
     ['材料定义', '库存实例', '设施', '设备', '文件', '页面', '命令']
@@ -214,20 +265,29 @@ const groups = computed(() =>
 watch(open, (value) => {
     restoreKeyboardScroll();
     if (value) {
+        searchGeneration.value++;
         returnFocus.value = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         commandError.value = '';
     }
 });
 function restoreFocus(event: Event) {
     event.preventDefault();
-    if (!open.value && !preview.value && returnFocus.value?.isConnected) returnFocus.value.focus();
+    if (!open.value && !preview.value && !applicationSetting.open.value && returnFocus.value?.isConnected)
+        returnFocus.value.focus();
 }
+watch(
+    () => workspace.activeId,
+    () => {
+        open.value = false;
+        preview.value = null;
+    }
+);
 async function execute(item: Result) {
-    if (workbench.busy) return;
     if (item.resource) {
         open.value = false;
         preview.value = item.resource;
     } else if (item.command === 'inspection') {
+        if (workbench.busy || workbench.syncPending || !workspace.current || !workbench.loaded) return;
         const resource = workbench.currentResources.find((entry) => `inspection-${entry.id}` === item.id);
         if (!resource) return;
         const id = await workbench.addInspection(resource);
@@ -237,6 +297,9 @@ async function execute(item: Result) {
         }
         open.value = false;
         router.push({ path: workbenchPage.task.path, query: { task: id } });
+    } else if (item.command === 'settings' || item.command === 'help') {
+        open.value = false;
+        applicationSetting.show(item.command === 'settings' ? undefined : 'help', returnFocus.value);
     } else if (item.path) {
         open.value = false;
         router.push(item.path);

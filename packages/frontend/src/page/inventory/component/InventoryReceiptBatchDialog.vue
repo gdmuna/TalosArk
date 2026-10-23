@@ -6,6 +6,8 @@ import { useInventoryReceiptStore } from '@/module/inventory';
 import { BatchOperationPanel } from '@/component/batch-operation';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
 import { ScrollSurface } from '@/component/scroll-surface';
+import { useOverlayDraft } from '@/component/overlay-draft';
+import { useWorkspaceStore } from '@/module/workspace';
 import { Button } from '@/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/ui/dialog';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/ui/sheet';
@@ -20,21 +22,25 @@ const props = defineProps<{
 }>();
 const open = defineModel<boolean>('open', { default: false });
 const store = useInventoryReceiptStore();
+const workspace = useWorkspaceStore();
+const operationWorkspace = computed(
+    () =>
+        workspace.workspaces.find((item) => item.id === props.scope?.workspaceId)?.name ??
+        props.scope?.workspaceId ??
+        '未选择工作区'
+);
 const key = computed(() => store.batchKey(props.scope)),
     batch = computed(() => store.batch.current(key.value));
 type Row = ReceiptDraft & { id: string };
 const drafts = shallowRef<Row[]>([]),
     editing = ref<string>(),
     initial = shallowRef<InventoryReceipt>(),
-    formOpen = ref(false),
-    discard = ref(false);
-const dialogOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (!value && drafts.value.length && !batch.value) discard.value = true;
-        else open.value = value;
-    },
-});
+    formOpen = ref(false);
+const {
+    guardedOpen: dialogOpen,
+    confirmOpen: discard,
+    discard: discardDraft,
+} = useOverlayDraft(open, () => JSON.stringify(drafts.value), { saved: () => !!batch.value });
 const columns: DataTableColumn<Row>[] = [
     { id: 'code', label: '实例编号', value: (row) => row.body.code ?? '系统生成', size: 170 },
     { id: 'material', label: '材料', value: (row) => row.materialName, size: 240, fill: true },
@@ -123,10 +129,14 @@ onScopeDispose(() => store.batch.pause());
 <template>
     <Sheet v-model:open="dialogOpen">
         <SheetContent class="w-full gap-0 p-0 sm:max-w-4xl">
-            <header class="space-y-2 border-b p-6 pr-12">
+            <header class="shrink-0 space-y-2 border-b p-6 pr-12">
                 <SheetTitle>批量入库</SheetTitle>
                 <SheetDescription>
-                    {{ batch ? '逐件登记结果' : `待提交 ${drafts.length} / 100 件实物` }}
+                    操作工作区 · {{ operationWorkspace }}
+                    <br />
+                    {{
+                        batch ? '关闭会暂停后续提交；已提交项目保留核对记录。' : `待提交 ${drafts.length} / 100 件实物`
+                    }}
                 </SheetDescription>
             </header>
             <ScrollSurface class="min-h-0 flex-1">
@@ -182,7 +192,7 @@ onScopeDispose(() => store.batch.pause());
                     </template>
                 </div>
             </ScrollSurface>
-            <footer class="flex justify-end gap-2 border-t p-6">
+            <footer class="flex shrink-0 justify-end gap-2 border-t p-6">
                 <Button variant="outline" @click="dialogOpen = false">关闭</Button>
                 <Button
                     v-if="!batch"
@@ -211,14 +221,7 @@ onScopeDispose(() => store.batch.pause());
             <DialogDescription>尚未提交的 {{ drafts.length }} 个项目将被清除。</DialogDescription>
             <div class="flex justify-end gap-2">
                 <Button variant="outline" @click="discard = false">继续编辑</Button>
-                <Button
-                    @click="
-                        discard = false;
-                        open = false;
-                    "
-                >
-                    放弃清单
-                </Button>
+                <Button @click="discardDraft">放弃清单</Button>
             </div>
         </DialogContent>
     </Dialog>

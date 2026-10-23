@@ -10,7 +10,7 @@ import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { ScrollArea } from '@/ui/scroll-area';
 import { SelectField } from '@/component/select-field';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/ui/dialog';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import { Field, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/ui/field';
 
 const formFieldId = useId();
@@ -36,16 +36,12 @@ const identifiers = ref<{ scheme: string; value: string }[]>([]);
 const error = ref('');
 const validation = ref<{ field: string; message: string }>();
 const formElement = ref<HTMLFormElement>();
-const discardOpen = ref(false);
-const draft = () => JSON.stringify([form, attributes, aliases.value, identifiers.value]);
-const initialDraft = ref('');
-const dialogOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (store.busy) return;
-        if (!value && draft() !== initialDraft.value) discardOpen.value = true;
-        else open.value = value;
-    },
+const {
+    guardedOpen: dialogOpen,
+    confirmOpen,
+    discard,
+} = useOverlayDraft(open, () => JSON.stringify([form, attributes, aliases.value, identifiers.value]), {
+    busy: () => store.busy,
 });
 const typeError = ref('');
 const title = computed(() => (props.material ? '编辑材料' : '新建材料'));
@@ -105,14 +101,11 @@ watch(open, (value) => {
     identifiers.value = material?.identifiers.map((item) => ({ ...item })) ?? [];
     error.value = store.error = '';
     validation.value = undefined;
-    discardOpen.value = false;
-    initialDraft.value = draft();
     void loadTypes();
 });
 watch(
     () => store.scope,
     () => {
-        discardOpen.value = false;
         open.value = false;
     }
 );
@@ -603,22 +596,5 @@ async function submit() {
             </form>
         </SheetContent>
     </Sheet>
-    <Dialog v-model:open="discardOpen">
-        <DialogContent>
-            <DialogTitle>放弃未保存的材料信息？</DialogTitle>
-            <DialogDescription>关闭后，本次尚未保存的内容会丢失。</DialogDescription>
-            <DialogFooter>
-                <Button variant="outline" @click="discardOpen = false">继续编辑</Button>
-                <Button
-                    variant="destructive"
-                    @click="
-                        discardOpen = false;
-                        open = false;
-                    "
-                >
-                    放弃更改
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

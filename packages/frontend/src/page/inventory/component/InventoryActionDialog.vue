@@ -18,6 +18,8 @@ import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { Checkbox } from '@/ui/checkbox';
 import { InventoryPositionPicker } from '@/module/inventory';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
+import { useWorkspaceStore } from '@/module/workspace';
 import { Field, FieldLabel, FieldSet } from '@/ui/field';
 
 const formFieldId = useId();
@@ -32,6 +34,13 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { default: false });
 const silentSync = ref(false);
 const source = useInventoryDataSource();
+const workspace = useWorkspaceStore();
+const operationWorkspace = computed(
+    () =>
+        workspace.workspaces.find((item) => item.id === props.scope?.workspaceId)?.name ??
+        props.scope?.workspaceId ??
+        '未选择工作区'
+);
 const store = useInventoryActionStore();
 const stock = shallowRef<InventoryStock>();
 const quantity = ref('');
@@ -49,11 +58,14 @@ const attempt = computed(() => store.current(props.scope));
 const kind = computed(() => attempt.value?.command.kind ?? props.kind);
 const title = computed(() => (kind.value ? inventoryActionLabel[kind.value] : '核对库存操作'));
 const locked = computed(() => store.busy || syncing.value || loading.value);
-const dialogOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (!store.busy && !syncing.value) open.value = value;
-    },
+const {
+    guardedOpen: dialogOpen,
+    confirmOpen,
+    discard,
+    markClean,
+} = useOverlayDraft(open, () => JSON.stringify([quantity.value, reason.value, position.value, confirmed.value]), {
+    busy: () => store.busy || syncing.value,
+    saved: () => !!attempt.value,
 });
 const canSubmit = computed(
     () =>
@@ -107,7 +119,10 @@ async function reloadStock() {
         if (signal.aborted) return;
         stock.value = latest;
         needsReload.value = false;
-        if (!quantity.value && props.kind === 'adjust') quantity.value = latest.quantity;
+        if (!quantity.value && props.kind === 'adjust') {
+            quantity.value = latest.quantity;
+            markClean();
+        }
     } catch (cause) {
         if (!signal.aborted) {
             needsReload.value = true;
@@ -209,6 +224,7 @@ async function synchronize() {
             <DialogTitle>{{ title }}</DialogTitle>
             <DialogDescription>
                 {{ attempt?.code ?? stock?.code ?? props.stock?.code ?? '恢复上次提交的库存操作' }}
+                · 操作工作区：{{ operationWorkspace }}
             </DialogDescription>
             <p v-if="store.recoveryError || error || store.error" role="alert" class="text-sm text-destructive">
                 {{ store.recoveryError || error || store.error }}
@@ -230,7 +246,7 @@ async function synchronize() {
                 </div>
                 <p v-if="syncError" class="text-destructive">{{ syncError }}</p>
                 <div class="flex justify-end gap-2">
-                    <Button variant="outline" :disabled="locked" @click="open = false">关闭</Button>
+                    <Button variant="outline" :disabled="locked" @click="dialogOpen = false">关闭</Button>
                     <Button :disabled="locked" @click="attempt.receipt ? synchronize() : recover()">
                         {{ locked ? '正在核对' : attempt.receipt ? '只重新加载' : '继续核对原操作' }}
                     </Button>
@@ -291,7 +307,7 @@ async function synchronize() {
                     </p>
                 </template>
                 <div class="flex justify-end gap-2 border-t pt-4">
-                    <Button type="button" variant="outline" :disabled="locked" @click="open = false">取消</Button>
+                    <Button type="button" variant="outline" :disabled="locked" @click="dialogOpen = false">取消</Button>
                     <Button
                         v-if="needsReload || (!stock && !loading)"
                         type="button"
@@ -311,4 +327,5 @@ async function synchronize() {
             </form>
         </DialogContent>
     </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

@@ -49,6 +49,7 @@ watch(
         v-model:open="tooltipOpen"
         :disabled="tooltipDisabled"
         :ignore-non-keyboard-focus="true"
+        :disable-hoverable-content="true"
         :delay-duration="tooltipDelayDuration"
     >
         <TooltipTrigger as-child>
@@ -67,7 +68,13 @@ watch(
                 <slot />
             </Primitive>
         </TooltipTrigger>
-        <TooltipContent :aria-label="tooltipText" :side="tooltipSide" class="duration-200 ease-standard z-20000">
+        <TooltipContent
+            v-if="tooltipOpen"
+            data-button-tooltip
+            :aria-label="tooltipText"
+            :side="tooltipSide"
+            class="pointer-events-none! duration-200 ease-standard z-20000"
+        >
             {{ tooltipText }}
         </TooltipContent>
     </Tooltip>
@@ -86,3 +93,10 @@ watch(
         <slot />
     </Primitive>
 </template>
+
+<style scoped>
+/* Display-only labels must not block controls beneath their positioning wrapper. */
+:global([data-reka-popper-content-wrapper]:has(> [data-button-tooltip])) {
+    pointer-events: none;
+}
+</style>

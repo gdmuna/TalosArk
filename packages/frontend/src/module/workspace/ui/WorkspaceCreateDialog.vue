@@ -7,6 +7,7 @@ import { SelectField } from '@/component/select-field';
 import { DataSyncNotice } from '@/component/data-sync';
 import { useWorkspaceStore } from '../model/store';
 import { Field, FieldError, FieldLabel } from '@/ui/field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 
 const formFieldId = useId();
 
@@ -19,6 +20,11 @@ const workspaceName = ref('');
 const organizationId = ref('');
 const error = ref('');
 const committed = ref(false);
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(
+    open,
+    () => JSON.stringify([name.value, workspaceName.value, organizationId.value]),
+    { busy: () => workspace.busy, saved: committed }
+);
 let generation = 0;
 const title = computed(() => ({ organization: '新建组织', workspace: '新建工作区', join: '加入工作区' })[props.mode]);
 const options = computed(() =>
@@ -69,7 +75,7 @@ async function submit() {
 </script>
 
 <template>
-    <Dialog v-model:open="open">
+    <Dialog v-model:open="guardedOpen">
         <DialogContent @close-auto-focus="emit('close-auto-focus', $event)">
             <DialogTitle>{{ title }}</DialogTitle>
             <DialogDescription class="sr-only">{{ title }}</DialogDescription>
@@ -120,7 +126,7 @@ async function submit() {
                     @retry="workspace.retrySync()"
                 />
                 <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" @click="open = false">
+                    <Button type="button" variant="outline" :disabled="workspace.busy" @click="guardedOpen = false">
                         {{ committed ? '关闭' : '取消' }}
                     </Button>
                     <Button
@@ -139,4 +145,5 @@ async function submit() {
             </form>
         </DialogContent>
     </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

@@ -18,6 +18,7 @@ import Workbench from '@/page/workbench/Workbench.vue';
 import Material from '@/page/material/Material.vue';
 import Inventory from '@/page/inventory/Inventory.vue';
 import Equipment from '@/page/equipment/Equipment.vue';
+import NotFound from '@/page/NotFound.vue';
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -51,14 +52,14 @@ const routes: RouteRecordRaw[] = [
                 path: 'login',
                 component: Auth,
                 meta: {
-                    defaultTitle: 'login',
+                    defaultTitle: '登录',
                 },
             },
             {
                 path: 'callback',
                 component: AuthCallback,
                 meta: {
-                    defaultTitle: 'callback',
+                    defaultTitle: '正在完成登录',
                 },
             },
             {
@@ -146,6 +147,11 @@ const routes: RouteRecordRaw[] = [
                 children: equipmentRoutes,
             },
         ],
+    },
+    {
+        path: '/:pathMatch(.*)*',
+        component: NotFound,
+        meta: { defaultTitle: '找不到此页面', fluidLayout: true },
     },
 ];
 

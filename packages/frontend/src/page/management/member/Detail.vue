@@ -16,8 +16,7 @@ import { useManagementDataSource } from '@/module/workspace';
 import DetailPage from '../detail/DetailPage.vue';
 import FactList from '../detail/FactList.vue';
 import ActivityFeed from '../detail/ActivityFeed.vue';
-import DraftDialog from '../detail/DraftDialog.vue';
-import { useDraftGuard } from '../detail/useDraftGuard';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import ManagementSection from '../component/ManagementSection.vue';
 import { useManagementView } from '../useManagementView';
 import { useDetailRead, useDetailActivity, detailDate, memberStatus } from '../detail/read';
@@ -138,19 +137,15 @@ const roleCatalogKey = computed(() => (bindingOpen.value && data.value?.canManag
 const roleCatalog = useDetailRead(roleCatalogKey, (signal) =>
     source.team.load({ organizationId: organizationId.value }, { page: 1, pageSize: 1, search: '' }, signal)
 );
-const bindingDirty = computed(
-    () =>
-        bindingOpen.value &&
-        [...selectedRoles.value].sort().join('\n') !==
-            (data.value?.member.roles
-                .map((item) => item.id)
-                .sort()
-                .join('\n') ?? '')
-);
-const guard = useDraftGuard(bindingDirty, () => {
-    bindingOpen.value = false;
-    selectedRoles.value = [];
+const bindingVisible = computed({
+    get: () => bindingOpen.value && !!data.value,
+    set: (value) => (bindingOpen.value = value),
 });
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(
+    bindingVisible,
+    () => JSON.stringify([...selectedRoles.value].sort()),
+    { busy, saved: pendingSync }
+);
 watch(key, () => {
     bindingOpen.value = false;
     selectedRoles.value = [];
@@ -351,7 +346,7 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
             </ManagementSection>
         </template>
     </DetailPage>
-    <Dialog :open="bindingOpen && !!data" @update:open="(value) => (bindingOpen = value)">
+    <Dialog v-model:open="guardedOpen">
         <DialogContent :aria-describedby="undefined">
             <DialogHeader>
                 <DialogTitle>分配组织角色</DialogTitle>
@@ -384,7 +379,7 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
                 </Field>
                 <FieldError v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</FieldError>
                 <DialogFooter>
-                    <Button type="button" variant="outline" :disabled="busy" @click="bindingOpen = false">取消</Button>
+                    <Button type="button" variant="outline" :disabled="busy" @click="guardedOpen = false">取消</Button>
                     <Button
                         :disabled="
                             busy ||
@@ -401,5 +396,5 @@ function openRole(roleId: string, scopeWorkspaceId?: string | null) {
             </form>
         </DialogContent>
     </Dialog>
-    <DraftDialog :open="guard.open.value" @decide="guard.decide" />
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

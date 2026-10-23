@@ -8,7 +8,6 @@ export function authErrorMessage(cause: unknown, fallback: string): string {
         return '会话正在刷新，请稍后重试。';
     if (!(cause instanceof HttpError)) return fallback;
     if (cause.status === 429) return '尝试过于频繁，请稍后再试。';
-    if (cause.status === 403) return '当前访问地址或账户无权执行此操作。';
     switch (cause.code) {
         case 'AUTH_CREDENTIALS_INVALID':
             return '账号或密码不正确。';
@@ -21,6 +20,6 @@ export function authErrorMessage(cause: unknown, fallback: string): string {
         case 'AUTH_REAUTHENTICATION_REQUIRED':
             return '请重新通过企业 SSO 登录，再设置本地密码。';
         default:
-            return fallback;
+            return cause.status === 403 ? '当前访问地址或账户无权执行此操作。' : fallback;
     }
 }

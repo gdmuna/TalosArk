@@ -22,6 +22,7 @@ import FacilityPicker from './FacilityPicker.vue';
 import NodePicker from './NodePicker.vue';
 import ReadFeedback from './ReadFeedback.vue';
 import { Field, FieldError, FieldLabel } from '@/ui/field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 const standaloneFieldId = useId();
 
 const formFieldId = useId();
@@ -73,6 +74,28 @@ const { data, loading, busy, conflict, error, syncError, pendingSync, refresh, w
         if (facility.topology?.id !== scope.topologyId) throw new HttpError('布局已改变', 'protocol');
         return { facility, node };
     }
+);
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(
+    open,
+    () =>
+        JSON.stringify([
+            code.value,
+            name.value,
+            description.value,
+            kind.value,
+            containerType.value,
+            rowIndex.value,
+            columnIndex.value,
+            rowCount.value,
+            columnCount.value,
+            gridRows.value,
+            gridColumns.value,
+            prefix.value,
+            targetId.value,
+            targetParent.value,
+            beforeId.value,
+        ]),
+    { busy, saved: committed }
 );
 const targetKey = computed(() =>
     key.value && targetId.value && props.mode === 'move' ? JSON.stringify([key.value, targetId.value]) : ''
@@ -268,7 +291,7 @@ async function reload() {
 }
 </script>
 <template>
-    <Dialog v-model:open="open">
+    <Dialog v-model:open="guardedOpen">
         <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
             <DialogTitle>{{ title }}</DialogTitle>
             <DialogDescription>
@@ -453,7 +476,7 @@ async function reload() {
                     {{ validation }}
                 </FieldError>
                 <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" :disabled="busy" @click="open = false">关闭</Button>
+                    <Button type="button" variant="outline" :disabled="busy" @click="guardedOpen = false">关闭</Button>
                     <Button
                         :disabled="
                             disabled ||
@@ -469,4 +492,5 @@ async function reload() {
             </form>
         </DialogContent>
     </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

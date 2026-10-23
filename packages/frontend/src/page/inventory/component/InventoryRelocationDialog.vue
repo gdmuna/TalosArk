@@ -12,6 +12,7 @@ import { Textarea } from '@/ui/textarea';
 import { Checkbox } from '@/ui/checkbox';
 import { ScrollSurface } from '@/component/scroll-surface';
 import { DataSyncNotice } from '@/component/data-sync';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import { useInventoryDataSource, useInventoryRelocationStore, relocationErrorMessage } from '@/module/inventory';
 import type { InventoryRelocation, InventoryRelocationPreview } from '@/module/inventory';
 import { isResponseValidationError } from '@/platform/http';
@@ -43,12 +44,24 @@ let lifetime = new AbortController();
 let previewRequest: AbortController | undefined;
 const attempt = computed(() => store.current(props.scope.organizationId));
 const locked = computed(() => store.busy || syncing.value || !!attempt.value);
-const dialogOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (!store.busy && !syncing.value) open.value = value;
-    },
-});
+const {
+    guardedOpen: dialogOpen,
+    confirmOpen,
+    discard,
+} = useOverlayDraft(
+    open,
+    () =>
+        JSON.stringify([
+            targetId.value,
+            parentId.value,
+            code.value,
+            row.value,
+            column.value,
+            reason.value,
+            confirmed.value,
+        ]),
+    { busy: () => store.busy || syncing.value, saved: () => !!attempt.value }
+);
 const targetKey = computed(() =>
     open.value && !attempt.value && targetId.value
         ? JSON.stringify([props.contextKey, props.scope, targetId.value])
@@ -371,7 +384,7 @@ async function synchronize() {
                     </Field>
                 </section>
                 <div class="flex justify-end gap-2 border-t pt-4">
-                    <Button type="button" variant="outline" :disabled="locked" @click="open = false">取消</Button>
+                    <Button type="button" variant="outline" :disabled="locked" @click="dialogOpen = false">取消</Button>
                     <Button :disabled="!preview || !confirmed || !reason.trim() || !canPreview">
                         {{ store.busy ? '搬迁中' : '确认整体搬迁' }}
                     </Button>
@@ -379,4 +392,5 @@ async function synchronize() {
             </form>
         </DialogContent>
     </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

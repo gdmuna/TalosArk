@@ -53,11 +53,17 @@
             </div>
             <div class="flex shrink-0">
                 <div class="flex *:size-9">
-                    <Button variant="ghost" size="icon" use-tooltip title="通知">
-                        <span class="sr-only">通知</span>
+                    <Button variant="ghost" size="icon" disabled title="通知中心暂未开放" aria-label="通知中心暂未开放">
+                        <span class="sr-only">通知中心暂未开放</span>
                         <Bell aria-hidden="true" class="size-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" use-tooltip title="帮助">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        use-tooltip
+                        title="帮助"
+                        @click="applicationSetting.show('help')"
+                    >
                         <span class="sr-only">帮助</span>
                         <CircleQuestionMark aria-hidden="true" class="size-5" />
                     </Button>
@@ -90,6 +96,7 @@ import { useRoute } from 'vue-router';
 
 import { Button } from '@/ui/button';
 import { UserMenu } from '@/layout/user-menu';
+import { useApplicationSetting } from '../application-setting/context';
 import DataSyncStatus from './DataSyncStatus.vue';
 
 import { MorphIcon } from 'morphicons/vue';
@@ -107,6 +114,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'toggle-sidebar': [] }>();
 const accountMenu = useTemplateRef('accountMenu');
+const applicationSetting = useApplicationSetting();
 provideRouteTabContext();
 const { tabEntity } = useRouteTab();
 const route = useRoute();

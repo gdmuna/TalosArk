@@ -16,7 +16,7 @@ const emit = defineEmits<{ decide: [leave: boolean] }>();
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>放弃未保存的更改？</DialogTitle>
-                <DialogDescription>离开当前视图后，未保存的模拟更改会丢失。</DialogDescription>
+                <DialogDescription>离开当前视图后，未保存的更改会丢失。</DialogDescription>
             </DialogHeader>
             <DialogFooter>
                 <Button variant="outline" @click="emit('decide', false)">继续编辑</Button>

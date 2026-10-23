@@ -45,14 +45,11 @@ import { CommandPalette } from '../command-palette';
 import WorkspaceUnavailable from '../startup/WorkspaceUnavailable.vue';
 import { useEventListener } from '@vueuse/core';
 
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { useApplicationSetting } from '../application-setting/context';
 
-// Keep the previous preference cookie while replacing the shadcn sidebar state.
-const sidebarExpanded = ref(!document.cookie.split('; ').includes('sidebar_state=false'));
-watch(sidebarExpanded, (value) => {
-    document.cookie = `sidebar_state=${value}; path=/; max-age=${60 * 60 * 24 * 7}`;
-});
+const { sidebarExpanded } = useApplicationSetting();
 const paletteOpen = ref(false);
 const workbench = useWorkbenchStore();
 const workspace = useWorkspaceStore();
@@ -67,6 +64,14 @@ const activeNavigation = computed(() =>
 
 useEventListener('keydown', (event: KeyboardEvent) => {
     if ((!event.ctrlKey && !event.metaKey) || event.isComposing || event.repeat || event.altKey) return;
+    if (
+        event.defaultPrevented ||
+        (!paletteOpen.value &&
+            document.querySelector(
+                '[data-slot="dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]'
+            ))
+    )
+        return;
     if (event.key.toLowerCase() === 'k') {
         event.preventDefault();
         paletteOpen.value = !paletteOpen.value;

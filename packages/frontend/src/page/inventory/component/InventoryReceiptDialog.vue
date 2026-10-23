@@ -9,6 +9,7 @@ import { HttpError, isResponseValidationError } from '@/platform/http';
 import { InventoryPositionPicker } from '@/module/inventory';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/ui/sheet';
 import { ScrollSurface } from '@/component/scroll-surface';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import { useWorkspaceStore } from '@/module/workspace';
 import { Button } from '@/ui/button';
 import { Input } from '@/ui/input';
@@ -71,12 +72,33 @@ const materialPage = ref(1),
     batchPage = ref(1);
 let session = 0;
 const formLocked = computed(() => submitting.value || !!pending.value || !!committed.value);
-const dialogOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (!submitting.value && !syncing.value) open.value = value;
-    },
-});
+const {
+    guardedOpen: dialogOpen,
+    confirmOpen,
+    discard,
+} = useOverlayDraft(
+    open,
+    () =>
+        JSON.stringify([
+            materialId.value,
+            batchMode.value,
+            batchId.value,
+            batchNumber.value,
+            batchNotes.value,
+            manufacturedOn.value,
+            expiryKind.value,
+            expiryDate.value,
+            quantity.value,
+            code.value,
+            label.value,
+            notes.value,
+            receivedOn.value,
+            openedAt.value,
+            confirmExpired.value,
+            selectedPosition.value,
+        ]),
+    { busy: () => submitting.value || syncing.value, saved: () => !!attempt.value }
+);
 
 const materialKey = computed(() => JSON.stringify([open.value, props.scope, materialSearch.value, materialPage.value]));
 const materials = useMaterialRead(
@@ -730,7 +752,12 @@ async function reloadOnly() {
                         </p>
                     </div>
                     <div class="flex justify-end gap-2">
-                        <Button type="button" variant="outline" :disabled="submitting || syncing" @click="open = false">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :disabled="submitting || syncing"
+                            @click="dialogOpen = false"
+                        >
                             {{ committed ? '关闭' : '取消' }}
                         </Button>
                         <Button v-if="committed" type="button" :disabled="syncing" @click="reloadOnly">
@@ -752,4 +779,5 @@ async function reloadOnly() {
             </form>
         </SheetContent>
     </Sheet>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

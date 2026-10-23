@@ -40,6 +40,7 @@ import TeamPermissionMatrix from './TeamPermissionMatrix.vue';
 import type { TeamManagementContext } from './team-context';
 import type { TeamManagementListState } from './team-list-state';
 import { Field, FieldError, FieldLabel } from '@/ui/field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 const standaloneFieldId = useId();
 
 const formFieldId = useId();
@@ -133,6 +134,25 @@ const permissions = ref<string[]>([]),
     roleIds = ref<string[]>([]);
 const confirmation = ref<TeamCommand | null>(null),
     confirmationTitle = ref('');
+const modalOpen = computed({
+    get: () => modal.value !== null,
+    set: (value) => {
+        if (!value) modal.value = null;
+    },
+});
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(
+    modalOpen,
+    () =>
+        JSON.stringify([
+            email.value,
+            roleName.value,
+            roleCode.value,
+            roleScope.value,
+            permissions.value,
+            roleIds.value,
+        ]),
+    { busy: () => team.busy, saved: () => team.syncPending }
+);
 let generation = 0;
 watch(modal, () => {
     generation++;
@@ -929,14 +949,7 @@ async function submit() {
             </dl>
         </ScrollSurface>
     </SheetInspector>
-    <Dialog
-        :open="modal !== null"
-        @update:open="
-            (value) => {
-                if (!value) modal = null;
-            }
-        "
-    >
+    <Dialog v-model:open="guardedOpen">
         <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-lg" :aria-describedby="undefined">
             <DialogHeader>
                 <DialogTitle class="break-words pr-6">
@@ -969,7 +982,7 @@ async function submit() {
                         type="email"
                         required
                         maxlength="254"
-                        :disabled="team.busy"
+                        :disabled="disabled"
                     />
                 </Field>
                 <template v-if="modal === 'role'">
@@ -980,7 +993,7 @@ async function submit() {
                             v-model="roleName"
                             required
                             maxlength="40"
-                            :disabled="team.busy"
+                            :disabled="disabled"
                         />
                     </Field>
                     <Field v-if="!selectedRole">
@@ -991,7 +1004,7 @@ async function submit() {
                             required
                             pattern="[a-z][a-z0-9-]*"
                             maxlength="120"
-                            :disabled="team.busy"
+                            :disabled="disabled"
                         />
                     </Field>
                     <Field>
@@ -1004,7 +1017,7 @@ async function submit() {
                                 { value: 'ORGANIZATION', label: '组织' },
                                 { value: 'WORKSPACE', label: '工作区' },
                             ]"
-                            :disabled="!!selectedRole || team.busy"
+                            :disabled="!!selectedRole || disabled"
                             @update:model-value="permissions = []"
                         />
                     </Field>
@@ -1061,10 +1074,13 @@ async function submit() {
                     @retry="reload"
                 />
                 <DialogFooter>
-                    <Button type="button" variant="outline" @click="modal = null">取消</Button>
+                    <Button type="button" variant="outline" :disabled="team.busy" @click="guardedOpen = false">
+                        取消
+                    </Button>
                     <Button type="submit" :disabled="disabled">{{ team.busy ? '正在提交' : '确认' }}</Button>
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

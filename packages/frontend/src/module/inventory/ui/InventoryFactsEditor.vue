@@ -11,6 +11,7 @@ import { Input } from '@/ui/input';
 import { Checkbox } from '@/ui/checkbox';
 import { Textarea } from '@/ui/textarea';
 import { SelectField } from '@/component/select-field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import { Field, FieldError, FieldLabel, FieldSet } from '@/ui/field';
 const standaloneFieldId = useId();
 
@@ -52,12 +53,27 @@ const expired = computed(
         !!props.businessDate &&
         expiryDate.value < props.businessDate
 );
-const sheetOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (!busy.value) open.value = value;
-    },
-});
+const {
+    guardedOpen: sheetOpen,
+    confirmOpen,
+    discard,
+    markClean,
+} = useOverlayDraft(
+    open,
+    () =>
+        JSON.stringify([
+            label.value,
+            notes.value,
+            manufacturedOn.value,
+            receivedOn.value,
+            openedAt.value,
+            expiryKind.value,
+            expiryDate.value,
+            reason.value,
+            confirmExpired.value,
+        ]),
+    { busy, saved: committed }
+);
 
 function localOpenedAt(value: string | null) {
     if (!value) return '';
@@ -76,6 +92,7 @@ function reset(stock: InventoryStock) {
     reason.value = error.value = '';
     confirmExpired.value = committed.value = syncPending.value = needsReload.value = false;
     syncFailure.value = undefined;
+    markClean();
 }
 watch(open, (value) => {
     if (value) {
@@ -271,7 +288,9 @@ async function reloadDraft() {
                         }}
                     </p>
                     <div class="flex justify-end gap-2">
-                        <Button type="button" variant="outline" :disabled="busy" @click="open = false">关闭</Button>
+                        <Button type="button" variant="outline" :disabled="busy" @click="sheetOpen = false">
+                            关闭
+                        </Button>
                         <Button v-if="needsReload" type="button" :disabled="busy" @click="reloadDraft">
                             重新加载资料
                         </Button>
@@ -295,4 +314,5 @@ async function reloadDraft() {
             </ScrollArea>
         </SheetContent>
     </Sheet>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

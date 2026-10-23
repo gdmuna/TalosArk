@@ -11,6 +11,7 @@ import { Input } from '@/ui/input';
 import { Textarea } from '@/ui/textarea';
 import { ScrollArea } from '@/ui/scroll-area';
 import { SelectField } from '@/component/select-field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import { Field, FieldError, FieldLabel } from '@/ui/field';
 
 const formFieldId = useId();
@@ -41,12 +42,16 @@ const session = ref(0);
 onScopeDispose(() => {
     session.value++;
 });
-const sheetOpen = computed({
-    get: () => open.value,
-    set: (value) => {
-        if (!store.busy && !syncing.value) open.value = value;
-    },
-});
+const {
+    guardedOpen: sheetOpen,
+    confirmOpen,
+    discard,
+    markClean,
+} = useOverlayDraft(
+    open,
+    () => JSON.stringify([batchNumber.value, notes.value, manufacturedOn.value, expiryKind.value, expiryDate.value]),
+    { busy: () => store.busy || syncing.value, saved: () => !!committed.value }
+);
 
 function reset() {
     session.value++;
@@ -63,6 +68,7 @@ function reset() {
     committed.value = undefined;
     needsReload.value = false;
     store.error = '';
+    markClean();
 }
 
 watch(open, (value) => {
@@ -273,7 +279,12 @@ async function reloadOnly() {
                         </p>
                     </div>
                     <div class="flex justify-end gap-2">
-                        <Button type="button" variant="outline" :disabled="store.busy || syncing" @click="open = false">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :disabled="store.busy || syncing"
+                            @click="sheetOpen = false"
+                        >
                             <X aria-hidden="true" />
                             {{ committed ? '关闭' : '取消' }}
                         </Button>
@@ -292,4 +303,5 @@ async function reloadOnly() {
             </ScrollArea>
         </SheetContent>
     </Sheet>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

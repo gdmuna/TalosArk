@@ -164,8 +164,7 @@ export const useWorkspaceStore = defineStore('workspace-context', () => {
         } catch (cause) {
             if (scope.signal.aborted) return '操作上下文已改变，请重新检查操作结果';
             if (isResponseValidationError(cause)) return null;
-            if (!scope.signal.aborted)
-                error.value = cause instanceof Error ? cause.message : '更新工作区失败';
+            error.value = cause instanceof Error ? cause.message : '更新工作区失败';
         } finally {
             if (scope === sourceScope) busy.value = false;
         }

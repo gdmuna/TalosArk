@@ -3,6 +3,7 @@ import { computed, onScopeDispose, ref, shallowRef, watch, useId } from 'vue';
 import type { ApprovalScope } from '@talos-ark/contracts/approval';
 import { BatchOperationPanel } from '@/component/batch-operation';
 import { ScrollSurface } from '@/component/scroll-surface';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 import { Button } from '@/ui/button';
 import { Textarea } from '@/ui/textarea';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/ui/sheet';
@@ -16,6 +17,7 @@ import {
 } from '../model/batch';
 import { approvalTypeLabel } from '../model/presentation';
 import { Field, FieldLabel } from '@/ui/field';
+import { useWorkspaceStore } from '@/module/workspace';
 
 const formFieldId = useId();
 
@@ -27,6 +29,13 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { default: false });
 const source = useApprovalDataSource(),
     store = useApprovalOperationStore();
+const workspace = useWorkspaceStore();
+const operationWorkspace = computed(
+    () =>
+        workspace.workspaces.find((item) => item.id === props.scope?.workspaceId)?.name ??
+        props.scope?.workspaceId ??
+        '未选择工作区'
+);
 const key = computed(() => store.batchKey(props.scope));
 const batch = computed(() => store.batch.current(key.value));
 const preview = shallowRef<ApprovalBatchPreview[]>(),
@@ -43,26 +52,32 @@ const title = computed(
               ? '批量批准申请'
               : '批量拒绝申请')
 );
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(open, () => note.value, {
+    saved: () => !!batch.value,
+});
+async function loadPreview() {
+    request?.abort();
+    preview.value = undefined;
+    error.value = '';
+    loading.value = false;
+    if (!open.value || batch.value || !props.scope || !props.selection || !source) return;
+    const controller = new AbortController();
+    request = controller;
+    loading.value = true;
+    try {
+        const value = await prepareApprovalBatch(source, props.scope, props.selection, controller.signal);
+        if (!controller.signal.aborted) preview.value = value;
+    } catch (cause) {
+        if (!controller.signal.aborted) error.value = approvalErrorMessage(cause);
+    } finally {
+        if (!controller.signal.aborted) loading.value = false;
+    }
+}
 watch(
     [open, () => props.scope, () => props.selection],
-    async () => {
-        request?.abort();
-        preview.value = undefined;
-        error.value = '';
-        loading.value = false;
+    () => {
         note.value = '';
-        if (!open.value || batch.value || !props.scope || !props.selection || !source) return;
-        const controller = new AbortController();
-        request = controller;
-        loading.value = true;
-        try {
-            const value = await prepareApprovalBatch(source, props.scope, props.selection, controller.signal);
-            if (!controller.signal.aborted) preview.value = value;
-        } catch (cause) {
-            if (!controller.signal.aborted) error.value = approvalErrorMessage(cause);
-        } finally {
-            if (!controller.signal.aborted) loading.value = false;
-        }
+        void loadPreview();
     },
     { immediate: true }
 );
@@ -104,11 +119,15 @@ async function submit() {
 }
 </script>
 <template>
-    <Sheet v-model:open="open">
+    <Sheet v-model:open="guardedOpen">
         <SheetContent class="w-full gap-0 p-0 sm:max-w-4xl">
-            <header class="space-y-2 border-b p-6 pr-12">
+            <header class="shrink-0 space-y-2 border-b p-6 pr-12">
                 <SheetTitle>{{ title }}</SheetTitle>
-                <SheetDescription>工作区内逐项提交</SheetDescription>
+                <SheetDescription>
+                    操作工作区 · {{ operationWorkspace }}
+                    <br />
+                    {{ batch ? '关闭会暂停后续提交；已提交项目保留核对记录。' : '工作区内逐项提交' }}
+                </SheetDescription>
             </header>
             <ScrollSurface class="min-h-0 flex-1">
                 <div class="space-y-5 p-6">
@@ -127,7 +146,10 @@ async function submit() {
                     />
                     <template v-else>
                         <p v-if="loading" role="status">正在加载全部申请明细</p>
-                        <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
+                        <div v-if="error" class="space-y-3">
+                            <p role="alert" class="text-sm text-destructive">{{ error }}</p>
+                            <Button variant="outline" :disabled="loading" @click="loadPreview">重新加载明细</Button>
+                        </div>
                         <section v-for="group in preview" :key="group.request.id" class="space-y-3 border-b pb-5">
                             <h3 class="font-semibold">
                                 {{ group.request.title }}
@@ -170,8 +192,8 @@ async function submit() {
                     </template>
                 </div>
             </ScrollSurface>
-            <footer class="flex justify-end gap-2 border-t p-6">
-                <Button variant="outline" @click="open = false">关闭</Button>
+            <footer class="flex shrink-0 justify-end gap-2 border-t p-6">
+                <Button variant="outline" @click="guardedOpen = false">关闭</Button>
                 <Button
                     v-if="!batch"
                     :disabled="loading || !preview || !!store.recoveryError || store.busy"
@@ -182,4 +204,5 @@ async function submit() {
             </footer>
         </SheetContent>
     </Sheet>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>

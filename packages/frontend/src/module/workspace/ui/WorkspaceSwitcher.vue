@@ -10,7 +10,7 @@
                 :data-compact="compact"
                 aria-label="切换组织或工作区"
                 use-tooltip
-                :tooltip-disabled="!compact"
+                :tooltip-disabled="!compact || popoverOpen"
                 tooltip="切换组织或工作区"
                 tooltip-side="right"
                 :tooltip-delay-duration="0"
@@ -46,6 +46,8 @@
             :collision-padding="8"
             class="flex max-h-(--reka-popover-content-available-height) w-80 flex-col gap-0 overflow-hidden p-0"
             aria-label="切换组织或工作区"
+            @open-auto-focus="focusSearch"
+            @keydown="navigateOptions"
             @interact-outside="interactedOutside = true"
             @close-auto-focus="onPopoverClose"
         >
@@ -78,7 +80,13 @@
                     class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                     aria-hidden="true"
                 />
-                <Input v-model="query" class="h-8 pl-9" placeholder="搜索组织或工作区" aria-label="搜索组织或工作区" />
+                <Input
+                    ref="searchInput"
+                    v-model="query"
+                    class="h-8 pl-9"
+                    placeholder="搜索组织或工作区"
+                    aria-label="搜索组织或工作区"
+                />
             </div>
             <ScrollArea
                 class="min-h-0 shrink [--edge-surface:var(--card)]"
@@ -97,6 +105,7 @@
                                 variant="ghost"
                                 class="h-8 w-full justify-start gap-2 px-2"
                                 :aria-expanded="isExpanded(group.id)"
+                                :title="group.name"
                             >
                                 <ChevronDown
                                     :class="[
@@ -119,19 +128,28 @@
                                     :data-selected="item.id === workspace.activeId"
                                     :aria-pressed="item.id === workspace.activeId"
                                     :disabled="workspace.switching"
+                                    data-workspace-option
+                                    :title="item.name"
                                     @click="selectWorkspace(item.id)"
                                 >
                                     <UsersRound class="size-4 shrink-0" aria-hidden="true" />
                                     <span class="min-w-0 flex-1 truncate text-left">{{ item.name }}</span>
                                     <Check v-if="item.id === workspace.activeId" class="size-4" aria-hidden="true" />
                                 </Button>
+                                <p v-if="!group.workspaces.length" class="px-2 py-2 text-sm text-muted-foreground">
+                                    暂无可用工作区
+                                </p>
                             </div>
                         </CollapsibleContent>
                     </Collapsible>
-                    <p v-if="!groups.length" class="py-8 text-center text-sm text-muted-foreground">未找到工作区</p>
+                    <p v-if="!groups.length" role="status" class="py-8 text-center text-sm text-muted-foreground">
+                        {{ workspace.organizations.length ? '没有匹配的组织或工作区' : '尚未加入组织' }}
+                    </p>
                 </div>
             </ScrollArea>
-            <p v-if="workspace.error" role="alert" class="px-3 py-2 text-sm text-destructive">{{ workspace.error }}</p>
+            <p v-if="workspace.error" role="alert" class="px-3 py-2 text-sm text-destructive">
+                {{ workspace.error }}
+            </p>
             <div class="flex shrink-0 flex-wrap gap-1 border-t p-1">
                 <Button v-if="workspace.canJoin" variant="ghost" class="h-8 text-primary" @click="openForm('join')">
                     <Plus aria-hidden="true" />
@@ -181,6 +199,7 @@ const props = withDefaults(defineProps<{ anchor?: HTMLElement | SVGElement | nul
 const workspace = useWorkspaceStore();
 const workspaceTrigger = useTemplateRef('workspaceTrigger');
 const workspaceList = useTemplateRef('workspaceList');
+const searchInput = useTemplateRef('searchInput');
 const { height: listHeight } = useElementSize(workspaceList, { width: 0, height: 0 }, { box: 'border-box' });
 const popoverOpen = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ 'close-auto-focus': [event: Event]; manage: [] }>();
@@ -189,6 +208,8 @@ const query = ref('');
 const collapsed = ref<string[]>([]);
 const formOpen = ref(false);
 const mode = ref<'organization' | 'workspace' | 'join'>('workspace');
+let generation = 0;
+let skipPopoverFocusRestore = false;
 const groups = computed(() =>
     workspace.organizations
         .map((organization) => ({
@@ -199,8 +220,39 @@ const groups = computed(() =>
                     `${organization.name} ${item.name}`.toLowerCase().includes(query.value.trim().toLowerCase())
             ),
         }))
-        .filter((group) => group.workspaces.length)
+        .filter(
+            (group) => group.workspaces.length || group.name.toLowerCase().includes(query.value.trim().toLowerCase())
+        )
 );
+
+function focusSearch(event: Event) {
+    event.preventDefault();
+    const input = searchInput.value?.$el;
+    if (input instanceof HTMLInputElement) input.focus();
+}
+function navigateOptions(event: KeyboardEvent) {
+    if (event.isComposing || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const target = event.target;
+    const fromSearch = target === searchInput.value?.$el;
+    if (fromSearch && (event.key === 'Home' || event.key === 'End')) return;
+    const options = Array.from(
+        workspaceList.value?.querySelectorAll<HTMLButtonElement>('button[data-workspace-option]:not([disabled])') ?? []
+    );
+    const index = options.findIndex((option) => option === target);
+    if (!options.length || (!fromSearch && index < 0)) return;
+    event.preventDefault();
+    const next =
+        event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? options.length - 1
+              : event.key === 'ArrowDown'
+                ? (index + 1) % options.length
+                : index < 0
+                  ? options.length - 1
+                  : (index - 1 + options.length) % options.length;
+    options[next]?.focus();
+}
 
 function isExpanded(id: string) {
     return !!query.value.trim() || !collapsed.value.includes(id);
@@ -211,23 +263,27 @@ function toggleGroup(id: string) {
         : [...collapsed.value, id];
 }
 async function selectWorkspace(id: string) {
-    if ((await workspace.select(id)) === '') popoverOpen.value = false;
+    if (workspace.switching) return;
+    const current = generation;
+    if ((await workspace.select(id)) === '' && current === generation) popoverOpen.value = false;
 }
 function openManagement() {
     popoverOpen.value = false;
     emit('manage');
 }
 function openForm(value: 'organization' | 'workspace' | 'join') {
+    skipPopoverFocusRestore = true;
     mode.value = value;
     popoverOpen.value = false;
     formOpen.value = true;
 }
 function onPopoverClose(event: Event) {
-    if (formOpen.value) {
+    if (skipPopoverFocusRestore || formOpen.value) {
         event.preventDefault();
     } else if (props.anchor !== undefined && !interactedOutside.value) {
         emit('close-auto-focus', event);
     }
+    skipPopoverFocusRestore = false;
 }
 function restoreFocus(event: Event) {
     const trigger = unrefElement(workspaceTrigger);
@@ -239,6 +295,7 @@ function restoreFocus(event: Event) {
 }
 watch(popoverOpen, (value) => {
     if (value) {
+        generation++;
         query.value = '';
         interactedOutside.value = false;
     }

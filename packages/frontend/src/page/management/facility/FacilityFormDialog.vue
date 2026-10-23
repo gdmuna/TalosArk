@@ -12,6 +12,7 @@ import { SelectField } from '@/component/select-field';
 import { DataSyncNotice } from '@/component/data-sync';
 import ReadFeedback from './ReadFeedback.vue';
 import { Field, FieldError, FieldLabel } from '@/ui/field';
+import { OverlayDraftDialog, useOverlayDraft } from '@/component/overlay-draft';
 const standaloneFieldId = useId();
 
 const formFieldId = useId();
@@ -42,6 +43,11 @@ const { data, loading, busy, conflict, error, syncError, pendingSync, refresh, w
         const detail = props.facility ? await source.detail(props.scope, props.facility.id, signal) : null;
         return { governance, detail };
     }
+);
+const { guardedOpen, confirmOpen, discard } = useOverlayDraft(
+    open,
+    () => JSON.stringify([code.value, name.value, location.value, description.value, managementWorkspaceId.value]),
+    { busy, saved: () => !!committedId.value }
 );
 const allowed = computed(() =>
     props.facility
@@ -107,7 +113,7 @@ async function submit() {
 </script>
 
 <template>
-    <Dialog v-model:open="open">
+    <Dialog v-model:open="guardedOpen">
         <DialogContent class="max-h-[85vh] overflow-y-auto">
             <DialogTitle>{{ facility ? '编辑设施' : '登记设施' }}</DialogTitle>
             <DialogDescription>设施归组织所有；管理工作区负责结构维护。</DialogDescription>
@@ -150,10 +156,11 @@ async function submit() {
                     {{ validation }}
                 </FieldError>
                 <div class="flex justify-end gap-2">
-                    <Button type="button" variant="outline" :disabled="busy" @click="open = false">关闭</Button>
+                    <Button type="button" variant="outline" :disabled="busy" @click="guardedOpen = false">关闭</Button>
                     <Button type="submit" :disabled="disabled">{{ busy ? '保存中' : '保存' }}</Button>
                 </div>
             </form>
         </DialogContent>
     </Dialog>
+    <OverlayDraftDialog v-model:open="confirmOpen" @discard="discard" />
 </template>
