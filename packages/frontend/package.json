@@ -44,7 +44,7 @@
     "lucide": "^1.61.0",
     "mitt": "^3.0.1",
     "morphicons": "^1.7.1",
-    "pinia": "^3.0.4",
+    "pinia": "^4.1.0",
     "reka-ui": "^2.11.0",
     "shadcn-vue": "^2.8.2",
     "tailwind-merge": "^3.7.0",
