@@ -61,11 +61,15 @@ Governance compositions cover accounts, profiles, organizations, workspaces, rol
 membership and invitation lifecycles, including explicit negative authorization checks.
 Local credentials live in IdentityCredentialModule so tooling does not need external
 IAM or KVS. Organization invitations use a small delivery port: normal application
-composition keeps SMTP delivery; seed uses a real in-memory inbox after commit.
-Credentials are random and exported only to an explicit, exclusive private file.
+composition keeps SMTP delivery; seed saves its local inbox to an explicit private
+JSON after commit. This callback is not a durable transactional mail outbox.
+Credentials are random, plaintext and incrementally saved to that file, without
+encryption or key management. Prepared accounts are distinguished from committed
+receipts; resume loads the original namespace/fingerprint-bound file.
 Groups may instead use an existing actor and organization/workspace pair without repairing
 grants. `init` explicitly opts a development/test database and role into seeding and
-creates only the tool-owned `seed` schema. Apply/verify require the database/role/OID
+creates/upgrades only the tool-owned `seed` schema. Apply/verify/resume require
+the database/role/OID
 marker, explicit database confirmation and native-DDL preflight. Production profiles
 and NODE_ENV=production reject. This marker is an operator opt-in, not proof that an
 arbitrary database contains no production data. The Prisma wrapper remains DB-only.
@@ -73,11 +77,19 @@ arbitrary database contains no production data. The Prisma wrapper remains DB-on
 One session advisory lock serializes seed commands per database. Each bounded business
 operation and its receipt commit in the same managed transaction. External file workflows
 explicitly retain their own transactions; file publication and the seed receipt are not
-atomic and failures require inspection/normal file cleanup. Final snapshots are taken
-after all scenario mutations. Completed plans reverify these final snapshots on reuse;
+atomic. Explicit external intents retain stable upload keys and checkpoints;
+failures still require inspection/normal file cleanup. Final snapshots are taken
+after all scenario mutations and sealed with completion in one transaction.
+Completed plans reverify these final snapshots on reuse;
 changed content, parameters, scope, actor or versions fail
-instead of overwriting. Failed/interrupted runs keep committed receipts and require
-inspection; v1 has no automatic replay, cleanup, reset or blanket rollback. Reference
+instead of overwriting. Failed/interrupted runs retain committed receipts. Explicit
+resume is limited to opted-in account/workspace/material/batch/attachment handlers,
+matching plans and confirmed existing facts/credentials; other handlers reject replay.
+Execution-version-1 history stays inspectable but is not adopted as resumable.
+The tool stops new operations on cancellation, reports unknown outcomes separately,
+and keeps execution, export and cleanup failures distinct. Status/report commands
+inspect/re-export tool metadata without replay. There is no automatic cleanup,
+reset or blanket rollback. Reference
 dates control generated content, never the real business clock. Usage, extension
 examples and validation boundaries live in tooling/seed/README.md; coverage.md distinguishes
 implemented fixtures from unavailable business capabilities. Data/parameter/output types
