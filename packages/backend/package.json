@@ -102,7 +102,7 @@
     "jose": "^6.2.13",
     "jsonwebtoken": "^9.0.3",
     "lodash": "^4.18.1",
-    "nestjs-pino": "^4.6.1",
+    "nestjs-pino": "^5.3.1",
     "nestjs-zod": "^5.5.0",
     "nodemailer": "^10.1.7",
     "pg": "^8.23.1",
