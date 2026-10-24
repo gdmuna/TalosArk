@@ -5,8 +5,8 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { fileURLToPath } from 'node:url';
 import { config } from '@dotenvx/dotenvx-ops';
 import { NestFactory } from '@nestjs/core';
-import { findBackendRoot } from '../../../scripts/backend-root.js';
-import { loadPrismaEnvironment, redactDatabaseUrl } from '../../../scripts/prisma-environment.js';
+import { findBackendRoot } from '../../cli/backend-root.js';
+import { loadPrismaEnvironment, redactDatabaseUrl } from '../../database/environment.js';
 import type {
     SeedRunRequest,
     SeedStorageSource,
@@ -229,7 +229,7 @@ export async function runSeed(
                 .filter((item) => program.manifest.capabilities.includes(item.definition.id))
                 .map((item) => item.load())
         );
-        const { SeedModule } = await import('../../../src/bootstrap/composition/seed.module.js');
+        const { SeedModule } = await import('./seed.module.js');
         app = await NestFactory.createApplicationContext(
             SeedModule.forRoot({
                 databaseUrl: selected.values.DATABASE_URL,

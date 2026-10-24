@@ -6,6 +6,6 @@
     "tsBuildInfoFile": "./.cache/seed/tsconfig.tsbuildinfo",
     "noEmitOnError": true
   },
-  "include": ["tooling/seed/**/*.ts", "src/bootstrap/composition/seed.module.ts"],
+  "include": ["tooling/seed/**/*.ts"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }

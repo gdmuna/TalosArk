@@ -13,17 +13,17 @@ import { WorkspaceConfigurationModule } from '@/modules/workspace/workspace.conf
 import { OrganizationWriteModule } from '@/core/organization-write/index.js';
 import { inventoryConfig } from '@/config/inventory.config.js';
 import type { StorageConfig } from '@/config/storage.config.js';
-import { SeedSecrets } from '@root/tooling/seed/runtime/secret.js';
-import { SeedRunner } from '@root/tooling/seed/runtime/runner.js';
-import { SeedServices } from '@root/tooling/seed/runtime/handler.js';
-import type {
-    SeedHandlerBinding,
-    SeedRuntimeDefinition,
-} from '@root/tooling/seed/runtime/contribution.js';
-import type { SeedProgram } from '@root/tooling/seed/plan/planner.js';
-import { PreparedFixtures } from '@root/tooling/seed/fixture/fixture.reader.js';
+import { SeedSecrets } from './secret.js';
+import { SeedRunner } from './runner.js';
+import { SeedServices } from './handler.js';
+import type { SeedHandlerBinding, SeedRuntimeDefinition } from './contribution.js';
+import type { SeedProgram } from '../plan/planner.js';
+import { PreparedFixtures } from '../fixture/fixture.reader.js';
 import { SeedStorageModule } from './seed-storage.module.js';
-import { productAuthorizationEntries, workspaceManagerPermissions } from './product-policy.js';
+import {
+    productAuthorizationEntries,
+    workspaceManagerPermissions,
+} from '../../../src/bootstrap/composition/product-policy.js';
 
 @Module({})
 export class SeedModule {

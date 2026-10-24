@@ -1,50 +1,61 @@
 import { readFile } from 'node:fs/promises';
-import { Command, Option } from 'commander';
+import { Option } from 'commander';
 import { z } from 'zod';
 import { SeedApplication, type SeedPlanRequest, type SeedStorageSource } from '../index.js';
+import { InputResolver } from '../../cli/input.js';
+import { createCommand, finish, type CliContext } from '../../cli/context.js';
+import { runPnpm, runProcess } from '../../cli/process.js';
+import { findBackendRoot } from '../../cli/backend-root.js';
+import { resolve } from 'node:path';
 
-const command = new Command('db:seed')
-    .description('Plan, execute, inspect and explicitly resume development/test datasets')
-    .argument('<action>', 'list | plan | init | apply | verify | resume | status | report')
-    .addOption(new Option('--env <profile>', 'Prisma-only environment').conflicts('envFile'))
-    .option('--env-file <path>', 'Explicit Prisma-only environment file')
-    .option('--database <name>', 'Confirm the actual connected database name')
-    .addOption(
-        new Option(
-            '--purpose <purpose>',
-            'Legacy init label; no longer required or persisted'
-        ).choices(['development', 'test'])
-    )
-    .option('--namespace <name>', 'Stable, unique fixture namespace')
-    .option('--actor <uuid>', 'Existing local actor; omit to provision an account')
-    .option('--organization <uuid>', 'Existing organization; requires --workspace and --actor')
-    .option('--workspace <uuid>', 'Existing workspace; requires --organization and --actor')
-    .option('--group <id>', 'Named dataset composition')
-    .option('--dataset <id>', 'Independently selectable dataset')
-    .option(
-        '--tag <tag...>',
-        'Independent datasets matching every tag; volume selection is explicit only'
-    )
-    .addOption(new Option('--params <json>', 'Dataset/group parameters').conflicts('paramsFile'))
-    .option('--params-file <path>', 'Parameters from a JSON file')
-    .option('--seed <integer>', 'Deterministic generation seed', '42')
-    .option('--reference-date <date>', 'Generation date, not the business clock', '2026-01-01')
-    .option('--fixture-root <path>', 'Allowed local input-file root')
-    .option('--expected-fingerprint <hash>', 'Refuse execution if the rebuilt plan differs')
-    .option('--output <path>', 'Exclusive JSON report destination')
-    .option(
-        '--credentials-output <path>',
-        'Plaintext private JSON; resume requires the original batch file'
-    )
-    .addOption(
-        new Option('--storage-config <path>', 'Explicit storage-only JSON').conflicts('storageEnv')
-    )
-    .addOption(
-        new Option(
-            '--storage-env <profile>',
-            'Explicit runtime profile; only storage fields are consumed'
-        ).choices(['dev', 'dev.local', 'test', 'test.local'])
-    );
+function createSeedCommand() {
+    return createCommand('seed')
+        .description('Plan, execute, inspect and explicitly resume development/test datasets')
+        .argument('[action]', 'list | plan | init | apply | verify | resume | status | report')
+        .addOption(new Option('--env <profile>', 'Prisma-only environment').conflicts('envFile'))
+        .option('--env-file <path>', 'Explicit Prisma-only environment file')
+        .option('--database <name>', 'Confirm the actual connected database name')
+        .addOption(
+            new Option(
+                '--purpose <purpose>',
+                'Legacy init label; no longer required or persisted'
+            ).choices(['development', 'test'])
+        )
+        .option('--namespace <name>', 'Stable, unique fixture namespace')
+        .option('--actor <uuid>', 'Existing local actor; omit to provision an account')
+        .option('--organization <uuid>', 'Existing organization; requires --workspace and --actor')
+        .option('--workspace <uuid>', 'Existing workspace; requires --organization and --actor')
+        .option('--group <id>', 'Named dataset composition')
+        .option('--dataset <id>', 'Independently selectable dataset')
+        .option(
+            '--tag <tag...>',
+            'Independent datasets matching every tag; volume selection is explicit only'
+        )
+        .addOption(
+            new Option('--params <json>', 'Dataset/group parameters').conflicts('paramsFile')
+        )
+        .option('--params-file <path>', 'Parameters from a JSON file')
+        .option('--seed <integer>', 'Deterministic generation seed', '42')
+        .option('--reference-date <date>', 'Generation date, not the business clock', '2026-01-01')
+        .option('--fixture-root <path>', 'Allowed local input-file root')
+        .option('--expected-fingerprint <hash>', 'Refuse execution if the rebuilt plan differs')
+        .option('--output <path>', 'Exclusive JSON report destination')
+        .option(
+            '--credentials-output <path>',
+            'Plaintext private JSON; resume requires the original batch file'
+        )
+        .addOption(
+            new Option('--storage-config <path>', 'Explicit storage-only JSON').conflicts(
+                'storageEnv'
+            )
+        )
+        .addOption(
+            new Option(
+                '--storage-env <profile>',
+                'Explicit runtime profile; only storage fields are consumed'
+            ).choices(['dev', 'dev.local', 'test', 'test.local'])
+        );
+}
 
 interface Options {
     env?: string;
@@ -70,10 +81,21 @@ interface Options {
     storageEnv?: Extract<SeedStorageSource, { kind: 'profile' }>['name'];
 }
 
-async function main(): Promise<void> {
-    command.parse();
-    const [action] = command.args;
+async function execute(args: string[], context: CliContext): Promise<void> {
+    const command = createSeedCommand();
+    command.parse(args, { from: 'user' });
+    const action = await context.input.choose({
+        value: command.args[0],
+        flag: '<action>',
+        message: 'Seed operation:',
+        example: 'pnpm seed list',
+        choices: ['list', 'plan', 'init', 'apply', 'verify', 'resume', 'status', 'report'].map(
+            (value) => ({ name: value, value })
+        ),
+    });
     const options = command.opts<Options>();
+    const selectionProvided =
+        options.group !== undefined || options.dataset !== undefined || options.tag !== undefined;
     const seed = new SeedApplication({ fixtureRoot: options.fixtureRoot });
     if (action === 'list') {
         console.info(JSON.stringify(seed.list(), null, 2));
@@ -82,8 +104,40 @@ async function main(): Promise<void> {
     if (!['plan', 'init', 'apply', 'verify', 'resume', 'status', 'report'].includes(action))
         throw new Error(`Unknown action ${action}`);
     let plan: SeedPlanRequest | undefined;
+    const namespace = ['plan', 'apply', 'verify', 'resume', 'status', 'report'].includes(action)
+        ? await context.input.text({
+              value: options.namespace,
+              flag: '--namespace',
+              example: '--namespace material-demo',
+              message: 'Seed namespace:',
+          })
+        : undefined;
+    const seedNamespace = namespace ?? '';
     if (['plan', 'apply', 'verify', 'resume'].includes(action)) {
-        if (!options.namespace) throw new Error('plan/apply/verify/resume require --namespace');
+        if (!selectionProvided) {
+            const catalog = seed.list();
+            const selection = await context.input.choose({
+                flag: '--group, --dataset or --tag',
+                message: 'Seed dataset or group:',
+                example: '--group minimal',
+                choices: [
+                    ...catalog.groups.map((group) => ({
+                        name: `group: ${group.id}`,
+                        description: group.description,
+                        value: { kind: 'group', id: group.id },
+                    })),
+                    ...catalog.datasets
+                        .filter((dataset) => dataset.selection === 'independent')
+                        .map((dataset) => ({
+                            name: `dataset: ${dataset.id}`,
+                            description: dataset.description,
+                            value: { kind: 'dataset', id: dataset.id },
+                        })),
+                ],
+            });
+            if (selection.kind === 'group') options.group = selection.id;
+            else options.dataset = selection.id;
+        }
         if (Number(!!options.group) + Number(!!options.dataset) + Number(!!options.tag) !== 1)
             throw new Error('Choose exactly one of --group, --dataset or --tag');
         if (!!options.organization !== !!options.workspace || (options.workspace && !options.actor))
@@ -99,7 +153,7 @@ async function main(): Promise<void> {
             throw new Error('Tag selection does not accept shared parameters');
         const json = z.json().parse(parameters);
         plan = {
-            namespace: options.namespace,
+            namespace: seedNamespace,
             selection: options.group
                 ? { kind: 'group', id: options.group, parameters: json }
                 : options.dataset
@@ -123,16 +177,22 @@ async function main(): Promise<void> {
         console.info(JSON.stringify(await seed.plan(plan), null, 2));
         return;
     }
-    if (!options.database) throw new Error('--database is required for connected commands');
-    const { choosePrismaEnvironment } = await import('../../../scripts/prisma-environment.js');
+    const database = await context.input.text({
+        value: options.database,
+        flag: '--database',
+        example: '--database talos_ark_dev',
+        message: 'Confirm the connected database name:',
+    });
+    const { choosePrismaEnvironment } = await import('../../database/environment.js');
     const environment = await choosePrismaEnvironment(
-        options.env
+        options.env !== undefined
             ? { kind: 'profile', name: options.env }
-            : options.envFile
+            : options.envFile !== undefined
               ? { kind: 'file', path: options.envFile }
-              : undefined
+              : undefined,
+        context.input
     );
-    const target = { environment, expectedDatabase: options.database };
+    const target = { environment, expectedDatabase: database };
     if (action === 'init') {
         await seed.initialize(target, options.purpose);
         console.info(
@@ -141,9 +201,8 @@ async function main(): Promise<void> {
         return;
     }
     if (action === 'status' || action === 'report') {
-        if (!options.namespace) throw new Error('status/report require --namespace');
         if (action === 'status') {
-            const inspection = await seed.inspect(target, options.namespace);
+            const inspection = await seed.inspect(target, seedNamespace);
             console.info(
                 JSON.stringify(
                     { ...inspection, run: { ...inspection.run, report: undefined } },
@@ -152,11 +211,40 @@ async function main(): Promise<void> {
                 )
             );
         } else {
-            if (!options.output)
-                throw new Error('report requires an exclusive --output destination');
-            await seed.exportReport(target, options.namespace, options.output);
+            const output = await context.input.text({
+                value: options.output,
+                flag: '--output',
+                example: '--output .cache/seed/report.json',
+                message: 'Report output path:',
+            });
+            await seed.exportReport(target, seedNamespace, output);
             console.info('[seed] Stored report exported; no business operation was replayed.');
         }
+        return;
+    }
+    if (import.meta.url.endsWith('.ts')) {
+        const { requireSuccess } = await import('../../cli/process.js');
+        await requireSuccess(runPnpm(['run', 'db:seed:build']));
+        const completed = [...args];
+        if (!command.args.length) completed.unshift(action);
+        if (!selectionProvided && options.group) completed.push('--group', options.group);
+        else if (!selectionProvided && options.dataset)
+            completed.push('--dataset', options.dataset);
+        if (options.namespace === undefined) completed.push('--namespace', seedNamespace);
+        if (options.database === undefined) completed.push('--database', database);
+        if (options.env === undefined && options.envFile === undefined)
+            completed.push(
+                '--env-file',
+                environment.kind === 'file'
+                    ? environment.path
+                    : (await import('../../database/environment.js')).loadPrismaEnvironment(
+                          environment
+                      ).filePath
+            );
+        process.exitCode = await runProcess(process.execPath, [
+            resolve(findBackendRoot(), '.cache/seed/tooling/seed/cli/entry.js'),
+            ...completed,
+        ]);
         return;
     }
     const cancellation = new AbortController();
@@ -209,19 +297,19 @@ async function main(): Promise<void> {
     }
 }
 
-try {
-    await main();
-} catch (error) {
-    if (error instanceof Error && error.name === 'ExitPromptError') {
-        console.info('[seed] Selection canceled; nothing was executed.');
-        process.exitCode = 130;
-    } else {
-        // Validation messages can contain input values; only emit paths and issue codes.
-        console.error(
-            error instanceof z.ZodError
-                ? `[seed] Invalid definition or request: ${error.issues.map((issue) => `${issue.path.join('.') || '<root>'} (${issue.code})`).join(', ')}`
-                : `[seed] ${error instanceof Error ? error.message : String(error)}`
-        );
-        process.exitCode = 1;
+export async function run(args: string[], context: CliContext): Promise<void> {
+    try {
+        await execute(args, context);
+    } catch (error) {
+        if (error instanceof z.ZodError)
+            throw new Error(
+                `Invalid seed definition or request: ${error.issues.map((issue) => `${issue.path.join('.') || '<root>'} (${issue.code})`).join(', ')}`,
+                { cause: error }
+            );
+        throw error;
     }
+}
+
+if (process.argv[1]?.replaceAll('\\', '/').includes('/tooling/seed/cli/entry.')) {
+    await finish(() => run(process.argv.slice(2), { input: new InputResolver(false) }));
 }

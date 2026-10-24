@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import type { PrismaEnvironmentSource } from '../../../scripts/prisma-environment.js';
+import type { PrismaEnvironmentSource } from '../../database/environment.js';
 import { PreparedFixtures } from '../fixture/fixture.reader.js';
 import { productSeedCatalog } from '../plan/product.catalog.js';
 import { SeedPlanner, type SeedManifest } from '../plan/planner.js';

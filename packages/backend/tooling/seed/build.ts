@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { cp, mkdir, access, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { resolve, relative, isAbsolute } from 'node:path';
-import { findBackendRoot } from './backend-root.js';
+import { findBackendRoot } from '../cli/backend-root.js';
 
 const root = findBackendRoot();
 const require = createRequire(import.meta.url);
