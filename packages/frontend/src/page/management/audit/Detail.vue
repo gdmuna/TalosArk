@@ -6,7 +6,7 @@ import { useAccountStore } from '@/module/account';
 import { useAuditDataSource, useAuditRead, assertAuditScope } from '@/module/audit';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { CopyableId } from '@/component/inspector';
-import { ScrollSurface } from '@/component/scroll-surface';
+import { ScrollArea } from '@/ui/scroll-area';
 import { Button } from '@/ui/button';
 import { useNavigationStore } from '@/platform/navigation';
 import { auditListPath, useAuditQuery } from './query';
@@ -51,7 +51,7 @@ provideBreadcrumbs(() => [
 
 <template>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col" data-slot="audit-detail">
-        <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
+        <ScrollArea class="min-h-0 min-w-0 flex-1">
             <header class="shrink-0 space-y-4 border-b p-4 lg:p-6">
                 <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(navigation.origin, listTo)">
                     <ArrowLeft aria-hidden="true" />
@@ -81,6 +81,6 @@ provideBreadcrumbs(() => [
                 </div>
                 <EventContent v-if="data" :event="data" />
             </main>
-        </ScrollSurface>
+        </ScrollArea>
     </div>
 </template>

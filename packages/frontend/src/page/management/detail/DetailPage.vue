@@ -5,7 +5,7 @@ import { ArrowLeft } from '@lucide/vue';
 import { useNavigationStore } from '@/platform/navigation';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { CopyableId } from '@/component/inspector';
-import { ScrollSurface } from '@/component/scroll-surface';
+import { ScrollArea } from '@/ui/scroll-area';
 import { Button } from '@/ui/button';
 import { StateBadge } from '@/component/state-badge';
 import ManagementViewNav from '../component/ManagementViewNav.vue';
@@ -58,7 +58,7 @@ provideBreadcrumbs(() => [
 </script>
 <template>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col" data-slot="management-detail-page">
-        <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
+        <ScrollArea class="min-h-0 min-w-0 flex-1">
             <header class="shrink-0 space-y-4 border-b px-4 pt-4 lg:px-6" data-slot="management-detail-header">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(origin, listTo)">
@@ -94,6 +94,6 @@ provideBreadcrumbs(() => [
                 </div>
                 <slot />
             </main>
-        </ScrollSurface>
+        </ScrollArea>
     </div>
 </template>

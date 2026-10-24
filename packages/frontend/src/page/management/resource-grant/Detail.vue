@@ -26,7 +26,7 @@ import { useNavigationStore } from '@/platform/navigation';
 import { provideBreadcrumbs } from '@/component/breadcrumb';
 import { CopyableId } from '@/component/inspector';
 import { DataTable, type DataTableColumn } from '@/component/data-table';
-import { ScrollSurface } from '@/component/scroll-surface';
+import { ScrollArea } from '@/ui/scroll-area';
 import { StateBadge } from '@/component/state-badge';
 import { Button } from '@/ui/button';
 import ManagementViewNav from '../component/ManagementViewNav.vue';
@@ -133,7 +133,7 @@ const contentTo = computed(() => {
 </script>
 <template>
     <div class="flex min-h-0 min-w-0 flex-1 flex-col" data-slot="resource-access-detail">
-        <ScrollSurface class="min-h-0 flex-1" edge-effect="line">
+        <ScrollArea class="min-h-0 min-w-0 flex-1">
             <header class="shrink-0 space-y-4 border-b px-4 pt-4 lg:px-6">
                 <Button variant="ghost" size="sm" class="-ml-2" @click="navigation.returnTo(navigation.origin, listTo)">
                     <ArrowLeft aria-hidden="true" />
@@ -296,7 +296,7 @@ const contentTo = computed(() => {
                     </ManagementSection>
                 </template>
             </main>
-        </ScrollSurface>
+        </ScrollArea>
     </div>
     <GrantInspector
         :id="previewId"
