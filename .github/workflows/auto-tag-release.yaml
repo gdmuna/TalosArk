@@ -65,7 +65,7 @@ jobs:
         id: create_tag
         env:
           RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: node scripts/create-release-tag.cjs "$RELEASE_BRANCH"
+        run: node packages/backend/tooling/release/create-release-tag.cjs "$RELEASE_BRANCH"
         continue-on-error: true
 
       - name: Push tag (with conflict detection)

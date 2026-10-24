@@ -33,7 +33,7 @@ jobs:
 
       - name: Validate release version
         id: validate
-        run: node scripts/validate-release-version.cjs
+        run: node packages/backend/tooling/release/validate-release-version.cjs
 
   summary:
     name: Summary

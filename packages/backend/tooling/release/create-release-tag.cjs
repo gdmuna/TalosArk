@@ -16,7 +16,9 @@ function main() {
 
     if (!releaseBranch) {
         console.error('❌ Error: Release branch name is required');
-        console.error('Usage: node scripts/create-release-tag.cjs <release-branch-name>');
+        console.error(
+            'Usage: node packages/backend/tooling/release/create-release-tag.cjs <release-branch-name>'
+        );
         process.exit(1);
     }
 
