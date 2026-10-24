@@ -10,10 +10,10 @@ const command = new Command('db:seed')
     .option('--env-file <path>', 'Explicit Prisma-only environment file')
     .option('--database <name>', 'Confirm the actual connected database name')
     .addOption(
-        new Option('--purpose <purpose>', 'Opt-in purpose for init').choices([
-            'development',
-            'test',
-        ])
+        new Option(
+            '--purpose <purpose>',
+            'Legacy init label; no longer required or persisted'
+        ).choices(['development', 'test'])
     )
     .option('--namespace <name>', 'Stable, unique fixture namespace')
     .option('--actor <uuid>', 'Existing local actor; omit to provision an account')
@@ -134,10 +134,9 @@ async function main(): Promise<void> {
     );
     const target = { environment, expectedDatabase: options.database };
     if (action === 'init') {
-        if (!options.purpose) throw new Error('init requires --purpose development or test');
         await seed.initialize(target, options.purpose);
         console.info(
-            `[seed] Target opted into ${options.purpose} seeding; business tables were not changed.`
+            '[seed] Seed metadata initialized; business tables and extensions were not changed.'
         );
         return;
     }

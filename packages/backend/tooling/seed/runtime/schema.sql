@@ -1,14 +1,7 @@
 -- Development/test tooling only. Never applied by db:init, db:push or application startup.
 CREATE SCHEMA IF NOT EXISTS seed;
 
-CREATE TABLE IF NOT EXISTS seed.target (
-    singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
-    database_name text NOT NULL,
-    database_oid oid NOT NULL,
-    role_name text NOT NULL,
-    purpose text NOT NULL CHECK (purpose IN ('development', 'test')),
-    created_at timestamptz NOT NULL DEFAULT now()
-);
+-- Historical seed.target markers are retained, but database OIDs/roles are not an identity binding.
 
 CREATE TABLE IF NOT EXISTS seed.run (
     namespace text PRIMARY KEY,

@@ -13,6 +13,8 @@ import { addWorkspaceBaseline } from '../../group/baseline.js';
 import { datasetEntry } from '../../plan/catalog.js';
 import type { BoundDataset } from '../../definition/dataset.js';
 import type { z } from 'zod';
+import { databaseTables } from '../../definition/database.js';
+import { materialDatabase } from './material.database.js';
 
 function selectable<P extends z.ZodType>(dataset: BoundDataset<typeof materialKind, P>) {
     return datasetEntry(dataset, (parameters, b) => {
@@ -29,6 +31,27 @@ export const materialContribution = defineSeedContribution({
     definition: {
         id: 'material',
         kinds: [materialKind, batchKind],
+        database: [
+            {
+                kindId: materialKind.id,
+                requires: materialDatabase,
+                hint: 'Synchronize the material schema and run db:apply-inventory-ddl for the selected environment.',
+            },
+            {
+                kindId: batchKind.id,
+                requires: [
+                    ...materialDatabase,
+                    ...databaseTables('MaterialBatch'),
+                    {
+                        type: 'constraint',
+                        schema: 'public',
+                        table: 'MaterialBatch',
+                        name: 'MaterialBatch_expiry_check',
+                    },
+                ],
+                hint: 'Synchronize the batch schema and run db:apply-inventory-ddl for the selected environment.',
+            },
+        ],
         datasets: [
             datasetListing(biologicalDemo),
             datasetListing(chemicalDemo),

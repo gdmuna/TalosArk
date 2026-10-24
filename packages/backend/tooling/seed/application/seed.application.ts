@@ -99,7 +99,7 @@ export class SeedApplication {
         return exportSeedReport(target, namespace, output);
     }
 
-    async initialize(target: SeedTargetRequest, purpose: 'development' | 'test'): Promise<void> {
+    async initialize(target: SeedTargetRequest, purpose?: 'development' | 'test'): Promise<void> {
         const { initializeSeedTarget } = await import('../runtime/host.js');
         await initializeSeedTarget(target, purpose);
     }

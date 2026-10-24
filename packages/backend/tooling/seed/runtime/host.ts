@@ -20,6 +20,7 @@ import { SeedRunner } from './runner.js';
 import { SeedSecrets } from './secret.js';
 import { reserveSeedReport, writeSeedReport } from './artifact.js';
 import { seedErrorMessage, type SeedRunResult } from './result.js';
+import { SeedReadinessError } from './readiness.js';
 
 function environment(request: SeedTargetRequest) {
     if (process.env.NODE_ENV === 'production')
@@ -94,12 +95,12 @@ async function withSeedTarget<T>(
 
 export async function initializeSeedTarget(
     request: SeedTargetRequest,
-    purpose: 'development' | 'test'
+    purpose?: 'development' | 'test'
 ): Promise<void> {
-    if (!['development', 'test'].includes(purpose))
+    if (purpose !== undefined && !['development', 'test'].includes(purpose))
         throw new Error('Seed initialization requires development/test purpose');
     await withSeedTarget(request, (target) =>
-        target.initialize(purpose, fileURLToPath(new URL('./schema.sql', import.meta.url)))
+        target.initialize(fileURLToPath(new URL('./schema.sql', import.meta.url)))
     );
 }
 
@@ -182,7 +183,7 @@ export async function runSeed(
     };
     try {
         combined.throwIfAborted();
-        await target.preflight(program);
+        await target.preflight(catalog.databaseRequirements(program.steps));
         const {
             rows: [previous],
         } = await target.client.query<{ status: string }>(
@@ -250,7 +251,10 @@ export async function runSeed(
               : 'failed';
         report.diagnostics.push({
             stage: 'execution',
-            code: 'seed.setup-or-execution-failed',
+            code:
+                error instanceof SeedReadinessError
+                    ? 'seed.database-not-ready'
+                    : 'seed.setup-or-execution-failed',
             message: seedErrorMessage(error),
         });
     } finally {
