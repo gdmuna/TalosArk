@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "tsBuildInfoFile": "./dist/tsconfig.tooling.tsbuildinfo",
+    "noEmitOnError": true
+  },
+  "include": [
+    "tooling/cli/**/*.ts",
+    "tooling/database/**/*.ts",
+    "tooling/storage/**/*.ts",
+    "tooling/account/**/*.ts",
+    "tooling/task/**/*.ts",
+    "tooling/openapi/**/*.ts",
+    "tooling/app/**/*.ts",
+    "tooling/build/**/*.ts",
+    "tooling/check/**/*.ts",
+    "tooling/environment/**/*.ts",
+    "src/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
+}

@@ -11,6 +11,15 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "dev": "pnpm --dir packages/backend dev",
+    "tool": "pnpm --dir packages/backend tool",
+    "prisma": "pnpm --dir packages/backend prisma",
+    "db": "pnpm --dir packages/backend db",
+    "db:seed": "pnpm --dir packages/backend db:seed",
+    "seed": "pnpm --dir packages/backend seed",
+    "storage": "pnpm --dir packages/backend storage",
+    "account": "pnpm --dir packages/backend account",
+    "task": "pnpm --dir packages/backend task",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint",

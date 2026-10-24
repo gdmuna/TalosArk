@@ -124,25 +124,25 @@ jobs:
             -c "CREATE DATABASE bio_storage_box_shadow;"
 
       - name: Generate Prisma Client
-        run: pnpm --filter @talos-ark/backend prisma generate
+        run: pnpm --filter @talos-ark/backend exec prisma generate
 
       - name: Sync schema (CI DB)
         run: |
           if compgen -G "packages/backend/prisma/migrations/*/migration.sql" > /dev/null 2>&1; then
             echo "\U0001f50d Validating schema.prisma matches migrations..."
-            pnpm --filter @talos-ark/backend prisma migrate diff \
+            pnpm --filter @talos-ark/backend exec prisma migrate diff \
               --from-migrations ./packages/backend/prisma/migrations \
               --to-schema-datamodel ./packages/backend/prisma/schema.prisma \
               --exit-code || (echo "\u274c schema.prisma has uncommitted changes \u2014 run pnpm db:migrate" && exit 1)
             echo "\u2705 Schema matches, running migrate deploy"
-            pnpm --filter @talos-ark/backend prisma migrate deploy
+            pnpm --filter @talos-ark/backend exec prisma migrate deploy
           else
             echo "\u26a0\ufe0f  No migration files, falling back to db push (dev phase)"
-            pnpm --filter @talos-ark/backend prisma db push
+            pnpm --filter @talos-ark/backend exec prisma db push
           fi
 
       - name: Run tests with coverage
-        run: pnpm --filter @talos-ark/backend test --ci --coverage
+        run: pnpm --filter @talos-ark/backend test --env test --coverage
 
       - name: Upload coverage
         uses: actions/upload-artifact@v7
@@ -190,7 +190,7 @@ jobs:
         run: curl -sfS https://dotenvx.sh/install.sh | sh
 
       - name: Generate Prisma Client
-        run: pnpm --filter @talos-ark/backend prisma generate
+        run: pnpm --filter @talos-ark/backend exec prisma generate
         env:
           DATABASE_URL: postgresql://ci_test:ci_test_password@localhost:5432/bio_storage_box_test?schema=public
           SHADOW_DATABASE_URL: postgresql://ci_test:ci_test_password@localhost:5432/bio_storage_box_shadow?schema=public
