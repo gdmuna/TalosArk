@@ -5,39 +5,39 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
 
   # 后端服务
   - package-ecosystem: 'npm'
     directory: '/packages/backend'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
 
   # 前端（Vue 3 / Tauri Web 层）
   - package-ecosystem: 'npm'
     directory: '/packages/frontend'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
 
   # 文档站
   - package-ecosystem: 'npm'
     directory: '/packages/docsite'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
 
   # Tauri Rust 壳层
   - package-ecosystem: 'cargo'
     directory: '/packages/frontend/src-tauri'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
 
   # GitHub Actions
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
