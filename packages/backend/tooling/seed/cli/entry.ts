@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { SeedApplication, type SeedPlanRequest, type SeedStorageSource } from '../index.js';
 
 const command = new Command('db:seed')
-    .description('Plan, apply and verify guarded development/test datasets')
-    .argument('<action>', 'list | plan | init | apply | verify')
+    .description('Plan, execute, inspect and explicitly resume development/test datasets')
+    .argument('<action>', 'list | plan | init | apply | verify | resume | status | report')
     .addOption(new Option('--env <profile>', 'Prisma-only environment').conflicts('envFile'))
     .option('--env-file <path>', 'Explicit Prisma-only environment file')
     .option('--database <name>', 'Confirm the actual connected database name')
@@ -34,7 +34,7 @@ const command = new Command('db:seed')
     .option('--output <path>', 'Exclusive JSON report destination')
     .option(
         '--credentials-output <path>',
-        'Exclusive private destination for newly generated credentials'
+        'Plaintext private JSON; resume requires the original batch file'
     )
     .addOption(
         new Option('--storage-config <path>', 'Explicit storage-only JSON').conflicts('storageEnv')
@@ -79,11 +79,11 @@ async function main(): Promise<void> {
         console.info(JSON.stringify(seed.list(), null, 2));
         return;
     }
-    if (!['plan', 'init', 'apply', 'verify'].includes(action))
+    if (!['plan', 'init', 'apply', 'verify', 'resume', 'status', 'report'].includes(action))
         throw new Error(`Unknown action ${action}`);
     let plan: SeedPlanRequest | undefined;
-    if (action !== 'init') {
-        if (!options.namespace) throw new Error('plan/apply/verify require --namespace');
+    if (['plan', 'apply', 'verify', 'resume'].includes(action)) {
+        if (!options.namespace) throw new Error('plan/apply/verify/resume require --namespace');
         if (Number(!!options.group) + Number(!!options.dataset) + Number(!!options.tag) !== 1)
             throw new Error('Choose exactly one of --group, --dataset or --tag');
         if (!!options.organization !== !!options.workspace || (options.workspace && !options.actor))
@@ -141,6 +141,25 @@ async function main(): Promise<void> {
         );
         return;
     }
+    if (action === 'status' || action === 'report') {
+        if (!options.namespace) throw new Error('status/report require --namespace');
+        if (action === 'status') {
+            const inspection = await seed.inspect(target, options.namespace);
+            console.info(
+                JSON.stringify(
+                    { ...inspection, run: { ...inspection.run, report: undefined } },
+                    null,
+                    2
+                )
+            );
+        } else {
+            if (!options.output)
+                throw new Error('report requires an exclusive --output destination');
+            await seed.exportReport(target, options.namespace, options.output);
+            console.info('[seed] Stored report exported; no business operation was replayed.');
+        }
+        return;
+    }
     const cancellation = new AbortController();
     const stop = () =>
         cancellation.abort(new Error('Seed interrupted; committed receipts are retained'));
@@ -148,10 +167,10 @@ async function main(): Promise<void> {
     process.on('SIGTERM', stop);
     try {
         if (!plan) throw new Error('Missing seed plan request');
-        await seed.run(
+        const result = await seed.run(
             {
                 plan,
-                mode: action === 'apply' ? 'apply' : 'verify',
+                mode: action === 'apply' ? 'apply' : action === 'resume' ? 'resume' : 'verify',
                 target,
                 expectedFingerprint: options.expectedFingerprint,
                 storageSource: options.storageConfig
@@ -163,6 +182,28 @@ async function main(): Promise<void> {
             },
             cancellation.signal
         );
+        console.info(
+            `[seed] Execution: ${result.execution}; delivery: ${result.delivery}; namespace: ${result.namespace}`
+        );
+        const counts = new Map<string, number>();
+        for (const item of result.verification)
+            counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+        if (counts.size)
+            console.info(
+                `[seed] Verification: ${[...counts].map(([status, count]) => `${status}=${count}`).join(', ')}`
+            );
+        for (const issue of result.diagnostics)
+            console.error(
+                `[seed] ${issue.stage} / ${issue.code}${issue.step ? ` / ${issue.step}` : ''}${issue.key ? ` / ${issue.key}` : ''}: ${issue.message}`
+            );
+        if (result.execution === 'cancelled') process.exitCode = 130;
+        else if (
+            result.delivery === 'failed' ||
+            result.diagnostics.some((item) => item.stage === 'cleanup')
+        )
+            process.exitCode = 1;
+        else if (result.execution === 'partial') process.exitCode = 2;
+        else if (result.execution !== 'completed') process.exitCode = 1;
     } finally {
         process.off('SIGINT', stop);
         process.off('SIGTERM', stop);
