@@ -90,9 +90,9 @@ for attempt in $(seq 1 60); do
     sleep 1
 done
 docker exec "$backend" curl --fail --silent --max-time 2 http://localhost:3000/api/v1/health/ready
-docker exec --user node "$backend" mkdir -p /talos-ark/packages/backend/scripts /talos-ark/packages/docsite/api-reference
-docker cp "$repository/packages/backend/scripts/generate-openapi.ts" "$backend:/talos-ark/packages/backend/scripts/generate-openapi.ts"
-docker exec --user node "$backend" node /talos-ark/packages/backend/scripts/generate-openapi.ts
+docker exec --user node "$backend" mkdir -p /talos-ark/packages/docsite/api-reference
+docker exec --user node "$backend" node /talos-ark/dist/tooling/cli/entry.js openapi export \
+    --output /talos-ark/packages/docsite/api-reference/openapi.json
 mkdir -p "$repository/packages/docsite/api-reference"
 docker cp "$backend:/talos-ark/packages/docsite/api-reference/openapi.json" "$repository/packages/docsite/api-reference/openapi.json"
 echo "OpenAPI exported from $image"

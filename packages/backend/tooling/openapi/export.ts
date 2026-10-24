@@ -12,16 +12,11 @@
  */
 
 import { writeFileSync, mkdirSync, renameSync, rmSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = resolve(__dirname, '../../docsite/api-reference/openapi.json');
-const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || '3000'}`;
-
-async function main() {
-    const url = new URL('api-doc-json', `${BACKEND_URL.replace(/\/+$/, '')}/`);
-    console.log(`Fetching OpenAPI schema from ${url.origin}${url.pathname}...`);
+export async function exportOpenApi(baseUrl: string, output: string): Promise<void> {
+    const url = new URL('api-doc-json', `${baseUrl.replace(/\/+$/, '')}/`);
+    console.error(`Fetching OpenAPI schema from ${url.origin}${url.pathname}...`);
 
     let response: Response;
     try {
@@ -61,20 +56,15 @@ async function main() {
         throw new Error('Backend did not return an OpenAPI 3 document');
     }
 
-    mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
-    const temporaryPath = `${OUTPUT_PATH}.${process.pid}.tmp`;
+    mkdirSync(dirname(output), { recursive: true });
+    const temporaryPath = `${output}.${process.pid}.tmp`;
     const content = `${JSON.stringify(json, null, 2)}\n`;
     try {
         writeFileSync(temporaryPath, content);
-        renameSync(temporaryPath, OUTPUT_PATH);
+        renameSync(temporaryPath, output);
     } finally {
         rmSync(temporaryPath, { force: true });
     }
 
-    console.log(`OpenAPI saved to ${OUTPUT_PATH} (${Buffer.byteLength(content)} bytes)`);
+    console.info(`OpenAPI saved to ${output} (${Buffer.byteLength(content)} bytes)`);
 }
-
-main().catch((err: Error) => {
-    console.error(`❌ ${err.message}`);
-    process.exit(1);
-});
