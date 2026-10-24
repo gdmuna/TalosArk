@@ -95,7 +95,7 @@
     "cookie-parser": "^1.4.7",
     "dayjs": "^1.11.23",
     "fastify": "5.11.3",
-    "figlet": "^1.12.0",
+    "figlet": "^1.11.3",
     "gradient-string": "^3.0.0",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
@@ -117,7 +117,7 @@
     "socket.io": "4.8.3",
     "ulid": "^3.0.2",
     "uuid": "^14.0.3",
-    "zod": "^4.6.7"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@inquirer/select": "4.4.2",
@@ -140,7 +140,7 @@
     "tsc-alias": "^1.9.8",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "vite": "^8.3.5",
+    "vite": "^6.4.4",
     "vitest": "^4.1.12"
   }
 }
