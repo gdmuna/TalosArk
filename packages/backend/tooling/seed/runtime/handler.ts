@@ -28,6 +28,7 @@ export class SeedServices {
         {
             version: number;
             recoverable: boolean;
+            effect: 'mutation' | 'assertion';
             run: (data: unknown, input: unknown, execution: SeedExecution) => Promise<unknown>;
         }
     >();
@@ -41,6 +42,7 @@ export class SeedServices {
         this.implementations.set(kind.id, {
             version: kind.version,
             recoverable,
+            effect: kind.effect ?? 'mutation',
             run: async (data, input, execution) => {
                 const normalized = z.parse<K['input']>(kind.input, input);
                 const work = async () =>
@@ -52,21 +54,26 @@ export class SeedServices {
                             execution
                         )
                     );
-                return actor ? execution.asActor(actor(normalized), work) : work();
+                const run = () => (kind.effect === 'assertion' ? execution.assert(work) : work());
+                return actor ? execution.asActor(actor(normalized), run) : run();
             },
         });
         return this;
     }
     require(steps: readonly SeedStep[]): void {
         for (const step of steps)
-            if (this.implementations.get(step.seederId)?.version !== step.kindVersion)
+            if (
+                this.implementations.get(step.seederId)?.version !== step.kindVersion ||
+                this.implementations.get(step.seederId)?.effect !== step.effect
+            )
                 throw new Error(
                     `Missing or incompatible seeder ${step.seederId}@${step.kindVersion}`
                 );
     }
     requireRecovery(steps: readonly SeedStep[]): void {
         const unsupported = steps.filter(
-            (step) => !this.implementations.get(step.seederId)?.recoverable
+            (step) =>
+                step.effect !== 'assertion' && !this.implementations.get(step.seederId)?.recoverable
         );
         if (unsupported.length)
             throw new Error(
@@ -75,7 +82,11 @@ export class SeedServices {
     }
     run(step: SeedStep, input: unknown, execution: SeedExecution): Promise<unknown> {
         const implementation = this.implementations.get(step.seederId);
-        if (!implementation || implementation.version !== step.kindVersion)
+        if (
+            !implementation ||
+            implementation.version !== step.kindVersion ||
+            implementation.effect !== step.effect
+        )
             throw new Error(`Missing seeder ${step.seederId}`);
         return implementation.run(step.data, input, execution);
     }

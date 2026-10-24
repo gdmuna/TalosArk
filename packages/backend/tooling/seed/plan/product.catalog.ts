@@ -19,6 +19,7 @@ import { businessDemoGroup } from '../group/business-demo.group.js';
 import { governanceVolumeGroup, inventoryVolumeGroup } from '../group/volume.group.js';
 import { credentialRegressionGroup } from '../group/credential-regression.group.js';
 import { attachmentIntegrationGroup } from '../group/attachment-integration.group.js';
+import { inventoryRegressionGroup } from '../group/inventory-regression.group.js';
 
 export const productSeedCatalog = new SeedCatalog(
     [
@@ -41,6 +42,7 @@ export const productSeedCatalog = new SeedCatalog(
         groupEntry(businessDemoGroup),
         groupEntry(governanceVolumeGroup),
         groupEntry(inventoryVolumeGroup),
+        groupEntry(inventoryRegressionGroup),
         groupEntry(credentialRegressionGroup),
         groupEntry(attachmentIntegrationGroup),
     ]

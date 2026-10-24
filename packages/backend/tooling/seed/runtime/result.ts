@@ -10,8 +10,9 @@ export interface SeedDiagnostic {
 }
 export interface SeedVerification {
     step: string;
+    type?: 'assertion';
     key?: string;
-    status: 'verified' | 'unsealed' | 'missing' | 'changed' | 'blocked';
+    status: 'verified' | 'unsealed' | 'missing' | 'changed' | 'blocked' | 'failed';
     message?: string;
 }
 export interface SeedRunResult {

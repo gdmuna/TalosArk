@@ -15,6 +15,7 @@ export interface SeedManifest {
         key: string;
         dataset: { id: string; version: number };
         kind: { id: string; version: number };
+        effect?: 'assertion';
         parameters: SeedJson;
         contentHash: string;
         from: Readonly<Record<string, string>>;
@@ -134,6 +135,7 @@ export class SeedPlanner {
                 key: step.key,
                 dataset: { id: step.datasetId, version: step.version },
                 kind: { id: step.seederId, version: step.kindVersion },
+                ...(step.effect === 'assertion' ? { effect: 'assertion' as const } : {}),
                 parameters: step.parameters,
                 contentHash: seedHash(step.data),
                 from: step.from,

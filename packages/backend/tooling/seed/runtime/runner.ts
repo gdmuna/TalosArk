@@ -73,13 +73,15 @@ export class SeedRunner {
         };
         let ownsAttempt = false;
         let active: SeedExecution | undefined;
+        let activeAssertion = false;
         const snapshots: SeedSnapshot[] = [];
         try {
             if (mode === 'verify') {
                 await this.verify(program, store, signal, result);
                 result.execution =
-                    result.verification.some((item) => item.status === 'changed') ||
-                    result.diagnostics.length
+                    result.verification.some(
+                        (item) => item.status === 'changed' || item.status === 'failed'
+                    ) || result.diagnostics.length
                         ? 'failed'
                         : result.verification.some((item) => item.status !== 'verified')
                           ? 'partial'
@@ -96,9 +98,13 @@ export class SeedRunner {
                 >('SELECT count(*) AS count FROM seed.record WHERE namespace = $1', namespace);
                 if (
                     result.diagnostics.length ||
-                    result.verification.some((item) => item.status === 'changed') ||
+                    result.verification.some(
+                        (item) => item.status === 'changed' || item.status === 'failed'
+                    ) ||
                     BigInt(
-                        result.verification.filter((item) => item.status === 'verified').length
+                        result.verification.filter(
+                            (item) => item.type !== 'assertion' && item.status === 'verified'
+                        ).length
                     ) !== count
                 )
                     throw new Error(
@@ -127,26 +133,34 @@ export class SeedRunner {
                     () => this.secrets.assertHealthy()
                 );
                 active = execution;
+                activeAssertion = step.effect === 'assertion';
                 executions.push(execution);
-                const output = await this.context.run(
-                    { requestId: ulid(), userId: actor, time: Date.now() },
-                    () => this.services.run(step, step.input(values), execution)
-                );
-                execution.finish();
-                values.set(step, output);
-                result.outputs[step.key] = output;
+                try {
+                    const output = await this.context.run(
+                        { requestId: ulid(), userId: actor, time: Date.now() },
+                        () => this.services.run(step, step.input(values), execution)
+                    );
+                    execution.finish();
+                    values.set(step, output);
+                    result.outputs[step.key] = output;
+                } finally {
+                    result.verification.push(...execution.verification);
+                }
             }
+            activeAssertion = false;
             for (const execution of executions)
                 snapshots.push(...(await execution.finalSnapshots()));
             signal.throwIfAborted();
             // Publishing all final baselines and the completed state is one short transaction.
             await store.complete(namespace, attemptId, snapshots);
             result.execution = 'completed';
-            result.verification = snapshots.map(({ step, key }) => ({
-                step,
-                key,
-                status: 'verified',
-            }));
+            result.verification.push(
+                ...snapshots.map(({ step, key }) => ({
+                    step,
+                    key,
+                    status: 'verified' as const,
+                }))
+            );
         } catch (error) {
             result.execution = signal.aborted
                 ? signal.reason instanceof Error && signal.reason.name === 'SeedControlLostError'
@@ -154,8 +168,8 @@ export class SeedRunner {
                     : 'cancelled'
                 : 'failed';
             result.diagnostics.push({
-                stage: 'execution',
-                code: 'seed.execution-stopped',
+                stage: activeAssertion ? 'verification' : 'execution',
+                code: activeAssertion ? 'seed.assertion-failed' : 'seed.execution-stopped',
                 step: active?.step,
                 key: active?.currentKey,
                 message: seedErrorMessage(error),
@@ -169,11 +183,14 @@ export class SeedRunner {
                         current.status === 'completed'
                     ) {
                         result.execution = 'completed';
-                        result.verification = snapshots.map(({ step, key }) => ({
-                            step,
-                            key,
-                            status: 'verified',
-                        }));
+                        result.verification = [
+                            ...result.verification.filter((item) => item.type === 'assertion'),
+                            ...snapshots.map(({ step, key }) => ({
+                                step,
+                                key,
+                                status: 'verified' as const,
+                            })),
+                        ];
                         result.diagnostics.push({
                             stage: 'execution',
                             code: 'seed.commit-confirmed',
@@ -219,9 +236,12 @@ export class SeedRunner {
                 : program.manifest.request.scope.userId;
         for (const step of program.steps) {
             signal.throwIfAborted();
+            // Final expectations may not hold yet during recovery. Run them after replay instead.
+            if (forResume && step.effect === 'assertion') continue;
             if (Object.values(step.from).some((key) => !values.has(key))) {
                 result.verification.push({
                     step: step.key,
+                    ...(step.effect === 'assertion' ? { type: 'assertion' as const } : {}),
                     status: 'blocked',
                     message: 'An upstream step has no complete output',
                 });
@@ -264,11 +284,13 @@ export class SeedRunner {
                         step: step.key,
                         message: seedErrorMessage(error),
                     });
-                    result.verification.push({
-                        step: step.key,
-                        status: 'blocked',
-                        message: seedErrorMessage(error),
-                    });
+                    if (!execution.verification.some((item) => item.type === 'assertion'))
+                        result.verification.push({
+                            step: step.key,
+                            ...(step.effect === 'assertion' ? { type: 'assertion' as const } : {}),
+                            status: 'blocked',
+                            message: seedErrorMessage(error),
+                        });
                 }
             } finally {
                 execution.finish();

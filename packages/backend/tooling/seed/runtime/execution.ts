@@ -29,6 +29,7 @@ export class SeedExecution {
     private readonly seen = new Set<string>();
     private processed = 0;
     private activeKey?: string;
+    private asserting = false;
     private readonly savedByKey: Map<string, SeedRecordRow>;
     private readonly inspections: {
         key: string;
@@ -103,6 +104,36 @@ export class SeedExecution {
         return this.context.run({ userId, requestId: ulid(), time: Date.now() }, work);
     }
 
+    /** Assertions are fresh reads, never receipts or observed-value baselines. */
+    async assert<T>(work: () => Promise<T>): Promise<T> {
+        this.signal.throwIfAborted();
+        this.asserting = true;
+        try {
+            const output = await this.database.transaction.run(
+                async () => {
+                    await this.database.queryClient.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+                    this.signal.throwIfAborted();
+                    return work();
+                },
+                { isolationLevel: 'RepeatableRead', timeout: 15000 }
+            );
+            this.signal.throwIfAborted();
+            this.verification.push({ step: this.step, type: 'assertion', status: 'verified' });
+            return output;
+        } catch (error) {
+            this.signal.throwIfAborted();
+            this.verification.push({
+                step: this.step,
+                type: 'assertion',
+                status: 'failed',
+                message: seedErrorMessage(error),
+            });
+            throw error;
+        } finally {
+            this.asserting = false;
+        }
+    }
+
     /** Only operations joining the ambient database transaction belong here. */
     record<S extends z.ZodType>(options: RecordOptions<S>): Promise<z.output<S>> {
         return this.perform(options, options.create);
@@ -144,6 +175,8 @@ export class SeedExecution {
         create: () => Promise<z.output<S>>,
         external = false
     ): Promise<z.output<S>> {
+        if (this.asserting)
+            throw new Error('Assertion steps cannot create seed receipts or external intents');
         this.activeKey = options.key;
         this.signal.throwIfAborted();
         if (this.seen.has(options.key))

@@ -4,6 +4,7 @@ import type { FixtureFileRef } from '../fixture/fixture.definition.js';
 export interface SeederKind {
     readonly id: string;
     readonly version: number;
+    readonly effect?: 'mutation' | 'assertion';
     readonly data: z.ZodType;
     readonly input: z.ZodType;
     readonly output: z.ZodType;

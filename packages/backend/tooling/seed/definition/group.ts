@@ -21,6 +21,7 @@ export interface SeedStep {
     readonly tags: readonly string[];
     readonly seederId: string;
     readonly kindVersion: number;
+    readonly effect: 'mutation' | 'assertion';
     readonly parameters: SeedJson;
     readonly data: SeedJson;
     readonly from: Readonly<Record<string, string>>;
@@ -107,6 +108,7 @@ export class SeedGroupBuilder {
                 tags: Object.freeze([...dataset.definition.tags]),
                 seederId: dataset.kind.id,
                 kindVersion: dataset.kind.version,
+                effect: dataset.kind.effect ?? 'mutation',
                 parameters: freezeJson(seedJson(parsed)),
                 data,
                 from,
