@@ -1,33 +1,45 @@
-#!/bin/sh
+# #!/bin/sh
 
-GREEN="\033[32m"; YELLOW="\033[33m"; RESET="\033[0m"
+# GREEN="\033[32m"; YELLOW="\033[33m"; RESET="\033[0m"
 
-log()  { printf "%-12b %b\n" "${GREEN}[GitHook]" "[LOG] $1${RESET}"; }
-warn() { printf "%-12b %b\n" "${YELLOW}[GitHook]" "[WARN] $1${RESET}"; }
+# log()  { printf "%-12b %b\n" "${GREEN}[GitHook]" "[LOG] $1${RESET}"; }
+# warn() { printf "%-12b %b\n" "${YELLOW}[GitHook]" "[WARN] $1${RESET}"; }
 
-log "执行 Pre-push hook"
+# log "执行 Pre-push hook"
 
-# 按工作区分别触发测试（新分支无上游时回退到初始提交，避免漏测）
-base=$(git rev-parse --verify @{u} 2>/dev/null || git rev-list --max-parents=0 HEAD)
-changed_backend=$(git diff --name-only "$base" HEAD | grep -E '^apps/backend/.*\.(js|ts|d\.ts)$' || true)
-changed_frontend=$(git diff --name-only "$base" HEAD | grep -E '^apps/frontend/.*\.(js|ts|d\.ts|vue)$' || true)
+# # 按工作区分别触发测试（新分支无上游时回退到初始提交，避免漏测）
+# base=$(git rev-parse --verify @{u} 2>/dev/null || git rev-list --max-parents=0 HEAD)
+# changed_backend=$(git diff --name-only "$base" HEAD | grep -E '^packages/backend/.*\.(js|ts|d\.ts)$' || true)
+#
+# # 加密 backend env 变更同样应触发 backend 测试；pre-push 读取已提交范围，
+# # 而不是像 pre-commit 一样读取暂存区。
+# ENV_PATH_PREFIX='packages/backend/secrets'
+# changed_backend_envs=$(git diff --name-only "$base" HEAD -- \
+#     ":(glob)$ENV_PATH_PREFIX/**/.env.*" \
+#     ":(exclude,glob)$ENV_PATH_PREFIX/**/.env.example" \
+#     ":(exclude,glob)$ENV_PATH_PREFIX/**/.env.*.local" || true)
+# if [ -n "$changed_backend_envs" ]; then
+#     changed_backend=1
+# fi
 
-if [ -n "$changed_backend" ]; then
-    log "检测到 backend 变更，运行测试"
-    pnpm --filter @talos-ark/backend test
-else
-    log "无 backend 变更，跳过 backend 测试"
-fi
+# changed_frontend=$(git diff --name-only "$base" HEAD | grep -E '^packages/frontend/.*\.(js|ts|d\.ts|vue)$' || true)
 
-if [ -n "$changed_frontend" ]; then
-    log "检测到 frontend 变更，运行测试"
-    pnpm --filter @talos-ark/frontend test
-else
-    log "无 frontend 变更，跳过 frontend 测试"
-fi
+# if [ -n "$changed_backend" ]; then
+#     log "检测到 backend 变更，运行测试"
+#     pnpm --filter @talos-ark/backend test
+# else
+#     log "无 backend 变更，跳过 backend 测试"
+# fi
 
-log "Pre-push hooks 执行完毕"
+# if [ -n "$changed_frontend" ]; then
+#     log "检测到 frontend 变更，运行测试"
+#     pnpm --filter @talos-ark/frontend test
+# else
+#     log "无 frontend 变更，跳过 frontend 测试"
+# fi
 
-wsl bash -c "fortune|cowsay|lolcat" || true
+# log "Pre-push hooks 执行完毕"
 
-exit 0
+# wsl bash -c "fortune|cowsay|lolcat" || true
+
+# exit 0

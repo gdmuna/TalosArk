@@ -19,7 +19,6 @@ env:
   DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME || github.repository_owner }}
   BACKEND_IMAGE: ${{ vars.DOCKER_USERNAME || github.repository_owner }}/${{ vars.DOCKER_REPO_NAME || github.event.repository.name }}
   DOCS_IMAGE: ${{ vars.DOCKER_USERNAME || github.repository_owner }}/${{ vars.DOCKER_DOCS_REPO_NAME || format('{0}-docs', github.event.repository.name) }}
-  DOTENV_PRIVATE_KEY_TEST: ${{ secrets.DOTENV_PRIVATE_KEY_TEST }}
 
 concurrency:
   group: cd-production-${{ github.ref }}
@@ -34,6 +33,7 @@ jobs:
       version: ${{ steps.info.outputs.version }}
       tag_name: ${{ steps.info.outputs.tag_name }}
       sha7: ${{ steps.info.outputs.sha7 }}
+      commit: ${{ steps.info.outputs.commit }}
       backend_tag_versioned: ${{ steps.info.outputs.backend_tag_versioned }}
       backend_tag_latest: ${{ steps.info.outputs.backend_tag_latest }}
       docs_tag_versioned: ${{ steps.info.outputs.docs_tag_versioned }}
@@ -52,13 +52,15 @@ jobs:
           else
             TAG_NAME="${GITHUB_REF#refs/tags/}"
           fi
-          VERSION=$(node -e "console.log(require('./package.json').version)")
-          SHA7="${GITHUB_SHA:0:7}"
+          VERSION=$(node -e "console.log(require('./packages/backend/package.json').version)")
+          SHA=$(git rev-parse HEAD)
+          SHA7="${SHA:0:7}"
 
           {
             echo "version=$VERSION"
             echo "tag_name=$TAG_NAME"
             echo "sha7=$SHA7"
+            echo "commit=$SHA"
             echo "backend_tag_versioned=prod-$VERSION"
             echo "backend_tag_latest=prod-latest"
             echo "docs_tag_versioned=prod-$VERSION"
@@ -70,6 +72,8 @@ jobs:
     name: Build & Push Backend Image
     needs: extract-version
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
 
     steps:
       - uses: actions/checkout@v6
@@ -84,16 +88,17 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push backend image
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile
+          file: packages/backend/ops/docker/Dockerfile
           push: true
           tags: |
             ${{ env.BACKEND_IMAGE }}:${{ needs.extract-version.outputs.backend_tag_latest }}
             ${{ env.BACKEND_IMAGE }}:${{ needs.extract-version.outputs.backend_tag_versioned }}
           build-args: |
-            GIT_COMMIT=${{ github.sha }}
+            GIT_COMMIT=${{ needs.extract-version.outputs.commit }}
             APP_VERSION=${{ needs.extract-version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -101,90 +106,30 @@ jobs:
   # ── 3. 导出 OpenAPI JSON（临时启动后端容器采集）─────────────
   export-openapi:
     name: Export OpenAPI JSON
-    needs: [extract-version, build-backend]
+    needs: [build-backend]
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: cd_export
-          POSTGRES_PASSWORD: cd_export_pass
-          POSTGRES_DB: nestjs_cd_export
-        options: >-
-          --health-cmd "pg_isready -U cd_export -d nestjs_cd_export"
-          --health-start-period 10s
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
 
-      - name: Install dotenvx
-        run: curl -sfS https://dotenvx.sh/install.sh | sh
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22.22'
-
-      - name: Run prisma migrations
-        run: |
-          npm install -g pnpm
-          pnpm install --frozen-lockfile --ignore-scripts
-          PGPASSWORD=cd_export_pass psql -h localhost -U cd_export -d postgres \
-            -c "CREATE DATABASE nestjs_cd_export_shadow;"
-          pnpm prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://cd_export:cd_export_pass@localhost:5432/nestjs_cd_export?schema=public
-          SHADOW_DATABASE_URL: postgresql://cd_export:cd_export_pass@localhost:5432/nestjs_cd_export_shadow?schema=public
-
       - uses: docker/login-action@v3
         with:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Start backend container for OpenAPI export
-        run: |
-          docker run -d \
-            --name backend-export \
-            --network host \
-            -e DOTENV_PRIVATE_KEY_TEST=${{ secrets.DOTENV_PRIVATE_KEY_TEST }} \
-            -e NODE_ENV=test \
-            -e DATABASE_URL="postgresql://cd_export:cd_export_pass@localhost:5432/nestjs_cd_export?schema=public" \
-            -e PORT=3000 \
-            ${{ env.BACKEND_IMAGE }}:${{ needs.extract-version.outputs.backend_tag_latest }}
-
-      - name: Wait for backend to be healthy
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000/health; then
-              echo "✅ Backend healthy"
-              break
-            fi
-            echo "⏳ Waiting... ($i/30)"
-            sleep 3
-          done
-          curl -sf http://localhost:3000/health || (echo "❌ Backend not healthy" && exit 1)
-
-      - name: Export OpenAPI JSON
-        run: |
-          curl -sf http://localhost:3000/api-doc-json -o openapi.json
-          echo "✅ Exported $(wc -c < openapi.json) bytes"
-
-      - name: Stop backend container
-        if: always()
-        run: docker rm -f backend-export || true
+      - name: Export from the built image with disposable dependencies
+        env:
+          EXPORT_IMAGE: ${{ env.BACKEND_IMAGE }}@${{ needs.build-backend.outputs.digest }}
+        run: bash packages/backend/ops/docker/ci/export-openapi.sh "$EXPORT_IMAGE"
 
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@v7
         with:
           name: openapi-json-${{ github.run_id }}
-          path: openapi.json
+          path: packages/docsite/api-reference/openapi.json
+          if-no-files-found: error
           retention-days: 7
 
   # ── 4. 构建并推送文档镜像 ───────────────────────────────────
@@ -202,7 +147,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: openapi-json-${{ github.run_id }}
-          path: assets
+          path: packages/docsite/api-reference
 
       - uses: docker/setup-buildx-action@v3
 
@@ -215,13 +160,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: website/Dockerfile.prod
+          file: packages/docsite/Dockerfile.prod
           push: true
           tags: |
             ${{ env.DOCS_IMAGE }}:${{ needs.extract-version.outputs.docs_tag_latest }}
             ${{ env.DOCS_IMAGE }}:${{ needs.extract-version.outputs.docs_tag_versioned }}
-          build-args: |
-            OPENAPI_JSON_PATH=assets/openapi.json
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

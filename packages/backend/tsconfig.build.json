@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "**/*spec.ts",
+    "tooling",
+    "src/bootstrap/composition/seed.module.ts",
+    "src/bootstrap/composition/seed-storage.module.ts"
+  ],
+  "compilerOptions": {
+    "skipLibCheck": true
+  }
+}

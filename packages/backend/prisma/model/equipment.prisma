@@ -1,0 +1,58 @@
+/// Basic registry only: no connection, telemetry, command or simulated online state.
+model Equipment {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  organizationId String          @db.Uuid
+  workspaceId    String          @db.Uuid
+  resourceId     String          @db.Uuid
+  facilityId     String?         @db.Uuid
+  code           String?
+  name           String
+  manufacturer   String?
+  modelNumber    String?
+  serialNumber   String?
+  description    String?
+  status         EquipmentStatus @default(ACTIVE)
+  archivedAt     DateTime?       @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+
+  workspace   Workspace              @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource    ResourceIdentity       @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  facility    Facility?              @relation(fields: [organizationId, facilityId], references: [organizationId, id], onDelete: Restrict)
+  maintenance EquipmentMaintenance[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([workspaceId, code])
+  @@index([organizationId, facilityId])
+}
+
+model EquipmentMaintenance {
+  id             String                   @id @default(uuid(7)) @db.Uuid
+  organizationId String                   @db.Uuid
+  workspaceId    String                   @db.Uuid
+  equipmentId    String                   @db.Uuid
+  performedById  String                   @db.Uuid
+  type           EquipmentMaintenanceType
+  summary        String
+  notes          String?
+  performedAt    DateTime                 @db.Timestamptz(3)
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(3)
+
+  equipment   Equipment @relation(fields: [organizationId, workspaceId, equipmentId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  performedBy User      @relation(fields: [performedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, workspaceId, equipmentId, performedAt])
+  @@index([performedById])
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum EquipmentMaintenanceType {
+  INSPECTION
+  MAINTENANCE
+}

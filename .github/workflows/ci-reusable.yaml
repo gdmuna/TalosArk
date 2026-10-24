@@ -22,6 +22,25 @@ env:
   DOTENV_PRIVATE_KEY_TEST: ${{ secrets.DOTENV_PRIVATE_KEY_TEST }}
 
 jobs:
+  seed-typecheck:
+    name: Seed contract typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @talos-ark/contracts build
+      - name: Generate Prisma types without connecting to a database
+        run: pnpm --filter @talos-ark/backend exec prisma generate
+        env:
+          DATABASE_URL: postgresql://seed:unused@127.0.0.1:1/seed_typecheck
+          SHADOW_DATABASE_URL: postgresql://seed:unused@127.0.0.1:1/seed_shadow
+      - run: pnpm --filter @talos-ark/backend seed:typecheck
+
   lint-and-format:
     name: Lint and format
     runs-on: ubuntu-latest
@@ -87,7 +106,7 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VERSION=$(node -e "const fs=require('fs');console.log(JSON.parse(fs.readFileSync('./apps/backend/package.json','utf8')).version)")
+          VERSION=$(node -e "const fs=require('fs');console.log(JSON.parse(fs.readFileSync('./packages/backend/package.json','utf8')).version)")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Version: $VERSION"
 
@@ -109,11 +128,11 @@ jobs:
 
       - name: Sync schema (CI DB)
         run: |
-          if compgen -G "apps/backend/prisma/migrations/*/migration.sql" > /dev/null 2>&1; then
+          if compgen -G "packages/backend/prisma/migrations/*/migration.sql" > /dev/null 2>&1; then
             echo "\U0001f50d Validating schema.prisma matches migrations..."
             pnpm --filter @talos-ark/backend prisma migrate diff \
-              --from-migrations ./apps/backend/prisma/migrations \
-              --to-schema-datamodel ./apps/backend/prisma/schema.prisma \
+              --from-migrations ./packages/backend/prisma/migrations \
+              --to-schema-datamodel ./packages/backend/prisma/schema.prisma \
               --exit-code || (echo "\u274c schema.prisma has uncommitted changes \u2014 run pnpm db:migrate" && exit 1)
             echo "\u2705 Schema matches, running migrate deploy"
             pnpm --filter @talos-ark/backend prisma migrate deploy
@@ -135,7 +154,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint-and-format, test]
+    needs: [lint-and-format, test, seed-typecheck]
 
     services:
       postgres:

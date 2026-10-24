@@ -1,0 +1,153 @@
+/// Mutable current state of exactly one physical instance; updates increment version.
+model StockItem {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  organizationId  String      @db.Uuid
+  workspaceId     String      @db.Uuid
+  resourceId      String      @db.Uuid
+  instanceId      String      @db.Uuid
+  quantity        Decimal     @db.Decimal(20, 6)
+  status          StockStatus @default(IN_STOCK)
+  custodianUserId String?     @db.Uuid
+  version         Int         @default(1)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @db.Timestamptz(3)
+
+  resource         ResourceIdentity           @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  instance         MaterialInstance           @relation(fields: [organizationId, workspaceId, instanceId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  custodian        User?                      @relation("StockCustodian", fields: [custodianUserId], references: [id], onDelete: Restrict)
+  placement        Placement?
+  transactionLines InventoryTransactionLine[]
+  approvalLines    ApprovalLine[]
+  stocktakeEntries StocktakeEntry[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([organizationId, workspaceId, instanceId])
+  @@index([workspaceId, status])
+  @@index([custodianUserId])
+}
+
+/// Current placement only. Historical positions live in immutable transaction lines.
+model Placement {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @db.Uuid
+  workspaceId    String   @db.Uuid
+  stockItemId    String   @db.Uuid
+  storageNodeId  String   @db.Uuid
+  placedAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  stockItem   StockItem   @relation(fields: [organizationId, workspaceId, stockItemId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  storageNode StorageNode @relation(fields: [organizationId, storageNodeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, workspaceId, stockItemId])
+  @@unique([organizationId, storageNodeId])
+}
+
+/// Transaction-bound reservation and durable receipt for one complete business operation.
+model InventoryOperation {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  organizationId     String    @db.Uuid
+  scopeKind          String    @db.VarChar(32)
+  scopeId            String    @db.Uuid
+  actorUserId        String    @db.Uuid
+  operation          String    @db.VarChar(96)
+  idempotencyKey     String    @db.VarChar(255)
+  requestHash        String    @db.VarChar(64)
+  fingerprintVersion Int
+  leaseId            String    @db.VarChar(26)
+  completedAt        DateTime? @db.Timestamptz(3)
+  result             Json?
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+
+  transactions InventoryTransaction[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, scopeKind, scopeId, idempotencyKey], map: "InventoryOperation_scope_key")
+}
+
+/// Insert only on execution, together with balances, placements and audit in one transaction.
+model InventoryTransaction {
+  id                String                   @id @default(uuid(7)) @db.Uuid
+  organizationId    String                   @db.Uuid
+  workspaceId       String                   @db.Uuid
+  type              InventoryTransactionType
+  actorUserId       String                   @db.Uuid
+  approvalLineId    String?                  @db.Uuid
+  operationId       String                   @db.Uuid
+  reason            String?
+  occurredAt        DateTime                 @default(now()) @db.Timestamptz(3)
+
+  workspace Workspace                  @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  actor     User                       @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  approval  ApprovalLine?              @relation(fields: [organizationId, workspaceId, approvalLineId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  lines     InventoryTransactionLine[]
+  operation InventoryOperation         @relation(fields: [organizationId, operationId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, workspaceId, approvalLineId])
+  @@unique([operationId, workspaceId])
+  @@index([workspaceId, occurredAt])
+  @@index([actorUserId])
+}
+
+model InventoryTransactionLine {
+  id                     String       @id @default(uuid(7)) @db.Uuid
+  organizationId         String       @db.Uuid
+  workspaceId            String       @db.Uuid
+  transactionId          String       @db.Uuid
+  stockItemId            String       @db.Uuid
+  lineNumber             Int
+  unitSnapshot           String       @db.VarChar(32)
+  quantityBefore         Decimal      @db.Decimal(20, 6)
+  quantityAfter          Decimal      @db.Decimal(20, 6)
+  statusBefore           StockStatus?
+  statusAfter            StockStatus
+  fromNodeId             String?      @db.Uuid
+  toNodeId               String?      @db.Uuid
+  /// Immutable text snapshots; moving a container must not rewrite journal history.
+  fromNodePathSnapshot   String?
+  toNodePathSnapshot     String?
+  fromFacilityIdSnapshot String?      @db.Uuid
+  toFacilityIdSnapshot   String?      @db.Uuid
+  fromTopologyIdSnapshot String?      @db.Uuid
+  toTopologyIdSnapshot   String?      @db.Uuid
+  fromCustodianUserId    String?      @db.Uuid
+  toCustodianUserId      String?      @db.Uuid
+  note                   String?
+
+  transaction    InventoryTransaction @relation(fields: [organizationId, workspaceId, transactionId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  stockItem      StockItem            @relation(fields: [organizationId, workspaceId, stockItemId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  fromNode       StorageNode?         @relation("TransactionFromNode", fields: [organizationId, fromNodeId], references: [organizationId, id], onDelete: Restrict)
+  toNode         StorageNode?         @relation("TransactionToNode", fields: [organizationId, toNodeId], references: [organizationId, id], onDelete: Restrict)
+  fromCustodian  User?                @relation("TransactionFromCustodian", fields: [fromCustodianUserId], references: [id], onDelete: Restrict)
+  toCustodian    User?                @relation("TransactionToCustodian", fields: [toCustodianUserId], references: [id], onDelete: Restrict)
+  stocktakeEntry StocktakeEntry?
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([transactionId, lineNumber])
+  @@unique([transactionId, stockItemId])
+  @@unique([organizationId, workspaceId, stockItemId, id])
+  @@index([organizationId, workspaceId, stockItemId])
+  @@index([organizationId, fromNodeId])
+  @@index([organizationId, toNodeId])
+}
+
+enum StockStatus {
+  IN_STOCK
+  CHECKED_OUT
+  QUARANTINED
+  DEPLETED
+  DISPOSED
+}
+
+enum InventoryTransactionType {
+  RECEIPT
+  CONSUMPTION
+  ISSUE
+  RETURN
+  TRANSFER
+  ADJUSTMENT
+  DISPOSAL
+  CONTAINER_RELOCATION
+}

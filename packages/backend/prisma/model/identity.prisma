@@ -1,0 +1,110 @@
+model User {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  username     String   @unique
+  email        String   @unique
+  passwordHash String?
+  isSuperAdmin Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile                 UserProfile?
+  externalIdentities      ExternalIdentity[]
+  sessions                Session[]
+  passwordResetTokens     PasswordResetToken[]
+  activationTokens        UserActivationToken[]
+  ownedOrganizations      Organization[]             @relation("OrganizationOwner")
+  organizationMemberships OrganizationMember[]
+  sentInvitations         OrganizationInvitation[]   @relation("InvitationSender")
+  acceptedInvitations     OrganizationInvitation[]   @relation("InvitationAcceptor")
+  inventoryTransactions   InventoryTransaction[]
+  stockCustody            StockItem[]                @relation("StockCustodian")
+  transactionFromCustody  InventoryTransactionLine[] @relation("TransactionFromCustodian")
+  transactionToCustody    InventoryTransactionLine[] @relation("TransactionToCustodian")
+  requestedApprovals      ApprovalRequest[]          @relation("ApprovalRequester")
+  assignedApprovals       ApprovalRequest[]          @relation("ApprovalApprover")
+  approvalEvents          ApprovalEvent[]
+  createdTasks            Task[]                     @relation("TaskCreator")
+  assignedTasks           Task[]                     @relation("TaskAssignee")
+  completedTasks          Task[]                     @relation("TaskCompleter")
+  taskEvents              TaskEvent[]
+  alertEvents             AlertEvent[]
+  notificationRecipients  NotificationRecipient[]
+  uploadedFiles           FileAsset[]
+  fileUploads             FileUploadSession[]
+  auditEvents             AuditEvent[]
+  createdStocktakes       StocktakeSession[]         @relation("StocktakeCreator")
+  confirmedStocktakes     StocktakeSession[]         @relation("StocktakeConfirmer")
+  countedStocktakeEntries StocktakeEntry[]
+  equipmentMaintenance    EquipmentMaintenance[]
+
+  @@index(createdAt)
+}
+
+model UserProfile {
+  userId     String          @id @db.Uuid
+  nickname   String?
+  avatarId   String?
+  bio        String?
+  sex        UserProfileSex?
+  sexVisible Boolean         @default(true)
+  birthday   DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+enum UserProfileSex {
+  MALE
+  FEMALE
+  OTHER // wtf???
+}
+
+/// Stable binding between an external OIDC subject and a local user.
+model ExternalIdentity {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  issuer    String
+  subject   String
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject])
+  @@index([userId])
+}
+
+/// High-entropy email reset credentials are hashed, expiring and consumed once.
+model PasswordResetToken {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @db.Uuid
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+/// Account activation is separate from password recovery; only a hash is persisted.
+model UserActivationToken {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  userId     String    @db.Uuid
+  email      String
+  tokenHash  String    @unique
+  expiresAt  DateTime  @db.Timestamptz(3)
+  consumedAt DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}

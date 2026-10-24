@@ -2,12 +2,13 @@
   "name": "talos-ark",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@12.4.1",
   "type": "module",
   "license": "AGPL-3.0",
   "author": "Maiturin",
   "description": "璇玑云库(TalosArk) - 生物样本储存管理系统",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "format": "prettier --write .",
@@ -19,23 +20,27 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "eslint": "^10.4.0",
+    "@typescript-eslint/eslint-plugin": "^8.72.0",
+    "@typescript-eslint/parser": "^8.72.0",
+    "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-vue": "^10.9.1",
-    "globals": "^17.6.0",
+    "eslint-plugin-vue": "^10.11.1",
+    "globals": "^17.13.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
-    "prettier": "^3.8.3",
-    "vue-eslint-parser": "^10.4.0"
+    "prettier": "^3.9.10",
+    "vue-eslint-parser": "^10.4.1"
   },
   "lint-staged": {
-    "apps/backend/**/*.{js,ts}": [
+    "packages/contract/**/*.{js,ts}": [
       "eslint --fix",
       "prettier --write"
     ],
-    "apps/frontend/**/*.{js,ts,vue}": [
+    "packages/backend/**/*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "packages/frontend/**/*.{js,ts,vue}": [
       "eslint --fix",
       "prettier --write"
     ],

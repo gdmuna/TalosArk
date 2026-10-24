@@ -1,0 +1,152 @@
+/// Workspace-owned flat classification; no unconfirmed classification hierarchy.
+model MaterialType {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  workspaceId    String    @db.Uuid
+  code           String?
+  name           String
+  archivedAt     DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
+
+  workspace Workspace  @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  materials Material[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([workspaceId, code])
+}
+
+/// A definition belongs exclusively to one workspace. It contains no stock balance.
+model Material {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  organizationId String         @db.Uuid
+  workspaceId    String         @db.Uuid
+  resourceId     String         @db.Uuid
+  typeId         String         @db.Uuid
+  code           String?
+  name           String
+  description    String?
+  branch         MaterialBranch
+  attributes     Json
+  manufacturer   String?
+  catalogNumber  String?
+  quantityUnit   String         @db.VarChar(32)
+  quantityScale  Int            @default(6)
+  archivedAt     DateTime?      @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+
+  workspace   Workspace            @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource    ResourceIdentity     @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  type        MaterialType         @relation(fields: [organizationId, workspaceId, typeId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  aliases     MaterialAlias[]
+  identifiers MaterialIdentifier[]
+  batches     MaterialBatch[]
+  instances   MaterialInstance[]
+  threshold   InventoryThreshold?
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([workspaceId, code])
+  @@index([organizationId, workspaceId, typeId])
+  @@index([workspaceId, archivedAt, name])
+}
+
+enum MaterialBranch {
+  consumable
+  chemical
+  biological
+}
+
+model MaterialAlias {
+  id             String @id @default(uuid(7)) @db.Uuid
+  organizationId String @db.Uuid
+  workspaceId    String @db.Uuid
+  materialId     String @db.Uuid
+  name           String
+
+  material Material @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+
+  @@unique([materialId, name])
+  @@index([workspaceId, name])
+}
+
+/// The scheme distinguishes catalog, CAS, accession and other external identifiers.
+model MaterialIdentifier {
+  id             String @id @default(uuid(7)) @db.Uuid
+  organizationId String @db.Uuid
+  workspaceId    String @db.Uuid
+  materialId     String @db.Uuid
+  scheme         String
+  value          String
+
+  material Material @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+
+  @@unique([materialId, scheme, value])
+  @@index([workspaceId, scheme, value])
+}
+
+model MaterialBatch {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  organizationId String             @db.Uuid
+  workspaceId    String             @db.Uuid
+  resourceId     String             @db.Uuid
+  materialId     String             @db.Uuid
+  batchNumber    String
+  manufacturedOn DateTime?          @db.Date
+  expiryKind     MaterialExpiryKind @default(UNKNOWN)
+  expiresOn      DateTime?          @db.Date
+  revision       Int                @default(1)
+  notes          String?
+  archivedAt     DateTime?          @db.Timestamptz(3)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  resource  ResourceIdentity   @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  material  Material           @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  instances MaterialInstance[]
+
+  @@unique([organizationId, resourceId])
+  @@unique([organizationId, workspaceId, materialId, id])
+  @@unique([materialId, batchNumber])
+}
+
+enum MaterialExpiryKind {
+  UNKNOWN
+  NONE
+  DATED
+}
+
+/// One independently stored physical item; batch is optional, never a stock aggregate.
+model MaterialInstance {
+  id              String             @id @default(uuid(7)) @db.Uuid
+  organizationId  String             @db.Uuid
+  workspaceId     String             @db.Uuid
+  resourceId      String             @db.Uuid
+  materialId      String             @db.Uuid
+  batchId         String?            @db.Uuid
+  code            String?
+  label           String?
+  initialQuantity Decimal            @db.Decimal(20, 6)
+  manufacturedOn  DateTime?          @db.Date
+  receivedOn      DateTime?          @db.Date
+  expiryKind      MaterialExpiryKind @default(UNKNOWN)
+  expiresOn       DateTime?          @db.Date
+  revision        Int                @default(1)
+  openedAt        DateTime?          @db.Timestamptz(3)
+  notes           String?
+  archivedAt      DateTime?          @db.Timestamptz(3)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
+
+  resource ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  material Material         @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  batch    MaterialBatch?   @relation(fields: [organizationId, workspaceId, materialId, batchId], references: [organizationId, workspaceId, materialId, id], onDelete: Restrict)
+  stock    StockItem?
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@unique([workspaceId, code])
+  @@index([organizationId, workspaceId, materialId, batchId])
+  @@index([workspaceId, expiresOn])
+}

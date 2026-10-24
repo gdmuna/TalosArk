@@ -1,0 +1,29 @@
+{
+  "name": "@talos-ark/docsite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0",
+  "author": "Maiturin",
+  "description": "璇玑云库 - 文档站",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "node script/prepare-api-reference.mjs && vitepress dev",
+    "build": "node script/prepare-api-reference.mjs && vitepress build",
+    "serve": "vitepress preview",
+    "preview": "vitepress preview"
+  },
+  "dependencies": {
+    "@mdit/plugin-tasklist": "^1.1.3",
+    "markdown-it-mathjax3": "^4.3.2",
+    "vitepress": "^1.6.4",
+    "vitepress-mermaid-renderer": "^1.2.2",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

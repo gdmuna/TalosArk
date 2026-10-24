@@ -1,0 +1,23 @@
+FROM node:24.20-trixie-slim AS builder
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY packages/docsite/package.json ./packages/docsite/
+RUN npm install -g "$(node -p "require('./package.json').packageManager")" \
+    && pnpm --filter @talos-ark/docsite install --frozen-lockfile --ignore-scripts
+
+COPY packages/docsite/ ./packages/docsite/
+# The generated specification must exist in the build context.
+COPY packages/docsite/api-reference/openapi.json ./packages/docsite/api-reference/openapi.json
+
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+ENV VITE_API_REFERENCE_URL=/api-reference/
+RUN pnpm --filter @talos-ark/docsite build
+
+FROM nginxinc/nginx-unprivileged:alpine AS runner
+COPY --from=builder /app/packages/docsite/dist /usr/share/nginx/html
+COPY packages/docsite/nginx.prod.conf /etc/nginx/conf.d/default.conf
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=5 \
+    CMD wget -qO- http://127.0.0.1:8080/ || exit 1

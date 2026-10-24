@@ -9,28 +9,28 @@ updates:
 
   # 后端服务
   - package-ecosystem: 'npm'
-    directory: '/apps/backend'
+    directory: '/packages/backend'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 10
 
   # 前端（Vue 3 / Tauri Web 层）
   - package-ecosystem: 'npm'
-    directory: '/apps/frontend'
+    directory: '/packages/frontend'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 10
 
   # 文档站
   - package-ecosystem: 'npm'
-    directory: '/apps/docsite'
+    directory: '/packages/docsite'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 5
 
   # Tauri Rust 壳层
   - package-ecosystem: 'cargo'
-    directory: '/apps/frontend/src-tauri'
+    directory: '/packages/frontend/src-tauri'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 5

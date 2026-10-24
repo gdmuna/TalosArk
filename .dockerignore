@@ -3,12 +3,10 @@
 **/.vitepress/cache/
 **/*.log
 **/coverage/
-**/.env.keys
+**/.env.keys*
 **/.env.example
 
-apps/backend/prisma/generated/
+packages/backend/secrets/crypto/
+packages/backend/prisma/generated/
 
-apps/frontend/src-tauri/
-
-# 测试与 CI 产物
-dogfood-output/
+packages/frontend/src-tauri/

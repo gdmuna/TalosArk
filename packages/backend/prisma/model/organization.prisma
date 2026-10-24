@@ -1,0 +1,72 @@
+model Organization {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  name        String
+  ownerUserId String    @db.Uuid
+  archivedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+
+  owner       User                     @relation("OrganizationOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  members     OrganizationMember[]
+  workspaces  Workspace[]
+  invitations OrganizationInvitation[]
+  roles       Role[]
+  resources   ResourceIdentity[]
+  facilities  Facility[]
+  fileObjects FileObject[]
+  fileAssets  FileAsset[]
+  fileUploads FileUploadSession[]
+  auditEvents AuditEvent[]
+
+  @@index([ownerUserId])
+}
+
+/// Membership rows are retained after departure to preserve historical references.
+model OrganizationMember {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  userId         String       @db.Uuid
+  status         MemberStatus @default(ACTIVE)
+  joinedAt       DateTime     @default(now()) @db.Timestamptz(3)
+  leftAt         DateTime?    @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(3)
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user         User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  workspaces   WorkspaceMember[]
+  roleBindings OrganizationRoleBinding[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+}
+
+/// An optional target workspace allows one invitation to join both contexts.
+model OrganizationInvitation {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  workspaceId    String?   @db.Uuid
+  email          String
+  tokenHash      String    @unique
+  invitedById    String    @db.Uuid
+  acceptedById   String?   @db.Uuid
+  expiresAt      DateTime  @db.Timestamptz(3)
+  acceptedAt     DateTime? @db.Timestamptz(3)
+  revokedAt      DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  workspace    Workspace?   @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  invitedBy    User         @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy   User?        @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, email])
+  @@index([organizationId, workspaceId])
+  @@index([expiresAt])
+}
+
+enum MemberStatus {
+  ACTIVE
+  SUSPENDED
+  LEFT
+}

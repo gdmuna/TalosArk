@@ -1,0 +1,43 @@
+/// Cross-cutting identity only. Ownership and lifecycle remain in concrete domains.
+model ResourceIdentity {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  organizationId String       @db.Uuid
+  kind           ResourceKind
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  organization     Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  material         Material?
+  materialBatch    MaterialBatch?
+  materialInstance MaterialInstance?
+  facility         Facility?
+  storageTopology  StorageTopology?
+  storageNode      StorageNode?
+  stockItem        StockItem?
+  stocktake        StocktakeSession?
+  approval         ApprovalRequest?
+  task             Task?                    @relation("TaskIdentity")
+  equipment        Equipment?
+  relatedTasks     Task[]                   @relation("TaskRelatedResource")
+  alerts           Alert[]
+  notifications    Notification[]
+  fileReferences   FileReference[]
+  fileUploads      FileUploadSession[]
+  auditReferences  AuditResourceReference[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, kind])
+}
+
+enum ResourceKind {
+  MATERIAL
+  MATERIAL_BATCH
+  MATERIAL_INSTANCE
+  FACILITY
+  STORAGE_TOPOLOGY
+  STORAGE_NODE
+  STOCK_ITEM
+  STOCKTAKE
+  APPROVAL_REQUEST
+  TASK
+  EQUIPMENT
+}

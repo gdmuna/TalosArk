@@ -1,0 +1,242 @@
+[
+  {
+    "file": "b-02-2560.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 68838,
+    "sha256": "fe1f35597cdf2021875315e3b0f7cc4bbcfba53c4dded627163cb04638f492f8"
+  },
+  {
+    "file": "c-02-2560.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 69315,
+    "sha256": "424ade3d3ffd2e454b4dd3fa3b3fdf5183eee58da13c8a47e9464cea29d0d4c8"
+  },
+  {
+    "file": "c-03-2560.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 58510,
+    "sha256": "c083c2a7ff421a7a386585cf7283de746ebb11bb8757236011cbd74892bf9bda"
+  },
+  {
+    "file": "e-01-1440.jpg",
+    "kind": "current-app",
+    "width": 1440,
+    "height": 900,
+    "bytes": 72293,
+    "sha256": "2d4eb12634fbb18250b23cbb1a81c37ade2140ed17f0d9b6f256746fdcb2c6c5"
+  },
+  {
+    "file": "e-03-1024-collapsed.jpg",
+    "kind": "current-app",
+    "width": 1024,
+    "height": 768,
+    "bytes": 36217,
+    "sha256": "fb3d61208c6f431b650b703da2b606e16d86990563093cbcb80d59f4fde3d936"
+  },
+  {
+    "file": "e-03-1024-expanded.jpg",
+    "kind": "current-app",
+    "width": 1024,
+    "height": 768,
+    "bytes": 47411,
+    "sha256": "01b6159221b20d58d85d73dee1a180bfb1a283198c306eae427c83c5684a1651"
+  },
+  {
+    "file": "e-03-1280-collapsed.jpg",
+    "kind": "current-app",
+    "width": 1280,
+    "height": 800,
+    "bytes": 38745,
+    "sha256": "70568299eb45f9c88aa02c06f7191b8c93fd7488459952e3e20ead21b49f3774"
+  },
+  {
+    "file": "e-03-1280-expanded.jpg",
+    "kind": "current-app",
+    "width": 1280,
+    "height": 800,
+    "bytes": 50359,
+    "sha256": "af5ecb1277719a46365c502ef12a3d06d58e8819edbba3cd1ea41d1e23ab1a43"
+  },
+  {
+    "file": "e-03-1440-collapsed.jpg",
+    "kind": "current-app",
+    "width": 1440,
+    "height": 900,
+    "bytes": 40994,
+    "sha256": "0831df1d4968b0dec8c5cc07295cb9a53eeb72cf7a3d1371ab4bc2fb9a09530f"
+  },
+  {
+    "file": "e-03-1440-expanded.jpg",
+    "kind": "current-app",
+    "width": 1440,
+    "height": 900,
+    "bytes": 55603,
+    "sha256": "03cb772f988cff1b0d5c1918f7499843d1570d57c2878043d9d1c582698560f1"
+  },
+  {
+    "file": "e-03-1920-collapsed.jpg",
+    "kind": "current-app",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 46661,
+    "sha256": "84d96ef51c698279558da6cc088b4a9bcb51613a61db0910ab28c110778fc4be"
+  },
+  {
+    "file": "e-03-1920-expanded.jpg",
+    "kind": "current-app",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 63231,
+    "sha256": "c828cf3bad27a26264fdcbd9326af0f878ba53981eb8b2ea2958c314f5d1045a"
+  },
+  {
+    "file": "e-03-2560-collapsed.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 57575,
+    "sha256": "461f208a1af80c017228b3447227ce6dc75174dfa4c822c03fe1d23d3336e861"
+  },
+  {
+    "file": "e-03-2560-expanded.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 74258,
+    "sha256": "5222619f339d4a44362dfe3bd872cc019ca383e2efab0573a6a47f0951b4bf1c"
+  },
+  {
+    "file": "e-03-filter-empty.jpg",
+    "kind": "current-app",
+    "width": 1440,
+    "height": 900,
+    "bytes": 33192,
+    "sha256": "0c317eee504d9eb4826fe6b7e75590c7d9e6abc29d8b54f40ec59bb084c35448"
+  },
+  {
+    "file": "e-10-1440.jpg",
+    "kind": "current-app",
+    "width": 1440,
+    "height": 900,
+    "bytes": 59356,
+    "sha256": "94768e5851960011adaca4deee26d99682bab0a5465e00c97a543afdb7ba13dd"
+  },
+  {
+    "file": "e-10-2560.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 78566,
+    "sha256": "7b25fd8f44e2fe1d81d3da0c87bd0bd546bb8f1fed367b4600e600b7d2811b30"
+  },
+  {
+    "file": "f-01-1440.jpg",
+    "kind": "current-app",
+    "width": 1440,
+    "height": 900,
+    "bytes": 67243,
+    "sha256": "35daaf72e6a1733be7e7713fefd2819676743542b2ffa78847273b1159ce69d4"
+  },
+  {
+    "file": "f-01-2560.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 87474,
+    "sha256": "6e023bff9dec960be7ebcdd2db12b49c5ca0d1cb8fe1f51909d59455686c0527"
+  },
+  {
+    "file": "isolated-100-constrained.jpg",
+    "kind": "isolated-layout",
+    "width": 1440,
+    "height": 900,
+    "bytes": 46869,
+    "sha256": "eeca996f4da5846fb8e6b80ba56499b970294cb93e8df74dfc2a238a7c7dca8e"
+  },
+  {
+    "file": "isolated-actions-only.jpg",
+    "kind": "isolated-layout",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 29728,
+    "sha256": "9a6e26da331000a8bbfa08c88345b52913d6aba5aa10e6a820d9eb23d872b0df"
+  },
+  {
+    "file": "isolated-empty.jpg",
+    "kind": "isolated-layout",
+    "width": 1440,
+    "height": 900,
+    "bytes": 30410,
+    "sha256": "64002c32130e0f4bcfc210540197538cc1ed75fe25c08255e384a6066b4d69e6"
+  },
+  {
+    "file": "isolated-long.jpg",
+    "kind": "isolated-layout",
+    "width": 1440,
+    "height": 900,
+    "bytes": 133801,
+    "sha256": "bbf69cda1b2b110bfb6f5391271e0ad905e4faa26a7fcc43184ec001ba73b319"
+  },
+  {
+    "file": "isolated-material-instance.jpg",
+    "kind": "isolated-layout",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 66691,
+    "sha256": "c52309379390090aa5ef7002b7c4d00a4ae94b54e2ef0de0850e5d740f925453"
+  },
+  {
+    "file": "isolated-material-overview.jpg",
+    "kind": "isolated-layout",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 66779,
+    "sha256": "50bf59760f31e6481fd7a23ebf3d4119aa71f9bc8874e61598030d85d2619895"
+  },
+  {
+    "file": "isolated-narrow.jpg",
+    "kind": "isolated-layout",
+    "width": 1440,
+    "height": 900,
+    "bytes": 26422,
+    "sha256": "b5668e0d4515a74514266b9e078b106046c05f98129c1906b4ed57fc3d36d716"
+  },
+  {
+    "file": "isolated-one.jpg",
+    "kind": "isolated-layout",
+    "width": 1440,
+    "height": 900,
+    "bytes": 33287,
+    "sha256": "d4eb92669b88731a13f2d0642e8da39680252155ffe71ca5c88f04a77726fd40"
+  },
+  {
+    "file": "isolated-two.jpg",
+    "kind": "isolated-layout",
+    "width": 1440,
+    "height": 900,
+    "bytes": 37927,
+    "sha256": "b7c212a6e2ae0ea0ada667fcf15d02c075a8f3fc655a242d46b79aca34c83f3c"
+  },
+  {
+    "file": "isolated-workbench.jpg",
+    "kind": "isolated-layout",
+    "width": 1920,
+    "height": 1080,
+    "bytes": 97065,
+    "sha256": "1148ddaeadd21f5f034f01b4b1b94cbba3106a601247d78579169c4ab8bee340"
+  },
+  {
+    "file": "x-08-2560.jpg",
+    "kind": "current-app",
+    "width": 2560,
+    "height": 1440,
+    "bytes": 76759,
+    "sha256": "1b5e3f213485b60bf1a0642bc03a7d359c3e10c042acd85651e4e4f71e0aee0d"
+  }
+]

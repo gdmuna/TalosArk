@@ -1,0 +1,91 @@
+# Casdoor 后端配置。`#` 开头的整行是 INI 注释；若同名环境变量存在，Casdoor 会优先使用环境变量。
+
+# 应用名称；目前主要用于标识，通常保持 casdoor。
+appname = casdoor
+# 容器内 Casdoor HTTP 监听端口；主机侧端口由 Compose 的 ports 配置决定。
+httpport = 8000
+# 运行模式；完整部署使用 prod，本地调试可改为 dev。
+runmode = prod
+# 是否保留请求体，以便后续过滤器或处理器再次读取。
+copyrequestbody = true
+
+# 数据库驱动；这里使用 PostgreSQL。
+driverName = postgres
+# PostgreSQL 连接串；postgres 是完整基础设施 Compose 网络中的服务名。
+dataSourceName = user=admin password=admin host=postgres port=5432 dbname=casdoor sslmode=disable
+# Casdoor 使用的数据库名；应与 dataSourceName 中的 dbname 保持一致。
+dbName = casdoor
+# 表名前缀；为空表示使用 Casdoor 默认表名。
+tableNamePrefix =
+# 是否把执行的 SQL 写入日志；生产环境通常保持 false，避免噪声和敏感信息泄露。
+showSql = false
+
+# 可选的 Redis/Valkey 端点；单实例 Casdoor 可留空，多副本部署通常需要共享缓存。
+redisEndpoint =
+# 默认文件存储提供者名称；未配置 Casdoor storage provider 时保持为空。
+defaultStorageProvider =
+# 是否启用 Casdoor 的云内网部署模式；普通 Docker 部署保持 false。
+isCloudIntranet = false
+# Casdoor 使用的默认授权 state 值。
+authState = "casdoor"
+# Casdoor 对外请求使用的可选 SOCKS5 代理；容器中未提供该代理时应置空。
+socks5Proxy = "127.0.0.1:10808"
+# 验证码超时配置；数值单位以当前 Casdoor 版本的实现为准。
+verificationCodeTimeout = 10
+# 新用户的初始积分。
+initScore = 0
+# 是否只记录 POST 请求日志。
+logPostOnly = true
+# 是否把用户名统一转换为小写。
+isUsernameLowered = false
+
+# Casdoor 对浏览器公开的规范根 URL；生产环境必须为公开 HTTPS 地址。
+origin = "http://localhost:8000"
+# 前端独立部署时的公开根 URL；前后端同源时留空。
+originFrontend =
+# Casdoor 静态资源的 CDN 根地址。
+staticBaseUrl = "https://cdn.casbin.org"
+# 是否启用演示模式限制。
+isDemoMode = false
+# 批量操作的单批项目数。
+batchSize = 100
+# 是否在 UI 中显示 GitHub 角标。
+showGithubCorner = false
+# 强制 UI 语言；留空表示允许按用户偏好选择。
+forceLanguage = ""
+# 没有用户语言偏好时使用的默认 UI 语言。
+defaultLanguage = "en"
+# 未指定 application 时用于登录的默认 Casdoor application。
+defaultApplication = "app-built-in"
+# 平铺菜单允许的最大项目数，超过后由 UI 采用收纳形式。
+maxItemsForFlatMenu = 7
+# 是否向最终用户隐藏详细错误信息。
+enableErrorMask = false
+# 是否启用 HTTP 响应 Gzip 压缩。
+enableGzip = true
+# 可选的用户非活动超时分钟数；留空表示不在此处配置。
+inactiveTimeoutMinutes =
+
+# 内置 LDAP 服务监听端口。
+ldapServerPort = 389
+# LDAPS 使用的 Casdoor 证书 ID；未启用时留空。
+ldapsCertId = ""
+# 内置 LDAPS 服务监听端口。
+ldapsServerPort = 636
+# 内置 RADIUS 服务监听端口。
+radiusServerPort = 1812
+# RADIUS 请求默认归属的 Casdoor organization。
+radiusDefaultOrganization = "built-in"
+# RADIUS shared secret；生产环境必须替换并仅保存在受保护的本地配置中。
+radiusSecret = "secret"
+
+# 各资源的配额上限；-1 表示不限制。
+quota = {"organization": -1, "user": -1, "application": -1, "provider": -1}
+# Beego/Casdoor 日志适配器及其文件、保留天数与文件权限。
+logConfig = {"adapter":"file", "filename": "/logs/casdoor.log", "maxdays":99999, "perm":"0770"}
+# 是否只在全新数据库初始化时导入初始数据。
+initDataNewOnly = false
+# 初始数据文件相对 Casdoor 工作目录的路径。
+initDataFile = "./init_data.json"
+# Casdoor 前端构建产物相对 Casdoor 工作目录的路径。
+frontendBaseDir = "../cc_0"

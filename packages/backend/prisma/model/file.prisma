@@ -1,0 +1,127 @@
+/// Storage metadata, not a public URL. Verification makes a pending object available.
+model FileObject {
+  id              String           @id @default(uuid(7)) @db.Uuid
+  organizationId  String           @db.Uuid
+  bucket          String
+  key             String
+  sizeBytes       BigInt
+  contentType     String
+  sha256          String?          @db.VarChar(64)
+  status          FileObjectStatus @default(PENDING)
+  uploadExpiresAt DateTime?        @db.Timestamptz(3)
+  verifiedAt      DateTime?        @db.Timestamptz(3)
+  deletedAt       DateTime?        @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  uploadSessionId String?          @db.Uuid
+  lastCleanupAt   DateTime?        @db.Timestamptz(3)
+
+  organization  Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assets        FileAsset[]
+  uploadSession FileUploadSession? @relation(fields: [organizationId, uploadSessionId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([bucket, key])
+  @@index([organizationId, status, createdAt])
+  @@index([uploadSessionId])
+  @@index([status, lastCleanupAt, id])
+}
+
+model FileAsset {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  organizationId   String    @db.Uuid
+  objectId         String    @db.Uuid
+  uploadedById     String    @db.Uuid
+  filename         String
+  deletedAt        DateTime? @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  unboundExpiresAt DateTime? @db.Timestamptz(3)
+
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  object          FileObject         @relation(fields: [organizationId, objectId], references: [organizationId, id], onDelete: Restrict)
+  uploadedBy      User               @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  references      FileReference[]
+  completedUpload FileUploadSession? @relation("CompletedFileUpload")
+
+  @@unique([organizationId, id])
+  @@index([organizationId, objectId])
+  @@index([uploadedById])
+  @@index([unboundExpiresAt, id])
+}
+
+/// Durable upload intent. Lease tokens fence publication, not external object-store writes.
+model FileUploadSession {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  organizationId    String           @db.Uuid
+  uploadedById      String           @db.Uuid
+  idempotencyKey    String           @db.Uuid
+  purposeKey        String?
+  resourceId        String?          @db.Uuid
+  filename          String
+  contentType       String
+  expectedSizeBytes BigInt
+  expectedSha256    String           @db.VarChar(64)
+  mode              FileUploadMode
+  partSizeBytes     Int?
+  stagingBucket     String
+  stagingKey        String
+  multipartUploadId String?
+  completionParts   Json?
+  status            FileUploadStatus @default(OPEN)
+  assetId           String?          @db.Uuid
+  leaseToken        String?          @db.Uuid
+  leaseUntil        DateTime?        @db.Timestamptz(3)
+  expiresAt         DateTime         @db.Timestamptz(3)
+  lastCleanupAt     DateTime?        @db.Timestamptz(3)
+  createdAt         DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @db.Timestamptz(3)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  uploadedBy   User              @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  asset        FileAsset?        @relation("CompletedFileUpload", fields: [organizationId, assetId], references: [organizationId, id], onDelete: Restrict)
+  objects      FileObject[]
+  resource     ResourceIdentity? @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, uploadedById, idempotencyKey])
+  @@unique([organizationId, assetId])
+  @@unique([stagingBucket, stagingKey])
+  @@index([status, expiresAt, lastCleanupAt, id])
+  @@index([organizationId, resourceId])
+}
+
+enum FileUploadMode {
+  SINGLE
+  MULTIPART
+}
+
+enum FileUploadStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+/// Purpose keys are supplied by the owning module, not an IMAGE/DOCUMENT/VIDEO enum.
+model FileReference {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @db.Uuid
+  assetId        String    @db.Uuid
+  resourceId     String    @db.Uuid
+  purposeKey     String
+  sortOrder      Int       @default(0)
+  removedAt      DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  asset    FileAsset        @relation(fields: [organizationId, assetId], references: [organizationId, id], onDelete: Restrict)
+  resource ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([assetId, resourceId, purposeKey])
+  @@index([organizationId, resourceId, purposeKey, removedAt, sortOrder, id])
+}
+
+enum FileObjectStatus {
+  PENDING
+  AVAILABLE
+  DELETED
+}

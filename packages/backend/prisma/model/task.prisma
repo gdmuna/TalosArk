@@ -1,0 +1,63 @@
+/// Ordinary work only. Approval todos are read projections of ApprovalRequest.
+model Task {
+  id                String     @id @default(uuid(7)) @db.Uuid
+  organizationId    String     @db.Uuid
+  workspaceId       String     @db.Uuid
+  resourceId        String     @db.Uuid
+  relatedResourceId String?    @db.Uuid
+  title             String
+  description       String?
+  createdById       String     @db.Uuid
+  assigneeId        String     @db.Uuid
+  status            TaskStatus @default(PENDING)
+  dueAt             DateTime?  @db.Timestamptz(3)
+  completedById     String?    @db.Uuid
+  completedAt       DateTime?  @db.Timestamptz(3)
+  version           Int        @default(1)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(3)
+
+  workspace       Workspace         @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource        ResourceIdentity  @relation("TaskIdentity", fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  relatedResource ResourceIdentity? @relation("TaskRelatedResource", fields: [organizationId, relatedResourceId], references: [organizationId, id], onDelete: Restrict)
+  createdBy       User              @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignee        User              @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  completedBy     User?             @relation("TaskCompleter", fields: [completedById], references: [id], onDelete: Restrict)
+  events          TaskEvent[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@index([workspaceId, assigneeId, status, dueAt])
+  @@index([organizationId, relatedResourceId])
+}
+
+model TaskEvent {
+  id             String     @id @default(uuid(7)) @db.Uuid
+  organizationId String     @db.Uuid
+  workspaceId    String     @db.Uuid
+  taskId         String     @db.Uuid
+  actorUserId    String     @db.Uuid
+  action         TaskAction
+  note           String?
+  occurredAt     DateTime   @default(now()) @db.Timestamptz(3)
+
+  task  Task @relation(fields: [organizationId, workspaceId, taskId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, workspaceId, taskId, occurredAt])
+  @@index([actorUserId])
+}
+
+enum TaskStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskAction {
+  CREATED
+  ASSIGNED
+  COMPLETED
+  REOPENED
+  CANCELLED
+}

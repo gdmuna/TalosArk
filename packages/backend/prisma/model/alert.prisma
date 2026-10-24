@@ -1,0 +1,86 @@
+/// Thresholds are evaluated over workspace-owned instances, in the material's unit.
+model InventoryThreshold {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  organizationId     String   @db.Uuid
+  workspaceId        String   @db.Uuid
+  materialId         String   @db.Uuid
+  minimumItemCount   Int?
+  minimumQuantity    Decimal? @db.Decimal(20, 6)
+  expiringWithinDays Int?
+  enabled            Boolean  @default(true)
+  updatedAt          DateTime @updatedAt @db.Timestamptz(3)
+
+  material Material @relation(fields: [organizationId, workspaceId, materialId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+
+  @@unique([organizationId, workspaceId, materialId])
+}
+
+/// Software-derived risks only. Handling a notification does not resolve its source.
+model Alert {
+  id              String        @id @default(uuid(7)) @db.Uuid
+  organizationId  String        @db.Uuid
+  workspaceId     String        @db.Uuid
+  resourceId      String        @db.Uuid
+  type            AlertType
+  severity        AlertSeverity
+  status          AlertStatus   @default(OPEN)
+  dedupeKey       String
+  title           String
+  description     String?
+  firstDetectedAt DateTime      @default(now()) @db.Timestamptz(3)
+  lastDetectedAt  DateTime      @default(now()) @db.Timestamptz(3)
+  resolvedAt      DateTime?     @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  workspace Workspace        @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource  ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  events    AlertEvent[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([workspaceId, dedupeKey])
+  @@index([workspaceId, status, severity, lastDetectedAt])
+  @@index([organizationId, resourceId])
+}
+
+model AlertEvent {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  organizationId String      @db.Uuid
+  workspaceId    String      @db.Uuid
+  alertId        String      @db.Uuid
+  actorUserId    String?     @db.Uuid
+  action         AlertAction
+  note           String?
+  occurredAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  alert Alert @relation(fields: [organizationId, workspaceId, alertId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, workspaceId, alertId, occurredAt])
+  @@index([actorUserId])
+}
+
+enum AlertType {
+  LOW_STOCK
+  EXPIRING
+  EXPIRED
+  TASK_OVERDUE
+}
+
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum AlertStatus {
+  OPEN
+  RESOLVED
+  IGNORED
+}
+
+enum AlertAction {
+  DETECTED
+  REOPENED
+  RESOLVED
+  IGNORED
+}

@@ -1,0 +1,10 @@
+@font-face {
+    font-family: 'TalosArk Source Han Sans';
+    src:
+        local('Source Han Sans CN VF'),
+        local('Source Han Sans SC VF'),
+        url('./source-han-sans-cn-variable.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 250 900;
+    font-display: swap;
+}

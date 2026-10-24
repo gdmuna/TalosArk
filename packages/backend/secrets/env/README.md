@@ -1,0 +1,390 @@
+# 后端环境变量
+
+此目录只管理后端运行时配置。`.env.example` 是完整示例，`.env.development`、
+`.env.test`、`.env.production` 都保留完整的配置变量名；`.local` 是稀疏覆盖文件，
+只需要写与对应基础文件不同的项，不需要复制整份配置。
+
+示例和基础文件另列工具变量 `BACKEND_URL`，供 OpenAPI 导出脚本使用。
+I09 的 Background tasks 分组默认关闭；同步新增模型后用 `TASK_ENABLED=true` 启用。
+
+## 加载规则
+
+- `start:local` 按 `.env.development.local`、`.env.development` 的顺序加载。
+- `test:local` 按 `.env.test.local`、`.env.test` 的顺序加载。
+- 普通 dev/test/prod 脚本只加载相应基础文件，不自动合并 local。
+- 现有 dotenvx 规则没有改变：继承的进程变量优先，然后是先加载的文件。
+  **`KEY=` 是一个明确的空值，也会覆盖后续文件；不需要覆盖时，请省略 local 中的这一行。**
+- Zod 的默认值通常只对未定义值生效；空字符串不是通用的“采用默认值”。
+  数字、布尔值、枚举等有默认值的变量在基础文件中填写有效默认值，避免空值被转换成 0 或校验失败。
+- `REQUIRED`、`REQUIRED WHEN AUTHENTICATING` 和 `DEPLOYMENT` 是长期配置要求，
+  不是对本机有效配置缺失的自动判断。值可以由 local 或进程环境提供；
+  已填写也不等于已验证，示例账号、示例地址和 PEM 占位不能直接用于部署。
+- 基础 env 的 dotenvx 公钥及配套注释固定放在文件顶部；整理位置不改变公钥值。
+  不在示例中复制真实私钥、口令或供应商凭据。
+  `.env.keys` 属于解密材料，不是应用配置模板。
+
+## 文件分组
+
+示例与三份基础 runtime env 按 `src/config` 的职责使用同一组序：
+
+1. Application：运行模式、端口和应用元数据。
+2. HTTP and browser access：浏览器来源、CORS、限流和请求超时。
+3. WebSocket：复用 HTTP 来源策略的连接、消息、速率和时限预算。
+4. Access token：访问令牌密钥与有效期。
+5. Identity：密码哈希等身份能力参数。
+6. Authentication and account lifecycle：Cookie、激活、找回密码和登录尝试限制。
+7. Identity provider (Casdoor)：外部身份提供方。
+8. Database：主库与影子库。
+9. KVS：连接地址及连接/关闭时限。
+10. Object storage：S3 连接、凭据和桶。
+11. Mail (SMTP)：主机、TLS、认证、默认发件人、超时与并发。
+12. Observability：日志、慢请求/查询阈值及文档地址。
+13. Process lifecycle：进程关闭与 HTTP/log drain 预算。
+14. Tooling：OpenAPI 导出工具，不属于应用运行配置。
+
+历史 `ALLOWED_ORIGINS_*`、`JWT_REFRESH_*`、`JWT_ACCESS_ALGORITHM` 和 `VITE_*`
+若存在，统一放在最后的 Legacy 分组；仅保留原值，不代表当前后端会读取。
+local 使用同一组序，但只显示实际存在覆盖项的分组，不补空白占位。
+多行 PEM 作为完整赋值块移动，不改变换行内容或拆分密钥。
+
+当前基础 env 和已有 local 文件都被 Git 跟踪；本次整理没有改变追踪或加密策略。
+local 不等于天然被 Git 忽略，敏感值仍需按 dotenvx 流程加密或通过进程环境注入。
+
+## 当前待补事项
+
+最初的占位符整理保留了原值。2026-10-15 修正 development 的 SMTP TLS 模式，
+并完成连接/认证诊断；没有生成或替换密钥、凭据，也没有发送邮件。
+
+| 文件范围                       | 需要提供或确认什么                                                                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 三份 runtime 基础 env          | `CASDOOR_ENDPOINT`、`CASDOOR_CLIENT_ID`、`CASDOOR_CLIENT_SECRET`、`CASDOOR_ORGANIZATION`、`CASDOOR_CERTIFICATE_PATH`、`CASDOOR_OIDC_REDIRECT_URI` 原先缺失，现在已加空占位和必填标记 |
+| development.local / test.local | 已有上述 Casdoor 覆盖；继续保持稀疏，不补全变量、不改原值                                                                                                                            |
+| production                     | 目前没有 production.local，部署须填基础文件或通过进程环境注入；不能把未配置的 Casdoor 理解为禁用 OIDC                                                                                |
+| SMTP                           | Web 启动已接入 MailModule；development 已通过连接和认证验证，其他环境仍须确认真实 SMTP 主机、发件身份、认证凭据及 TLS 配置                                                           |
+| production 文档/认证/来源 URL  | 必须匹配真实部署；此轮不猜测域名，不替换已有设置。新补 `ERROR_REFERENCE_URL` 维持代码原默认值，并加部署提醒                                                                          |
+| Prisma dev/test/prod 基础 env  | 两个数据库 URL 原先为空，已加必填标记；配置好的 local 文件仍作为独立可选 profile 使用                                                                                                |
+
+## WebSocket 变量
+
+Socket.IO 使用 HTTP 监听端口、`/socket.io` 路径与 `/app` namespace，复用
+`HTTP_BROWSER_ORIGIN_MODE` / `HTTP_BROWSER_ALLOWED_ORIGINS`。不使用 Cookie 认证，
+客户端通过 `handshake.auth.accessToken` 提供访问令牌。所有配置均非必填，未提供时使用下表默认值；
+基础 env 保留完整变量，local 仍为稀疏覆盖。修改配置后需要重启。
+
+| 变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `WS_MAX_CONNECTIONS` | `1000` | 进程连接上限，也限制未完成 namespace 认证的传输连接 |
+| `WS_MAX_CONNECTIONS_PER_USER` | `8` | 同一用户在该实例内的连接上限 |
+| `WS_MAX_PENDING_HANDSHAKES` | `32` | 同时验证访问令牌的握手上限 |
+| `WS_MAX_ACTIVE_MESSAGES` | `32` | 实际执行中的消息/推送授权工作上限 |
+| `WS_MAX_PENDING_MESSAGES` | `1024` | 全实例已接纳的待完成工作上限，包含执行中工作 |
+| `WS_MAX_PENDING_MESSAGES_PER_CONNECTION` | `16` | 单连接待完成工作上限，包含执行中工作 |
+| `WS_MAX_PAYLOAD_BYTES` | `65536` | 单条 JSON 输入、ACK 或推送的最大字节数 |
+| `WS_MESSAGES_PER_SECOND` | `30` | 单连接令牌桶每秒补充量及突发容量；超额断开连接 |
+| `WS_HANDSHAKE_TIMEOUT_MS` | `5000` | namespace 认证总时限，毫秒；超时不提前释放实际验证槽位 |
+| `WS_MESSAGE_TIMEOUT_MS` | `10000` | 消息总时限，包含排队；方法可缩短，不可延长 |
+
+心跳沿用 Socket.IO 默认值，当前不提供额外环境开关。WS 与 HTTP 共用
+`HTTP_DRAIN_TIMEOUT_MS` 关闭预算。限额都是单实例的，不代表集群级限额。
+
+## Background tasks 变量
+
+| 变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `TASK_ENABLED` | `false` | 启动 BullMQ 队列和 Outbox 派发/恢复循环；先同步 BackgroundJob 模型 |
+| `TASK_WORKER_ENABLED` | `true` | Web 进程内消费；独立 Worker 入口始终启用消费 |
+| `TASK_REDIS_URL` | 空 | 非空时独立连接，否则继承 KVS_URL；不是复用 KvsClient 连接 |
+| `TASK_QUEUE_PREFIX` | `talosark` | Redis 队列命名空间，各环境应隔离 |
+| `TASK_CONCURRENCY` | `2` | 每个 Worker 进程的并发数，范围 1..32 |
+| `TASK_POLL_INTERVAL_MS` | `5000` | 数据库派发/恢复扫描间隔，范围 500..60000 毫秒 |
+| `TASK_BATCH_SIZE` | `20` | 每轮有界扫描及 CLI 清理批量，范围 1..200 |
+| `TASK_REDIS_TIMEOUT_MS` | `3000` | 生产连接建连/命令等待预算，范围 100..30000 毫秒 |
+| `TASK_CLOSE_TIMEOUT_MS` | `3000` | 任务运行时退出预算，范围 100..60000 毫秒；需与总关闭预算协调 |
+| `TASK_RETENTION_DAYS` | `30` | CLI prune 的成功/过期任务保留期，范围 1..365 天 |
+
+基础环境文件保留所有变量；local 仍为稀疏覆盖。纯 Web/Worker 共用 prefix；不同环境使用不同 prefix。
+失败和待确认记录不自动删除。当前没有周期调度或自动清理开关；详见 I09 实施说明。
+
+## Mail 变量
+
+MailModule 已装配到 Web AppModule，启动阶段会验证连接、TLS 和认证，但不发送邮件。
+已知 SMTP 故障会记录错误并允许应用继续启动，不代表邮件功能可用；实际 verify/send
+仍会拒绝失败。账户 provisioning CLI 不装配 MailModule，不连接 SMTP。
+已经填写的端口、布尔值、时限仍会由全局配置解析校验。
+
+只需配置主机、发件人，以及服务器要求的账号/密码；其余大多采用默认值即可。
+有些选项是为了区分 DNS、建连、协议等待和整体操作的超时边界，并非每个部署都需要调整。
+
+| 变量                         | 必填性 / 未配置时的默认值                       | 作用                                                                                        |
+| ---------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `SMTP_HOST`                  | 启用 MailModule 时必填；没有可用默认主机        | SMTP 服务器主机名或 IP，不包含 URL 协议或路径                                               |
+| `SMTP_FROM`                  | 启用时必填                                      | 默认发件邮箱，支持 `TalosArk <no-reply@example.com>` 这类单邮箱格式；供应商须允许此发件身份 |
+| `SMTP_USER`                  | 使用认证时与 PASS 成对配置                      | SMTP 登录身份；不一定等于发件地址                                                           |
+| `SMTP_PASS`                  | 使用认证时与 USER 成对配置                      | 密码或供应商应用口令；只有可信、无需认证的 relay 才能同时省略 USER/PASS                     |
+| `SMTP_PORT`                  | 可选，`465`；整数 1–65535                       | SMTP 端口；常见为 465 隐式 TLS、587 STARTTLS                                                |
+| `SMTP_SECURE`                | 可选；465 推断为 `true`，其他端口推断为 `false` | 是否在建连时直接使用 TLS；不是“是否需要传输加密”的总开关                                    |
+| `SMTP_REQUIRE_TLS`           | 可选，`true`                                    | 非隐式 TLS 连接必须升级 STARTTLS；使用认证时不能把 secure 和 requireTLS 同时关闭            |
+| `SMTP_SERVERNAME`            | 可选，无显式覆盖                                | TLS/SNI 的服务器身份覆盖，例如用 IP 建连但按证书域名验证；通常留空使用主机名                |
+| `SMTP_CONNECTION_TIMEOUT_MS` | 可选，`15000`                                   | 建立连接的等待上限                                                                          |
+| `SMTP_GREETING_TIMEOUT_MS`   | 可选，`10000`                                   | 等待 SMTP 初始 greeting 的上限                                                              |
+| `SMTP_SOCKET_TIMEOUT_MS`     | 可选，`15000`                                   | socket 无活动的等待上限，不是整个操作的总时限                                               |
+| `SMTP_DNS_TIMEOUT_MS`        | 可选，`5000`                                    | DNS 解析等待上限                                                                            |
+| `SMTP_SEND_TIMEOUT_MS`       | 可选，`30000`                                   | verify/send 整次操作的截止时间，包含连接、TLS、认证及 DATA；与阶段超时同时约束              |
+| `SMTP_CLOSE_TIMEOUT_MS`      | 可选，`2000`                                    | 停机时等待在途操作的预算，耗尽后终止连接；需给进程其他清理任务留时间                        |
+| `SMTP_MAX_CONCURRENT_SENDS`  | 可选，`3`；整数 1–20                            | verify/send 的并发上限，超出返回 busy，不建立无限排队                                       |
+
+所有 SMTP 时限都是毫秒整数，范围 1–120000。465 不允许关闭隐式 TLS；
+TLS 证书校验始终开启，最低 TLS 1.2，没有关闭证书验证的环境变量。
+安全配置不会随每封邮件重新读取，而是在模块启用时验证并冻结。
+没有自动重试、自动降级、连接池或 Outbox 开关；这些尚未成为当前模块的实现能力。
+进一步的结果、错误及接入约定见 [I01 设计](../../docs/design/mvp-i01-mail-2026-10-13.md)。
+
+### TLS 模式与 Gmail 认证
+
+`SMTP_SECURE` 表示是否从建连第一刻使用 TLS，不是是否要求加密的总开关：
+
+```dotenv
+# 587: connect using SMTP, then require STARTTLS before authentication.
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+```
+
+465 则使用 `SMTP_SECURE=true`。不要为 Gmail 的 587 设置 secure=true，
+否则可能在握手阶段遇到 ESOCKET，而尚未进入账号认证。
+参见 [Nodemailer SMTP 配置](https://nodemailer.com/smtp)。
+
+2026-10-15 的本机复查发现 587 在 SMTP 欢迎语之前被关闭，独立 TCP 探针也能复现。
+同一配置/凭据改用 465 隐式 TLS 后，连接、证书校验和认证均通过，因此 development
+现采用 `SMTP_PORT=465`、`SMTP_SECURE=true`；未发送邮件。587 本身支持 STARTTLS，
+此现象不代表协议配置无效，也尚不能确定是代理、网络还是上游关闭连接。
+
+`SMTP_SERVERNAME` 指定 TLS 服务器的预期域名，用于 SNI 和证书主机名校验，
+不是 SMTP 登录身份、发件地址或 EHLO 名称，也不会改变 TCP 的目标地址。
+`SMTP_HOST` 已为域名时通常可以省略，Nodemailer 会使用该域名；直接连接 IP
+或经过 TCP 转发时，应将 servername 配为服务证书对应的域名。例如连接 IP
+`192.0.2.10`，但验证身份为 `smtp.example.com`。填错可能导致 TLS 身份校验失败，
+不要为此关闭证书校验。参见 [Nodemailer TLS 选项](https://nodemailer.com/smtp#tls-options)。
+
+如果连接成功后出现 `phase=authenticate`、`EAUTH`，应处理供应商的认证要求，
+而不是关闭 TLS 或证书校验。Gmail 的用户名/密码认证可能需要启用两步验证并使用
+应用专用密码；不要把普通 Google 登录密码当作应用专用密码。
+在 `.env.development.local` 中覆盖 `SMTP_PASS` 或安全注入进程变量即可，不需修改共享模板；
+使用 local 覆盖时运行 `pnpm start:local`，`start:dev` 不读取 local。
+账号是否允许创建应用专用密码取决于 Google 账号及组织策略，参见
+[Google 官方说明](https://support.google.com/mail/answer/185833?hl=zh-Hans)。
+
+## 其他运行时变量
+
+下表的默认值指代码在变量未定义时的行为。profile 已填写的值可以不同，且优先于默认值。
+
+### 应用、数据库和 KVS
+
+| 变量                     | 必填性 / 默认值               | 作用                                                             |
+| ------------------------ | ----------------------------- | ---------------------------------------------------------------- |
+| `NODE_ENV`               | 可选，`development`           | development/test/production 运行模式；影响来源策略和生产安全校验 |
+| `PORT`                   | 可选，`3000`                  | HTTP 监听端口                                                    |
+| `APP_NAME`               | 可选，package.json 的 name    | 应用标识                                                         |
+| `APP_VERSION`            | 可选，package.json 的 version | 应用版本                                                         |
+| `APP_AUTHOR`             | 可选，package.json 的 author  | 启动信息使用的作者元数据                                         |
+| `GIT_COMMIT`             | 可选，`N/A`                   | 构建提交标识                                                     |
+| `DATABASE_URL`           | 必填                          | 应用主数据库连接 URL                                             |
+| `SHADOW_DATABASE_URL`    | 当前配置校验必填              | 独立影子库 URL；不意味着应用会自动创建或初始化影子库             |
+| `KVS_URL`                | 必填                          | Valkey/Redis 连接 URL                                            |
+| `KVS_CONNECT_TIMEOUT_MS` | 可选，`3000`                  | KVS 初始连接预算，1–60000ms                                      |
+| `KVS_CLOSE_TIMEOUT_MS`   | 可选，`2000`                  | KVS 关闭预算，1–60000ms                                          |
+
+### HTTP
+
+| 变量                             | 必填性 / 默认值                                      | 作用                                                         |
+| -------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| `CORS_ENABLED`                   | 可选，`true`                                         | 是否输出 CORS 协议响应；不绕过认证接口的 Origin/客户端头校验 |
+| `HTTP_BROWSER_ORIGIN_MODE`       | 可选，`deny`                                         | deny / allowlist / development-loopback / development-any    |
+| `HTTP_BROWSER_ALLOWED_ORIGINS`   | allowlist 模式条件必填；否则可空                     | 逗号分隔的准确 HTTP(S) origin，不带路径；生产只允许 HTTPS    |
+| `THROTTLE_TTL_MS`                | 可选，`300000`                                       | 限流窗口，至少 1000ms                                        |
+| `THROTTLE_LIMIT`                 | 可选，`1000`                                         | 窗口内请求上限，正整数；`Infinity` 表示不设数量上限          |
+| `REQUEST_TIMEOUT_MS`             | 可选，`30000`                                        | HTTP 请求处理时限，1000–120000ms                             |
+| `REQUEST_ID_HEADER`              | 可选，`x-request-id`                                 | 请求 ID header 名，配置解析后转小写                          |
+| `CORS_PREFLIGHT_MAX_AGE_SECONDS` | 可选，`86400`                                        | CORS 预检缓存时长，单位秒，可为 0                            |
+| `CORS_ALLOWED_METHODS`           | 可选，`GET,POST,PUT,DELETE,PATCH,OPTIONS`            | 逗号分隔的允许方法                                           |
+| `CORS_ALLOWED_HEADERS`           | 可选，`Content-Type,Authorization,X-TalosArk-Client` | 逗号分隔的允许请求头                                         |
+
+development-* 来源模式只能用于 NODE_ENV=development。allowlist 必须非空；
+Origin 列表不是登录跳转 URL，也不是激活链接 URL。
+
+### 认证与身份
+
+| 变量                                          | 必填性 / 默认值                                             | 作用                                                             |
+| --------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
+| `JWT_ACCESS_PRIVATE_KEY`                      | 当前 SessionKernel 启动必填                                 | ES256/P-256 签名 PEM 私钥，支持转义换行                          |
+| `JWT_ACCESS_PUBLIC_KEY`                       | 当前启动必填                                                | 与私钥匹配的验证 PEM 公钥                                        |
+| `JWT_ACCESS_EXPIRES_IN`                       | 可选，`15m`                                                 | AT 时长，格式为正整数加 s/m/h/d                                  |
+| `IDENTITY_PASSWORD_HASH_CONCURRENCY`          | 可选，`2`                                                   | 密码哈希并发限制，1–16                                           |
+| `AUTH_COOKIE_SECURE`                          | 可选，`false`；生产必须为 true                              | RT Cookie 的 Secure 标记                                         |
+| `AUTH_ACTIVATION_URL`                         | 可选，`http://localhost:4444/auth/activate`；生产必须 HTTPS | 用户激活页面 URL，不允许 URL 认证信息或 fragment                 |
+| `AUTH_ACTIVATION_TTL_SECONDS`                 | 可选，`86400`                                               | 激活凭证有效期，60–604800 秒                                     |
+| `AUTH_RECOVERY_URL`                           | 可选，`http://localhost:4444/auth/reset-password`；生产必须 HTTPS | 密码恢复页面 URL，不允许 URL 认证信息、query 或 fragment |
+| `AUTH_RECOVERY_TTL_SECONDS`                   | 可选，`1800` | 密码恢复凭证有效期，60–86400 秒 |
+| `AUTH_RECOVERY_COOLDOWN_SECONDS`              | 可选，`60` | 同邮箱申请冷却，1–3600 秒，不得长于统计窗口 |
+| `AUTH_RECOVERY_WINDOW_SECONDS`                | 可选，`3600` | 恢复申请统计窗口，60–86400 秒 |
+| `AUTH_RECOVERY_EMAIL_LIMIT`                   | 可选，`5` | 窗口内邮箱申请上限，1–100 |
+| `AUTH_RECOVERY_IP_LIMIT`                      | 可选，`20` | 窗口内 IP 申请上限，1–1000 |
+| `AUTH_FIRST_PASSWORD_SESSION_MAX_AGE_SECONDS` | 可选，`600`                                                 | 首次设密请求要求的会话创建时间新鲜度，60–3600 秒；不是会话总寿命 |
+| `AUTH_ATTEMPT_WINDOW_SECONDS`                 | 可选，`300`                                                 | 认证尝试统计窗口，60–3600 秒                                     |
+| `AUTH_ACCOUNT_ATTEMPT_LIMIT`                  | 可选，`5`                                                   | 窗口内账号尝试上限，1–100                                        |
+| `AUTH_IP_ATTEMPT_LIMIT`                       | 可选，`30`                                                  | 窗口内 IP 尝试上限，1–1000                                       |
+
+### Casdoor
+
+| 变量                        | 必填性 / 默认值                | 作用                                             |
+| --------------------------- | ------------------------------ | ------------------------------------------------ |
+| `CASDOOR_ENDPOINT`          | 必填                           | 实际服务的 URL                                   |
+| `CASDOOR_CLIENT_ID`         | 必填                           | 当前应用的 OIDC client ID                        |
+| `CASDOOR_CLIENT_SECRET`     | 必填                           | OIDC client secret                               |
+| `CASDOOR_ORGANIZATION`      | 必填                           | 供应商组织名                                     |
+| `CASDOOR_APPLICATION`       | 可选，无默认应用名             | 供应商应用名                                     |
+| `CASDOOR_CERTIFICATE_PATH`  | 必填，指向可读且有效的证书文件 | JWT 验证证书路径，相对 backend 工作目录解析      |
+| `CASDOOR_OIDC_REDIRECT_URI` | 必填                           | 与供应商登记完全一致的登录回调 URL               |
+| `CASDOOR_OIDC_ISSUER`       | 可选，使用 endpoint            | 预期 token issuer，例如反向代理场景的独立 issuer |
+
+### S3 存储
+
+| 变量                   | 必填性 / 默认值     | 作用                                         |
+| ---------------------- | ------------------- | -------------------------------------------- |
+| `S3_ENDPOINT`          | 必填                | 对象存储服务地址；无协议时按 HTTP 补齐       |
+| `S3_REGION`            | 可选，`us-east-1`   | S3 region                                    |
+| `S3_ACCESS_KEY_ID`     | 当前配置校验必填    | 对象存储访问身份                             |
+| `S3_SECRET_ACCESS_KEY` | 当前配置校验必填    | 对象存储访问凭据                             |
+| `S3_BUCKET_PUBLIC`     | 可选，`app-public`  | 公开对象桶                                   |
+| `S3_BUCKET_PRIVATE`    | 可选，`app-private` | 鉴权对象桶                                   |
+| `S3_BUCKET_STAGING`    | 可选，`app-staging` | 暂存对象桶，业务生命周期由后续 File 能力管理 |
+| `S3_FORCE_PATH_STYLE`  | 可选，`true`        | 使用路径风格的 S3 地址                       |
+| `S3_PUBLIC_BASE_URL`   | 可选，无单独前缀    | 对外公开对象 URL 前缀                        |
+
+### 可观测性和生命周期
+
+| 变量                    | 必填性 / 默认值                                           | 作用                                     |
+| ----------------------- | --------------------------------------------------------- | ---------------------------------------- |
+| `LOG_LEVEL`             | 可选，`info`                                              | trace/debug/info/warn/error/fatal/silent |
+| `LOG_OUTPUT`            | 可选；空值时 development=`console`，test/production=`file` | console/file/both，独立于运行环境选择输出 |
+| `LOG_CONSOLE_FORMAT`    | 可选；空值时 development=`pretty`，其他=`json`              | 控制台格式；文件始终是逐行 JSON |
+| `LOG_CONSOLE_COLOR`     | 可选，`auto`                                              | auto/always/never；auto 仅在 stdout 为 TTY 时启用颜色 |
+| `LOG_CONSOLE_LEVEL`     | 可选；空值继承 `LOG_LEVEL`                                 | 控制台的附加等级过滤，不能绕过全局等级 |
+| `LOG_FILE_LEVEL`        | 可选；空值继承 `LOG_LEVEL`                                 | 文件的附加等级过滤，不能绕过全局等级 |
+| `LOG_FILE_PATH`         | 可选，`./data/logs/app.log`                                | 相对进程工作目录或绝对路径；父目录自动创建 |
+| `LOG_FILE_ROTATION`     | 可选，`none`                                              | none/hourly/daily；时间轮转按进程本地时区 |
+| `LOG_FILE_MAX_SIZE_MB`  | 可选，`0`，范围 0–1024                                    | MiB；0 关闭大小轮转，可与时间轮转同时启用 |
+| `LOG_FILE_RETAIN_COUNT` | 可选，`14`，范围 1–10000                                   | 最多保留的归档文件数，另加当前文件；仅轮转时清理 |
+| `LOG_SAMPLE_RATE`       | 可选，`1`，范围 0–1                                       | trace/debug/info 的逐条保留概率；warn/error/fatal 不采样 |
+| `LOG_WORKER_START_TIMEOUT_MS` | 可选，`5000`，范围 1–60000                          | 等待全部已启用输出初始化的期限 |
+| `SLOW_REQUEST_WARN_MS`  | 可选，`1000`                                              | 慢 HTTP 请求告警阈值                     |
+| `SLOW_REQUEST_ERROR_MS` | 可选，`3000`                                              | 慢 HTTP 请求错误阈值                     |
+| `SLOW_QUERY_WARN_MS`    | 可选，`100`                                               | 慢数据库查询告警阈值                     |
+| `SLOW_QUERY_ERROR_MS`   | 可选，`500`                                               | 慢数据库查询错误阈值                     |
+| `API_DOCS_BASE_URL`     | 可选，`https://api.example.com/errors`                    | API 错误文档基础 URL                     |
+| `ERROR_REFERENCE_URL`   | 可选，`http://localhost:5173/04-appendix/error-reference` | 错误码参考页 URL，后续拼接错误码锚点     |
+| `SHUTDOWN_TIMEOUT_MS`   | 可选，`10000`                                             | 整个进程停止预算，1000–120000ms          |
+| `HTTP_DRAIN_TIMEOUT_MS` | 可选，`5000`                                              | 等待在途 HTTP 请求完成的预算，正整数毫秒 |
+| `LOG_FLUSH_TIMEOUT_MS`  | 可选，`500`                                               | 日志刷新预算，正整数毫秒                 |
+| `TELEMETRY_FLUSH_TIMEOUT_MS` | 可选，`1000`，范围 100–10000 | 遥测 SDK 的关闭/最后导出预算，毫秒 |
+
+HTTP drain + telemetry flush + log flush 必须小于 shutdown 总预算，以给资源清理留出时间。
+关闭遥测时不预留 telemetry flush 预算，延续原有关闭时限的校验规则。
+
+#### 指标与链路追踪
+
+应用侧基于 OpenTelemetry，统一位于 `platform/observability`。默认不启用网络导出，
+日志继续按原有设置运行。以下配置只支持 OTLP HTTP/protobuf，不自动启动 Collector。
+
+| 变量 | 必填性 / 默认值 | 作用 |
+| --- | --- | --- |
+| `OTEL_SDK_DISABLED` | 可选，`true` | 本应用默认 opt-in；false 才初始化遥测 SDK |
+| `OTEL_SERVICE_NAME` | 可选，空值继承 `APP_NAME` | 服务身份，不使用请求中的数据 |
+| `OTEL_TRACES_EXPORTER` | 可选，`otlp` | otlp/none，独立开关追踪导出 |
+| `OTEL_METRICS_EXPORTER` | 可选，`otlp` | otlp/none，独立开关指标导出 |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | 启用任一导出时必填 | HTTP(S) Collector base URL；不能含账号、密码、query 或 fragment；追加 /v1/traces 和 /v1/metrics |
+| `OTEL_EXPORTER_OTLP_HEADERS` | 可选，空 | 认证等请求头，逗号分隔 name=percent-encoded-value；敏感值应放 local 或进程 secret |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | 可选，`3000`，范围 100–30000 | 单次导出超时，毫秒 |
+| `OTEL_METRIC_EXPORT_INTERVAL` | 可选，`15000`，范围 1000–120000 | 指标聚合导出周期，必须大于导出超时 |
+| `OTEL_TRACES_SAMPLER_ARG` | 可选，`0.1`，范围 0–1 | parent-based ratio 的根 trace 采样率；不影响指标，不保证保留所有错误 trace |
+| `OTEL_BSP_MAX_QUEUE_SIZE` | 可选，`2048`，范围 16–16384 | 进程内安全 span 缓冲数量上限 |
+| `OTEL_BSP_MAX_EXPORT_BATCH_SIZE` | 可选，`256`，范围 1–4096 | 追踪导出批量上限，不能超过 queue size |
+
+示例（需要已有 Collector）：
+
+```dotenv
+OTEL_SDK_DISABLED=false
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_TRACES_SAMPLER_ARG=1
+# OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer%20replace-with-token
+```
+
+保持现有启动命令即可，例如 `pnpm start:local`。仅采指标时使用
+`OTEL_TRACES_EXPORTER=none`；仅将采样率设为 0 时仍可能有 trace ID，但没有对应
+trace 被导出。指标不采样，日志采样继续由 `LOG_SAMPLE_RATE` 独立控制。
+Collector 断开只影响观测数据，不阻塞业务或让 readiness 失败；导出缓冲不是持久化队列。
+首轮指标目录、事件口径和验证边界见
+[应用链路可观测性](../../docs/design/observability-application-loop.md)。
+
+`LOG_LEVEL` 是第一道过滤，输出等级是第二道过滤。例如需要文件保留 debug、
+控制台只显示 info，设置 `LOG_LEVEL=debug`、`LOG_FILE_LEVEL=debug`、
+`LOG_CONSOLE_LEVEL=info`。`silent` 会关闭对应过滤范围内的全部日志。
+采样在序列化之前只判定一次，因此同一条记录不会在两路产生不同的采样结果。
+它不影响数据库业务审计；采样没有整条请求或跨进程 trace 一致性的保证。
+
+常用配置（未列出的变量采用上述默认值）：
+
+```dotenv
+# Local console; keeps the existing domain pretty adapters.
+LOG_OUTPUT=console
+LOG_CONSOLE_FORMAT=pretty
+LOG_CONSOLE_COLOR=auto
+```
+
+```dotenv
+# Container JSON stdout; collected by an external agent for Loki or another sink.
+LOG_OUTPUT=console
+LOG_CONSOLE_FORMAT=json
+```
+
+```dotenv
+# Console plus bounded rolling JSON files.
+LOG_OUTPUT=both
+LOG_CONSOLE_FORMAT=pretty
+LOG_FILE_PATH=./data/logs/app.log
+LOG_FILE_ROTATION=daily
+LOG_FILE_MAX_SIZE_MB=100
+LOG_FILE_RETAIN_COUNT=14
+LOG_SAMPLE_RATE=0.1
+```
+
+轮转使用 `pino-roll`，例如 `app.2026-10-22.1.log`。清理包括同一路径前缀下先前进程
+生成的轮转文件，在下一次轮转时执行；保留数不是保留天数，大小阈值也不是严格磁盘配额。
+默认 `none` + `0` 延续单一 `app.log`，没有轮转或自动清理。
+同一文件前缀只能由一个进程写入；HTTP、独立 Worker 和不同副本须用不同路径或独立卷，
+例如 Worker 设置 `LOG_FILE_PATH=./data/logs/worker.log`。不要同时让外部轮转器管理同一组文件。
+容器收集使用 JSON stdout；远端投递、缓冲与重试由外部收集器管理，本模块不直连 Loki。
+Docker 镜像与 full Compose 默认设置 `LOG_OUTPUT=console`、`LOG_CONSOLE_FORMAT=json`，
+覆盖普通 production profile 的文件输出回退。HTTP 与 Worker 的 Nest 启动日志先缓冲再交给 Pino；
+装饰性启动横幅只在 pretty 控制台模式显示。Pino 尚未建立时的最后兜底错误仍可写入 stderr。
+正常停机在现有日志预算内等待 worker 处理完在途记录并刷新两路输出；强制终止不保证末尾日志落盘。
+
+## 工具与部署配置
+
+这些配置各归自己的目录，不向 runtime 文件复制整个 Compose 或 Prisma 设置。
+
+- [Prisma env](../../ops/prisma/env/.env.example)：只包含 DATABASE_URL 和 SHADOW_DATABASE_URL。
+  CLI 选择的是一份独立 profile，`.local` 在这里是命名选项，不自动继承对应基础文件。
+- [Docker Compose dev](../../ops/docker/compose/dev/.env.example)：依赖镜像、端口和已有 PostgreSQL 网络名。
+- [Docker Compose full](../../ops/docker/compose/full/.env.example)：镜像、数据库和 RustFS 凭据、端口、桶配置，以及可选 DEBIAN_SUITE。
+- `BACKEND_URL`：OpenAPI 导出脚本的可选地址；未配置时使用 `http://localhost:${PORT || 3000}`。
+  导出脚本不会自动加载 runtime env，须通过进程环境注入，或明确用 dotenvx 包裹该命令。
+- `CI`、`GITHUB_REF`、`GITHUB_OUTPUT` 等由执行平台注入的变量，以及 Node 自带的运行参数，
+  不属于应用配置模板。dotenvx 的公钥/私钥元数据也不计入业务运行配置。
+
+旧 profile 中的 ALLOWED_ORIGINS__、JWT_REFRESH__、JWT_ACCESS_ALGORITHM、VITE_* 被保留以避免
+改变已有文件，但当前后端不读取它们；`.env.example` 不再把它们呈现为可用配置。
+旧 S3_BUCKET_NAME 也不是当前配置，当前使用 public/private/staging 三个独立桶变量。
+
+以后增加可配置项时，应在同一个变更中更新配置校验、example、三个 runtime 基础文件及此文档；
+local 只在需要具体覆盖时更新。基础文件里的账号/密码示例必须由部署者替换，不能作为上线凭据。

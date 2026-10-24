@@ -1,21 +1,16 @@
 packages:
-  - './apps/backend'
-  - './apps/docsite'
-  - './apps/frontend'
+  - './packages/backend'
+  - './packages/contract'
+  - './packages/docsite'
+  - './packages/frontend'
 
 allowBuilds:
   '@nestjs/core': true
   '@prisma/engines': true
   '@scarf/scarf': true
+  argon2: true
   esbuild: true
+  msgpackr-extract: true
   prisma: true
+  protobufjs: true
   vue-demi: true
-
-onlyBuiltDependencies:
-  - '@nestjs/core'
-  - '@prisma/engines'
-  - '@scarf/scarf'
-  - esbuild
-  - prisma
-  - unrs-resolver
-  - vue-demi

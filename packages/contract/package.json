@@ -1,0 +1,72 @@
+{
+  "name": "@talos-ark/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared TalosArk wire schemas and inferred types",
+  "license": "AGPL-3.0",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./approval": {
+      "types": "./dist/approval/index.d.ts",
+      "import": "./dist/approval/index.js"
+    },
+    "./inventory": {
+      "types": "./dist/inventory/index.d.ts",
+      "import": "./dist/inventory/index.js"
+    },
+    "./facility": {
+      "types": "./dist/facility/index.d.ts",
+      "import": "./dist/facility/index.js"
+    },
+    "./material": {
+      "types": "./dist/material/index.d.ts",
+      "import": "./dist/material/index.js"
+    },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "import": "./dist/auth/index.js"
+    },
+    "./auth/password": {
+      "types": "./dist/auth/password.d.ts",
+      "import": "./dist/auth/password.js"
+    },
+    "./team": {
+      "types": "./dist/team/index.d.ts",
+      "import": "./dist/team/index.js"
+    },
+    "./backend": {
+      "types": "./dist/backend/index.d.ts",
+      "import": "./dist/backend/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol/index.d.ts",
+      "import": "./dist/protocol/index.js"
+    },
+    "./system": {
+      "types": "./dist/system/index.d.ts",
+      "import": "./dist/system/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

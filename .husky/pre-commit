@@ -7,15 +7,21 @@ warn() { printf "%-12b %b\n" "${YELLOW}[GitHook]" "[WARN] $1${RESET}"; }
 
 log "执行 Pre-commit hook"
 
+ENV_PATH_PREFIX='packages/backend/secrets'
+
 # 加密 backend env 文件
-backend_envs=$(git diff --cached --name-only -- 'apps/backend/**/.env.*' ':!apps/backend/**/.env.example' | sed 's|^apps/backend/||' || true)
+backend_envs=$(git diff --cached --name-only -- \
+    ":(glob)$ENV_PATH_PREFIX/**/.env.*" \
+    ":(exclude,glob)$ENV_PATH_PREFIX/**/.env.example" \
+    ":(exclude,glob)$ENV_PATH_PREFIX/**/.env.*.local" \
+    | sed 's|^packages/backend/||' || true)
 
 if [ -n "$backend_envs" ]; then
     log "加密 backend env 文件"
     backend_args=""
     for f in $backend_envs; do backend_args="$backend_args -f $f"; done
     pnpm --filter @talos-ark/backend dotenvx encrypt $backend_args
-    git add $(echo "$backend_envs" | sed 's|^|apps/backend/|')
+    git add $(echo "$backend_envs" | sed 's|^|packages/backend/|')
 fi
 
 if git diff --cached --quiet; then

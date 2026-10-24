@@ -5,6 +5,7 @@ import vueParser from 'vue-eslint-parser';
 import vuePlugin from 'eslint-plugin-vue';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
+import { frontendImportBoundaries } from './packages/frontend/script/eslint-architecture.mjs';
 
 // 各工作区共享的基础规则
 const commonRules = {
@@ -30,16 +31,21 @@ export default [
         ignores: [
             '**/dist/**',
             '**/node_modules/**',
-            'apps/backend/prisma/generated/**',
-            'apps/docsite/.vitepress/dist/**',
-            'apps/docsite/.vitepress/cache/**',
-            'apps/frontend/src-tauri/**',
+            'packages/backend/prisma/generated/**',
+            'packages/docsite/.vitepress/dist/**',
+            'packages/docsite/.vitepress/cache/**',
+            'packages/frontend/src-tauri/**',
         ],
     },
 
-    // ── apps/backend: TypeScript ───────────
+    // ── packages/backend: TypeScript ────────
     {
-        files: ['apps/backend/src/**/*.ts', 'apps/backend/test/**/*.ts'],
+        files: [
+            'packages/backend/src/**/*.ts',
+            'packages/backend/test/**/*.ts',
+            'packages/backend/tooling/**/*.ts',
+            'packages/backend/scripts/seed.ts',
+        ],
         languageOptions: {
             parser: tsParser,
             globals: {
@@ -63,10 +69,35 @@ export default [
         },
     },
 
-    // ── apps/frontend: Vue 3 + TypeScript ───────
     {
-        files: ['apps/frontend/src/**/*.{js,ts,vue}'],
-        ignores: ['apps/frontend/src/components/ui/**'],
+        files: ['packages/backend/tooling/**/*.ts', 'packages/backend/scripts/seed.ts'],
+        rules: { 'no-console': 'off' },
+    },
+
+    // Shared contracts must not rely on Node.js or browser globals.
+    {
+        files: ['packages/contract/src/**/*.ts'],
+        languageOptions: {
+            parser: tsParser,
+            globals: globals.es2026,
+            parserOptions: {
+                sourceType: 'module',
+            },
+        },
+        plugins: {
+            '@typescript-eslint': tsPlugin,
+        },
+        rules: {
+            ...eslint.configs.recommended.rules,
+            ...tsPlugin.configs.recommended.rules,
+            ...commonRules,
+        },
+    },
+
+    // ── packages/frontend: Vue 3 + TypeScript ───
+    {
+        files: ['packages/frontend/src/**/*.{js,ts,vue}'],
+        ignores: ['packages/frontend/src/components/ui/**'],
         languageOptions: {
             parser: vueParser,
             parserOptions: {
@@ -83,12 +114,15 @@ export default [
         plugins: {
             vue: vuePlugin,
             '@typescript-eslint': tsPlugin,
+            architecture: { rules: { imports: frontendImportBoundaries } },
         },
         rules: {
             ...eslint.configs.recommended.rules,
             ...tsPlugin.configs.recommended.rules,
             ...vuePlugin.configs.recommended.rules,
             ...commonRules,
+            'no-console': 'off',
+            'architecture/imports': 'error',
         },
     },
 

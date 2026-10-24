@@ -1,0 +1,80 @@
+model StocktakeSession {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  organizationId String          @db.Uuid
+  workspaceId    String          @db.Uuid
+  resourceId     String          @db.Uuid
+  title          String
+  status         StocktakeStatus @default(DRAFT)
+  createdById    String          @db.Uuid
+  confirmedById  String?         @db.Uuid
+  startedAt      DateTime?       @db.Timestamptz(3)
+  confirmedAt    DateTime?       @db.Timestamptz(3)
+  cancelledAt    DateTime?       @db.Timestamptz(3)
+  notes          String?
+  version        Int             @default(1)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+
+  workspace   Workspace        @relation(fields: [organizationId, workspaceId], references: [organizationId, id], onDelete: Restrict)
+  resource    ResourceIdentity @relation(fields: [organizationId, resourceId], references: [organizationId, id], onDelete: Restrict)
+  createdBy   User             @relation("StocktakeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedBy User?            @relation("StocktakeConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  scopes      StocktakeScope[]
+  entries     StocktakeEntry[]
+
+  @@unique([organizationId, workspaceId, id])
+  @@unique([organizationId, resourceId])
+  @@index([workspaceId, status, createdAt])
+}
+
+/// Zero scopes means the whole current workspace; otherwise snapshot the selected subtrees.
+model StocktakeScope {
+  id                 String  @id @default(uuid(7)) @db.Uuid
+  organizationId     String  @db.Uuid
+  workspaceId        String  @db.Uuid
+  stocktakeId        String  @db.Uuid
+  storageNodeId      String  @db.Uuid
+  includeDescendants Boolean @default(true)
+
+  stocktake   StocktakeSession @relation(fields: [organizationId, workspaceId, stocktakeId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  storageNode StorageNode      @relation(fields: [organizationId, storageNodeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([stocktakeId, storageNodeId])
+  @@index([organizationId, storageNodeId])
+}
+
+/// Confirmation compares expectedVersion and writes an adjustment, not a silent overwrite.
+model StocktakeEntry {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  organizationId   String    @db.Uuid
+  workspaceId      String    @db.Uuid
+  stocktakeId      String    @db.Uuid
+  stockItemId      String    @db.Uuid
+  expectedVersion  Int
+  expectedQuantity Decimal   @db.Decimal(20, 6)
+  countedQuantity  Decimal?  @db.Decimal(20, 6)
+  expectedNodeId   String?   @db.Uuid
+  observedNodeId   String?   @db.Uuid
+  countedById      String?   @db.Uuid
+  countedAt        DateTime? @db.Timestamptz(3)
+  adjustmentLineId String?   @db.Uuid
+  notes            String?
+
+  stocktake      StocktakeSession          @relation(fields: [organizationId, workspaceId, stocktakeId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  stockItem      StockItem                 @relation(fields: [organizationId, workspaceId, stockItemId], references: [organizationId, workspaceId, id], onDelete: Restrict)
+  expectedNode   StorageNode?              @relation("StocktakeExpectedNode", fields: [organizationId, expectedNodeId], references: [organizationId, id], onDelete: Restrict)
+  observedNode   StorageNode?              @relation("StocktakeObservedNode", fields: [organizationId, observedNodeId], references: [organizationId, id], onDelete: Restrict)
+  countedBy      User?                     @relation(fields: [countedById], references: [id], onDelete: Restrict)
+  adjustmentLine InventoryTransactionLine? @relation(fields: [organizationId, workspaceId, stockItemId, adjustmentLineId], references: [organizationId, workspaceId, stockItemId, id], onDelete: Restrict)
+
+  @@unique([stocktakeId, stockItemId])
+  @@unique([organizationId, workspaceId, stockItemId, adjustmentLineId])
+  @@index([organizationId, workspaceId, stockItemId])
+}
+
+enum StocktakeStatus {
+  DRAFT
+  COUNTING
+  CONFIRMED
+  CANCELLED
+}

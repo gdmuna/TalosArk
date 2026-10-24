@@ -1,0 +1,22 @@
+<script setup lang="ts">
+import type { HTMLAttributes } from 'vue';
+import { cn } from '@/shared/util/cn';
+
+const props = defineProps<{
+    class?: HTMLAttributes['class'];
+}>();
+</script>
+
+<template>
+    <fieldset
+        data-slot="field-set"
+        :class="
+            cn(
+                'min-w-0 gap-4 has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3 flex flex-col',
+                props.class
+            )
+        "
+    >
+        <slot />
+    </fieldset>
+</template>

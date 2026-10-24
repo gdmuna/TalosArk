@@ -1,0 +1,23 @@
+import type { CreateUserSessionOutput } from '@/core/session/session.contract.js';
+
+import { Simplify } from '@/common/types/index.js';
+
+export interface OidcLoginCallbackInput {
+    code: string;
+    state: string;
+    id: string;
+}
+
+export type OidcLoginCallbackOutput = Simplify<
+    OidcLoginCallbackSuccessOutput | OidcLoginCallbackBlockOutput
+>;
+
+export interface OidcLoginCallbackSuccessOutput {
+    type: 'success';
+    data: CreateUserSessionOutput;
+}
+
+export interface OidcLoginCallbackBlockOutput {
+    type: 'block';
+    data: Record<string, never>;
+}

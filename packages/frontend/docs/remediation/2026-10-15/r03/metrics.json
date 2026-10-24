@@ -1,0 +1,609 @@
+{
+  "date": "2026-10-17",
+  "environment": "temporary isolated App + route table + shell, hash history, mock data; not production authorization acceptance",
+  "geometry": [
+    {
+      "page": "role",
+      "body": {
+        "bottom": 775.5,
+        "height": 468.5,
+        "left": 241,
+        "right": 1024,
+        "top": 307,
+        "width": 783,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1024,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1024,
+        "top": 97,
+        "width": 783,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "matrix": [
+        {
+          "left": "0px",
+          "position": "sticky",
+          "text": "作用域",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "查看工作区",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "管理工作区成员",
+          "top": "0px"
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "page": "role",
+      "body": {
+        "bottom": 775.5,
+        "height": 468.5,
+        "left": 241,
+        "right": 1280,
+        "top": 307,
+        "width": 1039,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1280,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1280,
+        "top": 97,
+        "width": 1039,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "matrix": [
+        {
+          "left": "0px",
+          "position": "sticky",
+          "text": "作用域",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "查看工作区",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "管理工作区成员",
+          "top": "0px"
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "page": "role",
+      "body": {
+        "bottom": 775.5,
+        "height": 468.5,
+        "left": 241,
+        "right": 1440,
+        "top": 307,
+        "width": 1199,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1440,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1440,
+        "top": 97,
+        "width": 1199,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "matrix": [
+        {
+          "left": "0px",
+          "position": "sticky",
+          "text": "作用域",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "查看工作区",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "管理工作区成员",
+          "top": "0px"
+        }
+      ],
+      "width": 1440
+    },
+    {
+      "page": "role",
+      "body": {
+        "bottom": 775.5,
+        "height": 468.5,
+        "left": 416.5,
+        "right": 1744.5,
+        "top": 307,
+        "width": 1328,
+        "x": 416.5,
+        "y": 307
+      },
+      "documentWidth": 1920,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1920,
+        "top": 97,
+        "width": 1679,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "matrix": [
+        {
+          "left": "0px",
+          "position": "sticky",
+          "text": "作用域",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "查看工作区",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "管理工作区成员",
+          "top": "0px"
+        }
+      ],
+      "width": 1920
+    },
+    {
+      "page": "role",
+      "body": {
+        "bottom": 775.5,
+        "height": 468.5,
+        "left": 736.5,
+        "right": 2064.5,
+        "top": 307,
+        "width": 1328,
+        "x": 736.5,
+        "y": 307
+      },
+      "documentWidth": 2560,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 2560,
+        "top": 97,
+        "width": 2319,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "matrix": [
+        {
+          "left": "0px",
+          "position": "sticky",
+          "text": "作用域",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "查看工作区",
+          "top": "0px"
+        },
+        {
+          "left": "auto",
+          "position": "sticky",
+          "text": "管理工作区成员",
+          "top": "0px"
+        }
+      ],
+      "width": 2560
+    },
+    {
+      "page": "workspace",
+      "body": {
+        "bottom": 1503.5,
+        "height": 1196.5,
+        "left": 241,
+        "right": 1024,
+        "top": 307,
+        "width": 783,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1024,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1024,
+        "top": 97,
+        "width": 783,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1024
+    },
+    {
+      "page": "workspace",
+      "body": {
+        "bottom": 1503.5,
+        "height": 1196.5,
+        "left": 241,
+        "right": 1280,
+        "top": 307,
+        "width": 1039,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1280,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1280,
+        "top": 97,
+        "width": 1039,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1280
+    },
+    {
+      "page": "workspace",
+      "body": {
+        "bottom": 933,
+        "height": 626,
+        "left": 241,
+        "right": 1440,
+        "top": 307,
+        "width": 1199,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1440,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1440,
+        "top": 97,
+        "width": 1199,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1440
+    },
+    {
+      "page": "workspace",
+      "body": {
+        "bottom": 933,
+        "height": 626,
+        "left": 416.5,
+        "right": 1744.5,
+        "top": 307,
+        "width": 1328,
+        "x": 416.5,
+        "y": 307
+      },
+      "documentWidth": 1920,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1920,
+        "top": 97,
+        "width": 1679,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1920
+    },
+    {
+      "page": "workspace",
+      "body": {
+        "bottom": 933,
+        "height": 626,
+        "left": 736.5,
+        "right": 2064.5,
+        "top": 307,
+        "width": 1328,
+        "x": 736.5,
+        "y": 307
+      },
+      "documentWidth": 2560,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 2560,
+        "top": 97,
+        "width": 2319,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 2560
+    },
+    {
+      "page": "member",
+      "body": {
+        "bottom": 1221.5,
+        "height": 914.5,
+        "left": 241,
+        "right": 1024,
+        "top": 307,
+        "width": 783,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1024,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1024,
+        "top": 97,
+        "width": 783,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1024
+    },
+    {
+      "page": "member",
+      "body": {
+        "bottom": 1221.5,
+        "height": 914.5,
+        "left": 241,
+        "right": 1280,
+        "top": 307,
+        "width": 1039,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1280,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1280,
+        "top": 97,
+        "width": 1039,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1280
+    },
+    {
+      "page": "member",
+      "body": {
+        "bottom": 904,
+        "height": 597,
+        "left": 241,
+        "right": 1440,
+        "top": 307,
+        "width": 1199,
+        "x": 241,
+        "y": 307
+      },
+      "documentWidth": 1440,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1440,
+        "top": 97,
+        "width": 1199,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1440
+    },
+    {
+      "page": "member",
+      "body": {
+        "bottom": 904,
+        "height": 597,
+        "left": 416.5,
+        "right": 1744.5,
+        "top": 307,
+        "width": 1328,
+        "x": 416.5,
+        "y": 307
+      },
+      "documentWidth": 1920,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 1920,
+        "top": 97,
+        "width": 1679,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 1920
+    },
+    {
+      "page": "member",
+      "body": {
+        "bottom": 904,
+        "height": 597,
+        "left": 736.5,
+        "right": 2064.5,
+        "top": 307,
+        "width": 1328,
+        "x": 736.5,
+        "y": 307
+      },
+      "documentWidth": 2560,
+      "header": {
+        "bottom": 307,
+        "height": 210,
+        "left": 241,
+        "right": 2560,
+        "top": 97,
+        "width": 2319,
+        "x": 241,
+        "y": 97
+      },
+      "height": 900,
+      "width": 2560
+    }
+  ],
+  "checks": [
+    {
+      "case": "workspace-members-pinned",
+      "selectors": 1,
+      "url": "http://localhost:4444/r03-check.html#/main/management/workspace/019a0000-0000-7000-8000-000000000011?view=member",
+      "globalWorkspace": "王\n王教授课题组\n上海交通大学"
+    },
+    {
+      "case": "workspace-member-identity",
+      "url": "http://localhost:4444/r03-check.html#/main/management/member/019a0000-0000-7000-8000-000000000102?organization=019a0000-0000-7000-8000-000000000001",
+      "membershipId": "019a0000-0000-7000-8000-000000000102",
+      "userId": "019a0000-0000-7000-8000-000000000202"
+    },
+    {
+      "case": "member-deeplink-refresh",
+      "url": "http://localhost:4444/r03-check.html#/main/management/member/019a0000-0000-7000-8000-000000000102?organization=019a0000-0000-7000-8000-000000000001&view=workspace",
+      "heading": "张晓明",
+      "rows": 2
+    },
+    {
+      "case": "role-draft-stay",
+      "checked": "true"
+    },
+    {
+      "case": "role-discard-clears-draft",
+      "dialogs": 0,
+      "checked": "false",
+      "saveEnabled": false
+    },
+    {
+      "case": "role-save",
+      "checked": "true",
+      "saveEnabled": false
+    },
+    {
+      "case": "role-switch-clears-save-notice",
+      "heading": "组织所有者",
+      "savedNotice": 0,
+      "editName": 0,
+      "checkboxEnabled": false
+    },
+    {
+      "case": "workspace-discard-clears-draft",
+      "name": "王教授课题组",
+      "saveEnabled": false
+    },
+    {
+      "case": "workspace-save",
+      "heading": "王教授课题组 · 已编辑",
+      "saveEnabled": false
+    },
+    {
+      "case": "workspace-switch-clears-save-notice",
+      "heading": "公共平台",
+      "notice": 0,
+      "globalWorkspace": "王\n王教授课题组\n上海交通大学"
+    },
+    {
+      "case": "same-kind-link-updates-origin",
+      "heading": "王教授课题组 · 已编辑",
+      "backButton": "公共平台"
+    },
+    {
+      "case": "quick-return-restores-origin-view",
+      "url": "http://localhost:4444/r03-check.html#/main/management/workspace/019a0000-0000-7000-8000-000000000012?view=sharing",
+      "heading": "公共平台"
+    },
+    {
+      "case": "resource-sheet-preview",
+      "dialog": "HeLa 细胞系\n\n当前记录的字段摘要\n\nHeLa 细胞系\nID:\n019a0000-0000-7000-8000-000000000401\n资源名称\nHeLa 细胞系\n类型\n材料\n关系\n本工作区\n资源身份 ID\n019a0000-0000-7000-8000-000000000501\n创建时间\n2026/9/15 10:00:00"
+    },
+    {
+      "case": "member-wrong-organization",
+      "heading": "成员详情",
+      "body": "该模拟对象不存在，或不属于当前组织\n重新加载",
+      "picker": "成员详情"
+    },
+    {
+      "case": "same-user-distinct-membership",
+      "heading": "张晓明",
+      "body": "组织身份\n所属组织\n苏州研究所\n成员状态\n有效\n组织角色\n—\n加入时间\n2026/9/15 10:00:00\n工作区关系\n样本中心\n\n归档成员\n\n有效\n最近活动\n时间\t操作者\t动作\t对象\n当前组织范围内没有相关活动\n角色授权来源\n归档成员\n\n样本中心\n\n查看工作区",
+      "canAssign": 0
+    },
+    {
+      "case": "read-only-role",
+      "nameInputs": 0,
+      "permissionEnabled": false
+    },
+    {
+      "case": "matrix-horizontal-scroll-sticky",
+      "result": {
+        "cells": [
+          {
+            "position": "sticky",
+            "x": 266
+          },
+          {
+            "position": "sticky",
+            "x": 266
+          }
+        ],
+        "clientWidth": 733,
+        "left": 265,
+        "scrollLeft": 131,
+        "scrollWidth": 864
+      }
+    }
+  ],
+  "limits": [
+    "Native 125% zoom unverified",
+    "Backend detail and authorization unverified",
+    "Full large/empty/long-name matrix unverified"
+  ]
+}
