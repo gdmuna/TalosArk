@@ -30,6 +30,7 @@ export default [
     {
         ignores: [
             '**/dist/**',
+            '**/.cache/**',
             '**/node_modules/**',
             'packages/backend/prisma/generated/**',
             'packages/docsite/.vitepress/dist/**',
@@ -45,6 +46,8 @@ export default [
             'packages/backend/test/**/*.ts',
             'packages/backend/tooling/**/*.ts',
             'packages/backend/scripts/seed.ts',
+            'packages/backend/scripts/seed-build.ts',
+            'packages/backend/scripts/backend-root.ts',
         ],
         languageOptions: {
             parser: tsParser,
@@ -70,7 +73,11 @@ export default [
     },
 
     {
-        files: ['packages/backend/tooling/**/*.ts', 'packages/backend/scripts/seed.ts'],
+        files: [
+            'packages/backend/tooling/**/*.ts',
+            'packages/backend/scripts/seed.ts',
+            'packages/backend/scripts/seed-build.ts',
+        ],
         rules: { 'no-console': 'off' },
     },
 

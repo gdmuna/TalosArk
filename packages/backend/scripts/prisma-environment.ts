@@ -2,14 +2,11 @@ import { config } from '@dotenvx/dotenvx-ops';
 import { Command, CommanderError } from 'commander';
 import select from '@inquirer/select';
 import { existsSync, readdirSync } from 'node:fs';
-import { dirname, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { relative, resolve } from 'node:path';
+import { findBackendRoot } from './backend-root.js';
 
 const REQUIRED_PRISMA_ENVIRONMENT_KEYS = ['DATABASE_URL', 'SHADOW_DATABASE_URL'] as const;
-const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const backendRoot = existsSync(resolve(scriptRoot, 'prisma.config.ts'))
-    ? scriptRoot
-    : resolve(scriptRoot, '..');
+const backendRoot = findBackendRoot();
 const environmentDirectory = resolve(backendRoot, 'ops/prisma/env');
 
 /**

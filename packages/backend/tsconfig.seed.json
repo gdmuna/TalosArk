@@ -2,8 +2,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "./dist",
-    "tsBuildInfoFile": "./dist/tsconfig.seed.tsbuildinfo"
+    "outDir": "./.cache/seed",
+    "tsBuildInfoFile": "./.cache/seed/tsconfig.tsbuildinfo",
+    "noEmitOnError": true
   },
   "include": ["tooling/seed/**/*.ts", "src/bootstrap/composition/seed.module.ts"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]

@@ -1,6 +1,7 @@
 .gitnexus
 **/node_modules/
 **/dist/
+**/.cache/
 **/coverage/
 **/*.log
 **/.obsidian/

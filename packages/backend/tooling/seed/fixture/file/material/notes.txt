@@ -1,0 +1,4 @@
+Material attachment example
+
+This is a local seed fixture, not a real laboratory certificate.
+It is uploaded through the normal material-attachment workflow.

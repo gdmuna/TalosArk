@@ -1,75 +1,68 @@
 import { z } from 'zod';
-import { datasetStep } from '../seed.definition.js';
-import { baselineSteps, type DatasetGroup } from './seed.group.js';
-import { memberAccounts, memberVolume, memberVolumeParameters } from '../dataset/volume.dataset.js';
-import { workspaceDataset } from '../dataset/workspace.dataset.js';
-import { materialVolume } from '../dataset/material/material.dataset.js';
-import { facilityDataset, receiptDataset } from '../dataset/laboratory.dataset.js';
+import { defineGroup } from '../definition/group.js';
+import { addWorkspaceBaseline } from './baseline.js';
+import { memberVolume } from '../capability/governance/volume.dataset.js';
+import { memberAccounts } from '../capability/identity/account-volume.dataset.js';
+import { workspaceDataset } from '../capability/workspace/workspace.dataset.js';
+import { materialVolume } from '../capability/material/material.dataset.js';
+import { facilityDataset } from '../capability/facility/facility.dataset.js';
+import { receiptDataset } from '../capability/inventory/receipt.dataset.js';
 
-export const governanceVolumeGroup: DatasetGroup = {
+export const governanceVolumeGroup = defineGroup({
     id: 'governance-volume',
-    version: 1,
-    description:
-        '1-199 real members for governance pagination; password hashing is intentionally bounded',
-    build(parameters, context) {
-        if (context.actorUserId || context.target)
-            throw new Error('Governance volume creates isolated accounts and scopes');
-        const parsed = memberVolumeParameters.parse(parameters);
-        const accounts = datasetStep(
-            'account',
-            memberAccounts,
-            parsed,
-            context.generation,
-            () => ({})
-        );
-        const scope = datasetStep(
+    version: 2,
+    purpose: 'volume',
+    description: 'Explicitly sized real membership volume',
+    parameters: z.strictObject({ count: z.number().int().min(1).max(199) }),
+    scopeModes: ['provision'],
+    build(parameters, b) {
+        const accounts = b.step('account', memberAccounts, parameters, {
+            from: {},
+            bind: () => ({}),
+        });
+        const scope = b.step(
             'workspace',
             workspaceDataset,
             {},
-            context.generation,
-            (results) => ({ actorUserId: results.get(accounts).owner.userId, target: null })
+            {
+                from: { accounts },
+                bind: ({ accounts }) => ({ actorUserId: accounts.owner.userId, target: null }),
+            }
         );
-        const members = datasetStep(
-            'team',
-            memberVolume,
-            parsed,
-            context.generation,
-            (results) => ({ scope: results.get(scope), accounts: results.get(accounts) })
-        );
-        return { parameters: parsed, steps: [accounts, scope, members] };
+        const members = b.step('team', memberVolume, parameters, {
+            from: { scope, accounts },
+            bind: (values) => values,
+        });
+        b.expose({ accounts, primaryScope: scope, members });
     },
-};
-
-export const inventoryVolumeGroup: DatasetGroup = {
+});
+export const inventoryVolumeGroup = defineGroup({
     id: 'inventory-volume',
-    version: 1,
-    description: '1-100 real stock items with exclusive positions for inventory pagination',
-    build(parameters, context) {
-        const parsed = z
-            .strictObject({ count: z.number().int().min(1).max(100).default(100) })
-            .parse(parameters);
-        const { scope, steps } = baselineSteps(context);
-        const material = datasetStep(
+    version: 2,
+    purpose: 'volume',
+    description: 'Explicitly sized stock volume with exclusive positions',
+    parameters: z.strictObject({ count: z.number().int().min(1).max(100) }),
+    scopeModes: ['provision', 'actor', 'workspace'],
+    build(parameters, b) {
+        const scope = addWorkspaceBaseline(b);
+        const materials = b.step(
             'material',
             materialVolume,
-            { count: parsed.count, branch: 'chemical' },
-            context.generation,
-            (results) => results.get(scope)
+            { count: parameters.count, branch: 'chemical' },
+            { from: { scope }, bind: ({ scope }) => scope }
         );
-        const facility = datasetStep(
+        const facility = b.step(
             'facility',
             facilityDataset,
-            { positions: parsed.count },
-            context.generation,
-            (results) => results.get(scope)
+            { positions: parameters.count },
+            { from: { scope }, bind: ({ scope }) => scope }
         );
-        const receipt = datasetStep(
+        const receipt = b.step(
             'receipt',
             receiptDataset,
             {},
-            context.generation,
-            (results) => ({ materials: results.get(material), facility: results.get(facility) })
+            { from: { materials, facility }, bind: (values) => values }
         );
-        return { parameters: parsed, steps: [...steps, material, facility, receipt] };
+        b.expose({ primaryScope: scope, stock: receipt });
     },
-};
+});

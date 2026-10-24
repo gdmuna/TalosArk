@@ -43,14 +43,17 @@ upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.m
 
 ## Development/test seeding
 
-`pnpm db:seed` runs the separately compiled `tooling/seed` entry. Dataset definitions
+`pnpm db:seed` incrementally builds and runs `tooling/seed` in isolated `.cache/seed/`
+output, not Nest's dist. CLI and SDK share SeedApplication.list/plan/run. Dataset definitions
 and deterministic factories are pure; groups compose ordered datasets and pass typed
 output references to later inputs. Tags select independent datasets without resolving
 dependencies. Business seeders call existing application services, preserving actor,
 authorization, resource, audit, topology and inventory rules. `seed.module.ts` is a
 dedicated composition root without AppModule, HTTP/WS listeners, IAM, mail, S3, KVS
 or queue connections by default. An attachment integration group explicitly opts into
-S3 using a separate storage-only configuration. MaterialCatalogModule separates catalog/batch capabilities
+S3 using an explicit storage-only JSON or runtime profile read into an isolated object.
+Only capabilities selected by the sealed plan are loaded; pure definitions never import
+Nest/runtime classes. MaterialCatalogModule separates catalog/batch capabilities
 from attachment infrastructure; ordinary MaterialModule composes both as before.
 
 Without an existing actor, groups can provision real local credentials and scopes.
@@ -80,6 +83,12 @@ examples and validation boundaries live in tooling/seed/README.md; coverage.md d
 implemented fixtures from unavailable business capabilities. Data/parameter/output types
 derive from contracts or kernel inputs, with NoInfer-pinned bindings and a dedicated
 seed:typecheck CI job. Runtime validation remains necessary for semantic constraints.
+Manifest format 3 includes explicit dependencies and local-file size/SHA-256 facts;
+old namespaces are rejected without adoption or deletion. Local fixture inputs are
+bounded, root-confined and privately snapshotted before writes; uploads use those
+snapshots through normal business APIs. Fingerprints do not provide recovery or
+atomicity across external storage. Definition/group/runtime ownership and commands
+are documented in the seed README.
 
 ## Current iteration policy
 
