@@ -41,7 +41,11 @@ export class FacilityAccessService {
             await this.authorization.require({
                 subject,
                 target: context.workspaceId
-                    ? { kind: 'workspace', ...context, workspaceId: context.workspaceId }
+                    ? {
+                          kind: 'workspace',
+                          organizationId: context.organizationId,
+                          workspaceId: context.workspaceId,
+                      }
                     : organization,
                 permissionCode: context.workspaceId ? permission.read : permission.govern,
             });
