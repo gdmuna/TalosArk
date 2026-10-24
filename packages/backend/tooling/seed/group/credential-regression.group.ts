@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { defineGroup } from '../definition/group.js';
 import { ownerAccount } from '../capability/identity/account.dataset.js';
 import { credentialDataset } from '../capability/identity/credential.dataset.js';
+
 export const credentialRegressionGroup = defineGroup({
     id: 'credential-regression',
     version: 2,

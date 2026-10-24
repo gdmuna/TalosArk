@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { scopeReferenceSchema } from '../../definition/reference.js';
 import { type SeederKind } from '../../definition/dataset.js';
+
 export const facilityOutputSchema = z.strictObject({
     scope: scopeReferenceSchema,
     facilityId: z.uuid(),
@@ -8,6 +9,7 @@ export const facilityOutputSchema = z.strictObject({
     containerId: z.uuid(),
     positions: z.array(z.uuid()),
 });
+
 export const facilityKind = {
     id: 'facility',
     version: 1,

@@ -4,6 +4,7 @@ import { ReceiptSeeder } from './receipt.seeder.js';
 import { InventoryHistorySeeder } from './history.seeder.js';
 import { receiptKind } from './receipt.kind.js';
 import { inventoryHistoryKind } from './history.kind.js';
+
 export const inventoryRuntime = defineSeedRuntime({
     imports: [InventoryModule],
     providers: [],

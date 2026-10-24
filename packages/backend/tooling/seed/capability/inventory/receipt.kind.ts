@@ -4,12 +4,14 @@ import { scopeReferenceSchema } from '../../definition/reference.js';
 import { materialOutputSchema } from '../material/material.kind.js';
 import { facilityOutputSchema } from '../facility/facility.kind.js';
 import { type SeederKind } from '../../definition/dataset.js';
+
 export const receiptOutputSchema = z.strictObject({
     scope: scopeReferenceSchema,
     stocks: z.array(
         z.strictObject({ stockItemId: z.uuid(), instanceId: z.uuid(), operationId: z.uuid() })
     ),
 });
+
 export const receiptKind = {
     id: 'receipt',
     version: 1,

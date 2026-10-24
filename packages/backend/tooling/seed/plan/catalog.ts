@@ -14,6 +14,7 @@ export interface SeedEntry {
     readonly scopeModes: readonly SeedScopeSelection['kind'][];
     build(parameters: unknown, builder: SeedGroupBuilder): SeedJson;
 }
+
 export function groupEntry<P extends z.ZodType>(group: DatasetGroup<P>): SeedEntry {
     return {
         ...group,

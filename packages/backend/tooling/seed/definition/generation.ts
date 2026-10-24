@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { GenerationContext } from './dataset.js';
+
 export function generationContext(seed: number, referenceDate: string): GenerationContext {
     return Object.freeze({
         referenceDate,

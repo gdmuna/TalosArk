@@ -4,6 +4,7 @@ import { FacilitySeeder } from './facility.seeder.js';
 import { FacilityLifecycleSeeder } from './lifecycle.seeder.js';
 import { facilityKind } from './facility.kind.js';
 import { facilityLifecycleKind } from './lifecycle.kind.js';
+
 export const facilityRuntime = defineSeedRuntime({
     imports: [FacilityModule],
     providers: [],

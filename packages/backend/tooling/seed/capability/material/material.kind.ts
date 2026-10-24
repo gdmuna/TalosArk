@@ -10,10 +10,12 @@ import { scopeReferenceSchema } from '../../definition/reference.js';
 
 const key = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/);
 const [firstBranch, ...remainingBranches] = MaterialWriteSchema.options;
+
 export const materialSeedInputSchema = z.discriminatedUnion('branch', [
     firstBranch.omit({ typeId: true }),
     ...remainingBranches.map((branch) => branch.omit({ typeId: true })),
 ]);
+
 export const materialDataSchema = z
     .strictObject({
         types: z.array(z.strictObject({ key, input: MaterialTypeWriteSchema })).max(100),

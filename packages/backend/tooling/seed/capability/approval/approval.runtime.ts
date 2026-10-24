@@ -2,6 +2,7 @@ import { defineSeedRuntime, provideSeedHandler } from '../../runtime/contributio
 import { ApprovalModule } from '../../../../src/modules/approval/approval.module.js';
 import { ApprovalSeeder } from './approval.seeder.js';
 import { approvalKind } from './approval.kind.js';
+
 export const approvalRuntime = defineSeedRuntime({
     imports: [ApprovalModule],
     providers: [],

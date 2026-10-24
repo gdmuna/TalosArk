@@ -10,4 +10,5 @@ export const seedScopeSchema = z.discriminatedUnion('kind', [
         workspaceId: z.uuid().toLowerCase(),
     }),
 ]);
+
 export type SeedScopeSelection = z.infer<typeof seedScopeSchema>;

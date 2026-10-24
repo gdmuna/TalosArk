@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { jsonSchema } from '../definition/value.js';
 import { seedScopeSchema } from '../definition/scope.js';
+
 export const seedPlanRequestSchema = z.strictObject({
     selection: z.discriminatedUnion('kind', [
         z.strictObject({

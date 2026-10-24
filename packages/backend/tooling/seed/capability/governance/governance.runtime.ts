@@ -10,6 +10,7 @@ import { ExtraWorkspaceSeeder } from './workspace-layout.seeder.js';
 import { TeamSeeder } from './team.seeder.js';
 import { WorkspaceMembershipSeeder } from './workspace-membership.seeder.js';
 import { extraWorkspaceKind, teamKind, workspaceMembershipKind } from './governance.kind.js';
+
 export const governanceRuntime = defineSeedRuntime({
     imports: [WorkspaceModule, TeamGovernanceModule],
     providers: [

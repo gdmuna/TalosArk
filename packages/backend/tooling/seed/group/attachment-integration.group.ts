@@ -3,6 +3,7 @@ import { defineGroup } from '../definition/group.js';
 import { materialVolume } from '../capability/material/material.dataset.js';
 import { attachmentDataset } from '../capability/attachment/attachment.dataset.js';
 import { addWorkspaceBaseline } from './baseline.js';
+
 export const attachmentIntegrationGroup = defineGroup({
     id: 'attachment-integration',
     version: 2,
