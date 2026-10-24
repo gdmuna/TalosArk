@@ -22,7 +22,10 @@ export function defineSeedRuntime(definition: SeedRuntimeDefinition): SeedRuntim
 export function provideSeedHandler<K extends SeederKind>(
     kind: K,
     handler: Type<BusinessSeeder<NoInfer<K>>>,
-    options: { actor?: (input: z.output<NoInfer<K>['input']>) => string } = {}
+    options: {
+        actor?: (input: z.output<NoInfer<K>['input']>) => string;
+        recoverable?: boolean;
+    } = {}
 ): SeedHandlerRegistration {
     const token = Symbol(`seed.handler.${kind.id}`);
     return {
@@ -33,7 +36,7 @@ export function provideSeedHandler<K extends SeederKind>(
             inject: [handler],
             useFactory: (instance: BusinessSeeder<K>) => ({
                 register: (services) => {
-                    services.register(kind, instance, options.actor);
+                    services.register(kind, instance, options.actor, options.recoverable);
                 },
             }),
         },

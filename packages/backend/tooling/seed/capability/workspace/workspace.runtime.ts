@@ -3,10 +3,14 @@ import { WorkspaceModule } from '../../../../src/modules/workspace/workspace.mod
 import { OrganizationService } from '../../../../src/modules/organization/application/organization.service.js';
 import { WorkspaceSeeder } from './workspace.seeder.js';
 import { workspaceKind } from './workspace.kind.js';
+
 export const workspaceRuntime = defineSeedRuntime({
     imports: [WorkspaceModule],
     providers: [OrganizationService],
     handlers: [
-        provideSeedHandler(workspaceKind, WorkspaceSeeder, { actor: (input) => input.actorUserId }),
+        provideSeedHandler(workspaceKind, WorkspaceSeeder, {
+            actor: (input) => input.actorUserId,
+            recoverable: true,
+        }),
     ],
 });

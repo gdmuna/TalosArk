@@ -4,7 +4,8 @@ import { PreparedFixtures } from '../fixture/fixture.reader.js';
 import { productSeedCatalog } from '../plan/product.catalog.js';
 import { SeedPlanner, type SeedManifest } from '../plan/planner.js';
 import type { SeedPlanRequest } from '../plan/request.js';
-import type { SeedRunner } from '../runtime/runner.js';
+import type { SeedMode, SeedRunResult } from '../runtime/result.js';
+export type { SeedRunResult } from '../runtime/result.js';
 
 export interface SeedTargetRequest {
     readonly environment: PrismaEnvironmentSource;
@@ -19,13 +20,12 @@ export interface SeedArtifactRequest {
 }
 export interface SeedRunRequest {
     readonly plan: SeedPlanRequest;
-    readonly mode: 'apply' | 'verify';
+    readonly mode: SeedMode;
     readonly expectedFingerprint?: string;
     readonly target: SeedTargetRequest;
     readonly storageSource?: SeedStorageSource;
     readonly artifacts: SeedArtifactRequest;
 }
-export type SeedRunResult = Awaited<ReturnType<SeedRunner['run']>>;
 
 export class SeedApplication {
     private readonly planner = new SeedPlanner(productSeedCatalog);
@@ -50,7 +50,7 @@ export class SeedApplication {
     }
 
     async run(request: SeedRunRequest, signal?: AbortSignal): Promise<SeedRunResult> {
-        if (request.mode !== 'apply' && request.mode !== 'verify')
+        if (!['apply', 'verify', 'resume'].includes(request.mode))
             throw new Error('Unknown seed execution mode');
         const draft = this.planner.build(request.plan);
         const fixtures = await this.prepare(
@@ -58,6 +58,7 @@ export class SeedApplication {
             true,
             signal
         );
+        let result: SeedRunResult | undefined;
         try {
             const program = this.planner.seal(draft, fixtures.facts());
             if (
@@ -67,10 +68,35 @@ export class SeedApplication {
                 throw new Error('Seed plan fingerprint changed; no database connection was opened');
             signal?.throwIfAborted();
             const { runSeed } = await import('../runtime/host.js');
-            return await runSeed(productSeedCatalog, program, fixtures, request, signal);
+            result = await runSeed(productSeedCatalog, program, fixtures, request, signal);
+            return result;
         } finally {
-            await fixtures.close();
+            try {
+                await fixtures.close();
+            } catch {
+                const diagnostic = {
+                    stage: 'cleanup' as const,
+                    code: 'seed.fixture-cleanup-failed',
+                    message: 'Unable to remove private input snapshots',
+                };
+                if (result) result.diagnostics.push(diagnostic);
+                else console.error(`[seed] ${diagnostic.message}`);
+            }
         }
+    }
+
+    resume(request: Omit<SeedRunRequest, 'mode'>, signal?: AbortSignal): Promise<SeedRunResult> {
+        return this.run({ ...request, mode: 'resume' }, signal);
+    }
+
+    async inspect(target: SeedTargetRequest, namespace: string) {
+        const { inspectSeedTarget } = await import('../runtime/host.js');
+        return inspectSeedTarget(target, namespace);
+    }
+
+    async exportReport(target: SeedTargetRequest, namespace: string, output: string) {
+        const { exportSeedReport } = await import('../runtime/host.js');
+        return exportSeedReport(target, namespace, output);
     }
 
     async initialize(target: SeedTargetRequest, purpose: 'development' | 'test'): Promise<void> {

@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import type { SeedProgram } from '../plan/planner.js';
+import type { SeedRunResult } from './result.js';
+import type { SeedRunRow } from './store.js';
 
 interface Identity {
     database_name: string;
@@ -70,7 +72,13 @@ export class SeedTarget {
             await this.requireMarker(purpose);
             await this.client.query('COMMIT');
         } catch (error) {
-            await this.client.query('ROLLBACK');
+            await this.client
+                .query('ROLLBACK')
+                .catch(() =>
+                    console.error(
+                        '[seed] Metadata rollback acknowledgement failed; inspect the initialization outcome'
+                    )
+                );
             throw error;
         }
     }
@@ -101,17 +109,57 @@ export class SeedTarget {
             );
     }
 
-    async preflight(plan: Pick<SeedProgram, 'steps'>): Promise<void> {
+    private async requireMetadata(): Promise<void> {
         await this.requireMarker();
         const {
             rows: [metadata],
         } = await this.client.query<{ present: boolean }>(
-            "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'record' AND column_name = 'final_snapshot_hash') AS present"
+            "SELECT to_regclass('seed.operation') IS NOT NULL AND (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'run' AND column_name IN ('execution_version', 'attempt_id', 'report')) = 3 AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema = 'seed' AND table_name = 'record' AND column_name = 'final_snapshot_hash') AS present"
         );
         if (!metadata.present)
             throw new Error(
-                'Seed metadata is outdated; rerun db:seed init to install the final-state snapshot column'
+                'Seed metadata is outdated; explicitly rerun db:seed init to upgrade tool-owned execution metadata. Business tables are not changed.'
             );
+    }
+
+    async inspect(namespace: string) {
+        await this.requireMetadata();
+        const {
+            rows: [run],
+        } = await this.client.query<SeedRunRow>(
+            "SELECT status, plan_hash, execution_version, attempt_id, report, (plan->>'formatVersion')::int AS format_version FROM seed.run WHERE namespace = $1",
+            [namespace]
+        );
+        if (!run) throw new Error('No run exists in this namespace');
+        const { rows: records } = await this.client.query<{
+            step: string;
+            count: string;
+            unsealed: string;
+        }>(
+            'SELECT step, count(*)::text AS count, count(*) FILTER (WHERE final_snapshot_hash IS NULL)::text AS unsealed FROM seed.record WHERE namespace = $1 GROUP BY step ORDER BY step',
+            [namespace]
+        );
+        const { rows: operations } = await this.client.query<{
+            step: string;
+            key: string;
+            receipted: boolean;
+        }>(
+            'SELECT o.step, o.key, r.key IS NOT NULL AS receipted FROM seed.operation o LEFT JOIN seed.record r USING (namespace, step, key) WHERE o.namespace = $1 ORDER BY o.step, o.key',
+            [namespace]
+        );
+        return { namespace, run, records, operations };
+    }
+
+    async saveReport(result: SeedRunResult): Promise<void> {
+        const saved = await this.client.query(
+            'UPDATE seed.run SET report = $3::jsonb WHERE namespace = $1 AND attempt_id = $2',
+            [result.namespace, result.attemptId, JSON.stringify(result)]
+        );
+        if (saved.rowCount !== 1) throw new Error('Unable to save the seed execution report');
+    }
+
+    async preflight(plan: Pick<SeedProgram, 'steps'>): Promise<void> {
+        await this.requireMetadata();
         const tables = [
             'User',
             'Organization',

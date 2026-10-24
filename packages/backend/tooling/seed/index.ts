@@ -10,3 +10,4 @@ export type { SeedPlanRequest } from './plan/request.js';
 export type { SeedScopeSelection } from './definition/scope.js';
 export type { SeedManifest } from './plan/planner.js';
 export type { SeedCatalogView } from './plan/catalog.js';
+export type { SeedMode, SeedDiagnostic, SeedVerification } from './runtime/result.js';

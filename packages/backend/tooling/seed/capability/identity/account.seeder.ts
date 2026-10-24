@@ -30,13 +30,15 @@ export class AccountSeeder implements BusinessSeeder<typeof accountsKind> {
                 username: `${suffix}-${item.input.username}`,
                 email: `${suffix}.${item.input.email}`,
             } satisfies z.input<typeof AccountProvisionInputSchema>);
-            const password =
-                item.active && execution.mode === 'apply' ? this.secrets.password() : undefined;
+            const credentialKey = execution.credentialKey(item.key);
+            const prepared =
+                execution.mode !== 'verify' && !execution.hasReceipt(item.key)
+                    ? this.secrets.prepareAccount(credentialKey, identity, item.active)
+                    : undefined;
+            const password = prepared?.password;
             const preparedPassword = password
                 ? await this.identity.preparePassword(password)
                 : undefined;
-            let activationToken: string | undefined;
-            let created = false;
             const account = await execution.record({
                 key: item.key,
                 output: accountReferenceSchema,
@@ -52,11 +54,32 @@ export class AccountSeeder implements BusinessSeeder<typeof accountsKind> {
                             token: provisioned.token,
                             preparedPassword,
                         });
-                    else activationToken = provisioned.token;
-                    created = true;
+                    this.secrets.captureAccount(
+                        credentialKey,
+                        provisioned.userId,
+                        preparedPassword ? undefined : provisioned.token
+                    );
                     return { ...identity, userId: provisioned.userId, active: item.active };
                 },
                 inspect: async ({ userId }) => {
+                    if (execution.recoveryCheck) {
+                        const saved = this.secrets.accountFor(credentialKey, userId);
+                        if (item.active) {
+                            if (!saved.password)
+                                throw new Error('Saved account password is missing');
+                            const authenticated = await this.identity.authenticate({
+                                identifier: identity.username,
+                                password: saved.password,
+                            });
+                            if (authenticated.userId !== userId)
+                                throw new Error(
+                                    'Saved credentials do not match the receipted user'
+                                );
+                        } else if (!saved.activationToken)
+                            throw new Error(
+                                'Saved activation credential is missing; no token was reissued'
+                            );
+                    }
                     const { passwordHash, profile, ...user } =
                         await this.database.queryClient.user.findUniqueOrThrow({
                             where: { id: userId },
@@ -91,8 +114,8 @@ export class AccountSeeder implements BusinessSeeder<typeof accountsKind> {
                     return { ...user, profile, passwordSet: !!passwordHash };
                 },
             });
-            if (created)
-                this.secrets.account({ key: item.key, ...account, password, activationToken });
+            if (execution.mode !== 'verify')
+                this.secrets.confirmAccount(credentialKey, account.userId);
             output[item.key] = account;
         }
         return output;

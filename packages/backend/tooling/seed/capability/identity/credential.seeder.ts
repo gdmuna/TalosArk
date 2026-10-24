@@ -71,7 +71,13 @@ export class CredentialSeeder implements BusinessSeeder<typeof credentialKind> {
                     },
                 }),
         });
-        const password = execution.mode === 'apply' ? this.secrets.password() : undefined;
+        const password =
+            execution.mode !== 'verify' && !execution.hasReceipt('recovery-consumed')
+                ? this.secrets.preparePasswordChange(
+                      account.userId,
+                      execution.credentialKey('recovery-consumed')
+                  )
+                : undefined;
         const preparedPassword = password
             ? await this.identity.preparePassword(password)
             : undefined;
@@ -109,7 +115,7 @@ export class CredentialSeeder implements BusinessSeeder<typeof credentialKind> {
                 }),
             }),
         });
-        if (changed && password) this.secrets.replacePassword(account.userId, password);
+        if (changed && password) this.secrets.confirmPasswordChange(account.userId);
         return { userId: account.userId, revokedRecoveryId, consumedRecoveryId };
     }
 }

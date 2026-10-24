@@ -11,6 +11,9 @@ export interface BusinessSeeder<K extends SeederKind> {
 }
 export class SeedResults implements SeedOutputLookup {
     private readonly values = new Map<string, unknown>();
+    has(key: string): boolean {
+        return this.values.has(key);
+    }
     get<O>(ref: SeedRef<O>): O {
         if (!this.values.has(ref.key)) throw new Error(`Step ${ref.key} has not completed`);
         return this.values.get(ref.key) as O;
@@ -24,17 +27,20 @@ export class SeedServices {
         string,
         {
             version: number;
+            recoverable: boolean;
             run: (data: unknown, input: unknown, execution: SeedExecution) => Promise<unknown>;
         }
     >();
     register<K extends SeederKind>(
         kind: K,
         implementation: BusinessSeeder<NoInfer<K>>,
-        actor?: (input: z.output<NoInfer<K>['input']>) => string
+        actor?: (input: z.output<NoInfer<K>['input']>) => string,
+        recoverable = false
     ): this {
         if (this.implementations.has(kind.id)) throw new Error(`Duplicate seeder ${kind.id}`);
         this.implementations.set(kind.id, {
             version: kind.version,
+            recoverable,
             run: async (data, input, execution) => {
                 const normalized = z.parse<K['input']>(kind.input, input);
                 const work = async () =>
@@ -57,6 +63,15 @@ export class SeedServices {
                 throw new Error(
                     `Missing or incompatible seeder ${step.seederId}@${step.kindVersion}`
                 );
+    }
+    requireRecovery(steps: readonly SeedStep[]): void {
+        const unsupported = steps.filter(
+            (step) => !this.implementations.get(step.seederId)?.recoverable
+        );
+        if (unsupported.length)
+            throw new Error(
+                `Resume is not supported by: ${unsupported.map((step) => step.seederId).join(', ')}. Inspect the retained receipts; no business operation was replayed.`
+            );
     }
     run(step: SeedStep, input: unknown, execution: SeedExecution): Promise<unknown> {
         const implementation = this.implementations.get(step.seederId);

@@ -4,11 +4,12 @@ import { AccountSeeder } from './account.seeder.js';
 import { CredentialSeeder } from './credential.seeder.js';
 import { accountsKind } from './account.kind.js';
 import { credentialKind } from './credential.kind.js';
+
 export const identityRuntime = defineSeedRuntime({
     imports: [IdentityCredentialModule],
     providers: [],
     handlers: [
-        provideSeedHandler(accountsKind, AccountSeeder),
+        provideSeedHandler(accountsKind, AccountSeeder, { recoverable: true }),
         provideSeedHandler(credentialKind, CredentialSeeder),
     ],
 });

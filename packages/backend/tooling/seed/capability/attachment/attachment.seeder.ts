@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import {
     MaterialAttachmentBeginSchema,
     MaterialAttachmentCompleteSchema,
     MaterialAttachmentBindSchema,
 } from '@talos-ark/contracts/material';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { MaterialAttachmentService } from '../../../../src/modules/material/application/material-attachment.service.js';
 import { DatabaseRuntime } from '../../../../src/infra/database/database.runtime.js';
 import { attachmentKind } from './attachment.kind.js';
@@ -39,11 +39,20 @@ export class AttachmentSeeder implements BusinessSeeder<typeof attachmentKind> {
                 Buffer.byteLength(file.source.text) * file.source.repeat > 32 * 1024 ** 2
             )
                 throw new Error('Seed attachment payloads are limited to 32 MiB');
-            output[file.key] = await execution.record({
+            output[file.key] = await execution.external({
                 key: file.key,
                 output: attachmentKind.output.valueType,
-                transaction: 'business-managed',
-                create: async () => {
+                checkpoint: z.object({
+                    sessionId: z.uuid().optional(),
+                    referenceId: z.uuid().optional(),
+                    downloadVerified: z.boolean().optional(),
+                }),
+                create: async ({ idempotencyKey, checkpoint, saveCheckpoint }) => {
+                    let state = checkpoint;
+                    const save = async (value: Partial<typeof state>) => {
+                        state = { ...state, ...value };
+                        await saveCheckpoint(state);
+                    };
                     const content =
                         file.source.kind === 'generated'
                             ? Buffer.from(file.source.text.repeat(file.source.repeat))
@@ -54,27 +63,51 @@ export class AttachmentSeeder implements BusinessSeeder<typeof attachmentKind> {
                         : content.sha256;
                     const request = {
                         ...file.input,
-                        idempotencyKey: randomUUID(),
+                        idempotencyKey,
                         sha256,
                         sizeBytes,
                     } satisfies z.input<typeof MaterialAttachmentBeginSchema>;
-                    const session = await this.attachments.begin(
+                    execution.signal.throwIfAborted();
+                    let session = await this.attachments.begin(
                         params,
                         MaterialAttachmentBeginSchema.parse(request)
                     );
+                    if (state.sessionId && state.sessionId !== session.id)
+                        throw new Error(
+                            'Saved attachment intent does not match its upload session'
+                        );
+                    await save({ sessionId: session.id });
+                    if (session.status === 'cancelled' || session.status === 'expired')
+                        throw new Error(
+                            'The original upload is no longer resumable; no replacement upload was created'
+                        );
                     const uploadParams = { ...params, sessionId: session.id };
+                    execution.signal.throwIfAborted();
+                    const progress = await this.attachments.progress(uploadParams);
+                    session = progress.session;
                     const parts: NonNullable<
                         z.input<typeof MaterialAttachmentCompleteSchema>['parts']
-                    > = [];
-                    for (let part = 0; part < session.partCount; part++) {
+                    > = [...(session.completionParts ?? [])];
+                    for (
+                        let part = 0;
+                        session.status === 'open' && part < session.partCount;
+                        part++
+                    ) {
                         execution.signal.throwIfAborted();
+                        const length = session.partSizeBytes ?? sizeBytes;
+                        const start = part * length;
+                        const partLength = Math.min(length, sizeBytes - start);
+                        const existing = progress.parts.find(
+                            (item) => item.partNumber === part + 1
+                        );
+                        if (session.mode === 'multipart' && existing?.sizeBytes === partLength) {
+                            parts.push({ partNumber: part + 1, etag: existing.etag });
+                            continue;
+                        }
                         const signed = await this.attachments.sign(
                             uploadParams,
                             session.mode === 'multipart' ? { partNumber: part + 1 } : {}
                         );
-                        const length = session.partSizeBytes ?? sizeBytes;
-                        const start = part * length;
-                        const partLength = Math.min(length, sizeBytes - start);
                         const body = Buffer.isBuffer(content)
                             ? content.subarray(start, start + partLength)
                             : this.fixtures.body(content.id, start, partLength);
@@ -104,54 +137,93 @@ export class AttachmentSeeder implements BusinessSeeder<typeof attachmentKind> {
                     const complete = {
                         ...(session.mode === 'multipart' ? { parts } : {}),
                     } satisfies z.input<typeof MaterialAttachmentCompleteSchema>;
-                    const uploaded = await this.attachments.complete(
-                        uploadParams,
-                        MaterialAttachmentCompleteSchema.parse(complete)
-                    );
+                    execution.signal.throwIfAborted();
+                    const uploaded =
+                        session.status === 'completed'
+                            ? session
+                            : await this.attachments.complete(
+                                  uploadParams,
+                                  MaterialAttachmentCompleteSchema.parse(complete)
+                              );
                     if (!uploaded.assetId)
                         throw new Error('Completed upload did not publish an asset');
+                    const previous = await this.database.queryClient.fileReference.findFirst({
+                        where: {
+                            organizationId: params.organizationId,
+                            assetId: uploaded.assetId,
+                            resourceId: material.resourceId,
+                            purposeKey: 'material.attachment',
+                        },
+                        select: { id: true, removedAt: true },
+                    });
+                    if (state.referenceId && previous?.id !== state.referenceId)
+                        throw new Error('Saved attachment binding could not be confirmed');
+                    if (previous?.removedAt) {
+                        if (!file.unbind || !state.downloadVerified)
+                            throw new Error(
+                                'Removed attachment cannot be safely adopted or downloaded again'
+                            );
+                        return {
+                            sessionId: session.id,
+                            assetId: uploaded.assetId,
+                            referenceId: previous.id,
+                        };
+                    }
                     const bind = { assetId: uploaded.assetId } satisfies z.input<
                         typeof MaterialAttachmentBindSchema
                     >;
+                    execution.signal.throwIfAborted();
                     const reference = await this.attachments.bind(
                         params,
                         MaterialAttachmentBindSchema.parse(bind)
                     );
-                    const download = await this.attachments.download({
-                        ...params,
-                        referenceId: reference.id,
-                    });
-                    const response = await fetch(download.request.url, {
-                        headers: download.request.headers,
-                        signal: AbortSignal.any([execution.signal, AbortSignal.timeout(120000)]),
-                    });
-                    if (!response.ok) {
-                        await response.body?.cancel();
-                        throw new Error(`Seed object download failed with HTTP ${response.status}`);
-                    }
-                    if (!response.body) throw new Error('Seed download did not include a body');
-                    const downloaded = response.body.getReader();
-                    const downloadHash = createHash('sha256');
-                    let downloadedSize = 0;
-                    try {
-                        for (;;) {
-                            const chunk = await downloaded.read();
-                            if (chunk.done) break;
-                            downloadedSize += chunk.value.byteLength;
-                            if (downloadedSize > sizeBytes)
-                                throw new Error('Seed download exceeds the expected size');
-                            downloadHash.update(chunk.value);
+                    await save({ referenceId: reference.id });
+                    if (!state.downloadVerified) {
+                        execution.signal.throwIfAborted();
+                        const download = await this.attachments.download({
+                            ...params,
+                            referenceId: reference.id,
+                        });
+                        const response = await fetch(download.request.url, {
+                            headers: download.request.headers,
+                            signal: AbortSignal.any([
+                                execution.signal,
+                                AbortSignal.timeout(120000),
+                            ]),
+                        });
+                        if (!response.ok) {
+                            await response.body?.cancel();
+                            throw new Error(
+                                `Seed object download failed with HTTP ${response.status}`
+                            );
                         }
-                    } finally {
-                        await downloaded.cancel().catch(() => {});
-                        downloaded.releaseLock();
+                        if (!response.body) throw new Error('Seed download did not include a body');
+                        const downloaded = response.body.getReader();
+                        const downloadHash = createHash('sha256');
+                        let downloadedSize = 0;
+                        try {
+                            for (;;) {
+                                const chunk = await downloaded.read();
+                                if (chunk.done) break;
+                                downloadedSize += chunk.value.byteLength;
+                                if (downloadedSize > sizeBytes)
+                                    throw new Error('Seed download exceeds the expected size');
+                                downloadHash.update(chunk.value);
+                            }
+                        } finally {
+                            await downloaded.cancel().catch(() => {});
+                            downloaded.releaseLock();
+                        }
+                        if (downloadedSize !== sizeBytes || downloadHash.digest('hex') !== sha256)
+                            throw new Error(
+                                'Seed attachment download did not match the uploaded bytes'
+                            );
+                        await save({ downloadVerified: true });
                     }
-                    if (downloadedSize !== sizeBytes || downloadHash.digest('hex') !== sha256)
-                        throw new Error(
-                            'Seed attachment download did not match the uploaded bytes'
-                        );
-                    if (file.unbind)
+                    if (file.unbind) {
+                        execution.signal.throwIfAborted();
                         await this.attachments.unbind({ ...params, referenceId: reference.id });
+                    }
                     return {
                         sessionId: session.id,
                         assetId: uploaded.assetId,

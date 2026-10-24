@@ -32,6 +32,7 @@ export class SeedModule {
         definitions: readonly SeedRuntimeDefinition[];
         program: SeedProgram;
         fixtures: PreparedFixtures;
+        secrets: SeedSecrets;
         storage?: StorageConfig;
     }): DynamicModule {
         const handlers = options.definitions.flatMap((definition) => definition.handlers);
@@ -69,7 +70,7 @@ export class SeedModule {
                 ...(options.storage ? [SeedStorageModule.forRoot(options.storage)] : []),
             ],
             providers: [
-                SeedSecrets,
+                { provide: SeedSecrets, useValue: options.secrets },
                 { provide: PreparedFixtures, useValue: options.fixtures },
                 ...options.definitions.flatMap((definition) => definition.providers ?? []),
                 ...handlers.map((binding) => binding.handler),
@@ -79,17 +80,19 @@ export class SeedModule {
                     inject: [
                         DatabaseRuntime,
                         AlsContextAdapter,
+                        SeedSecrets,
                         ...handlers.map((binding) => binding.token),
                     ],
                     useFactory: (
                         database: DatabaseRuntime,
                         context: AlsContextAdapter,
+                        secrets: SeedSecrets,
                         ...bindings: SeedHandlerBinding[]
                     ) => {
                         const services = new SeedServices();
                         for (const binding of bindings) binding.register(services);
                         services.require(options.program.steps);
-                        return new SeedRunner(database, context, services);
+                        return new SeedRunner(database, context, services, secrets);
                     },
                 },
             ],
