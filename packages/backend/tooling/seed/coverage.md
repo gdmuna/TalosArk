@@ -10,7 +10,7 @@ Implemented fixtures are distinct from schema-only or future business capabiliti
 | Material | Three branches, flat classifications, codes/null codes, Unicode, long names, archive, volume up to 10000 | Invalid payloads belong in validation/type-check inputs, not persisted illegal rows |
 | Batch | UNKNOWN/NONE/DATED dates, archive, referenced/absent batches | No fabricated relations |
 | Facility/topology | Management workspace, USE/MANAGE grants, disabled/archive, containers/positions, 2x3 grid, node states, empty subtree move and reorder | ltree remains database/module-owned |
-| Inventory | Receipts, instances/stock/placements, expiry profiles, partial/full consume, zero adjustment, dispose and transfer | CHECKED_OUT/QUARANTINED and occupied subtree relocation are not covered |
+| Inventory | Receipts, instances/stock/placements, expiry profiles, partial/full consume, zero adjustment, dispose and transfer; scoped quantity/status/position assertions in inventory-regression | CHECKED_OUT/QUARANTINED and occupied subtree relocation are not covered |
 | Approval | CONSUME/TRANSFER, pending/withdrawn/decided, mixed decisions, execute/abandon/revoke | Approval does not reserve inventory |
 | File | Explicit local fixture + generated single/multipart upload, verification, bind, download and unbind | Root-confined hashed/snapshotted inputs; requires test buckets; no remote URL, type sniffing, antivirus or SVG |
 | Derived facts | Resource identities, audits, transactions/lines, events, idempotency facts | Produced by operations, not synthetic table datasets |

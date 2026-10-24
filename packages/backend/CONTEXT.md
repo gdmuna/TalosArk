@@ -67,12 +67,15 @@ Credentials are random, plaintext and incrementally saved to that file, without
 encryption or key management. Prepared accounts are distinguished from committed
 receipts; resume loads the original namespace/fingerprint-bound file.
 Groups may instead use an existing actor and organization/workspace pair without repairing
-grants. `init` explicitly opts a development/test database and role into seeding and
-creates/upgrades only the tool-owned `seed` schema. Apply/verify/resume require
-the database/role/OID
-marker, explicit database confirmation and native-DDL preflight. Production profiles
-and NODE_ENV=production reject. This marker is an operator opt-in, not proof that an
-arbitrary database contains no production data. The Prisma wrapper remains DB-only.
+grants. `init` creates/upgrades only the tool-owned `seed` execution metadata;
+historical `seed.target` markers remain untouched but are no longer required or
+bound to database OIDs/login roles. Apply/verify/resume retain explicit database-name
+confirmation, a session advisory lock and per-kind declarative database readiness
+checks before loading runtime providers. Pure contributions own required tables,
+extensions, constraints, triggers and function signatures; the checker contains no
+business-kind branches and never repairs DDL. Production profiles and
+NODE_ENV=production reject. These guards do not prove an arbitrary database has no
+production data. The Prisma wrapper remains DB-only.
 
 One session advisory lock serializes seed commands per database. Each bounded business
 operation and its receipt commit in the same managed transaction. External file workflows
@@ -83,8 +86,9 @@ after all scenario mutations and sealed with completion in one transaction.
 Completed plans reverify these final snapshots on reuse;
 changed content, parameters, scope, actor or versions fail
 instead of overwriting. Failed/interrupted runs retain committed receipts. Explicit
-resume is limited to opted-in account/workspace/material/batch/attachment handlers,
-matching plans and confirmed existing facts/credentials; other handlers reject replay.
+resume is limited to opted-in account/workspace/material/batch/attachment mutation
+handlers, matching plans and confirmed existing facts/credentials; other mutation
+handlers reject replay. Read-only assertions rerun after recovery reaches them.
 Execution-version-1 history stays inspectable but is not adopted as resumable.
 The tool stops new operations on cancellation, reports unknown outcomes separately,
 and keeps execution, export and cleanup failures distinct. Status/report commands
@@ -100,7 +104,13 @@ old namespaces are rejected without adoption or deletion. Local fixture inputs a
 bounded, root-confined and privately snapshotted before writes; uploads use those
 snapshots through normal business APIs. Fingerprints do not provide recovery or
 atomicity across external storage. Definition/group/runtime ownership and commands
-are documented in the seed README.
+are documented in the seed README. Explicit assertion kinds reuse the same
+dataset/step/handler pipeline, run in short read-only transactions and have no
+receipts. The inventory-regression group compares authored quantity/status/position
+expectations using only referenced IDs and their exact organization/workspace.
+Assertions do not auto-join demo/volume plans or replace receipt drift checks.
+Verify reruns them; recovery prechecks defer final assertions until replay.
+Failed assertions retain prior business writes without completing the run.
 
 ## Current iteration policy
 

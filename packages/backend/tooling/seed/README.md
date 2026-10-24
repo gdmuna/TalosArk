@@ -23,12 +23,12 @@ intersection. `list` marks definitions that require group-provided dependencies.
 
 ## Fill a Workspace
 
-Prepare the business schema and approved native DDL explicitly first. Then opt the
-intended development/test database into seed. Replace the example database name
+Prepare the business schema and approved native DDL explicitly first. Then initialize
+the tool-owned metadata. Replace the example database name
 with the actual connected database name:
 
 ```powershell
-pnpm db:seed init --env dev.local --database talosark_dev --purpose development
+pnpm db:seed init --env dev.local --database talosark_dev
 pnpm db:seed apply --group business-demo --namespace demo-v3 --env dev.local --database talosark_dev --credentials-output ../../output/seed/demo-v3.private.json --output ../../output/seed/demo-v3.json
 pnpm db:seed verify --group business-demo --namespace demo-v3 --env dev.local --database talosark_dev
 ```
@@ -45,8 +45,12 @@ Scope modes unsupported by a group are rejected during planning.
 Database configuration comes only from Prisma profiles in `ops/prisma/env`, never
 an implicit runtime profile. Connected actions require `--database`; CI requires
 `--env` or `--env-file`. Interactive selection belongs to the CLI, not the SDK.
-`init` creates/upgrades only `seed.target`, `seed.run`, `seed.record` and `seed.operation`; it does
+`init` creates/upgrades only `seed.run`, `seed.record` and `seed.operation`; it does
 not apply business tables, DDL, extensions or reset data.
+It no longer binds the database OID or login role. Existing `seed.target` rows are
+retained but ignored, so cloning a development database or changing its login role
+does not require adoption. The optional legacy `--purpose` flag remains accepted
+but is not persisted and does not change checks.
 
 Account/invitation writes require `--credentials-output`. Passwords are random and
 hashed through Identity. The explicit private JSON stores plaintext credentials;
@@ -97,9 +101,10 @@ Use the original credentials JSON for this namespace/fingerprint, not a new file
 Saved active-account passwords are authenticated before replay is allowed. Missing
 credentials block recovery; no password reset or token reissue is performed.
 
-Only `account`, `workspace`, `material`, `batch` and `attachment` handlers currently
-opt into recovery. A plan containing another handler is rejected before business
-replay. This covers minimal/material compositions and attachment integration, not
+Only `account`, `workspace`, `material`, `batch` and `attachment` mutation handlers
+currently opt into recovery. A plan containing another mutation handler is rejected
+before business replay. Assertion steps need no replay opt-in. This covers
+minimal/material compositions and attachment integration, not
 all daily-demo, governance, inventory-history or approval scenarios.
 
 Run the explicit `init` command once to upgrade existing tool metadata. Execution
@@ -108,7 +113,8 @@ inspectable/verifiable but cannot be resumed or retroactively adopted. No upgrad
 is executed by apply/verify/resume, application startup or `db:push`.
 
 Partial verification reports `verified`, `unsealed`, `missing`, `changed` and
-`blocked`. Known receipts are still inspected when a later receipt is missing;
+`blocked` for receipts; failed scenario assertions add `failed`. Known receipts
+are still inspected when a later receipt is missing;
 independent steps continue. Missing dependency outputs are not fabricated. An
 unsealed creation snapshot is not presented as a verified final baseline.
 CLI exit codes: 0 completed, 1 failure/delivery or cleanup error, 2 partial
@@ -129,6 +135,7 @@ Invalid plans/guards can still throw before execution.
 | `business-demo` | Daily demo: governance, three material branches, isolated scope, batches, facilities, inventory history and approvals; no bulk volume or S3 |
 | `governance-volume` | Explicit member `count` required, up to 199 plus an owner |
 | `inventory-volume` | Explicit stock-item `count` required, up to 100, with exclusive positions |
+| `inventory-regression` | Five stock items, consume/adjust/dispose/transfer, then declared quantity/status/position assertions |
 | `credential-regression` | Activation, password verification and revoked/consumed recovery credentials |
 | `attachment-integration` | Actual local-file/single/multipart uploads, binding, download/hash verification and unbinding |
 
@@ -255,6 +262,78 @@ Only selected capabilities load. Normal Nest imports own their internal dependen
 `src/bootstrap/composition/product-policy.ts` shares unchanged product role defaults
 between app and seed, regardless of selected seed handlers.
 
+### Database Readiness (B)
+
+Each pure contribution declares `database: [{ kindId, requires, hint }]`, exactly
+once per owned kind. An explicitly empty `requires` is valid for a handler with no
+business-schema prerequisites. Only selected declarations are checked before loading Nest.
+The catalog deduplicates requirements while retaining every originating step and
+its preparation hint. Shared domain prerequisites live beside their capabilities,
+not in Target's business-name branches.
+
+`runtime/readiness.ts` probes tables, extensions, validated constraints, enabled
+origin/always triggers and exact function signatures. Constraints/triggers match
+their schema and owning table, not just their names. Missing conditions are
+reported together with affected steps and explicit preparation suggestions.
+Seed metadata is checked separately. Readiness is not a complete schema comparison,
+permission audit or proof that arbitrary data is safe to change. Neither preflight
+nor apply/verify/resume repairs business DDL or creates extensions.
+
+Database identities are printed after connecting. Explicit `--database`, production
+profile rejection and the session advisory lock remain. Environment-dependent
+readiness results do not enter the deterministic plan fingerprint.
+
+### Explicit Scenario Assertions (D)
+
+Receipt `inspect` remains necessary for recovery and drift detection; it does not
+prove an expected business result. An assertion kind sets `effect: 'assertion'`,
+uses the existing dataset/step/handler contracts and returns a typed output.
+No second check registry or test runner is involved. For example:
+
+```ts
+const checked = builder.step('check-final-stock', stockAssertionDataset, {
+    expectations: [
+        { stockIndex: 0, quantity: '48', status: 'IN_STOCK', positionIndex: 0 },
+        { stockIndex: 3, quantity: '0', status: 'DISPOSED', positionIndex: null },
+    ],
+}, {
+    from: { receipt, facility, history },
+    bind: ({ receipt, facility }) => ({ receipt, facility }),
+});
+```
+
+The `history` dependency enforces ordering; stock/position indexes resolve only
+through typed upstream outputs. `StockFactsReader` queries exact declared stock
+IDs AND organization/workspace, selecting identity, quantity, status and placement.
+Unselected stock and unrelated workspaces are outside this regression scope.
+Missing indexes fail before querying; missing/wrong-scope rows fail the assertion.
+Expected values come from the dataset, never from the current database snapshot.
+Quantity comparisons use Decimal equality, not floating-point/string formatting.
+
+Assertion handlers run in short RepeatableRead, read-only transactions; they cannot
+use `execution.record/external` or create seed receipts/baselines. This protects the
+ambient connection, not arbitrary root-client/network code; handlers must remain
+read-only by design. Reports identify `type: 'assertion'` and `verified`, `failed`
+or dependency `blocked` outcomes with expected/received details. Apply stops on
+failure, retains committed writes and does not seal completion. Verify reruns
+selected assertions without business writes, even on incomplete runs when upstream
+outputs can be rebuilt. Independent steps continue. Resume's receipt precheck
+skips final assertions because the scenario may still be incomplete; they execute
+normally after replay reaches them. Place final assertions after mutations. A
+skipped assertion cannot fabricate input for dependent steps. Mutation handlers
+must still explicitly opt into recovery.
+
+```powershell
+pnpm db:seed plan --group inventory-regression --namespace inventory-check-v1
+pnpm db:seed apply --group inventory-regression --namespace inventory-check-v1 --env dev.local --database talosark_dev --credentials-output ../../output/seed/inventory-check-v1.private.json
+pnpm db:seed verify --group inventory-regression --namespace inventory-check-v1 --env dev.local --database talosark_dev
+```
+
+Assertions only join explicitly selected groups. Demo and volume groups have no
+hidden regression scans. Existing governance/approval assertions remain
+domain-owned; a new assertion needs its definition, handler, contribution
+registration and explicit group step.
+
 ## SDK and Fingerprints
 
 The public entry is `tooling/seed/index.ts`; do not import Runner/Target to execute
@@ -302,8 +381,8 @@ exact plan; changed content/scope/parameters/versions reject. Completed apply/re
 becomes read-only verification without creating an empty credentials file. Use
 `report --output <new-path>` to re-export a saved result, or `verify` for fresh checks.
 
-The existing DB name/OID/role/purpose marker and advisory lock remain mandatory.
-Production profiles and `NODE_ENV=production` reject. Opt-in is not proof that a
+Explicit database-name confirmation and the advisory lock remain mandatory.
+Production profiles and `NODE_ENV=production` reject. These guards are not proof that a
 database has no production data. Seed does not offer reset, automatic replay or
 blanket rollback. Reference dates control generated content, not business time.
 
@@ -322,3 +401,19 @@ fetch substitutes. No maintained test scripts were added. These checks do not
 validate native metadata SQL or real PostgreSQL/S3 concurrency. The host closes
 the Nest context once creation returns it; a failure during Nest construction
 before that handle is returned remains a framework lifecycle limitation.
+
+B/D validation additionally used an isolated, volume-free PostgreSQL 18.6
+container, the current Prisma schema and approved DDL. All 12 groups planned
+offline; all 11 pre-existing group manifests/fingerprints matched the original
+planner exactly. The actual inventory-regression apply/verify path passed; changing one
+quantity produced an expected/received mismatch. Existing business-demo apply and
+verify also passed without implicit new assertions. Native catalog probes verified
+deduplication, disabled triggers, wrong function signatures, missing objects and
+same-named constraints on different tables. Target checks exercised mismatched
+database names, session locking and a changed login role with a stale old marker.
+Runtime probes verified read-only SQL/receipt guards, failed assertions without
+completion, deferred assertions during resume, dependency blocking and independent
+verification. No maintained test scripts, existing environment upgrades, production
+access or S3 acceptance were part of this B/D validation. PostgreSQL-client
+concurrent-query deprecation warnings were observed during existing material
+operations; resolving that adapter/application behavior is outside this change.
