@@ -195,3 +195,9 @@ must fit inside the container/process stop budget. Trusted `pnpm task` maintenan
 supports inspect, retry with an operator note, recover and bounded prune. No public
 queue dashboard or recurring cleanup is enabled. See
 `../../docs/design/mvp-i09-2026-10-21.md` for invocation and validation boundaries.
+
+`pnpm worker` runs the existing Worker artifact with injected configuration.
+For explicit local profile loading use `pnpm tool app worker --env dev.local`.
+Compiled maintenance uses `node dist/tooling/cli/entry.js task failures --env-process`;
+read-only inspection does not initialize storage or start queue consumption.
+See [tooling commands](../../tooling/README.md) for input completion and aliases.

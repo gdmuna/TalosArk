@@ -6,7 +6,9 @@ outline: [2, 3]
 
 # 加载与生效
 
-后端运行配置位于 `packages/backend/secrets/env/`。包脚本使用 dotenvx 先向进程注入配置，再启动后端；文件名本身不会自动选择运行环境。
+后端运行配置位于 `packages/backend/secrets/env/`。统一工具通过 dotenvx 将所选配置加载到隔离对象，再传给后端子进程；文件名本身不会自动选择运行环境。
+
+`pnpm dev`、`pnpm --filter @talos-ark/backend test` 省略环境时，交互终端会提示选择；CI 和管道必须传 `--env`、`--env-file` 或明确使用 `--env-process`。`pnpm tool --help` 列出工具入口，`--no-interactive` 可显式关闭提示。
 
 ## 文件与命令 {#files-and-commands}
 
@@ -17,10 +19,12 @@ outline: [2, 3]
 | `pnpm --filter @talos-ark/backend start:local` | `secrets/env/.env.development.local` → `.env.development` | 是         |
 | `pnpm --filter @talos-ark/backend start:dev`   | `secrets/env/.env.development`                            | 否         |
 | `pnpm --filter @talos-ark/backend start:prod`  | `secrets/env/.env.production`                             | 否         |
-| `pnpm --filter @talos-ark/backend test`        | `secrets/env/.env.test`                                   | 否         |
+| `pnpm --filter @talos-ark/backend test --env test` | `secrets/env/.env.test`                                   | 否         |
 | `pnpm --filter @talos-ark/backend test:local`  | `secrets/env/.env.test.local` → `.env.test`               | 是         |
 
 `.env.example` 是变量与示例清单，启动脚本不会自动加载它。三个基础 profile 提供各环境配置；local 是稀疏覆盖文件，只写需要不同的项即可。
+
+表内 `start:*`、`test:local` 是保留的兼容入口。正式 `start`、`worker` 直接执行已有产物并使用部署注入的环境，不会选择文件或构建。需要本地加载文件时用 `pnpm tool app run --env dev.local` 或 `pnpm tool app worker --env dev.local`。
 
 更改 `NODE_ENV` 不会让已选择的脚本转而读取另一份 env。它控制配置解析与业务安全规则，例如 development 来源模式和生产认证要求。
 

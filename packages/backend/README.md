@@ -26,6 +26,32 @@ pnpm --filter @talos-ark/backend db:gen-client --env-file ops/prisma/env/.env.de
 pnpm --filter @talos-ark/backend start:local
 ```
 
+开发启动也提供统一入口。省略运行环境时，交互终端会选择 `dev` 或 `dev.local`；
+CI、管道和其他非交互终端必须显式传入环境：
+
+```sh
+pnpm dev
+pnpm dev --env dev.local
+pnpm tool app dev --env-file secrets/env/.env.development
+```
+
+`pnpm tool` 是发现入口，熟悉的工具保留直达别名并复用同一实现：
+
+```sh
+pnpm prisma db push --env dev.local
+pnpm tool db prisma db push --env dev.local
+pnpm db:seed list
+pnpm tool db seed list
+```
+
+缺少无法枚举的字符串参数时，交互终端会要求输入；非交互调用会报告参数名和可复制的
+命令示例。Seed 的 `list`、`plan` 不需要连接数据库，也不会因为缺少环境选择而弹出提示。
+
+完整入口、参数补全、构建缓存和扩展方式见 [工具说明](tooling/README.md)。
+`pnpm start` 与 `pnpm worker` 直接运行已有产物，使用部署注入的环境；本地需要选文件时，
+使用 `pnpm tool app run/worker --env dev.local`。`pnpm test` 同样需要选择环境，
+例如 `pnpm test --env test.local --coverage`。
+
 Prisma 生成命令的 env 文件路径相对于 backend；它只生成客户端，不同步数据库。
 先配置 runtime env、访问令牌密钥、完整 Casdoor 配置及其证书，并启动数据库和 KVS。
 具体依赖启动、密钥注入与端口说明见 [Docker operations](ops/docker/README.md)；

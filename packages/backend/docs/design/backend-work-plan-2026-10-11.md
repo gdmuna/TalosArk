@@ -57,7 +57,7 @@ Storage 协议修复与文档工具链可在配置清理后作为独立工作推
 - 同步调整 Compose 和运行说明：解密密钥与 crypto 文件在运行时只读挂载，保留原路径。
   entrypoint 仍使用已有 dotenvx 启动方式，不增加另一套密钥加载器。
   构建所需数据库 URL 使用无敏感值的占位配置，不连接实际数据库。
-- 修正 `scripts/prisma-environment.ts` 的 URL 脱敏：不输出未经筛选的 query/fragment，覆盖连接参数中的密码。
+- 修正 `tooling/database/environment.ts` 的 URL 脱敏：不输出未经筛选的 query/fragment，覆盖连接参数中的密码。
 - 查清是否曾构建、分发含凭据镜像；只有证实发生后才安排撤下产物和凭据轮换，不能从 Dockerfile 推断已发生泄露。
 
 验收：使用合成配置验证构建上下文和镜像层均不含禁止打包的密钥/crypto 文件，同时保留获准 env；运行时注入能满足现有路径契约；

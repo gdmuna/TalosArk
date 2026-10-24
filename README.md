@@ -124,7 +124,7 @@ pnpm --filter @talos-ark/frontend vite
 | 实时 API 文档（Scalar） | <http://localhost:3000/reference>    |
 | OpenAPI JSON            | <http://localhost:3000/api-doc-json> |
 
-本地账密账户由管理员创建，通过激活链接设置首次密码，当前不开放自助注册。自行准备开发账户时可使用 [受控开户脚本](packages/backend/scripts/provision-account.ts)，需先构建后端并加载目标环境的运行配置。
+本地账密账户由管理员创建，通过激活链接设置首次密码，当前不开放自助注册。自行准备开发账户时可使用 [受控开户工具](packages/backend/tooling/account/provision.runtime.ts)，需先构建后端并加载目标环境的运行配置。
 
 附件上传还需准备存储桶和允许前端来源的 CORS 配置，具体检查方法见 [对象存储配置](packages/backend/ops/docker/README.md)。
 

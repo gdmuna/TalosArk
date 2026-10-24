@@ -10,11 +10,17 @@ pnpm db:seed list
 pnpm db:seed plan --group business-demo --namespace demo-v3
 ```
 
-The launcher incrementally builds the tool before execution. Nest constructor
-metadata comes from `tsc`, not tsx. Output lives in `.cache/seed/`, separate from
-the application `dist`. `pnpm db:seed:build` explicitly builds the same tool for CI;
-its compiled entry is `.cache/seed/tooling/seed/cli/entry.js`. Generated Prisma and
-contract types are build prerequisites; building never changes a database.
+The launcher only prepares the compiled tool for actions that need Nest constructor
+metadata. `list` and `plan` run directly from TypeScript and do not compile or
+connect to a database. `init`, `status` and `report` also run from source, with
+explicit database access but no Nest application. Only `apply`, `verify` and
+`resume` use `.cache/seed/`,
+separate from the application `dist`; `pnpm db:seed:build` explicitly builds the
+same tool for CI. Its compiled entry is `.cache/seed/tooling/seed/cli/entry.js`.
+`pnpm seed` and `pnpm tool seed` share this entry behavior; `pnpm db:seed` is a
+compatibility alias. Common input and environment rules are in [Tooling](../README.md).
+Generated Prisma and contract types remain build prerequisites for the connected
+runtime; building never changes a database.
 
 `list` reads definitions. `plan` validates definitions and reads/hashes referenced
 local files, without loading Nest or connecting to PostgreSQL/S3. No default

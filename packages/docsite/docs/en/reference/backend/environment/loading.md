@@ -6,7 +6,9 @@ outline: [2, 3]
 
 # Loading and Activation
 
-Backend runtime configuration lives in `packages/backend/secrets/env/`. Package scripts use dotenvx to inject configuration before starting the backend. A filename does not automatically select the runtime environment.
+Backend runtime configuration lives in `packages/backend/secrets/env/`. The shared CLI uses dotenvx to load selected files into an isolated object and passes it to the backend child process. A filename does not automatically select the runtime environment.
+
+When `pnpm dev` or `pnpm --filter @talos-ark/backend test` omits the environment, an interactive terminal prompts for it. CI and pipes require `--env`, `--env-file` or explicit `--env-process`. `pnpm tool --help` lists commands; `--no-interactive` disables prompts.
 
 ## Files and commands {#files-and-commands}
 
@@ -17,10 +19,12 @@ Run these commands from the repository root. File paths in the table are relativ
 | `pnpm --filter @talos-ark/backend start:local` | `secrets/env/.env.development.local` → `.env.development` | Yes          |
 | `pnpm --filter @talos-ark/backend start:dev`   | `secrets/env/.env.development`                            | No           |
 | `pnpm --filter @talos-ark/backend start:prod`  | `secrets/env/.env.production`                             | No           |
-| `pnpm --filter @talos-ark/backend test`        | `secrets/env/.env.test`                                   | No           |
+| `pnpm --filter @talos-ark/backend test --env test` | `secrets/env/.env.test`                                   | No           |
 | `pnpm --filter @talos-ark/backend test:local`  | `secrets/env/.env.test.local` → `.env.test`               | Yes          |
 
 `.env.example` lists variables and example values; startup scripts do not automatically load it. Base profiles supply environment-specific configuration. Local files are sparse overrides and need only contain values that differ.
+
+The table retains compatibility aliases. The standard `start` and `worker` entries run existing artifacts with deployment-injected configuration; they neither select files nor build. For local file loading use `pnpm tool app run --env dev.local` or `pnpm tool app worker --env dev.local`.
 
 Changing `NODE_ENV` does not make the selected script load a different file. It controls parsing and business security rules, such as development origin modes and production authentication requirements.
 

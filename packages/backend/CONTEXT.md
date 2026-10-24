@@ -33,6 +33,13 @@ Do not restore a removed legacy module merely to make an old route work.
 
 ## Database CLI
 
+Executable backend tooling lives under `tooling/`, including the release workflow
+helpers that CI calls directly. The former `scripts/` directory is no longer an
+execution namespace. `tooling/cli`
+owns input completion, environment catalogs, process forwarding and command
+registration. Direct package aliases such as `pnpm prisma`, `pnpm seed` and
+`pnpm storage:check` reuse those modules; `pnpm tool` is the discovery entry.
+
 The `pnpm prisma` wrapper uses Commander for wrapper arguments and Inquirer Select
 for environment selection. Explicit `--env`/`--env-file` selectors remain valid;
 without one, interactive terminals choose from Prisma-only files in ops/prisma/env.
@@ -43,12 +50,14 @@ upgrade scripts. CLI usage and initialization limits live in ops/prisma/README.m
 
 ## Development/test seeding
 
-`pnpm db:seed` incrementally builds and runs `tooling/seed` in isolated `.cache/seed/`
-output, not Nest's dist. CLI and SDK share SeedApplication.list/plan/run. Dataset definitions
+`pnpm db:seed` runs pure `list`/`plan` directly from source; database-only
+`init`/`status`/`report` also avoid Nest compilation. Only `apply`/`verify`/`resume`
+prepare `tooling/seed` in isolated `.cache/seed/`, not Nest's dist. CLI and SDK share
+SeedApplication.list/plan/run. Dataset definitions
 and deterministic factories are pure; groups compose ordered datasets and pass typed
 output references to later inputs. Tags select independent datasets without resolving
 dependencies. Business seeders call existing application services, preserving actor,
-authorization, resource, audit, topology and inventory rules. `seed.module.ts` is a
+authorization, resource, audit, topology and inventory rules. `tooling/seed/runtime/seed.module.ts` is a
 dedicated composition root without AppModule, HTTP/WS listeners, IAM, mail, S3, KVS
 or queue connections by default. An attachment integration group explicitly opts into
 S3 using an explicit storage-only JSON or runtime profile read into an isolated object.

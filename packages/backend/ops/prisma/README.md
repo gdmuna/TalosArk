@@ -22,6 +22,18 @@ pnpm prisma db push --env=dev.local
 pnpm db:init --env-file ./ops/prisma/env/.env.staging
 ```
 
+The same Prisma implementation is available through the discovery entry:
+
+```powershell
+pnpm tool db prisma db push --env dev.local
+```
+
+When a required selector is omitted, the shared CLI input module opens the
+environment picker in a TTY. CI and other non-interactive terminals fail with
+an explicit `--env` or `--env-file` example. Free-form values such as Seed
+namespaces use the same rule: interactive input when absent, one parser for
+command-line and prompted values, and no silent default.
+
 From the repository root, use `pnpm --filter @talos-ark/backend <script>`.
 VS Code's npm script actions must run in an interactive terminal to show the picker.
 
