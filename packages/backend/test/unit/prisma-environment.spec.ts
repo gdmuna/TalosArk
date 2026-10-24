@@ -8,7 +8,7 @@ import {
     loadPrismaEnvironment,
     parsePrismaCommand,
     redactDatabaseUrl,
-} from '../../scripts/prisma-environment.js';
+} from '../../tooling/database/environment.js';
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
 const fixturePath = resolve(testDirectory, '../fixtures/prisma/valid.env');

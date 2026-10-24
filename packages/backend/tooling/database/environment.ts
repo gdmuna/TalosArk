@@ -1,9 +1,10 @@
 import { config } from '@dotenvx/dotenvx-ops';
 import { Command, CommanderError } from 'commander';
-import select from '@inquirer/select';
 import { existsSync, readdirSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
-import { findBackendRoot } from './backend-root.js';
+import { resolve } from 'node:path';
+import { findBackendRoot } from '../cli/backend-root.js';
+import { createEnvironmentCatalog } from '../cli/environment/catalog.js';
+import { InputResolver } from '../cli/input.js';
 
 const REQUIRED_PRISMA_ENVIRONMENT_KEYS = ['DATABASE_URL', 'SHADOW_DATABASE_URL'] as const;
 const backendRoot = findBackendRoot();
@@ -40,28 +41,22 @@ export interface PrismaEnvironment {
     values: Record<PrismaEnvironmentKey, string>;
 }
 
+const prismaEnvironmentCatalog = createEnvironmentCatalog({
+    directory: environmentDirectory,
+    profiles: Object.fromEntries(
+        Object.entries(PRISMA_ENVIRONMENT_FILES).map(([name, filePath]) => [name, [filePath]])
+    ),
+});
+
 export async function choosePrismaEnvironment(
-    source?: PrismaEnvironmentSource
+    source?: PrismaEnvironmentSource,
+    input = new InputResolver()
 ): Promise<PrismaEnvironmentSource> {
-    if (source) return source;
-    if (process.env.CI || !process.stdin.isTTY || !process.stdout.isTTY)
-        throw new Error(
-            'No database environment selected. Use --env <profile> or --env-file <path> in CI/non-interactive terminals.'
-        );
-    const files = listPrismaEnvironments();
-    if (!files.length) throw new Error('No Prisma environment files found in ops/prisma/env.');
-    return select({
-        message: 'Select the Prisma database environment:',
-        choices: files.map(({ source: choice, filePath }) => ({
-            name: relative(process.cwd(), filePath),
-            value: choice,
-            description:
-                choice.kind === 'profile'
-                    ? `Profile: ${choice.name}${choice.name.startsWith('prod') ? ' (production)' : ''}`
-                    : 'Custom Prisma environment file',
-        })),
-        loop: false,
-    });
+    if (source) {
+        prismaEnvironmentCatalog.resolve(source);
+        return source;
+    }
+    return (await prismaEnvironmentCatalog.selectWithInput(input)).source;
 }
 
 /**
@@ -79,7 +74,7 @@ export function parsePrismaCommand(rawArguments: readonly string[]): PrismaComma
     } catch (error) {
         if (error instanceof CommanderError && error.code === 'commander.optionMissingArgument') {
             const option = error.message.includes('--env-file') ? '--env-file' : '--env';
-            throw new Error(`Prisma CLI option ${option} requires a value.`);
+            throw new Error(`Prisma CLI option ${option} requires a value.`, { cause: error });
         }
         throw error;
     }
@@ -156,7 +151,9 @@ export function loadPrismaEnvironment(source: PrismaEnvironmentSource): PrismaEn
         if (result.error) throw result.error;
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`Unable to load Prisma environment file ${filePath}: ${reason}`);
+        throw new Error(`Unable to load Prisma environment file ${filePath}: ${reason}`, {
+            cause: error,
+        });
     }
 
     const values = {} as Record<PrismaEnvironmentKey, string>;

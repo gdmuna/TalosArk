@@ -1,8 +1,9 @@
-import { spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { relative, resolve } from 'node:path';
+import type { CliContext, ToolCommand } from '../cli/context.js';
+import { InputResolver } from '../cli/input.js';
+import { findBackendRoot } from '../cli/backend-root.js';
+import { runNodeModule } from '../cli/process.js';
 
 import {
     createPrismaProcessEnvironment,
@@ -12,7 +13,7 @@ import {
     parsePrismaCommand,
     redactDatabaseUrl,
     type PrismaEnvironment,
-} from './prisma-environment.js';
+} from './environment.js';
 
 /**
  * Prisma CLI entrypoint.
@@ -21,23 +22,14 @@ import {
  *   pnpm prisma migrate status --env=production
  *   pnpm prisma migrate status --env-file ./ops/prisma/env/.env.staging
  */
-const requireFromHere = createRequire(import.meta.url);
-
-try {
-    process.exitCode = await main();
-} catch (error) {
-    if (error instanceof Error && error.name === 'ExitPromptError') {
-        console.info('[prisma] Environment selection canceled; nothing was executed.');
-        process.exitCode = 130;
-    } else {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`[prisma] ${message}`);
-        process.exitCode = 1;
-    }
+export async function run(args: string[], context: CliContext): Promise<void> {
+    process.exitCode = await main(args, context.input);
 }
 
-async function main(): Promise<number> {
-    const command = parsePrismaCommand(process.argv.slice(2));
+export const prismaCommand: ToolCommand = { run };
+
+async function main(args: string[], input: InputResolver): Promise<number> {
+    const command = parsePrismaCommand(args);
     const argumentsBeforeSeparator = command.prismaArguments.slice(
         0,
         command.prismaArguments.includes('--')
@@ -65,7 +57,7 @@ async function main(): Promise<number> {
     const informational =
         requestsHelp ||
         argumentsBeforeSeparator.some((value) => value === '--version' || value === '-v');
-    if (!command.initialize && informational && !command.source) {
+    if (!command.initialize && informational) {
         // Prisma loads its config even for help; never borrow a real target here.
         return runPrisma(command.prismaArguments, {
             DATABASE_URL: 'postgresql://unused:unused@prisma-help.invalid:1/unused',
@@ -73,12 +65,12 @@ async function main(): Promise<number> {
         });
     }
 
-    const environment = loadPrismaEnvironment(await choosePrismaEnvironment(command.source));
+    const environment = loadPrismaEnvironment(await choosePrismaEnvironment(command.source, input));
     displayEnvironment(environment);
 
     if (!command.initialize) return runPrisma(command.prismaArguments, environment.values);
 
-    const directory = resolve(dirname(fileURLToPath(import.meta.url)), '../prisma/ddl/init');
+    const directory = resolve(findBackendRoot(), 'prisma/ddl/init');
     const files = readdirSync(directory, { withFileTypes: true })
         .filter((entry) => entry.isFile() && entry.name.endsWith('.sql'))
         .map((entry) => entry.name)
@@ -114,31 +106,13 @@ function displayEnvironment(environment: PrismaEnvironment): void {
     );
 }
 
-function runPrisma(
+export function runPrisma(
     argumentsToForward: string[],
     values: PrismaEnvironment['values']
 ): Promise<number> {
-    const prismaCliPath = requireFromHere.resolve('prisma/build/index.js');
-    return new Promise((resolveExit, reject) => {
-        const child = spawn(process.execPath, [prismaCliPath, ...argumentsToForward], {
-            env: createPrismaProcessEnvironment(process.env, values),
-            stdio: 'inherit',
-        });
-        const interrupt = () => child.kill('SIGINT');
-        const terminate = () => child.kill('SIGTERM');
-        const cleanup = () => {
-            process.off('SIGINT', interrupt);
-            process.off('SIGTERM', terminate);
-        };
-        process.on('SIGINT', interrupt);
-        process.on('SIGTERM', terminate);
-        child.once('error', (error) => {
-            cleanup();
-            reject(new Error(`Unable to start Prisma CLI: ${error.message}`, { cause: error }));
-        });
-        child.once('close', (code, signal) => {
-            cleanup();
-            resolveExit(code ?? (signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 1));
-        });
-    });
+    return runNodeModule(
+        'prisma/build/index.js',
+        argumentsToForward,
+        createPrismaProcessEnvironment(process.env, values)
+    );
 }
